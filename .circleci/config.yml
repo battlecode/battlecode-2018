@@ -58,8 +58,7 @@ jobs:
             kcov --exclude-pattern=~/.cargo,/usr/lib --verify target/cov $(get_latest target/debug/battlecode_cli-)
             kcov --exclude-pattern=~/.cargo,/usr/lib --verify target/cov $(get_latest target/debug/battlecode_engine-)
             echo kcov --coveralls-id=$COVERALLS_REPO_TOKEN --exclude-pattern=~/.cargo,/usr/lib --verify target/cov $(get_latest target/debug/libbattlecode-)
+            # in the last build, set the coveralls id to upload to coveralls
+            # will automatically merge the results of the previous builds
             kcov --coveralls-id=$COVERALLS_REPO_TOKEN --exclude-pattern=~/.cargo,/usr/lib --verify target/cov $(get_latest target/debug/libbattlecode-)
-            # COVERALLS_REPO_TOKEN is set in circleCI env variables
-            # kcov automatically creates kcov-merged for us, we just "merge" and upload it now
-            #kcov --exclude-pattern=~/.cargo,/usr/lib --coveralls-id=$COVERALLS_REPO_TOKEN --merge target/cov/kcov-merged 
 
