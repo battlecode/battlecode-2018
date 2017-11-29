@@ -58,6 +58,8 @@ jobs:
             kcov --exclude-pattern=~/.cargo,/usr/lib --verify target/cov $(get_latest target/debug/battlecode_cli-)
             kcov --exclude-pattern=~/.cargo,/usr/lib --verify target/cov $(get_latest target/debug/battlecode_engine-)
             kcov --exclude-pattern=~/.cargo,/usr/lib --verify target/cov $(get_latest target/debug/libbattlecode-)
+            # set in circleCI env variables
+            kcov --exclude-pattern=~/.cargo,/usr/lib --merge target/cov/* --coveralls-id=$COVERALLS_REPO_TOKEN
       - store_artifacts:
           path: target/cov
 
