@@ -1,0 +1,19 @@
+language: rust
+rust:
+  - stable
+addons:
+    apt:
+        packages:
+            - libssl-dev
+cache:
+  cargo
+script:
+  - cargo build --verbose --all
+  - cargo test --verbose --all
+  - cargo tarpaulin --verbose --coveralls $TRAVIS_JOB_ID --ciserver travis-pro --skip-clean
+
+after_success: |
+  if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
+    bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)
+    cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID --skip-clean
+  fi
