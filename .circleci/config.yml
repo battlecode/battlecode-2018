@@ -1,6 +1,15 @@
-version: 2
+version: 2.0
+
+workflows:
+  version: 2
+  test_and_coverage:
+    jobs:
+      - test
+      - coverage:
+          requires:
+            - test
 jobs:
-  build:
+  test:
     docker:
       - image: rust
     working_directory: ~/battlecode
@@ -13,7 +22,6 @@ jobs:
             - target
       - run: |
             # do the build
-            cargo build
             cargo test
       - save_cache: # cache compiled objects
           key: battlecode-{{ checksum "Cargo.lock" }}
@@ -48,11 +56,3 @@ jobs:
           kcov --exclude-pattern=/.cargo,/usr/lib --verify target/cov $(get_latest target/debug/battlecode_engine-)
           kcov --exclude-pattern=/.cargo,/usr/lib --verify target/cov $(get_latest target/debug/libbattlecode-)
 
-workflows:
-  version: 2
-  build_and_coverage:
-    jobs:
-      - build
-      - coverage:
-          requires:
-            - build
