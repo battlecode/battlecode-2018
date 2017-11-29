@@ -9,9 +9,6 @@ use std::fmt;
 pub enum Delta {
     /// Nothing happens.
     Nothing,
-    
-    /// Dummy implementation: increment the game count by some amount
-    Increment { amount: u32 }
 }
 
 /// A single game turn.
