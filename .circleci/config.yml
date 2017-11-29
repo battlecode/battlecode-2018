@@ -40,20 +40,23 @@ jobs:
       - checkout # get repo
       - attach_workspace: # load the test artifacts
           at: target
-      - run: |
-          get_latest() {
-            # might be multiple test binaries with different executables
-            # https://stackoverflow.com/questions/5885934/bash-function-to-find-newest-file-matching-pattern
-            unset -v latest
-            for file in "$1"*; do
-              [[ $file -nt $latest ]] && latest=$file
-            done
-            echo $latest
-          }
-          echo $(get_latest target/debug/battlecode_cli-)
-          echo $(get_latest target/debug/battlecode_engine-)
-          echo $(get_latest target/debug/libbattlecode-)
-          kcov --exclude-pattern=~/.cargo,/usr/lib --verify target/cov $(get_latest target/debug/battlecode_cli-)
-          kcov --exclude-pattern=~/.cargo,/usr/lib --verify target/cov $(get_latest target/debug/battlecode_engine-)
-          kcov --exclude-pattern=~/.cargo,/usr/lib --verify target/cov $(get_latest target/debug/libbattlecode-)
+      - run:
+          name: coverage
+          command: |
+            get_latest() {
+              # might be multiple test binaries with different executables
+              # https://stackoverflow.com/questions/5885934/bash-function-to-find-newest-file-matching-pattern
+              unset -v latest
+              for file in "$1"*; do
+                # if it ends in .d, it's not an executable; ignore it
+                [[ $file -nt $latest ]] && [[ ! ${file: -2} == ".d" ]] && latest=$file
+              done
+              echo $latest
+            }
+            echo $(get_latest target/debug/battlecode_cli-)
+            echo $(get_latest target/debug/battlecode_engine-)
+            echo $(get_latest target/debug/libbattlecode-)
+            kcov --exclude-pattern=~/.cargo,/usr/lib --verify target/cov $(get_latest target/debug/battlecode_cli-)
+            kcov --exclude-pattern=~/.cargo,/usr/lib --verify target/cov $(get_latest target/debug/battlecode_engine-)
+            kcov --exclude-pattern=~/.cargo,/usr/lib --verify target/cov $(get_latest target/debug/libbattlecode-)
 
