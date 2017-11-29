@@ -20,9 +20,7 @@ jobs:
           paths:
             - ~/.cargo
             - target
-      - run: |
-            # do the build
-            cargo test
+      - run: cargo test
       - save_cache: # cache compiled objects
           key: battlecode-{{ checksum "Cargo.lock" }}
           paths: 
@@ -37,7 +35,7 @@ jobs:
     working_directory: ~/battlecode
     docker:
       # http://sunjay.ca/2016/07/25/rust-code-coverage
-      - image: ragnaroek/kcov:v31
+      - image: ragnaroek/kcov:v33
     steps:
       - checkout # get repo
       - attach_workspace: # load the test artifacts
@@ -52,7 +50,10 @@ jobs:
             done
             echo $latest
           }
-          kcov --exclude-pattern=/.cargo,/usr/lib --verify target/cov $(get_latest target/debug/battlecode-cli-)
-          kcov --exclude-pattern=/.cargo,/usr/lib --verify target/cov $(get_latest target/debug/battlecode_engine-)
-          kcov --exclude-pattern=/.cargo,/usr/lib --verify target/cov $(get_latest target/debug/libbattlecode-)
+          echo $(get_latest target/debug/battlecode_cli-)
+          echo $(get_latest target/debug/battlecode_engine-)
+          echo $(get_latest target/debug/libbattlecode-)
+          kcov --exclude-pattern=~/.cargo,/usr/lib --verify target/cov $(get_latest target/debug/battlecode_cli-)
+          kcov --exclude-pattern=~/.cargo,/usr/lib --verify target/cov $(get_latest target/debug/battlecode_engine-)
+          kcov --exclude-pattern=~/.cargo,/usr/lib --verify target/cov $(get_latest target/debug/libbattlecode-)
 
