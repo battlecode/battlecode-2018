@@ -65,10 +65,10 @@ jobs:
             # extremely dirty hack
             # see: https://github.com/SimonKagstrom/kcov/issues/227
             COVERALLS_JSON=target/cov/$(basename $(get_latest target/debug/libbattlecode-))/coveralls.out
-            NEW_DATA='"service_name":"circle-ci","repo_token":"MU57sEfD127IHPab10KeFJThlLNGIPzdM","parallel":true,"service_job_id":"'$CIRCLE_JOB'",'
-            if [ ! -z $CIRCLE_PR_NUMBER ]; then
-              NEW_DATA=$NEW_DATA'"service_pull_request":"'$CIRCLE_PR_NUMBER'",'
-            fi
+            NEW_DATA='"service_name":"circle-ci","repo_token":"MU57sEfD127IHPab10KeFJThlLNGIPzdM","parallel":true,
+            #if [ ! -z $CIRCLE_PR_NUMBER ]; then
+            #  NEW_DATA=$NEW_DATA'"service_pull_request":"'$CIRCLE_PR_NUMBER'",'
+            #fi
             cat $COVERALLS_JSON |  sed 's/"service_job_id":.*//' | sed 's/"service_name":.*/'"$NEW_DATA"'/' > coveralls.out.final
             cat coveralls.out.final
             curl -H "Content-Type:application/json" -X POST -d @coveralls.out.final https://coveralls.io/api/v1/jobs
