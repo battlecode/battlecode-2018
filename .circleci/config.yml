@@ -41,7 +41,7 @@ jobs:
     steps:
       - checkout # get repo
       - attach_workspace: # load the test artifacts
-        at: target
+          at: target
       - run: |
           get_latest() {
             # might be multiple test binaries with different executables
