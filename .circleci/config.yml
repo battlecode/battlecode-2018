@@ -71,6 +71,7 @@ jobs:
             #fi
             cat $COVERALLS_JSON |  sed 's/"service_job_id":.*//' | sed 's/"service_name":.*/'"$NEW_DATA"'/' > coveralls.out.final
             cat coveralls.out.final
+            sudo apt-get install curl
             curl -H "Content-Type:application/json" -X POST -d @coveralls.out.final https://coveralls.io/api/v1/jobs
 
       - store_artifacts:
