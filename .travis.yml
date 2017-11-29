@@ -8,4 +8,4 @@ install:
 script:
   - cargo build --verbose --all
   - cargo test --verbose --all
-  - cargo tarpaulin --verbose --coveralls $TRAVIS_JOB_ID --ciserver travis-pro
+  - cargo tarpaulin --verbose --coveralls $TRAVIS_JOB_ID --ciserver travis-pro --skip-clean
