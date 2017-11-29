@@ -1,0 +1,6 @@
+[package]
+name = "battlecode-cli"
+version = "0.1.0"
+authors = ["Teh Devs <battlecode@mit.edu>"]
+
+[dependencies]

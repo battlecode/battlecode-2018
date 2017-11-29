@@ -1,0 +1,24 @@
+[package]
+authors = ["Teh Devs <battlecode@mit.edu>"]
+name = "battlecode-engine"
+version = "0.1.0"
+
+[dependencies]
+# nicer errors
+failure = "0.1.0"
+
+# serialization
+serde = "1.0.21"
+serde_derive = "1.0.21"
+serde_json = "1.0.6"
+
+# fast hash maps
+fnv = "1.0.6"
+
+# linter
+# run with `cargo build --features clippy`
+clippy = {version = "0.0.174", optional = true}
+
+[features]
+# we can add custom features here later, if we want
+default = []
