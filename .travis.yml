@@ -1,0 +1,11 @@
+language: rust
+rust:
+  - stable
+cache:
+  cargo
+install:
+  - cargo install cargo-tarpaulin
+script:
+  - cargo build --verbose --all
+  - cargo test --verbose --all
+  - cargo tarpaulin --verbose --coveralls $TRAVIS_JOB_ID --ciserver travis-pro
