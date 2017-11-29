@@ -62,3 +62,7 @@ jobs:
             # will automatically merge the results of the previous builds
             kcov --coveralls-id=$COVERALLS_REPO_TOKEN --exclude-pattern=~/.cargo,/usr/lib --verify target/cov $(get_latest target/debug/libbattlecode-)
 
+notify:
+  webhooks:
+    - url: https://coveralls.io/webhook?repo_token=MU57sEfD127IHPab10KeFJThlLNGIPzdM
+
