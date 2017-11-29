@@ -20,7 +20,9 @@ jobs:
           paths:
             - ~/.cargo
             - target
-      - run: cargo test
+      - run: 
+          name: Test
+          command: cargo test
       - save_cache: # cache compiled objects
           key: battlecode-{{ checksum "Cargo.lock" }}
           paths: 
@@ -41,7 +43,7 @@ jobs:
       - attach_workspace: # load the test artifacts
           at: target
       - run:
-          name: coverage
+          name: Coverage
           command: |
             get_latest() {
               # might be multiple test binaries with different executables
@@ -53,10 +55,9 @@ jobs:
               done
               echo $latest
             }
-            echo $(get_latest target/debug/battlecode_cli-)
-            echo $(get_latest target/debug/battlecode_engine-)
-            echo $(get_latest target/debug/libbattlecode-)
             kcov --exclude-pattern=~/.cargo,/usr/lib --verify target/cov $(get_latest target/debug/battlecode_cli-)
             kcov --exclude-pattern=~/.cargo,/usr/lib --verify target/cov $(get_latest target/debug/battlecode_engine-)
             kcov --exclude-pattern=~/.cargo,/usr/lib --verify target/cov $(get_latest target/debug/libbattlecode-)
+      - store_artifacts:
+          path: target/cov
 
