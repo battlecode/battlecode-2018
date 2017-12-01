@@ -24,9 +24,10 @@ extern crate fnv;
 // see schema.rs
 pub mod schema;
 
-// see c_api.rs
+// see engine.rs
 pub mod engine;
 
+// export everything from the engine to everyone who wants to use it
 pub use engine::*;
 
 #[cfg(test)]
