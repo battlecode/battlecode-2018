@@ -30,6 +30,9 @@ pub mod engine;
 // export everything from the engine to everyone who wants to use it
 pub use engine::*;
 
+// simple modules available to all competitors
+pub mod common;
+
 #[cfg(test)]
 mod tests {
     #[test]
