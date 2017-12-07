@@ -10,33 +10,33 @@ use engine::Direction::*;
 /// of the diagonals (northwest, southwest, northeast, southeast). There is
 /// also a "center" direction, representing no direction.
 ///
-/// Coordinates increase in the North and East directions.
+/// Coordinates increase in the north and east directions.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Direction {
     North = 0,
-    NorthEast,
+    Northeast,
     East,
-    SouthEast,
+    Southeast,
     South,
-    SouthWest,
+    Southwest,
     West,
-    NorthWest,
+    Northwest,
 
     // No direction
     Center,
 }
 
 impl Direction {
-    fn num_to_direction(num: &u8) -> Direction {
-        match *num {
+    fn num_to_direction(num: u8) -> Direction {
+        match num {
             0 => North,
-            1 => NorthEast,
+            1 => Northeast,
             2 => East,
-            3 => SouthEast,
+            3 => Southeast,
             4 => South,
-            5 => SouthWest,
+            5 => Southwest,
             6 => West,
-            7 => NorthWest,
+            7 => Northwest,
             _ => Center,
         }
     }
@@ -45,13 +45,13 @@ impl Direction {
     pub fn delta(&self) -> (i32, i32) {
         match *self {
             North => (0, -1),
-            NorthEast => (1, -1),
+            Northeast => (1, -1),
             East => (1, 0),
-            SouthEast => (1, 1),
+            Southeast => (1, 1),
             South => (0, 1),
-            SouthWest => (-1, 1),
+            Southwest => (-1, 1),
             West => (-1, 0),
-            NorthWest => (-1, -1),
+            Northwest => (-1, -1),
             Center => (0, 0),
         }
     }
@@ -62,7 +62,7 @@ impl Direction {
             return Center;
         }
         let new_dir = ((self.clone() as u8) + 4) % 8;
-        Direction::num_to_direction(&new_dir)
+        Direction::num_to_direction(new_dir)
     }
 
     /// Returns the direction 45 degrees to the left (counter-clockwise) of
@@ -72,7 +72,7 @@ impl Direction {
             return Center;
         }
         let new_dir = ((self.clone() as u8) + 7) % 8;
-        Direction::num_to_direction(&new_dir)
+        Direction::num_to_direction(new_dir)
     }
 
     /// Returns the direction 45 degrees to the right (clockwise) of this one,
@@ -82,7 +82,7 @@ impl Direction {
             return Center;
         }
         let new_dir = ((self.clone() as u8) + 1) % 8;
-        Direction::num_to_direction(&new_dir)
+        Direction::num_to_direction(new_dir)
     }
 }
 
@@ -118,39 +118,39 @@ mod tests {
     #[test]
     fn direction_opposite() {
         assert_eq!(North.opposite(), South);
-        assert_eq!(NorthEast.opposite(), SouthWest);
+        assert_eq!(Northeast.opposite(), Southwest);
         assert_eq!(East.opposite(), West);
-        assert_eq!(SouthEast.opposite(), NorthWest);
+        assert_eq!(Southeast.opposite(), Northwest);
         assert_eq!(South.opposite(), North);
-        assert_eq!(SouthWest.opposite(), NorthEast);
+        assert_eq!(Southwest.opposite(), Northeast);
         assert_eq!(West.opposite(), East);
-        assert_eq!(NorthWest.opposite(), SouthEast);
+        assert_eq!(Northwest.opposite(), Southeast);
         assert_eq!(Center.opposite(), Center);
     }
 
     #[test]
     fn direction_rotate_left() {
-        assert_eq!(North.rotate_left(), NorthWest);
-        assert_eq!(NorthEast.rotate_left(), North);
-        assert_eq!(East.rotate_left(), NorthEast);
-        assert_eq!(SouthEast.rotate_left(), East);
-        assert_eq!(South.rotate_left(), SouthEast);
-        assert_eq!(SouthWest.rotate_left(), South);
-        assert_eq!(West.rotate_left(), SouthWest);
-        assert_eq!(NorthWest.rotate_left(), West);
+        assert_eq!(North.rotate_left(), Northwest);
+        assert_eq!(Northeast.rotate_left(), North);
+        assert_eq!(East.rotate_left(), Northeast);
+        assert_eq!(Southeast.rotate_left(), East);
+        assert_eq!(South.rotate_left(), Southeast);
+        assert_eq!(Southwest.rotate_left(), South);
+        assert_eq!(West.rotate_left(), Southwest);
+        assert_eq!(Northwest.rotate_left(), West);
         assert_eq!(Center.rotate_left(), Center);
     }
 
     #[test]
     fn direction_rotate_right() {
-        assert_eq!(North.rotate_right(), NorthEast);
-        assert_eq!(NorthEast.rotate_right(), East);
-        assert_eq!(East.rotate_right(), SouthEast);
-        assert_eq!(SouthEast.rotate_right(), South);
-        assert_eq!(South.rotate_right(), SouthWest);
-        assert_eq!(SouthWest.rotate_right(), West);
-        assert_eq!(West.rotate_right(), NorthWest);
-        assert_eq!(NorthWest.rotate_right(), North);
+        assert_eq!(North.rotate_right(), Northeast);
+        assert_eq!(Northeast.rotate_right(), East);
+        assert_eq!(East.rotate_right(), Southeast);
+        assert_eq!(Southeast.rotate_right(), South);
+        assert_eq!(South.rotate_right(), Southwest);
+        assert_eq!(Southwest.rotate_right(), West);
+        assert_eq!(West.rotate_right(), Northwest);
+        assert_eq!(Northwest.rotate_right(), North);
         assert_eq!(Center.rotate_right(), Center);
     }
 }
