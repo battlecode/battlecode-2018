@@ -4,7 +4,14 @@ use super::schema::Delta;
 use super::location::MapLocation;
 use super::location::Planet;
 
+#[derive(Debug, Serialize, Deserialize)]
+pub enum Team {
+    Red,
+    Blue,
+}
+
 /// The full world of the Battlecode game.
+#[derive(Debug, Serialize, Deserialize)]
 pub struct GameWorld {
     earth: Map,
     mars: Map,
@@ -43,6 +50,12 @@ pub struct Map {
     /// x-coordinate. These coordinates are *relative to the origin*.
     karbonite: Vec<Vec<u32>>,
 
-    /// A list of all entities (robots + buildings) present in the map.
-    entitites: Vec<()>,
+    /// Robots on the map.
+    robots: Vec<super::robot::RobotInfo>,
+
+    /// War factories on the map.
+    factories: Vec<()>,
+
+    /// Rockets on the map.
+    rockets: Vec<()>,
 }
