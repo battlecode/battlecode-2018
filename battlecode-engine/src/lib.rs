@@ -24,11 +24,11 @@ extern crate fnv;
 // see schema.rs
 pub mod schema;
 
-// see engine.rs
-pub mod engine;
+// see world.rs
+pub mod world;
 
-// export everything from the engine to everyone who wants to use it
-pub use engine::*;
+// see location.rs
+pub mod location;
 
 #[cfg(test)]
 mod tests {

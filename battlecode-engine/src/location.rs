@@ -1,8 +1,6 @@
-//! The core battlecode engine.
+//! Simple data structures to represent locations, directions, and planets.
 
-use super::schema::Delta;
-
-use engine::Direction::*;
+use location::Direction::*;
 
 /// Represents a direction from one MapLocation to another.
 ///
@@ -93,19 +91,19 @@ pub enum Planet {
     Mars,
 }
 
-/// Represents two-dimensional coordinates in the Battlecode world.
+/// Represents two-dimensional coordinates in the Battlecode world. Naive
+/// of which planet it is on.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct MapLocation {
     pub x: i32,
     pub y: i32,
-    pub planet: Planet,
 }
 
 impl MapLocation {
     /// Returns a new MapLocation representing the location with the given
-    /// coordinates on the given planet.
-    pub fn new(x: i32, y: i32, planet: Planet) -> MapLocation {
-        MapLocation { x: x, y: y, planet: planet }
+    /// coordinates.
+    pub fn new(x: i32, y: i32) -> MapLocation {
+        MapLocation { x: x, y: y }
     }
 
     // TODO: more methods
