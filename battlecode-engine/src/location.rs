@@ -85,7 +85,7 @@ impl Direction {
 }
 
 /// The planets in the Battlecode world.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub enum Planet {
     Earth,
     Mars,

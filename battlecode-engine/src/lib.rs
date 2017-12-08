@@ -33,6 +33,9 @@ pub mod location;
 // see unit.rs
 pub mod unit;
 
+// see research.rs
+pub mod research;
+
 #[cfg(test)]
 mod tests {
     #[test]

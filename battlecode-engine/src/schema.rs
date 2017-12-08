@@ -3,10 +3,14 @@
 //! as handwritten message parsing.
 
 use std::fmt;
+use super::location::*;
+use super::unit::*;
 
 /// A single, atomic "change" in the game world.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Delta {
+    /// Moves a robot with the given ID.
+    Move { id: UnitID, location: MapLocation },
     /// Nothing happens.
     Nothing,
 }
