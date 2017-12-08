@@ -3,6 +3,7 @@
 use super::schema::Delta;
 use super::location::MapLocation;
 use super::location::Planet;
+use super::unit::*;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Team {
@@ -18,6 +19,9 @@ pub struct GameWorld {
 }
 
 /// The map for one of the planets in the Battlecode world.
+///
+/// Stores neutral map info (map dimension, terrain, and karbonite deposits)
+/// and non-neutral unit info (robots, factories, rockets) for both teams.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Map {
     /// The planet of this map.
@@ -51,11 +55,11 @@ pub struct Map {
     karbonite: Vec<Vec<u32>>,
 
     /// Robots on the map.
-    robots: Vec<super::robot::RobotInfo>,
+    robots: Vec<RobotInfo>,
 
     /// War factories on the map.
-    factories: Vec<()>,
+    factories: Vec<FactoryInfo>,
 
     /// Rockets on the map.
-    rockets: Vec<()>,
+    rockets: Vec<RocketInfo>,
 }

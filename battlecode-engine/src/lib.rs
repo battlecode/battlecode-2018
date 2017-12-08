@@ -30,8 +30,8 @@ pub mod world;
 // see location.rs
 pub mod location;
 
-// see robot.rs
-pub mod robot;
+// see unit.rs
+pub mod unit;
 
 #[cfg(test)]
 mod tests {
