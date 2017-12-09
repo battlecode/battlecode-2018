@@ -1,13 +1,13 @@
-//! Units are player-controlled entities with certain characteristics and
+//! Entities are player-controlled entities with certain characteristics and
 //! game actions, depending on their type.
 
 use super::location::MapLocation;
 use super::world::Team;
-use unit::RobotType::*;
+use entity::RobotType::*;
 
-/// The ID of a unit is assigned when the unit is spawned. Each unit ID is
-/// unique and in the range [0, 65,535].
-pub type UnitID = u16;
+/// The ID of an entity is assigned when the entity is spawned. Each entity ID
+/// is unique and in the range [0, 65,535], inclusive.
+pub type EntityID = u16;
 
 /// RobotType names the different robot types.
 #[derive(Debug, Serialize, Deserialize)]
@@ -41,7 +41,7 @@ impl RobotTypeInfo {
 /// same between rounds.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RobotInfo {
-    pub id: UnitID,
+    pub id: EntityID,
     pub team: Team,
     pub robot_type: RobotType,
     pub location: MapLocation,
@@ -53,7 +53,7 @@ pub struct RobotInfo {
 /// same between rounds.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RocketInfo {
-    pub id: UnitID,
+    pub id: EntityID,
     pub team: Team,
     pub location: MapLocation,
     pub health: u32,
@@ -64,7 +64,7 @@ pub struct RocketInfo {
 /// remain the same between rounds.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FactoryInfo {
-    pub id: UnitID,
+    pub id: EntityID,
     pub team: Team,
     pub location: MapLocation,
     pub health: u32,

@@ -30,11 +30,14 @@ pub mod world;
 // see location.rs
 pub mod location;
 
-// see unit.rs
-pub mod unit;
+// see entity.rs
+pub mod entity;
 
 // see research.rs
 pub mod research;
+
+// see constants.rs
+pub mod constants;
 
 #[cfg(test)]
 mod tests {
