@@ -8,7 +8,7 @@ use super::entity;
 use super::research;
 
 /// There are two teams in Battlecode: Red and Blue.
-#[derive(Debug, Serialize, Deserialize, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub enum Team {
     Red,
     Blue,
@@ -16,7 +16,7 @@ pub enum Team {
 
 /// The map for one of the planets in the Battlecode world. This information
 /// defines the terrain and dimensions of the planet.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Map {
     /// The height of this map, in squares. Must be in the range
     /// [constants::MAP_MIN_HEIGHT, constants::MAP_MAX_HEIGHT], inclusive.
@@ -47,8 +47,8 @@ pub struct Map {
 /// Stores neutral map info (map dimension, terrain, and karbonite deposits)
 /// and non-neutral entity info (robots, factories, rockets). This information
 /// is generally readable by both teams, and is ephemeral.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct PlanetState {
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PlanetInfo {
     /// The map of the game.
     map: Map,
 
@@ -60,7 +60,7 @@ pub struct PlanetState {
     karbonite: Vec<Vec<u32>>,
 
     /// All the entities on the map.
-    entities: FnvHashMap<entity::EntityID, ()>,
+    entities: FnvHashMap<entity::EntityID, entity::Entity>,
 }
 
 /// A team-shared communication array.
@@ -71,9 +71,9 @@ pub type TeamArray = Vec<u8>;
 pub type TeamArrayHistory = Vec<TeamArray>;
 
 /// Persistent info specific to a single team. Teams are only able to access
-/// the team state of their own team.
+/// the team info of their own team.
 #[derive(Debug, Serialize, Deserialize)]
-pub struct TeamState {
+pub struct TeamInfo {
     /// Communication array histories for each planet.
     team_arrays: FnvHashMap<location::Planet, TeamArrayHistory>,
 
@@ -95,6 +95,12 @@ pub struct GameWorld {
     /// The current round, starting at 1.
     round: u32,
 
-    planet_states: FnvHashMap<location::Planet, PlanetState>,
-    team_states: FnvHashMap<Team, TeamState>,
+    planet_states: FnvHashMap<location::Planet, PlanetInfo>,
+    team_states: FnvHashMap<Team, TeamInfo>,
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn it_works() {}
 }
