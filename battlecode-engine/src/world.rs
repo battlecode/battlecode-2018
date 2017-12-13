@@ -99,6 +99,16 @@ pub struct GameWorld {
     team_states: FnvHashMap<Team, TeamInfo>,
 }
 
+impl GameWorld {
+    pub fn new() -> GameWorld {
+        GameWorld {
+            round: 1,
+            planet_states: FnvHashMap::default(),
+            team_states: FnvHashMap::default(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

@@ -9,6 +9,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 battlecode-engine = {path = "../battlecode-engine"}
+failure = "0.1.1"
 
 [build-dependencies]
 # generate c header files

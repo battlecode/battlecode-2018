@@ -5,7 +5,7 @@ version = "0.1.0"
 
 [dependencies]
 # nicer errors
-failure = "0.1.0"
+failure = "0.1.1"
 
 # serialization
 serde = "1.0.21"
