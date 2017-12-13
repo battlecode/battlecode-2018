@@ -20,21 +20,27 @@ use std::ffi::CString;
 
 use battlecode_engine as eng;
 
-/// "Global" state of battlecode.
-/// Not thread safe.
-/// Required for all method calls.
-/// Used for error checking.
-pub struct bc_t {
+struct bc_t_ {
     /// Text describing an error, if one happened.
     /// This could be changed to an enum later if we want more specificity.
     error: Option<String>
 }
 
+/// "Global" state of battlecode.
+/// Not thread safe.
+/// Required for all method calls.
+/// Used for error checking.
+#[repr(C)]
+pub struct bc_t(bc_t_);
+
+// note: cheddar interprets wrapper structs as opaque;
+// i.e. the above compiles to `typedef struct bc_t bc_t`.
+
 #[no_mangle]
 pub unsafe extern "C" fn bc_init() -> *mut bc_t {
-    Box::into_raw(Box::new(bc_t {
+    Box::into_raw(Box::new(bc_t(bc_t_ {
         error: None
-    }))
+    })))
 }
 
 /// Check if there was an error.
@@ -43,7 +49,7 @@ pub unsafe extern "C" fn bc_has_error(bc: *mut bc_t) -> u8 {
     if bc == ptr::null_mut() {
         return 0;
     }
-    ((*bc).error != None) as u8
+    ((*bc).0.error != None) as u8
 }
 
 /// If there was an error, extract it, and return it as a string.
@@ -58,7 +64,7 @@ pub unsafe extern "C" fn bc_extract_error(bc: *mut bc_t) -> *mut char {
 
     // extract error
     let mut result = None;
-    mem::swap(&mut result, &mut (*bc).error);
+    mem::swap(&mut result, &mut (*bc).0.error);
 
     let result = match result {
         Some(result) => result,
@@ -107,21 +113,25 @@ macro_rules! handle_errors {
             // caught panic
             Err(pan) => pan.downcast_ref::<&str>().unwrap_or(&"unknown panic").to_string()
         };
-        (*$bc).error = Some(cause);
+        (*$bc).0.error = Some(cause);
         $default
     };
 }
 
 /// A game world.
 /// Opaque; you have to use accessor functions to learn about it.
-pub type bc_game_world_t = void;
+/// Don't try to access the rust struct values from C, rust structs
+/// are organized differently from c structs.
+#[repr(C)]
+pub struct bc_game_world_t(eng::world::GameWorld);
 
 /// Allocate a game world.
 #[no_mangle]
 pub unsafe extern "C" fn bc_new_game_world(bc: *mut bc_t) -> *mut bc_game_world_t {
     handle_errors!{bc (*mut bc_game_world_t) [ptr::null_mut()] {
-        let result = Box::into_raw(Box::new(eng::world::GameWorld::new()));
-        Ok(result as *mut bc_game_world_t)
+        let result = Box::into_raw(Box::new(
+            bc_game_world_t(eng::world::GameWorld::new())));
+        Ok(result)
     }}
 }
 
