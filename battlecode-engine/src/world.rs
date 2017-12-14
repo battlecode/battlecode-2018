@@ -93,10 +93,10 @@ pub struct TeamInfo {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GameWorld {
     /// The current round, starting at 1.
-    round: u32,
+    pub round: u32,
 
-    planet_states: FnvHashMap<location::Planet, PlanetInfo>,
-    team_states: FnvHashMap<Team, TeamInfo>,
+    pub planet_states: FnvHashMap<location::Planet, PlanetInfo>,
+    pub team_states: FnvHashMap<Team, TeamInfo>,
 }
 
 impl GameWorld {

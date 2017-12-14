@@ -6,13 +6,16 @@
 //! a single bc_t, or create one bc_t (and child datastructures) for each thread.
 
 // use nice c-style names
-#![allow(non_camel_case_types, unused_variables)]
+#![allow(non_camel_case_types, unused_variables, non_upper_case_globals)]
 
 extern crate battlecode_engine;
-#[macro_use]
 extern crate failure;
 
-use std::os::raw::{c_void as void, c_char as char};
+mod conversions;
+#[macro_use]
+mod macros;
+
+use std::os::raw::{c_char as char};
 use std::ptr;
 use std::mem;
 use std::panic;
@@ -75,6 +78,7 @@ pub unsafe extern "C" fn bc_extract_error(bc: *mut bc_t) -> *mut char {
 }
 
 /// Free an error.
+/// Guaranteed to not create a new error.
 #[no_mangle]
 pub unsafe extern "C" fn bc_free_error(bc: *mut bc_t, error: *mut char) {
     if error != ptr::null_mut() {
@@ -83,40 +87,6 @@ pub unsafe extern "C" fn bc_free_error(bc: *mut bc_t, error: *mut char) {
     }
 }
 
-/// With those functions out of the way, everything else can use this helper macro.
-/// It adds error checking and panic handling to a function.
-/// 
-/// $bc: *mut bc_t
-/// $ret: the function's return type
-/// $default: the value to return if there is an error
-/// $body: the body of the function. Should return Result<$ret, failure::Error>.
-macro_rules! handle_errors {
-    ($bc:ident $body:block) => {
-        handle_errors!{$bc (()) [{}] $body}
-    };
-    ($bc:ident ($ret:ty) [$default:expr] $body:block) => {
-        // Check for null.
-        if $bc == ptr::null_mut() {
-            return $default;
-        }
-        // It's not safe to unwind into c code, so we have to add a landing pad here.
-        let result: std::thread::Result<Result<$ret, failure::Error>> = panic::catch_unwind(|| {
-            // invoke body.
-            $body
-        });
-        // check for errors.
-        let cause = match result {
-            // no error; early return.
-            Ok(Ok(result)) => return result,
-            // logic error
-            Ok(Err(err)) => format!("{:?}", err),
-            // caught panic
-            Err(pan) => pan.downcast_ref::<&str>().unwrap_or(&"unknown panic").to_string()
-        };
-        (*$bc).0.error = Some(cause);
-        $default
-    };
-}
 
 /// A game world.
 /// Opaque; you have to use accessor functions to learn about it.
@@ -128,7 +98,8 @@ pub struct bc_game_world_t(eng::world::GameWorld);
 /// Allocate a game world.
 #[no_mangle]
 pub unsafe extern "C" fn bc_new_game_world(bc: *mut bc_t) -> *mut bc_game_world_t {
-    handle_errors!{bc (*mut bc_game_world_t) [ptr::null_mut()] {
+    // This macro is from macros.rs
+    handle_errors!{bc () -> *mut bc_game_world_t [0] {
         let result = Box::into_raw(Box::new(
             bc_game_world_t(eng::world::GameWorld::new())));
         Ok(result)
@@ -138,14 +109,50 @@ pub unsafe extern "C" fn bc_new_game_world(bc: *mut bc_t) -> *mut bc_game_world_
 /// Free a game world.
 #[no_mangle]
 pub unsafe extern "C" fn bc_free_game_world(bc: *mut bc_t, game_world: *mut bc_game_world_t) {
-    handle_errors!{bc {
-        if game_world == ptr::null_mut() {
-            return Err(format_err!("null game world"))
-        }
-        Box::from_raw(game_world);
+    handle_errors!{bc (game_world) {
+        Box::from_raw(game_world as *mut _);
         Ok(())
     }}
 }
+
+/// Allocate a game world.
+#[no_mangle]
+pub unsafe extern "C" fn bc_get_round(bc: *mut bc_t, game_world: *mut bc_game_world_t) -> u32 {
+    handle_errors!{bc (game_world) -> u32 [0] {
+        Ok((*game_world).0.round)
+    }}
+}
+
+// Note: we redefine location and direction types
+// so that they can be cheaply manipulated in other languages,
+// while not polluting our main codebase with lots of repr(c) annotations.
+// See the `conversions` model for the code that converts between types;
+// in general, you can just call `.into()` to convert to the type you want.
+
+/// A location on the map.
+#[repr(C)]
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct bc_map_location_t {
+    x: i32,
+    y: i32
+}
+
+// slighly inconsistent naming required to get reasonable names from the C side.
+/// A direction.
+#[repr(C)]
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum bc_direction {
+    north = 0,
+    northeast = 1,
+    east = 2,
+    southeast = 3,
+    south = 4,
+    southwest = 5,
+    west = 6,
+    northwest = 7,
+    center = 8
+}
+pub type bc_direction_t = bc_direction;
 
 #[cfg(test)]
 mod tests {
