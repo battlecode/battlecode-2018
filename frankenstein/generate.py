@@ -192,19 +192,22 @@ class Struct(object):
 
         return definition
 
-SWIG_HEADER = '''%module {module}
+SWIG_HEADER = '''%module {module.name}
 /// GENERATED SWIG
 %feature("autodoc", "1");
 %{{
-#include "{module}.h"
+#include "{module.name}.h"
 %}}
 '''
 
 RUST_HEADER = '''/// GENERATED RUST
 /// This function ensures we aren't sending any borrowed types outside of Rust,
 /// where the borrow checker's guarantees can't be upheld.
-fn check<T: 'static + Send>(val: T) -> T { val }
+fn check<T: 'static + Send>(val: T) -> T {{ val }}
 
+'''
+
+C_HEADER = '''/// GENERATED C
 '''
 
 class Program(object):
@@ -217,14 +220,14 @@ class Program(object):
         return self
 
     def to_rust(self):
-        return RUST_HEADER + ''.join(elem.to_rust() for elem in self.elements)
+        return RUST_HEADER.format(module=self) + ''.join(elem.to_rust() for elem in self.elements)
 
     def to_c(self):
-        return '//! GENERATED C\n#include <stdint.h>\n' +\
+        return C_HEADER.format(module=self) +\
             ''.join(elem.to_c() for elem in self.elements)
 
     def to_swig(self):
-        result = SWIG_HEADER.format(module=self.name)
+        result = SWIG_HEADER.format(module=self)
         result += ''.join(elem.to_swig() for elem in self.elements)
         return result
 
