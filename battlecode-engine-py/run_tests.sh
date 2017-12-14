@@ -3,8 +3,11 @@ set -e
 
 pushd $(dirname $0) >/dev/null
 
+echo
+echo
 echo -e "--\033[35m Running python tests \033[0m--\n"
-echo ''
+echo
+echo
 echo -e '\033[33m$ python setup.py build_ext --inplace \033[0m'
 echo 'python3 setup.py build_ext --inplace'
 python3 setup.py build_ext --inplace

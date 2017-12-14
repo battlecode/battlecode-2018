@@ -19,8 +19,7 @@ ffibuilder.set_source(
     contents,
     library_dirs=['../target/debug/deps'],
     libraries=['System','resolv','c','m'],
-    extra_compile_args=['-arch','x86_64'],
-    extra_link_args=['-arch','x86_64', '../target/debug/deps/libbattlecode.a']
+    extra_link_args=['../target/debug/deps/libbattlecode.a']
     )
 
 if __name__ == "__main__":

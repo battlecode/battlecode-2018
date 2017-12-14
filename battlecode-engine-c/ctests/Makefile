@@ -8,6 +8,7 @@ default: test_all
 test_all: c_test_run
 
 c_test: c_test.c cargo
+	bananas
 	@echo
 	@echo
 	@echo "-- running C tests --"

@@ -1,1 +1,10 @@
 target
+build
+.mypy_cache
+*pyc
+__pycache__
+*.so
+*.a
+*.lib
+*.dylib
+*.d
