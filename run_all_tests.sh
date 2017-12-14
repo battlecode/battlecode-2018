@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# I cannot be assed to write a script that runs every single test.
+# Runs all the test by hand, in a shell.
+# TODO: windows.
 
 pushd $(dirname $0) >/dev/null
 

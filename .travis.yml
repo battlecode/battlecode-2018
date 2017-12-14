@@ -6,8 +6,12 @@ addons:
         packages:
             - libssl-dev
 cache:
-  cargo
+  - cargo
+  - pip
+  - directories:
+    - target
 script: |
+  python3 -m pip install -r battlecode-engine-py/requirements.txt --user
   cargo build --verbose --all
   ./run_all_tests.sh
   if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
