@@ -54,9 +54,9 @@ pub struct EntityInfo {
 }
 
 /// Moves a robot to the given location.
-pub fn move_location(entity: &EntityInfo, location: &location::MapLocation) {
+pub fn move_location(entity: &EntityInfo, _location: &location::MapLocation) {
     match &entity.body {
-        &Knight(ref knight) => (),
+        &Knight(ref _knight) => (),
         _ => ()
     }
 }

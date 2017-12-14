@@ -2,7 +2,6 @@
 
 use fnv::FnvHashMap;
 
-use super::schema::Delta;
 use super::location;
 use super::entity;
 use super::research;
