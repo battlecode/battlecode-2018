@@ -2,13 +2,6 @@
 
 from collections import namedtuple
 
-SWIG_HEADER = r'''
-%module battlecode
-%include "getter.i"
-//...
-
-'''
-
 class Type(object):
     def __init__(self, rust, swig):
         self.rust = rust
@@ -26,14 +19,14 @@ class Type(object):
     def mut_ptr(self):
         return Type('*mut '+self.rust, self.swig + '*')
 
-u8 = Type('u8', 'uint8_t')
-i8 = Type('i8', 'int8_t')
-u16 = Type('u16', 'uint16_t')
-i16 = Type('i16', 'int16_t')
-u32 = Type('u32', 'uint32_t')
-i32 = Type('i32', 'int32_t')
-u64 = Type('u64', 'uint64_t')
-i64 = Type('i64', 'int64_t')
+u8 = Type('u8', 'unsigned char')
+i8 = Type('i8', 'char')
+u16 = Type('u16', 'unsigned short')
+i16 = Type('i16', 'short')
+u32 = Type('u32', 'unsigned int')
+i32 = Type('i32', 'int')
+u64 = Type('u64', 'unsigned long')
+i64 = Type('i64', 'long')
 void = Type('()', 'void')
 
 class Var(object):
@@ -202,7 +195,6 @@ class Struct(object):
 SWIG_HEADER = '''%module {module}
 /// GENERATED SWIG
 %feature("autodoc", "1");
-#include <stdint.h>
 %{{
 #include "{module}.h"
 %}}
