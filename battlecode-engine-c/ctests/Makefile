@@ -10,7 +10,7 @@ c_test: c_test.c cargo
 
 .PHONY: c_test_run
 c_test_run: c_test
-	LD_LIBRARY_PATH=../target/debug/deps:$(LD_LIBRARY_PATH) ./c_test
+	LD_LIBRARY_PATH=../../target/debug/deps:$(LD_LIBRARY_PATH) ./c_test
 
 
 .PHONY: cargo

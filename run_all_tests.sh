@@ -5,11 +5,7 @@
 
 pushd $(dirname $0) >/dev/null
 
-echo
-echo
-echo -e "--\033[32m Running rust tests \033[0m--\n"
-echo
-echo
+echo -e "\n--\033[32m Running rust tests \033[0m--\n"
 echo -e '\033[33m$ cargo test \033[0m'
 cargo test
 RUST=$?
@@ -40,7 +36,7 @@ if [ $RUST -ne 0 -o $C -ne 0 -o $PYTHON -ne 0 ]; then
     exit 1
 else
     echo
-    echo 'All tests passed.'
+    echo -e '\033[32mAll tests passed.\033[0m'
 fi
 
 popd >/dev/null
