@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <time.h>
 
 void check_error(bc_t *bc) {
     if (bc_has_error(bc)) {
@@ -44,4 +45,27 @@ int main() {
     printf("round: %d\n", round);
 
     printf("-- all checks passed --\n");
+
+    printf("-- benchmarking (note: will be slow, debug mode) --\n");
+
+    // debug mode on os x: 90ns
+    // release mode on os x: 20ns
+    // very reasonable.
+
+    struct timespec start;
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
+
+    for (int i = 0; i < 10000; i++) {
+        bc_get_round(bc, world);
+        check_error(bc);
+    }
+
+    struct timespec end;
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
+
+    double diff = (end.tv_sec - start.tv_sec) * 1000000000. + (end.tv_nsec - start.tv_nsec);
+
+    printf("mean time / bc_get_round call: %lf ns", diff / 10000.);
+
+    printf("-- finished benchmarks --\n");
 }
