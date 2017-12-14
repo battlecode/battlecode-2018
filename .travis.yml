@@ -1,3 +1,6 @@
+# note: we don't use separate python / c environments because the different
+# codebases are interdependent
+
 language: rust
 rust:
   - stable
@@ -5,14 +8,23 @@ addons:
     apt:
         packages:
             - libssl-dev
+            - python3-pip
 cache:
-  cargo
-script: |
-  cargo build --verbose --all
-  cargo test --verbose --all
-  if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
-    bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)
-    cargo tarpaulin --coveralls tXbFAsGMIvTHknGnhtBBNfqFjLitR9nTr --skip-clean --verbose
-  fi
+  - cargo
+  - directories:
+    - target
+    - ~/.cache/pip
+install:
+  - python3 -m pip install -r battlecode-engine-py/requirements.txt --user
+
+script:
+  - cargo build --verbose --all
+  - bash ./run_all_tests.sh
+  - |
+    if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
+      bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)
+      cargo tarpaulin --coveralls tXbFAsGMIvTHknGnhtBBNfqFjLitR9nTr --skip-clean --verbose
+    fi
+  
 notifications:
   webhooks: https://coveralls.io/webhook?repo_token=tXbFAsGMIvTHknGnhtBBNfqFjLitR9nTr

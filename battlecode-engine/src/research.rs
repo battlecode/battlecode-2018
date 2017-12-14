@@ -6,7 +6,7 @@
 /// has an associated level, where Level 0 represents no research yet.
 /// Performing an upgrade in a research branch will unlock the upgrade at the
 /// next level in the branch.
-#[derive(Debug, Serialize, Deserialize, Hash, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum Branch {
     Economist,
 }

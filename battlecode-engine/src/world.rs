@@ -2,7 +2,6 @@
 
 use fnv::FnvHashMap;
 
-use super::schema::Delta;
 use super::location;
 use super::entity;
 use super::research;
@@ -72,7 +71,7 @@ pub type TeamArrayHistory = Vec<TeamArray>;
 
 /// Persistent info specific to a single team. Teams are only able to access
 /// the team info of their own team.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TeamInfo {
     /// Communication array histories for each planet.
     team_arrays: FnvHashMap<location::Planet, TeamArrayHistory>,
@@ -90,13 +89,23 @@ pub struct TeamInfo {
 }
 
 /// The full world of the Battlecode game.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GameWorld {
     /// The current round, starting at 1.
-    round: u32,
+    pub round: u32,
 
-    planet_states: FnvHashMap<location::Planet, PlanetInfo>,
-    team_states: FnvHashMap<Team, TeamInfo>,
+    pub planet_states: FnvHashMap<location::Planet, PlanetInfo>,
+    pub team_states: FnvHashMap<Team, TeamInfo>,
+}
+
+impl GameWorld {
+    pub fn new() -> GameWorld {
+        GameWorld {
+            round: 1,
+            planet_states: FnvHashMap::default(),
+            team_states: FnvHashMap::default(),
+        }
+    }
 }
 
 #[cfg(test)]

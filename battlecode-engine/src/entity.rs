@@ -41,6 +41,7 @@ pub enum Entity {
 }
 
 /// Generic info for a single entity, and the associated body.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct EntityInfo {
     pub id: EntityID,
     pub team: Team,
@@ -53,9 +54,9 @@ pub struct EntityInfo {
 }
 
 /// Moves a robot to the given location.
-pub fn move_location(entity: &EntityInfo, location: &location::MapLocation) {
+pub fn move_location(entity: &EntityInfo, _location: &location::MapLocation) {
     match &entity.body {
-        &Knight(ref knight) => (),
+        &Knight(ref _knight) => (),
         _ => ()
     }
 }

@@ -2,7 +2,6 @@
 //! Serialized to JSON using Serde. This results in message parsers that are as fast
 //! as handwritten message parsing.
 
-use std::fmt;
 use super::location::*;
 use super::entity::*;
 
@@ -31,7 +30,6 @@ pub struct ErrorMessage {
 
 #[cfg(test)]
 mod tests {
-    use failure::Error;
     use super::*;
     use serde_json::{from_str, to_string};
 

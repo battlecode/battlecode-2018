@@ -4,11 +4,12 @@ version = "0.1.0"
 authors = ["James Gilles <jhgilles@mit.edu>"]
 
 [lib]
-name = "libbattlecode"
-crate-type = ["cdylib"]
+name = "battlecode"
+crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
 battlecode-engine = {path = "../battlecode-engine"}
+failure = "0.1.1"
 
 [build-dependencies]
 # generate c header files

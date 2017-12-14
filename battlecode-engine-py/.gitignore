@@ -1,0 +1,8 @@
+battlecode/_engine*
+*pyc
+build/
+__pycache__
+*so
+*dylib
+*o
+.mypy_cache

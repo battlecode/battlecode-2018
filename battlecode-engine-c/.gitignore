@@ -2,3 +2,4 @@
 **/*.rs.bk
 Cargo.lock
 /include/
+ctests/c_test
