@@ -20,6 +20,7 @@ use std::ptr;
 use std::mem;
 use std::panic;
 use std::ffi::CString;
+use std::clone::Clone;
 
 use battlecode_engine as eng;
 
@@ -46,6 +47,7 @@ pub unsafe extern "C" fn bc_init() -> *mut bc_t {
         error: None
     })))
 }
+
 /// Shut down a battlecode instance.
 /// You don't have to call this, it's fine to leak a bc_t (although if you leak a lot you may
 /// have problems.)
@@ -126,7 +128,22 @@ pub unsafe extern "C" fn bc_free_game_world(bc: *mut bc_t, game_world: *mut bc_g
     }}
 }
 
-/// Allocate a game world.
+/// Clone a game world.
+#[no_mangle]
+pub unsafe extern "C" fn bc_clone_game_world(bc: *mut bc_t,
+                                             game_world: *mut bc_game_world_t) -> *mut bc_game_world_t {
+    // This macro is from macros.rs
+    handle_errors!{bc (game_world) -> *mut bc_game_world_t [0] {
+        let result = Box::into_raw(Box::new(
+            bc_game_world_t((*game_world).0.clone())
+        ));
+        Ok(result)
+    }}
+}
+
+
+
+/// Get the current round of a game world.
 #[no_mangle]
 pub unsafe extern "C" fn bc_get_round(bc: *mut bc_t, game_world: *mut bc_game_world_t) -> u32 {
     handle_errors!{bc (game_world) -> u32 [0] {

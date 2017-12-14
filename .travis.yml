@@ -9,7 +9,7 @@ cache:
   cargo
 script: |
   cargo build --verbose --all
-  cargo test --verbose --all
+  ./run_all_tests.sh
   if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
     bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)
     cargo tarpaulin --coveralls tXbFAsGMIvTHknGnhtBBNfqFjLitR9nTr --skip-clean --verbose

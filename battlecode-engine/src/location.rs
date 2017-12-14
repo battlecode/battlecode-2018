@@ -9,7 +9,7 @@ use location::Direction::*;
 /// also a "center" direction, representing no direction.
 ///
 /// Coordinates increase in the north and east directions.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Direction {
     North = 0,
     Northeast,
@@ -85,7 +85,7 @@ impl Direction {
 }
 
 /// The planets in the Battlecode world.
-#[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub enum Planet {
     Earth,
     Mars,
@@ -93,7 +93,7 @@ pub enum Planet {
 
 /// Represents two-dimensional coordinates in the Battlecode world. Naive
 /// of which planet it is on.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MapLocation {
     pub x: i32,
     pub y: i32,

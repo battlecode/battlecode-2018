@@ -72,7 +72,7 @@ pub type TeamArrayHistory = Vec<TeamArray>;
 
 /// Persistent info specific to a single team. Teams are only able to access
 /// the team info of their own team.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TeamInfo {
     /// Communication array histories for each planet.
     team_arrays: FnvHashMap<location::Planet, TeamArrayHistory>,
@@ -90,7 +90,7 @@ pub struct TeamInfo {
 }
 
 /// The full world of the Battlecode game.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GameWorld {
     /// The current round, starting at 1.
     pub round: u32,
