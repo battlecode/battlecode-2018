@@ -39,11 +39,22 @@ pub struct bc_t(bc_t_);
 // note: cheddar interprets wrapper structs as opaque;
 // i.e. the above compiles to `typedef struct bc_t bc_t`.
 
+/// Initialize a battlecode instance.
 #[no_mangle]
 pub unsafe extern "C" fn bc_init() -> *mut bc_t {
     Box::into_raw(Box::new(bc_t(bc_t_ {
         error: None
     })))
+}
+/// Shut down a battlecode instance.
+/// You don't have to call this, it's fine to leak a bc_t (although if you leak a lot you may
+/// have problems.)
+/// Does *not* free extra resources (i.e. game worlds), you need to do that yourself first.
+#[no_mangle]
+pub unsafe extern "C" fn bc_shutdown(bc: *mut bc_t) {
+    if bc != ptr::null_mut() {
+        Box::from_raw(bc);
+    }
 }
 
 /// Check if there was an error.

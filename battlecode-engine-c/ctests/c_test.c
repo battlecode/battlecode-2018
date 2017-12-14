@@ -65,7 +65,13 @@ int main() {
 
     double diff = (end.tv_sec - start.tv_sec) * 1000000000. + (end.tv_nsec - start.tv_nsec);
 
-    printf("mean time / bc_get_round call: %lf ns", diff / 10000.);
+    printf("mean time / bc_get_round call: %lf ns\n", diff / 10000.);
 
     printf("-- finished benchmarks --\n");
+
+    bc_free_game_world(bc, world);
+    check_error(bc);
+    bc_shutdown(bc);
+
+    printf("-- done. --\n");
 }
