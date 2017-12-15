@@ -3,6 +3,7 @@
 
 use super::location;
 use super::world::Team;
+use super::error::GameError;
 use entity::Entity::*;
 
 /// The ID of an entity is assigned when the entity is spawned. Each entity ID
@@ -53,11 +54,11 @@ pub struct EntityInfo {
     pub body: Entity,
 }
 
-/// Moves a robot to the given location.
-pub fn move_location(entity: &EntityInfo, _location: &location::MapLocation) {
-    match &entity.body {
-        &Knight(ref _knight) => (),
-        _ => ()
+/// Moves a robot in the given direction.
+pub fn entity_move(entity: &mut Entity, _direction: location::Direction) -> Result<(), GameError> {
+    match entity {
+        &mut Knight(ref _knight_info) => Ok(()),
+        _ => Err(GameError::InternalEngineError)
     }
 }
 

@@ -9,7 +9,7 @@ use super::entity::*;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Delta {
     /// Moves a robot with the given ID.
-    Move { id: EntityID, location: MapLocation },
+    Move { id: EntityID, direction: Direction },
     /// Nothing happens.
     Nothing,
 }

@@ -2,12 +2,14 @@
 
 use fnv::FnvHashMap;
 
+use super::schema::Delta;
 use super::location;
 use super::entity;
 use super::research;
+use super::error::GameError;
 
 /// There are two teams in Battlecode: Red and Blue.
-#[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub enum Team {
     Red,
     Blue,
@@ -88,11 +90,24 @@ pub struct TeamInfo {
     research_rounds_left: u32,
 }
 
+/// A player represents a program controlling some group of units.
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+pub struct Player {
+    /// The team of this player.
+    pub team: Team,
+
+    /// The planet for this player. Each team disjointly controls the robots on each planet.
+    pub planet: location::Planet,
+}
+
 /// The full world of the Battlecode game.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GameWorld {
     /// The current round, starting at 1.
     pub round: u32,
+
+    /// The player whose turn it is.
+    pub player_to_move: Player,
 
     pub planet_states: FnvHashMap<location::Planet, PlanetInfo>,
     pub team_states: FnvHashMap<Team, TeamInfo>,
@@ -102,8 +117,30 @@ impl GameWorld {
     pub fn new() -> GameWorld {
         GameWorld {
             round: 1,
+            player_to_move: Player { team: Team::Red, planet: location::Planet::Earth },
             planet_states: FnvHashMap::default(),
             team_states: FnvHashMap::default(),
+        }
+    }
+
+    fn get_entity(&mut self, id: entity::EntityID) -> Option<&mut entity::Entity> {
+        if let Some(planet_info) = self.planet_states.get_mut(&self.player_to_move.planet) {
+            planet_info.entities.get_mut(&id)
+        } else {
+            None
+        }
+    }
+
+    fn apply(&mut self, delta: Delta) -> Result<(), GameError> {
+        match delta {
+            Delta::Move{id, direction} => {
+                if let Some(entity) = self.get_entity(id) {
+                    entity::entity_move(entity, direction)
+                } else {
+                    Err(GameError::NoSuchEntity)
+                }
+            },
+            _ => Ok(()),
         }
     }
 }

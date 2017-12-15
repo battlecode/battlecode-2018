@@ -27,6 +27,9 @@ pub mod schema;
 // see world.rs
 pub mod world;
 
+// see error.rs
+pub mod error;
+
 // see location.rs
 pub mod location;
 
