@@ -1,7 +1,7 @@
 '''This module can be used to easily generate interfaces to Rust from many other languages,
 by generating a thin SWIG wrapper.
 
-TODO: %newobject, makefiles, enums
+TODO: %newobject, makefiles, enums, results, javadocs
 
 To use it, create a Program() and then call .struct() and .function().
 The rust struct:
@@ -269,7 +269,7 @@ class StructType(Type):
         super(StructType, self).__init__(
             '*mut '+wrapper.module+'::'+wrapper.name,
             wrapper.c_name+'*',
-            default='ptr::null_mut()'
+            default='0 as *mut _'
         )
         self.kind = kind
 
