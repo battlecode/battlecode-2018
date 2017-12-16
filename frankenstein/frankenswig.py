@@ -1,6 +1,8 @@
 '''This module can be used to easily generate interfaces to Rust from many other languages,
 by generating a thin SWIG wrapper.
 
+TODO: %newobject, makefiles, enums
+
 To use it, create a Program() and then call .struct() and .function().
 The rust struct:
     struct Banana {
@@ -60,7 +62,7 @@ import textwrap
 import io
 
 def s(string, indent=0):
-    '''Helper method for dealing with long strings.'''
+    '''Helper method for dealing with multiline strings.'''
     return textwrap.indent(textwrap.dedent(string), ' '*indent)
 
 RUST_HEADER = '''/// GENERATED RUST, DO NOT EDIT
@@ -136,7 +138,7 @@ macro_rules! check_null {{
             set_error(SwigError::NullReference, "self is null".into());
             return $default;
         }} else {{
-            *$val
+            &mut *$val
         }}
     }};
 }}
@@ -258,17 +260,23 @@ class StructType(Type):
     is in StructWrapper.'''
 
     RUST_BY_VALUE = 0
-    RUST_MUT_REF = 1
-    RUST_RAW_PTR = 2
+    RUST_REF = 1
+    RUST_MUT_REF = 2
+    RUST_RAW_PTR = 3
 
     def __init__(self, wrapper, kind=0):
         self.wrapper = wrapper
         super(StructType, self).__init__(
             '*mut '+wrapper.module+'::'+wrapper.name,
             wrapper.c_name+'*',
-            default='0 as *mut '+wrapper.module+'::'+wrapper.name
+            default='ptr::null_mut()'
         )
         self.kind = kind
+
+    def ref(self):
+        '''Mutable references coerce to non-mutable references, and the
+        types in the C API are the same.'''
+        return StructType(self.wrapper, kind=StructType.RUST_MUT_REF)
 
     def mut_ref(self):
         return StructType(self.wrapper, kind=StructType.RUST_MUT_REF)
@@ -281,17 +289,9 @@ class StructType(Type):
             name = f'(*{name}).clone()'
             return ('', name, '')
         elif self.kind == StructType.RUST_MUT_REF:
-            # fn thing(arg: *mut Banana) {
-            #    let _arg = *arg;
-            #    eng::thing(&mut _arg);
-            #    mem::forget(_arg);
-            # }
-            # This prevents the engine from borrowing the argument in any way,
-            # which would be extremely unsafe (other languages can destroy
-            # the argument whenever they want).
-            pre_check = f'let _{name} = check_null!({name});'
-            value = f'&mut _{name}'
-            post_check = f'mem::forget(_{name});'
+            pre_check = f'let _{name} = check_null!({name}, default);'
+            value = f'_{name}'
+            post_check = ''
             return (pre_check, value, post_check)
         else:
             raise Exception(f'Unknown pointer type: {self.kind}')
@@ -341,15 +341,16 @@ def make_safe_call(type, rust_function, args):
         if post != '':
             postfix.append(post)
     
-    entry =  '\n'.join(prefix)
-    entry += f'\nlet maybe_panic = panic::catch_unwind(move || {{'
-    call = f'''\nlet result = {rust_function}({', '.join(args_)});'''
+    entry = f'\nlet maybe_panic = panic::catch_unwind(move || {{'
+    call =  '\n' if len(prefix) > 0 else ''
+    call += '\n'.join(prefix)
+    call += f'''\nlet result = {rust_function}({', '.join(args_)});'''
     call += ('\n' if len(postfix) > 0 else '')
     call += '\n'.join(postfix[::-1])
     call += '\n' + type.unwrap_rust_value('result')
     call = s(call, indent=4)
     exit = '\n}});'
-    exit += '\ncheck_panic!(maybe_panic)'
+    exit += '\ncheck_panic!(maybe_panic, default)'
 
     return entry + call + exit
 
@@ -378,7 +379,7 @@ class Function(object):
         result = s(f'''\
             #[no_mangle]
             pub extern "C" fn {self.name}({', '.join(a.to_rust() for a in self.args)}) -> {self.type.rust} {{
-                const default_if_err: {self.type.rust} = {self.type.default};
+                const default: {self.type.rust} = {self.type.default};
             '''
         )
         result += s(self.body, indent=4)

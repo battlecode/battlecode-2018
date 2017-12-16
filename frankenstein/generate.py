@@ -18,7 +18,8 @@ EntityInfo = p.struct(
     .member(u32.type, 'max_health')\
     .member(MapLocation.type, 'location')\
     .member(u32.type, 'health')\
-    .constructor('new', [])
+    .constructor('new', [])\
+    .method(MapLocation.type.mut_ref(), 'cur_location', [])
 
 print('Generating...')
 p.write_files()
