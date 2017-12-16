@@ -67,8 +67,11 @@ RUST_HEADER = '''/// GENERATED RUST, DO NOT EDIT
 extern crate {module};
 
 use std::os::raw::c_char;
+use std::panic;
+use std::ptr;
+use std::mem;
 
-/// Static checking
+// Static error checking
 
 /// This function throws an error at compile time if it isn't safe to return
 /// its argument outside of rust.
@@ -76,7 +79,7 @@ use std::os::raw::c_char;
 /// That is a good enough guarantee for us.
 fn borrow_check<T: 'static + Send>(val: T) -> T {{ val }}
 
-// Cross-language error checking.
+// Runtime error checking
 
 // see https://github.com/swig/swig/blob/master/Lib/swigerrors.swg
 #[repr(i8)]
@@ -108,7 +111,7 @@ fn set_error(code: SwigError, err: String) {{
 }}
 // called from c
 #[no_mangle]
-pub unsafe extern "C" fn {module}_get_last_err(result: *mut *mut u8) -> i8 {{
+pub unsafe extern "C" fn {module}_get_last_err(result: *mut *mut c_char) -> i8 {{
     ERROR.with(|e| unsafe {{
         if let Some((code, err)) = *e {{
             *result = CString::new(err)
@@ -120,18 +123,46 @@ pub unsafe extern "C" fn {module}_get_last_err(result: *mut *mut u8) -> i8 {{
 }}
 // called from c
 #[no_mangle]
-pub unsafe extern "C" fn {module}_free_err(err: *mut u8) {{
+pub unsafe extern "C" fn {module}_free_err(err: *mut c_char) {{
     if err != ptr::null_mut() {{
         CString::from_raw(err)
     }}
 }}
+// you ever wonder if you're going too deep?
+// because I haven't.
+macro_rules! check_null {{
+    ($val:expr, $default:expr) => {{
+        if $val == ptr::null() {{
+            set_error(SwigError::NullReference, "self is null".into());
+            return $default;
+        }} else {{
+            *$val
+        }}
+    }};
+}}
+macro_rules! check_panic {{
+    ($maybe_panic:expr, $default:expr) => {{
+        if let Err(err) = $maybe_panic {{
+            let cause = err.downcast_ref::<&str>()
+                .map(|s| s.to_string())
+                .or_else(|_| err.downcast_ref::<String>())
+                .unwrap_or_else(|_| "unknown panic, mysterious".to_string());
+            set_error(SwigError::Runtime, format!("panic occurred, talk to the devs: {{}}", cause));
+            return $default;
+        }} else if let Ok(result) = maybe_panic {{
+            result
+        }}
+    }};
+}}
+
+
 
 '''
 
 C_HEADER = '''/// GENERATED C, DO NOT EDIT
-%include <stdint.h>
-int8_t {module}_get_last_err(result: *mut *mut char);
-int8_t {module}_free_err(err: *mut char);
+#include <stdint.h>
+int8_t {module}_get_last_err(char** result);
+int8_t {module}_free_err(char* err);
 '''
 
 SWIG_HEADER = '''%module {module}
@@ -169,7 +200,6 @@ SWIG_HEADER = '''%module {module}
 // We generate code with the prefix "{module}_".
 // This will strip it out.
 %rename("%(strip:[{module}_])s") "";
-
 '''
 
 class Type(object):
@@ -204,6 +234,7 @@ class Type(object):
     def unwrap_rust_value(self, value):
        return value
 
+char = Type('char', 'c_char', '0')
 u8 = Type('u8', 'uint8_t', '0')
 i8 = Type('i8', 'int8_t', '0')
 u16 = Type('u16', 'uint16_t', '0')
@@ -255,14 +286,7 @@ class StructType(Type):
             # This prevents the engine from borrowing the argument in any way,
             # which would be extremely unsafe (other languages can destroy
             # the argument whenever they want).
-            pre_check = s(f'''\
-                if {name} == ptr::null() {{
-                    set_error(SwigError::NullReference, "{name} is null".into());
-                    return default_if_err;
-                }}
-                let _{name} = *{name};
-            ''')
-            
+            pre_check = f'let _{name} = check_null!({name});'
             value = f'&mut _{name}'
             post_check = f'mem::forget(_{name});'
             return (pre_check, value, post_check)
@@ -296,7 +320,7 @@ class Var(object):
         return f'{self.type.to_c()} {self.name}'
 
     def to_rust(self):
-        return f'{self.type.to_rust()} {self.name}'
+        return f'{self.name}: {self.type.to_rust()}'
 
     def wrap_c_value(self):
         return self.type.wrap_c_value(self.name)
@@ -314,13 +338,17 @@ def make_safe_call(type, rust_function, args):
         if post != '':
             postfix.append(post)
     
-    result =  ''.join(prefix)
-    result += f'''let result = {rust_function}({', '.join(args_)});'''
-    result += ('\n' if len(postfix) > 0 else '')
-    result += '\n'.join(postfix[::-1])
-    result += '\n' + type.unwrap_rust_value('result')
+    entry =  '\n'.join(prefix)
+    entry += f'\nlet maybe_panic = panic::catch_unwind(move || {{'
+    call = f'''\nlet result = {rust_function}({', '.join(args_)});'''
+    call += ('\n' if len(postfix) > 0 else '')
+    call += '\n'.join(postfix[::-1])
+    call += '\n' + type.unwrap_rust_value('result')
+    call = s(call, indent=4)
+    exit = '\n}});'
+    exit += '\ncheck_panic!(maybe_panic)'
 
-    return result
+    return entry + call + exit
 
 def javadoc(docs):
     return ('/**\n' + '\n *'.join(docs.split('\n')) + '\n */')
@@ -363,13 +391,12 @@ class StructWrapper(object):
         self.member_docs = []
         self.methods = []
         self.method_names = []
-        self.method_docs = []
         self.getters = []
         self.type = StructType(module, name)
         self.constructor_ = None
         self.constructor_docs = ''
-        self.destructor = Function(void, 'delete_'+self.name, [Var(self.type, 'self')],
-            '    Box::from_raw(self)'
+        self.destructor = Function(void, f'{module}_delete_{name}', [Var(self.type, 'self')],
+            'Box::from_raw(self)'
         )
         self.docs = docs
 
@@ -383,7 +410,8 @@ class StructWrapper(object):
             self.type,
             self.module + '_new_' + self.name,
             args,
-            make_safe_call(self.type, method, args)
+            make_safe_call(self.type, method, args),
+            docs=docs
         )
 
         return self
@@ -397,9 +425,10 @@ class StructWrapper(object):
 
         getter = Function(type, f"{self.c_name}_get_{name}", [Var(self.type, 'self')],
             pre +
-            'let result = ' + type.unwrap_rust_value(arg + '.' + name) + ';\n' +
+            '\nlet result = ' + type.unwrap_rust_value(arg + '.' + name) + ';\n' +
             post +
-            '\nresult'
+            '\nresult',
+            docs=docs
         )
 
         vpre, varg, vpost = type.wrap_c_value(name)
@@ -407,8 +436,9 @@ class StructWrapper(object):
         setter = Function(void, f"{self.c_name}_set_{name}",
             [Var(self.type, 'self'), Var(type,name)],
             pre + vpre +
-            f'{arg}.{name} = {varg};\n' +
-            post + vpost
+            f'\n{arg}.{name} = {varg};\n' +
+            post + vpost,
+            docs=docs
         )
         self.getters.append(getter)
         self.getters.append(setter)
@@ -424,10 +454,9 @@ class StructWrapper(object):
         actual_args = [Var(self.type.mut_ref(), 'self')] + args
 
         self.methods.append(Function(type, f"{self.c_name}_{name}", actual_args,
-            make_safe_call(type, method, actual_args)
+            make_safe_call(type, method, actual_args), docs=docs
         ))
         self.method_names.append(name)
-        self.method_docs.append(docs)
         return self
 
     def to_c(self):
@@ -460,13 +489,13 @@ class StructWrapper(object):
         # which we generate :)
 
         body = ''
-        for method, method_name, method_docs in zip(self.methods, self.method_names, self.method_docs):
-            body += Function(method.type, method_name, method.args[1:]).to_swig()
+        for method, method_name in zip(self.methods, self.method_names):
+            body += Function(method.type, method_name, method.args[1:], docs=method.docs).to_swig()
         for member, member_docs in zip(self.members, self.member_docs):
             body += f'%feature("docstring", "{member_docs}");\n{member.to_swig()};\n'
 
         body = s(body, indent=4)
-        extra = f'%extend {self.c_name} {{\n{body}\n}}\n'
+        extra = f'%extend {self.c_name} {{\n{body}}}\n'
 
         return f'{definition}\n{extra}'
 
@@ -524,7 +553,7 @@ class Program(object):
 p = Program('sp')
 
 Apple = p.struct('Apple', docs='High in cyanide.')\
-         .constructor('new', [])\
+         .constructor('new', [Var(i32, 'phoneme')])\
          .member(u32, 'stem')\
          .method(i64, 'bite', [Var(u8, 'greedy'), Var(i16, 'solipsistic')])\
 
