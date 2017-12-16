@@ -406,7 +406,7 @@ class StructWrapper(object):
         self.type = StructType(self)
         self.constructor_ = None
         self.constructor_docs = ''
-        self.destructor = Function(void.type, f'{module}_delete_{self.short_name}',
+        self.destructor = Function(void.type, f'delete_{self.c_name}',
             [Var(self.type, 'self')],
             'Box::from_raw(self)'
         )
@@ -420,7 +420,7 @@ class StructWrapper(object):
 
         self.constructor_ = Function(
             self.type,
-            self.module + '_new_' + self.short_name,
+            f'new_{self.c_name}',
             args,
             make_safe_call(self.type, method, args),
             docs=docs
@@ -435,7 +435,7 @@ class StructWrapper(object):
         pre, arg, post = self.type.mut_ref().wrap_c_value('self')
         arg = '(' + arg + ')'
 
-        getter = Function(type, f"{self.c_name}_get_{name}", [Var(self.type, 'self')],
+        getter = Function(type, f"{self.c_name}_{name}_get", [Var(self.type, 'self')],
             pre +
             '\nlet result = ' + type.unwrap_rust_value(arg + '.' + name) + ';\n' +
             post +
@@ -445,7 +445,7 @@ class StructWrapper(object):
 
         vpre, varg, vpost = type.wrap_c_value(name)
 
-        setter = Function(void.type, f"{self.c_name}_set_{name}",
+        setter = Function(void.type, f"{self.c_name}_{name}_set",
             [Var(self.type, 'self'), Var(type,name)],
             pre + vpre +
             f'\n{arg}.{name} = {varg};\n' +
