@@ -126,7 +126,15 @@ impl GameWorld {
         }
     }
 
-    fn get_unit(&mut self, id: unit::UnitID) -> Option<&mut unit::Unit> {
+    fn get_unit(&mut self, id: unit::UnitID) -> Option<&unit::Unit> {
+        if let Some(planet_info) = self.planet_states.get(&self.player_to_move.planet) {
+            planet_info.units.get(&id)
+        } else {
+            None
+        }
+    }
+
+    fn get_unit_mut(&mut self, id: unit::UnitID) -> Option<&mut unit::Unit> {
         if let Some(planet_info) = self.planet_states.get_mut(&self.player_to_move.planet) {
             planet_info.units.get_mut(&id)
         } else {
@@ -147,7 +155,7 @@ impl GameWorld {
             return Err(GameError::NoSuchUnit);
         };
         if self.is_occupiable(&dest) {
-            if let Some(unit) = self.get_unit(id) {
+            if let Some(unit) = self.get_unit_mut(id) {
                 if unit.is_move_ready() {
                     unit.location = dest;
                     Ok(())
