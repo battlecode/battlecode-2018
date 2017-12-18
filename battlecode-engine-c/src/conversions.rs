@@ -18,6 +18,8 @@ impl From<MapLocation> for bc_map_location_t {
 impl From<bc_map_location_t> for MapLocation {
     fn from(location: bc_map_location_t) -> MapLocation {
         MapLocation {
+            // TODO: make bc_map_location_t encode planet
+            planet: Planet::Earth,
             x: location.x,
             y: location.y
         }
@@ -61,6 +63,7 @@ mod tests {
     #[test]
     fn map_location_convertions() {
         let l = bc_map_location_t {
+            planet: Planet::Earth,
             x: -32,
             y: 57
         };

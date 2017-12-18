@@ -95,6 +95,7 @@ pub enum Planet {
 /// of which planet it is on.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct MapLocation {
+    pub planet: Planet,
     pub x: i32,
     pub y: i32,
 }
@@ -102,14 +103,15 @@ pub struct MapLocation {
 impl MapLocation {
     /// Returns a new MapLocation representing the location with the given
     /// coordinates.
-    pub fn new(x: i32, y: i32) -> MapLocation {
-        MapLocation { x: x, y: y }
+    pub fn new(planet: Planet, x: i32, y: i32) -> MapLocation {
+        MapLocation { planet: planet, x: x, y: y }
     }
 
     pub fn add(&self, direction: Direction) -> MapLocation {
         MapLocation { 
+            planet: self.planet,
             x: self.x + direction.delta().0, 
-            y: self.y + direction.delta().1 
+            y: self.y + direction.delta().1,
         }
     }
 }
@@ -160,7 +162,7 @@ mod tests {
 
     #[test]
     fn map_location_add() {
-        let mut loc = MapLocation { x: 0, y: 0 };
+        let mut loc = MapLocation { planet: Planet::Earth, x: 0, y: 0 };
         assert_eq!(loc.add(North),      MapLocation { x: 0, y: -1 });
         assert_eq!(loc.add(Northeast),  MapLocation { x: 1, y: -1 });
         assert_eq!(loc.add(East),       MapLocation { x: 1, y: 0 });
