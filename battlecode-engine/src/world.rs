@@ -144,7 +144,9 @@ impl GameWorld {
 
     /// Returns whether the square is clear for a new unit to occupy, either by movement or by construction.
     fn is_occupiable(&self, location: &location::MapLocation) -> bool {
-        true
+        let planet_info = &self.planet_states[&location.planet];
+        return planet_info.map.is_passable_terrain[location.y as usize][location.x as usize] &&
+            !planet_info.units_by_loc.contains_key(location);
     }
 
     // Given that moving an unit comprises many edits to the GameWorld, it makes sense to define this here.
