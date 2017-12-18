@@ -1,5 +1,5 @@
 //! Research is an invaluable asset to your army that upgrades and unlocks
-//! capabilities of entities. Each upgrade takes a fixed number of rounds to
+//! capabilities of units. Each upgrade takes a fixed number of rounds to
 //! complete.
 
 /// The entire research tree consists of multiple linear branches. Each branch
