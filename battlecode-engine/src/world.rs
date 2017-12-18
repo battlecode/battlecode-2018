@@ -126,20 +126,28 @@ impl GameWorld {
         }
     }
 
-    fn get_unit(&mut self, id: unit::UnitID) -> Option<&unit::Unit> {
+    fn get_planet_info(&self) -> &PlanetInfo {
         if let Some(planet_info) = self.planet_states.get(&self.player_to_move.planet) {
-            planet_info.units.get(&id)
+            planet_info
         } else {
-            None
+            panic!("Internal engine error");
+        }
+    }
+    
+    fn get_planet_info_mut(&mut self) -> &mut PlanetInfo {
+        if let Some(planet_info) = self.planet_states.get_mut(&self.player_to_move.planet) {
+            planet_info
+        } else {
+            panic!("Internal engine error");
         }
     }
 
+    fn get_unit(&self, id: unit::UnitID) -> Option<&unit::Unit> {
+        self.get_planet_info().units.get(&id)
+    }
+
     fn get_unit_mut(&mut self, id: unit::UnitID) -> Option<&mut unit::Unit> {
-        if let Some(planet_info) = self.planet_states.get_mut(&self.player_to_move.planet) {
-            planet_info.units.get_mut(&id)
-        } else {
-            None
-        }
+        self.get_planet_info_mut().units.get_mut(&id)
     }
 
     /// Returns whether the square is clear for a new unit to occupy, either by movement or by construction.
@@ -151,8 +159,12 @@ impl GameWorld {
 
     // Given that moving an unit comprises many edits to the GameWorld, it makes sense to define this here.
     pub fn move_unit(&mut self, id: unit::UnitID, direction: location::Direction) -> Result<(), GameError> {
-        let dest = if let Some(unit) = self.get_unit(id) {
-            unit.location.add(direction)
+        let (src, dest) = if let Some(unit) = self.get_unit(id) {
+            if unit.is_move_ready() {
+                (unit.location, unit.location.add(direction))
+            } else {
+                return Err(GameError::InvalidAction);
+            }
         } else {
             return Err(GameError::NoSuchUnit);
         };
@@ -160,17 +172,23 @@ impl GameWorld {
             if let Some(unit) = self.get_unit_mut(id) {
                 if unit.is_move_ready() {
                     unit.location = dest;
-                    Ok(())
                 } else {
-                    Err(GameError::InvalidAction)
+                    return Err(GameError::InvalidAction);
                 }
             } else {
                 // It should be impossible for this error to trigger, given that we've already
                 // checked that the unit exists.
-                Err(GameError::InternalEngineError)
+                return Err(GameError::InternalEngineError);
             }
         } else {
-            Err(GameError::InvalidAction)
+            return Err(GameError::InvalidAction);
+        }
+        let planet_info = self.get_planet_info_mut();
+        if let Some(unit) = planet_info.units_by_loc.remove(&src) {
+            planet_info.units_by_loc.insert(dest, unit);
+            Ok(())
+        } else {
+            Err(GameError::InternalEngineError)
         }
     }
 

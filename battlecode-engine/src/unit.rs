@@ -57,6 +57,7 @@ impl Unit {
     /// Returns whether the unit is currently able to make a movement to a valid location.
     pub fn is_move_ready(&self) -> bool {
         match self.unit_info {
+            // TODO: check if movement delay, etc. are ready.
             Knight(ref _knight_info) => true,
             _ => false,
         }
