@@ -5,6 +5,6 @@ pub enum GameError {
     /// The action you attempted to perform is not allowed.
     InvalidAction,
 
-    /// The specified entity does not exist.
-    NoSuchEntity,
+    /// The specified unit does not exist.
+    NoSuchUnit,
 }

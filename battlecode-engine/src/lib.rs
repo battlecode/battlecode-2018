@@ -33,8 +33,8 @@ pub mod error;
 // see location.rs
 pub mod location;
 
-// see entity.rs
-pub mod entity;
+// see unit.rs
+pub mod unit;
 
 // see research.rs
 pub mod research;

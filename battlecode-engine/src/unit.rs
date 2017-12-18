@@ -1,14 +1,14 @@
-//! Entities are player-controlled entities with certain characteristics and
+//! Entities are player-controlled units with certain characteristics and
 //! game actions, depending on their type.
 
 use super::location;
 use super::world::Team;
 use super::error::GameError;
-use entity::EntityInfo::*;
+use unit::UnitInfo::*;
 
-/// The ID of an entity is assigned when the entity is spawned. Each entity ID
+/// The ID of an unit is assigned when the unit is spawned. Each unit ID
 /// is unique and in the range [0, 65,535], inclusive.
-pub type EntityID = u16;
+pub type UnitID = u16;
 
 /// Info specific to knights.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -26,13 +26,13 @@ pub struct RocketInfo {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FactoryInfo {
     /// Entities queued to be produced.
-    production_queue: Vec<Entity>,
+    production_queue: Vec<Unit>,
 }
 
-/// Entities are player-controlled entities with certain characteristics and
+/// Entities are player-controlled units with certain characteristics and
 /// game actions, depending on their type.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum EntityInfo {
+pub enum UnitInfo {
     /// Knights are a melee unit that is strong in numbers.
     Knight(KnightInfo),
     /// Factories are the hub for producing combative robots.
@@ -41,22 +41,22 @@ pub enum EntityInfo {
     Rocket(RocketInfo),
 }
 
-/// Generic info for a single entity, and the associated specific info.
+/// Generic info for a single unit, and the associated specific info.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Entity {
-    pub id: EntityID,
+pub struct Unit {
+    pub id: UnitID,
     pub team: Team,
     pub max_health: u32,
     pub location: location::MapLocation,
     pub health: u32,
 
     /// The unit-specific info (a robot, factory, or rocket).
-    pub spec: EntityInfo,
+    pub spec: UnitInfo,
 }
 
 /// Moves a robot in the given direction.
-pub fn entity_move(entity: &mut Entity, _direction: location::Direction) -> Result<(), GameError> {
-    match entity.spec {
+pub fn unit_move(unit: &mut Unit, _direction: location::Direction) -> Result<(), GameError> {
+    match unit.spec {
         Knight(ref _knight_info) => Ok(()),
         _ => Err(GameError::InternalEngineError)
     }

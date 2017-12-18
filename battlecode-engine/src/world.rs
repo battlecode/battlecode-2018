@@ -4,7 +4,7 @@ use fnv::FnvHashMap;
 
 use super::schema::Delta;
 use super::location;
-use super::entity;
+use super::unit;
 use super::research;
 use super::error::GameError;
 
@@ -46,7 +46,7 @@ pub struct Map {
 /// The state for one of the planets in a game.
 ///
 /// Stores neutral map info (map dimension, terrain, and karbonite deposits)
-/// and non-neutral entity info (robots, factories, rockets). This information
+/// and non-neutral unit info (robots, factories, rockets). This information
 /// is generally readable by both teams, and is ephemeral.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PlanetInfo {
@@ -60,11 +60,11 @@ pub struct PlanetInfo {
     /// x-coordinate. These coordinates are *relative to the origin*.
     karbonite: Vec<Vec<u32>>,
 
-    /// All the entities on the map.
-    entities: FnvHashMap<entity::EntityID, entity::Entity>,
+    /// All the units on the map.
+    units: FnvHashMap<unit::UnitID, unit::Unit>,
 
-    /// All the entities on the map, by location.
-    entities_by_loc: FnvHashMap<location::MapLocation, entity::Entity>,
+    /// All the units on the map, by location.
+    units_by_loc: FnvHashMap<location::MapLocation, unit::Unit>,
 }
 
 /// A team-shared communication array.
@@ -126,23 +126,23 @@ impl GameWorld {
         }
     }
 
-    fn get_entity(&mut self, id: entity::EntityID) -> Option<&mut entity::Entity> {
+    fn get_unit(&mut self, id: unit::UnitID) -> Option<&mut unit::Unit> {
         if let Some(planet_info) = self.planet_states.get_mut(&self.player_to_move.planet) {
-            planet_info.entities.get_mut(&id)
+            planet_info.units.get_mut(&id)
         } else {
             None
         }
     }
 
-    fn can_entity_move_to(&self, entity: &entity::Entity, location: &location::MapLocation) -> bool {
+    fn can_unit_move_to(&self, unit: &unit::Unit, location: &location::MapLocation) -> bool {
         true
     }
 
-    // Given that moving an entity comprises many edits to the GameWorld, it makes sense to define this here.
-    pub fn move_entity(&mut self, entity: &mut entity::Entity, direction: location::Direction) -> Result<(), GameError> {
-        let dest = entity.location.add(direction);
-        if self.can_entity_move_to(entity, &dest) {
-            entity::entity_move(entity, direction)
+    // Given that moving an unit comprises many edits to the GameWorld, it makes sense to define this here.
+    pub fn move_unit(&mut self, unit: &mut unit::Unit, direction: location::Direction) -> Result<(), GameError> {
+        let dest = unit.location.add(direction);
+        if self.can_unit_move_to(unit, &dest) {
+            unit::unit_move(unit, direction)
         } else {
             Err(GameError::InvalidAction)
         }
@@ -151,10 +151,10 @@ impl GameWorld {
     fn apply(&mut self, delta: Delta) -> Result<(), GameError> {
         match delta {
             Delta::Move{id, direction} => {
-                if let Some(entity) = self.get_entity(id) {
-                    entity::entity_move(entity, direction)
+                if let Some(unit) = self.get_unit(id) {
+                    unit::unit_move(unit, direction)
                 } else {
-                    Err(GameError::NoSuchEntity)
+                    Err(GameError::NoSuchUnit)
                 }
             },
             _ => Ok(()),
