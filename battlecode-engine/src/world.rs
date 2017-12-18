@@ -134,15 +134,31 @@ impl GameWorld {
         }
     }
 
-    fn can_unit_move_to(&self, unit: &unit::Unit, location: &location::MapLocation) -> bool {
+    /// Returns whether the square is clear for a new unit to occupy, either by movement or by construction.
+    fn is_occupiable(&self, location: &location::MapLocation) -> bool {
         true
     }
 
     // Given that moving an unit comprises many edits to the GameWorld, it makes sense to define this here.
-    pub fn move_unit(&mut self, unit: &mut unit::Unit, direction: location::Direction) -> Result<(), GameError> {
-        let dest = unit.location.add(direction);
-        if self.can_unit_move_to(unit, &dest) {
-            unit::unit_move(unit, direction)
+    pub fn move_unit(&mut self, id: unit::UnitID, direction: location::Direction) -> Result<(), GameError> {
+        let dest = if let Some(unit) = self.get_unit(id) {
+            unit.location.add(direction)
+        } else {
+            return Err(GameError::NoSuchUnit);
+        };
+        if self.is_occupiable(&dest) {
+            if let Some(unit) = self.get_unit(id) {
+                if unit.is_move_ready() {
+                    unit.location = dest;
+                    Ok(())
+                } else {
+                    Err(GameError::InvalidAction)
+                }
+            } else {
+                // It should be impossible for this error to trigger, given that we've already
+                // checked that the unit exists.
+                Err(GameError::InternalEngineError)
+            }
         } else {
             Err(GameError::InvalidAction)
         }
@@ -150,13 +166,7 @@ impl GameWorld {
 
     fn apply(&mut self, delta: Delta) -> Result<(), GameError> {
         match delta {
-            Delta::Move{id, direction} => {
-                if let Some(unit) = self.get_unit(id) {
-                    unit::unit_move(unit, direction)
-                } else {
-                    Err(GameError::NoSuchUnit)
-                }
-            },
+            Delta::Move{id, direction} => self.move_unit(id, direction),
             _ => Ok(()),
         }
     }

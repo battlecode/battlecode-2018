@@ -3,7 +3,6 @@
 
 use super::location;
 use super::world::Team;
-use super::error::GameError;
 use unit::UnitInfo::*;
 
 /// The ID of an unit is assigned when the unit is spawned. Each unit ID
@@ -51,14 +50,16 @@ pub struct Unit {
     pub health: u32,
 
     /// The unit-specific info (a robot, factory, or rocket).
-    pub spec: UnitInfo,
+    pub unit_info: UnitInfo,
 }
 
-/// Moves a robot in the given direction.
-pub fn unit_move(unit: &mut Unit, _direction: location::Direction) -> Result<(), GameError> {
-    match unit.spec {
-        Knight(ref _knight_info) => Ok(()),
-        _ => Err(GameError::InternalEngineError)
+impl Unit {
+    /// Returns whether the unit is currently able to make a movement to a valid location.
+    pub fn is_move_ready(&self) -> bool {
+        match self.unit_info {
+            Knight(ref _knight_info) => true,
+            _ => false,
+        }
     }
 }
 
