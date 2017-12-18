@@ -93,7 +93,7 @@ pub enum Planet {
 
 /// Represents two-dimensional coordinates in the Battlecode world. Naive
 /// of which planet it is on.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct MapLocation {
     pub x: i32,
     pub y: i32,
@@ -106,12 +106,18 @@ impl MapLocation {
         MapLocation { x: x, y: y }
     }
 
-    // TODO: more methods
+    pub fn add(&self, direction: Direction) -> MapLocation {
+        MapLocation { 
+            x: self.x + direction.delta().0, 
+            y: self.y + direction.delta().1 
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::Direction::*;
+    use super::MapLocation;
 
     #[test]
     fn direction_opposite() {
@@ -150,5 +156,19 @@ mod tests {
         assert_eq!(West.rotate_right(), Northwest);
         assert_eq!(Northwest.rotate_right(), North);
         assert_eq!(Center.rotate_right(), Center);
+    }
+
+    #[test]
+    fn map_location_add() {
+        let mut loc = MapLocation { x: 0, y: 0 };
+        assert_eq!(loc.add(North),      MapLocation { x: 0, y: -1 });
+        assert_eq!(loc.add(Northeast),  MapLocation { x: 1, y: -1 });
+        assert_eq!(loc.add(East),       MapLocation { x: 1, y: 0 });
+        assert_eq!(loc.add(Southeast),  MapLocation { x: 1, y: 1 });
+        assert_eq!(loc.add(South),      MapLocation { x: 0, y: 1 });
+        assert_eq!(loc.add(Southwest),  MapLocation { x: -1, y: 1 });
+        assert_eq!(loc.add(West),       MapLocation { x: -1, y: 0 });
+        assert_eq!(loc.add(Northwest),  MapLocation { x: -1, y: -1 });
+        assert_eq!(loc.add(Center),     MapLocation { x: 0, y: 0 });
     }
 }

@@ -62,6 +62,9 @@ pub struct PlanetInfo {
 
     /// All the entities on the map.
     entities: FnvHashMap<entity::EntityID, entity::Entity>,
+
+    /// All the entities on the map, by location.
+    entities_by_loc: FnvHashMap<location::MapLocation, entity::Entity>,
 }
 
 /// A team-shared communication array.
@@ -128,6 +131,20 @@ impl GameWorld {
             planet_info.entities.get_mut(&id)
         } else {
             None
+        }
+    }
+
+    fn can_entity_move_to(&self, entity: &entity::Entity, location: &location::MapLocation) -> bool {
+        true
+    }
+
+    // Given that moving an entity comprises many edits to the GameWorld, it makes sense to define this here.
+    pub fn move_entity(&mut self, entity: &mut entity::Entity, direction: location::Direction) -> Result<(), GameError> {
+        let dest = entity.location.add(direction);
+        if self.can_entity_move_to(entity, &dest) {
+            entity::entity_move(entity, direction)
+        } else {
+            Err(GameError::InvalidAction)
         }
     }
 
