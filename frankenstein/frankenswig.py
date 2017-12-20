@@ -65,8 +65,7 @@ def s(string, indent=0):
     '''Helper method for dealing with multiline strings.'''
     return textwrap.indent(textwrap.dedent(string), ' '*indent)
 
-RUST_HEADER = '''#![allow(dead_code, non_upper_case_globals, non_camel_case_types)]
-//! GENERATED RUST, DO NOT EDIT
+RUST_HEADER = '''/// GENERATED RUST, DO NOT EDIT
 extern crate {crate};
 
 use {crate} as {module};
@@ -77,7 +76,6 @@ use std::ffi::CString;
 use std::panic;
 use std::ptr;
 use std::mem;
-
 
 // Static error checking
 
@@ -109,6 +107,8 @@ enum SwigError {{
 }}
 // We have to pass errors to c somehow :/
 thread_local! {{
+    // this can be replaced with UnsafeCell / pointers and flags
+    // if we're really hurting for performance
     static ERROR: RefCell<Option<(SwigError, String)>> = RefCell::new(None);
 }}
 // only usable from rust
@@ -251,11 +251,13 @@ PYTHON_FOOTER = ''
 class Type(object):
     '''The type of a variable / return value.'''
 
-    def __init__(self, rust, swig, default='!!no default value for type!!'):
+    def __init__(self, rust, swig, python, default='!!no default value for type!!'):
         '''Rust: how this type will be represented in the rust shim code.
         Swig: how this type will be represented in swig / c.'''
+        print(rust,swig,python)
         self.rust = rust
         self.swig = swig
+        self.python = python
         self.default = default
 
     def to_swig(self):
@@ -271,7 +273,7 @@ class Type(object):
         return self.rust
 
     def to_python(self):
-        return 'WHAT'
+        return self.python
 
     def wrap_c_value(self, value):
         # see make_safe_call
@@ -287,16 +289,16 @@ class BuiltinWrapper(object):
     def __init__(self, *args):
         self.type = Type(*args)
 
-char = BuiltinWrapper('char', 'c_char', '0')
-u8 = BuiltinWrapper('u8', 'uint8_t', '0')
-i8 = BuiltinWrapper('i8', 'int8_t', '0')
-u16 = BuiltinWrapper('u16', 'uint16_t', '0')
-i16 = BuiltinWrapper('i16', 'int16_t', '0')
-u32 = BuiltinWrapper('u32', 'uint32_t', '0')
-i32 = BuiltinWrapper('i32', 'int32_t', '0')
-u64 = BuiltinWrapper('u64', 'uint64_t', '0')
-i64 = BuiltinWrapper('i64', 'int64_t', '0')
-void = BuiltinWrapper('()', 'void', '()')
+char = BuiltinWrapper('char', 'c_char', 'int', '0')
+u8 = BuiltinWrapper('u8', 'uint8_t', 'int', '0')
+i8 = BuiltinWrapper('i8', 'int8_t', 'int', '0')
+u16 = BuiltinWrapper('u16', 'uint16_t', 'int', '0')
+i16 = BuiltinWrapper('i16', 'int16_t', 'int', '0')
+u32 = BuiltinWrapper('u32', 'uint32_t', 'int', '0')
+i32 = BuiltinWrapper('i32', 'int32_t', 'int', '0')
+u64 = BuiltinWrapper('u64', 'uint64_t', 'int', '0')
+i64 = BuiltinWrapper('i64', 'int64_t', 'int', '0')
+void = BuiltinWrapper('()', 'void', 'int', '()')
 
 class StructType(Type):
     '''Rust structs are always treated as pointers by SWIG.
@@ -316,6 +318,7 @@ class StructType(Type):
         super(StructType, self).__init__(
             '*mut '+wrapper.module+'::'+wrapper.name,
             wrapper.c_name+'*',
+            rust_name_to_python(wrapper.name),
             default='0 as *mut _'
         )
         self.kind = kind
@@ -407,6 +410,9 @@ def make_safe_call(type, rust_function, args):
 def javadoc(docs):
     return '/**\n' + '\n *'.join(docs.split('\n')) + '\n */'
 
+def rust_name_to_python(name):
+    return name.split('::')[-1]
+
 class Function(object):
     def __init__(self, type, name, args, body='', docs=''):
         self.type = type
@@ -448,7 +454,7 @@ class Function(object):
 
 class TypedefWrapper(object):
     def __init__(self, module, rust_name, c_type):
-        self.type = Type(f'{module}::{rust_name}', c_type.swig, c_type.default)
+        self.type = Type(f'{module}::{rust_name}', c_type.swig, c_type.python, c_type.default)
     
     to_rust = to_c = to_swig = to_python = lambda self: ''
 

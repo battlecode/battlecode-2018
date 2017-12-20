@@ -20,8 +20,10 @@ EntityId = p.typedef('entity::EntityId', u16.type)
 
 p.elements.append(CEnum('bc_TestEnum', (('x',1),('y',2),('z',3))))
 
+print(MapLocation.type.to_python())
+
 print('Generating...')
-with open("src/lib.rs", "w+") as f:
+with open("src/bindings.rs", "w+") as f:
     f.write(p.to_rust())
 
 with open("bc.h", "w+") as f:
