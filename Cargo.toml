@@ -1,4 +1,4 @@
 # This folder is a "workspace"; it contains multiple subprojects that are used together.
 # See: https://doc.rust-lang.org/book/second-edition/ch14-03-cargo-workspaces.html
 [workspace]
-members = ["battlecode-engine", "battlecode-engine-c", "battlecode-cli"]
+members = ["battlecode-engine", "battlecode-engine-c", "battlecode-cli", "frankenstein"]

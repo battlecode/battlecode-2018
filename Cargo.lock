@@ -71,6 +71,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "battlecode-frankenstein"
+version = "0.1.0"
+dependencies = [
+ "battlecode-engine 0.1.0",
+ "cc 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "failure 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "bitflags"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

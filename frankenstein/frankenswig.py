@@ -65,13 +65,19 @@ def s(string, indent=0):
     '''Helper method for dealing with multiline strings.'''
     return textwrap.indent(textwrap.dedent(string), ' '*indent)
 
-RUST_HEADER = '''/// GENERATED RUST, DO NOT EDIT
+RUST_HEADER = '''#![allow(dead_code, non_upper_case_globals, non_camel_case_types)]
+//! GENERATED RUST, DO NOT EDIT
 extern crate {crate};
 
+use {crate} as {module};
+
 use std::os::raw::c_char;
+use std::cell::RefCell;
+use std::ffi::CString;
 use std::panic;
 use std::ptr;
 use std::mem;
+
 
 // Static error checking
 
@@ -103,67 +109,88 @@ enum SwigError {{
 }}
 // We have to pass errors to c somehow :/
 thread_local! {{
-    static mut ERROR: Option<(code, String)>;
+    static ERROR: RefCell<Option<(SwigError, String)>> = RefCell::new(None);
 }}
 // only usable from rust
 fn set_error(code: SwigError, err: String) {{
-    ERROR.with(move |e| unsafe {{
-        *e = Some((code, err));
-    }})
+    ERROR.with(move |e| {{
+        *e.borrow_mut() = Some((code, err));
+    }});
 }}
 // called from c
 #[no_mangle]
 pub unsafe extern "C" fn {module}_get_last_err(result: *mut *mut c_char) -> i8 {{
-    ERROR.with(|e| unsafe {{
-        if let Some((code, err)) = *e {{
+    let mut result_code = 0i8;
+    ERROR.with(|e| {{
+        let mut data = None;
+        mem::swap(&mut data, &mut *e.borrow_mut());
+        if let Some((code, err)) = data {{
+            result_code = code as i8;
             *result = CString::new(err)
                 .map(|r| r.into_raw())
-                .unwrap_or_else(|_| CString::new("unknown error").into_raw().unwrap())
+                .unwrap_or_else(|_| CString::new("unknown error").unwrap().into_raw())
         }}
-    }})
+    }});
     result_code
 }}
 // called from c
 #[no_mangle]
 pub unsafe extern "C" fn {module}_free_err(err: *mut c_char) {{
     if err != ptr::null_mut() {{
-        CString::from_raw(err)
+        CString::from_raw(err);
     }}
 }}
 // you ever wonder if you're going too deep?
 // because I haven't.
 macro_rules! check_null {{
     ($val:expr, $default:expr) => {{
-        if $val == ptr::null() {{
+        if $val == ptr::null_mut() {{
             set_error(SwigError::NullReference, "self is null".into());
             return $default;
         }} else {{
-            &mut *$val
+            unsafe {{
+                &mut *$val
+            }}
         }}
     }};
 }}
 macro_rules! check_panic {{
     ($maybe_panic:expr, $default:expr) => {{
-        if let Err(err) = $maybe_panic {{
-            let cause = err.downcast_ref::<&str>()
-                .map(|s| s.to_string())
-                .or_else(|_| err.downcast_ref::<String>())
-                .unwrap_or_else(|_| "unknown panic, mysterious".to_string());
-            set_error(SwigError::Runtime, format!("panic occurred, talk to the devs: {{}}", cause));
-            return $default;
-        }} else if let Ok(result) = maybe_panic {{
-            result
+        match $maybe_panic {{
+            Err(err) => {{
+                let cause = err.downcast_ref::<&str>()
+                    .map(|s| s.to_string())
+                    .or_else(|| err.downcast_ref::<String>().map(|s| s.clone()))
+                    .unwrap_or_else(|| "unknown panic, mysterious".to_string());
+                set_error(SwigError::Runtime, format!("panic occurred, talk to the devs: {{}}", cause));
+                $default
+            }},
+            Ok(result) => {{
+                result
+            }}
         }}
     }};
 }}
 
 '''
+RUST_FOOTER = ''
 
 C_HEADER = '''/// GENERATED C, DO NOT EDIT
+#ifndef {module}_h_
+#define {module}_h_
+#ifdef __cplusplus
+extern "C" {{
+#endif
+
 #include <stdint.h>
 int8_t {module}_get_last_err(char** result);
 int8_t {module}_free_err(char* err);
+'''
 
+C_FOOTER = '''#ifdef __cplusplus
+}}
+#endif
+#endif // {module}_h_
 '''
 
 SWIG_HEADER = '''%module {module}
@@ -186,6 +213,8 @@ SWIG_HEADER = '''%module {module}
 // used to tell swig to not generate pointer types for arguments
 // passed by pointer
 %include "typemaps.i"
+// good enums
+%include "enums.swg"
 
 // This code is inserted around every method call.
 %exception {{
@@ -203,6 +232,21 @@ SWIG_HEADER = '''%module {module}
 %rename("%(strip:[{module}_])s") "";
 
 '''
+SWIG_FOOTER = ''
+
+PYTHON_HEADER = '''"""GENERATED PYTHON, DO NOT EDIT"""
+from _{module} import ffi, lib
+
+_lasterror = ffi.new('char**')
+def _check_errors():
+    err = lib.{module}_get_last_err(_lasterror)
+    if err:
+        errtext = ffi.string(_lasterror[0])
+        lib.{module}_free_err(_lasterror[0])
+        raise Exception(errtext)
+
+'''
+PYTHON_FOOTER = ''
 
 class Type(object):
     '''The type of a variable / return value.'''
@@ -225,6 +269,9 @@ class Type(object):
     def to_rust(self):
         '''Formatting for embedding in c .h file.'''
         return self.rust
+
+    def to_python(self):
+        return 'WHAT'
 
     def wrap_c_value(self, value):
         # see make_safe_call
@@ -325,6 +372,9 @@ class Var(object):
     def to_rust(self):
         return f'{self.name}: {self.type.to_rust()}'
 
+    def to_python(self):
+        return self.name
+
     def wrap_c_value(self):
         return self.type.wrap_c_value(self.name)
 
@@ -349,13 +399,13 @@ def make_safe_call(type, rust_function, args):
     call += '\n'.join(postfix[::-1])
     call += '\n' + type.unwrap_rust_value('result')
     call = s(call, indent=4)
-    exit = '\n}});'
+    exit = '\n});'
     exit += '\ncheck_panic!(maybe_panic, default)'
 
     return entry + call + exit
 
 def javadoc(docs):
-    return ('/**\n' + '\n *'.join(docs.split('\n')) + '\n */')
+    return '/**\n' + '\n *'.join(docs.split('\n')) + '\n */'
 
 class Function(object):
     def __init__(self, type, name, args, body='', docs=''):
@@ -375,6 +425,16 @@ class Function(object):
     def to_c(self):
         return f'''{self.type.to_c()} {self.name}({', '.join(a.to_c() for a in self.args)});\n'''
 
+    def to_python(self):
+        args = ', '.join(a.to_python() for a in self.args)
+        return s(f"""\
+        def {self.name}({args}):
+            '''{self.docs}'''
+            result = lib.{self.name}({args})
+            _check_errors()
+            return result
+        """)
+
     def to_rust(self):
         result = s(f'''\
             #[no_mangle]
@@ -390,7 +450,7 @@ class TypedefWrapper(object):
     def __init__(self, module, rust_name, c_type):
         self.type = Type(f'{module}::{rust_name}', c_type.swig, c_type.default)
     
-    to_rust = to_c = to_swig = lambda self: ''
+    to_rust = to_c = to_swig = to_python = lambda self: ''
 
 class StructWrapper(object):
     def __init__(self, module, name, docs=''):
@@ -406,11 +466,13 @@ class StructWrapper(object):
         self.type = StructType(self)
         self.constructor_ = None
         self.constructor_docs = ''
-        self.destructor = Function(void.type, f'delete_{self.c_name}',
-            [Var(self.type, 'self')],
-            'Box::from_raw(self)'
-        )
         self.docs = docs
+
+        pre, arg, post = self.type.mut_ref().wrap_c_value('this')
+        self.destructor = Function(void.type, f'delete_{self.c_name}',
+            [Var(self.type, 'this')],
+            pre + f'\nunsafe {{ Box::from_raw({arg}); }}' + post
+        )
 
     def constructor(self, rust_method, args, docs=''):
         assert self.constructor_ is None
@@ -432,10 +494,10 @@ class StructWrapper(object):
         self.members.append(Var(type,name))
         self.member_docs.append(docs)
 
-        pre, arg, post = self.type.mut_ref().wrap_c_value('self')
+        pre, arg, post = self.type.mut_ref().wrap_c_value('this')
         arg = '(' + arg + ')'
 
-        getter = Function(type, f"{self.c_name}_{name}_get", [Var(self.type, 'self')],
+        getter = Function(type, f"{self.c_name}_{name}_get", [Var(self.type, 'this')],
             pre +
             '\nlet result = ' + type.unwrap_rust_value(arg + '.' + name) + ';\n' +
             post +
@@ -446,7 +508,7 @@ class StructWrapper(object):
         vpre, varg, vpost = type.wrap_c_value(name)
 
         setter = Function(void.type, f"{self.c_name}_{name}_set",
-            [Var(self.type, 'self'), Var(type,name)],
+            [Var(self.type, 'this'), Var(type,name)],
             pre + vpre +
             f'\n{arg}.{name} = {varg};\n' +
             post + vpost,
@@ -463,7 +525,7 @@ class StructWrapper(object):
         # which is equivalent to:
         # self.method(arg1, arg2)
         method = f'{self.module}::{self.name}::{name}'
-        actual_args = [Var(self.type.mut_ref(), 'self')] + args
+        actual_args = [Var(self.type.mut_ref(), 'this')] + args
 
         self.methods.append(Function(type, f"{self.c_name}_{name}", actual_args,
             make_safe_call(type, method, actual_args), docs=docs
@@ -525,6 +587,34 @@ class StructWrapper(object):
 
         return definition
 
+class CEnum(object):
+    '''A c-style enum.'''
+    def __init__(self, name, variants):
+        '''variants: list<(name, value)>'''
+        self.name = name
+        self.variants = variants
+
+    def to_rust(self):
+        start = f'#[repr(C)]\nenum {self.name} {{\n'
+        internal = '\n'.join(f'{name} = {val},' for (name, val) in self.variants)
+        end = '\n}\n'
+
+        return start + s(internal, indent=4) + end
+
+    def to_c(self):
+        start = f'typedef enum {self.name} {{\n'
+        internal = '\n'.join(f'{name} = {val},' for (name, val) in self.variants)
+        end = f'\n}} {self.name};\n'
+
+        return start + s(internal, indent=4) + end
+
+    def to_swig(self):
+        start = f'%javaconst(1);\ntypedef enum {self.name} {{\n'
+        internal = '\n'.join(f'{name} = {val},' for (name, val) in self.variants)
+        end = f'\n}} {self.name};\n'
+
+        return start + s(internal, indent=4) + end
+
 class FunctionWrapper(Function):
     def __init__(self, module, type, name, args):
         body = make_safe_call(type, f'{module}::{name}', args)
@@ -539,23 +629,23 @@ class Program(object):
     def add(self, elem):
         return self
 
+    def format(self, header):
+        return header.format(crate=self.crate, module=self.name)
+
     def to_rust(self):
-        return RUST_HEADER.format(crate=self.crate, module=self.name)\
-            + ''.join(elem.to_rust() for elem in self.elements)
+        return self.format(RUST_HEADER)\
+            + ''.join(elem.to_rust() for elem in self.elements)\
+            + self.format(RUST_FOOTER)
 
     def to_c(self):
-        return C_HEADER.format(module=self.name) + ''.join(elem.to_c() for elem in self.elements)
+        return self.format(C_HEADER)\
+            + ''.join(elem.to_c() for elem in self.elements)\
+            + self.format(C_FOOTER)
 
     def to_swig(self):
-        return SWIG_HEADER.format(module=self.name) + ''.join(elem.to_swig() for elem in self.elements)
-
-    def write_files(self):
-        with open(self.name + '_bindings.rs', 'w') as f:
-            f.write(self.to_rust())
-        with open(self.name + '.h', 'w') as f:
-            f.write(self.to_c())
-        with open(self.name + '.i', 'w') as f:
-            f.write(self.to_swig())
+        return self.format(SWIG_HEADER)\
+            + ''.join(elem.to_swig() for elem in self.elements)\
+            + self.format(SWIG_FOOTER)
 
     def struct(self, *args, **kwargs):
         result = StructWrapper(self.name, *args, **kwargs)
