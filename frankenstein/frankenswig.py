@@ -61,7 +61,7 @@ from collections import namedtuple
 
 from helpers import *
 from type import *
-from function import Function
+from function import Function, FunctionWrapper
 from struct import StructType, StructWrapper
 from enums import CEnum, EnumWrapper
 
