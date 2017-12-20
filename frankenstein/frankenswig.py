@@ -57,6 +57,9 @@ This is the GIL in python, java synchronized blocks, etc.
 It may be reasonable to disable these locks for Sync types, I haven't checked.
 '''
 
+# this file could, uh, use some refactoring :/
+# have fun!
+
 from collections import namedtuple
 import textwrap
 import io
@@ -234,16 +237,22 @@ SWIG_HEADER = '''%module {module}
 '''
 SWIG_FOOTER = ''
 
-PYTHON_HEADER = '''"""GENERATED PYTHON, DO NOT EDIT"""
-from _{module} import ffi, lib
+PYTHON_HEADER = '''"""{docs}"""
 
-_lasterror = ffi.new('char**')
+import _{module}.lib as _lib
+import _{module}.ffi as _ffi
+import threading
+
+# might be cheaper to just allocate new strings, TODO benchmark.
+_lasterrorlock = threading.Lock()
+_lasterror = _ffi.new('char**')
 def _check_errors():
-    err = lib.{module}_get_last_err(_lasterror)
-    if err:
-        errtext = ffi.string(_lasterror[0])
-        lib.{module}_free_err(_lasterror[0])
-        raise Exception(errtext)
+    with _lasterrorlock:
+        err = _lib.{module}_get_last_err(_lasterror)
+        if err:
+            errtext = _ffi.string(_lasterror[0])
+            _lib.{module}_free_err(_lasterror[0])
+            raise Exception(errtext)
 
 '''
 PYTHON_FOOTER = ''
@@ -254,7 +263,6 @@ class Type(object):
     def __init__(self, rust, swig, python, default='!!no default value for type!!'):
         '''Rust: how this type will be represented in the rust shim code.
         Swig: how this type will be represented in swig / c.'''
-        print(rust,swig,python)
         self.rust = rust
         self.swig = swig
         self.python = python
@@ -318,7 +326,7 @@ class StructType(Type):
         super(StructType, self).__init__(
             '*mut '+wrapper.module+'::'+wrapper.name,
             wrapper.c_name+'*',
-            rust_name_to_python(wrapper.name),
+            sanitize_rust_name(wrapper.name),
             default='0 as *mut _'
         )
         self.kind = kind
@@ -378,16 +386,13 @@ class Var(object):
     def to_python(self):
         return self.name
 
-    def wrap_c_value(self):
-        return self.type.wrap_c_value(self.name)
-
 def make_safe_call(type, rust_function, args):
     prefix = []
     args_ = []
     postfix = []
 
     for i, arg in enumerate(args):
-        pre, arg_, post = arg.wrap_c_value()
+        pre, arg_, post = arg.type.wrap_c_value(arg.name)
         if pre != '':
             prefix.append(pre)
         args_.append(arg_)
@@ -410,16 +415,20 @@ def make_safe_call(type, rust_function, args):
 def javadoc(docs):
     return '/**\n' + '\n *'.join(docs.split('\n')) + '\n */'
 
-def rust_name_to_python(name):
+def sanitize_rust_name(name):
     return name.split('::')[-1]
 
 class Function(object):
-    def __init__(self, type, name, args, body='', docs=''):
+    def __init__(self, type, name, args, body='', docs='', pyname=None):
         self.type = type
         self.name = name
         self.args = args
         self.body = body
         self.docs = docs
+        if pyname is None:
+            self.pyname = self.name
+        else:
+            self.pyname = pyname
 
     def to_swig(self):
         result = s(f'''\
@@ -430,16 +439,6 @@ class Function(object):
 
     def to_c(self):
         return f'''{self.type.to_c()} {self.name}({', '.join(a.to_c() for a in self.args)});\n'''
-
-    def to_python(self):
-        args = ', '.join(a.to_python() for a in self.args)
-        return s(f"""\
-        def {self.name}({args}):
-            '''{self.docs}'''
-            result = lib.{self.name}({args})
-            _check_errors()
-            return result
-        """)
 
     def to_rust(self):
         result = s(f'''\
@@ -452,6 +451,32 @@ class Function(object):
         result += '\n}\n'
         return result
 
+    @staticmethod
+    def pyentry(args, pyname, docs):
+        pyargs = ', '.join(a.to_python() for a in args)
+        start = f'def {pyname}({pyargs}):\n'
+        docs = s(f"'''{docs}'''\n", indent=4)
+        #checks = '\n'.join(
+        #    f'assert type({a.name}) is {a.type.to_python()}, "{{}} is not an instance of {a.type.to_python()}".format({a.name})'
+        #    for a in args
+        #) + '\n'
+        return start + docs #+ s(checks, indent=4)
+
+    def to_python(self):
+        # note: we assume that error + null checking, etc. will occur on the rust side.
+        # (it'll probably be much faster there in any case.)
+        if self.pyname != self.name:
+            # this only happens for python methods
+            args = [Var(self.args[0].type, 'self')] + self.args[1:]
+        else:
+            args = self.args
+        pyargs = ', '.join(a.to_python() for a in args)
+
+        body = f'result = _lib.{self.name}({pyargs})\n'
+        body += '_check_errors()\n'
+        body += 'return result\n'
+        return Function.pyentry(args, self.pyname, self.docs) + s(body, indent=4)
+
 class TypedefWrapper(object):
     def __init__(self, module, rust_name, c_type):
         self.type = Type(f'{module}::{rust_name}', c_type.swig, c_type.python, c_type.default)
@@ -462,27 +487,26 @@ class StructWrapper(object):
     def __init__(self, module, name, docs=''):
         self.module = module
         self.name = name
-        self.short_name = name.split("::")[-1]
-        self.c_name = f'{module}_{self.short_name}'
+        self.c_name = f'{module}_{sanitize_rust_name(self.name)}'
         self.members = []
         self.member_docs = []
         self.methods = []
         self.method_names = []
         self.getters = []
+        self.setters = []
         self.type = StructType(self)
         self.constructor_ = None
-        self.constructor_docs = ''
         self.docs = docs
 
         pre, arg, post = self.type.mut_ref().wrap_c_value('this')
         self.destructor = Function(void.type, f'delete_{self.c_name}',
             [Var(self.type, 'this')],
-            pre + f'\nunsafe {{ Box::from_raw({arg}); }}' + post
+            pre + f'\nunsafe {{ Box::from_raw({arg}); }}' + post,
+            pyname='__del__'
         )
 
     def constructor(self, rust_method, args, docs=''):
         assert self.constructor_ is None
-        self.constructor_docs = docs
 
         method = f'{self.module}::{self.name}::{rust_method}'
 
@@ -491,7 +515,8 @@ class StructWrapper(object):
             f'new_{self.c_name}',
             args,
             make_safe_call(self.type, method, args),
-            docs=docs
+            docs=docs,
+            pyname='__init__'
         )
 
         return self
@@ -508,20 +533,22 @@ class StructWrapper(object):
             '\nlet result = ' + type.unwrap_rust_value(arg + '.' + name) + ';\n' +
             post +
             '\nresult',
-            docs=docs
+            docs=docs,
+            pyname=f'{name}'
         )
 
         vpre, varg, vpost = type.wrap_c_value(name)
 
         setter = Function(void.type, f"{self.c_name}_{name}_set",
-            [Var(self.type, 'this'), Var(type,name)],
+            [Var(self.type, 'this'), Var(type, name)],
             pre + vpre +
             f'\n{arg}.{name} = {varg};\n' +
             post + vpost,
-            docs=docs
+            docs=docs,
+            pyname=f'{name}'
         )
         self.getters.append(getter)
-        self.getters.append(setter)
+        self.setters.append(setter)
 
         return self
 
@@ -535,10 +562,9 @@ class StructWrapper(object):
 
         self.methods.append(Function(type, f"{self.c_name}_{name}", actual_args,
             make_safe_call(type, method, actual_args), docs=docs
-        ))
+        ), pyname=name)
         self.method_names.append(name)
         return self
-
 
     def to_c(self):
         assert self.constructor_ is not None
@@ -546,6 +572,7 @@ class StructWrapper(object):
         definition += self.constructor_.to_c()
         definition += self.destructor.to_c()
         definition += ''.join(getter.to_c() for getter in self.getters)
+        definition += ''.join(setter.to_c() for setter in self.setters)
         definition += ''.join(method.to_c() for method in self.methods)
         return definition
 
@@ -589,9 +616,35 @@ class StructWrapper(object):
         definition = self.constructor_.to_rust()
         definition += self.destructor.to_rust()
         definition += ''.join(getter.to_rust() for getter in self.getters)
+        definition += ''.join(setter.to_rust() for setter in self.setters)
         definition += ''.join(method.to_rust() for method in self.methods)
 
         return definition
+
+    def to_python(self):
+        start = f'class {sanitize_rust_name(self.name)}(object):\n'
+
+        cargs = [Var(self.type, 'self')] + self.constructor_.args
+        cinit = Function.pyentry(
+            cargs,
+            '__init__',
+            self.constructor_.docs
+            )
+        cpyargs = ', '.join(a.to_python() for a in cargs)
+        cbody = f'self._ptr = _lib.{self.constructor_.name}({cpyargs})\n'
+        cbody += '_check_errors()\n'
+        cbody += 'assert self._ptr != _ffi.NULL, "unexpected null return value"\n'
+        
+        constructor = cinit + s(cbody, indent=4) + '\n'
+
+        #definition = self.constructor_.to_python()
+        definition = self.destructor.to_python() + '\n'
+        definition += '\n'.join('@property\n' + getter.to_python() for getter in self.getters) + '\n'
+        definition += '\n'.join(f'@{setter.pyname}.setter\n' + setter.to_python()
+                                for setter in self.setters) + '\n'
+        definition += '\n'.join(method.to_python() for method in self.methods) + '\n'
+
+        return start + s(constructor + definition, indent=4)
 
 class CEnum(object):
     '''A c-style enum.'''
@@ -621,22 +674,28 @@ class CEnum(object):
 
         return start + s(internal, indent=4) + end
 
+    def to_python(self):
+        start = f'class {self.name}:\n'
+        internal = '\n'.join(f'{name} = {val}' for (name, val) in self.variants)
+        return start + s(internal, indent=4)
+
 class FunctionWrapper(Function):
     def __init__(self, module, type, name, args):
         body = make_safe_call(type, f'{module}::{name}', args)
         super(FunctionWrapper, self).__init__(type, name, args, body)
 
 class Program(object):
-    def __init__(self, name, crate):
+    def __init__(self, name, crate, docs=''):
         self.name = name
         self.crate = crate
+        self.docs = docs
         self.elements = []
 
     def add(self, elem):
         return self
 
     def format(self, header):
-        return header.format(crate=self.crate, module=self.name)
+        return header.format(crate=self.crate, module=self.name, docs=self.docs)
 
     def to_rust(self):
         return self.format(RUST_HEADER)\
@@ -652,6 +711,11 @@ class Program(object):
         return self.format(SWIG_HEADER)\
             + ''.join(elem.to_swig() for elem in self.elements)\
             + self.format(SWIG_FOOTER)
+    
+    def to_python(self):
+        return self.format(PYTHON_HEADER)\
+            + ''.join(elem.to_python() for elem in self.elements)\
+            + self.format(PYTHON_FOOTER)
 
     def struct(self, *args, **kwargs):
         result = StructWrapper(self.name, *args, **kwargs)
