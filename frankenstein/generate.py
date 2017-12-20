@@ -20,7 +20,11 @@ EntityId = p.typedef('entity::EntityId', u16.type)
 #    .member(u32.type, 'health')\
 #    .constructor('new', [])\
 
-p.elements.append(CEnum('bc_TestEnum', (('x',1),('y',2),('z',3))))
+cenum = CEnum('bc', 'TestEnum')
+cenum.variant('BANANS', 1)
+cenum.variant('DOGGOS', 2)
+
+p.elements.append(cenum)
 
 print('Generating...')
 with open("src/bindings.rs", "w+") as f:
