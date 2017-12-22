@@ -1,3 +1,4 @@
+#[derive(Debug, PartialEq, Eq)]
 pub enum GameError {
     /// The engine encountered a problem. Report this to the devs.
     InternalEngineError,

@@ -178,7 +178,7 @@ impl GameWorld {
         }
     }
 
-    fn get_unit(&self, id: unit::UnitID) -> Option<&unit::Unit> {
+    pub fn get_unit(&self, id: unit::UnitID) -> Option<&unit::Unit> {
         self.units.get(&id)
     }
 
@@ -269,12 +269,42 @@ impl GameWorld {
 #[cfg(test)]
 mod tests {
     use super::GameWorld;
+    use super::unit::Unit;
+    use super::super::location::*;
 
     #[test]
     fn it_works() {}
 
     #[test]
-    fn test_is_occupiable() {
+    fn test_unit_move() {
+        // Create the game world, and create and register some robots.
         let mut world = GameWorld::new();
+        let a = 0;
+        let b = 1;
+        let unit_a = Unit::new(a);
+        let unit_b = Unit::new(b);
+        world.register_unit(unit_a);
+        world.register_unit(unit_b);
+
+        // Place the robots onto the map. B is one square east of A.
+        assert_eq![world.place_unit(a, MapLocation::new(Planet::Earth, 5, 5)), Ok(())];
+        assert_eq![world.place_unit(b, MapLocation::new(Planet::Earth, 6, 5)), Ok(())];
+
+        // Robot A cannot move east, as this is where B is. However,
+        // it can move northeast.
+        assert![!world.can_move(a, Direction::East)];
+        assert![world.can_move(a, Direction::Northeast)];
+        assert_eq![world.move_unit(a, Direction::Northeast), Ok(())];
+
+        // A is now one square north of B. B cannot move north to
+        // A's new location, but can move west to A's old location.
+        assert![!world.can_move(b, Direction::North)];
+        assert![world.can_move(b, Direction::West)];
+        assert_eq![world.move_unit(b, Direction::West), Ok(())];
+
+        // Finally, let's test that A cannot move back to its old square.
+        assert![!world.can_move(a, Direction::Southwest)];
+        assert![world.can_move(a, Direction::South)];
+        assert_eq![world.move_unit(a, Direction::South), Ok(())];
     }
 }

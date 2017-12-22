@@ -54,6 +54,19 @@ pub struct Unit {
 }
 
 impl Unit {
+
+    /// Create a generic unit, for testing purposes.
+    pub fn new(id: UnitID) -> Unit {
+        Unit {
+            id: id,
+            team: Team::Red,
+            max_health: 10,
+            location: location::MapLocation::new(location::Planet::Earth, -1, -1),
+            health: 10,
+            unit_info: Knight(KnightInfo{}),
+        }
+    }
+
     /// Returns whether the unit is currently able to make a movement to a valid location.
     pub fn is_move_ready(&self) -> bool {
         match self.unit_info {
