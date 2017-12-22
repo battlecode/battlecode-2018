@@ -71,12 +71,6 @@ pub struct PlanetInfo {
     /// represents a square's y-coordinate, and the second index its 
     /// x-coordinate. These coordinates are *relative to the origin*.
     karbonite: Vec<Vec<u32>>,
-
-    /// All the units on the map.
-    units: FnvHashMap<unit::UnitID, unit::Unit>,
-
-    /// All the units on the map, by location.
-    units_by_loc: FnvHashMap<MapLocation, unit::Unit>,
 }
 
 impl PlanetInfo {
@@ -84,8 +78,6 @@ impl PlanetInfo {
         PlanetInfo {
             map: Map::new(),
             karbonite: vec![vec![0; MAP_MAX_WIDTH]; MAP_MAX_HEIGHT],
-            units: FnvHashMap::default(),
-            units_by_loc: FnvHashMap::default(),
         }
     }
 }
@@ -146,6 +138,12 @@ pub struct GameWorld {
     /// The player whose turn it is.
     pub player_to_move: Player,
 
+    /// All the units on the map.
+    units: FnvHashMap<unit::UnitID, unit::Unit>,
+
+    /// All the units on the map, by location.
+    units_by_loc: FnvHashMap<MapLocation, unit::UnitID>,
+
     pub planet_states: FnvHashMap<Planet, PlanetInfo>,
     pub team_states: FnvHashMap<Team, TeamInfo>,
 }
@@ -157,21 +155,23 @@ impl GameWorld {
         GameWorld {
             round: 1,
             player_to_move: Player { team: Team::Red, planet: Planet::Earth },
+            units: FnvHashMap::default(),
+            units_by_loc: FnvHashMap::default(),
             planet_states: planet_states,
             team_states: FnvHashMap::default(),
         }
     }
 
-    fn get_planet_info(&self) -> &PlanetInfo {
-        if let Some(planet_info) = self.planet_states.get(&self.player_to_move.planet) {
+    fn get_planet_info(&self, planet: Planet) -> &PlanetInfo {
+        if let Some(planet_info) = self.planet_states.get(&planet) {
             planet_info
         } else {
             panic!("Internal engine error");
         }
     }
     
-    fn get_planet_info_mut(&mut self) -> &mut PlanetInfo {
-        if let Some(planet_info) = self.planet_states.get_mut(&self.player_to_move.planet) {
+    fn get_planet_info_mut(&mut self, planet: Planet) -> &mut PlanetInfo {
+        if let Some(planet_info) = self.planet_states.get_mut(&planet) {
             planet_info
         } else {
             panic!("Internal engine error");
@@ -179,52 +179,82 @@ impl GameWorld {
     }
 
     fn get_unit(&self, id: unit::UnitID) -> Option<&unit::Unit> {
-        self.get_planet_info().units.get(&id)
+        self.units.get(&id)
     }
 
     fn get_unit_mut(&mut self, id: unit::UnitID) -> Option<&mut unit::Unit> {
-        self.get_planet_info_mut().units.get_mut(&id)
+        self.units.get_mut(&id)
     }
 
-    /// Returns whether the square is clear for a new unit to occupy, either by movement or by construction.
-    pub fn is_occupiable(&self, location: &MapLocation) -> bool {
-        let planet_info = &self.planet_states[&location.planet];
-        return planet_info.map.is_passable_terrain[location.y as usize][location.x as usize] &&
-            !planet_info.units_by_loc.contains_key(location);
-    }
-    
-    // Given that moving an unit comprises many edits to the GameWorld, it makes sense to define this here.
-    pub fn move_unit(&mut self, id: unit::UnitID, direction: Direction) -> Result<(), GameError> {
-        let (src, dest) = if let Some(unit) = self.get_unit(id) {
-            if unit.is_move_ready() {
-                (unit.location, unit.location.add(direction))
-            } else {
-                return Err(GameError::InvalidAction);
-            }
-        } else {
-            return Err(GameError::NoSuchUnit);
-        };
-        if self.is_occupiable(&dest) {
+    /// Places a unit onto the map at the given location. Assumes the given square is occupiable.
+    pub fn place_unit(&mut self, id: unit::UnitID, location: MapLocation) -> Result<(), GameError> {
+        if self.is_occupiable(location) {
             if let Some(unit) = self.get_unit_mut(id) {
-                if unit.is_move_ready() {
-                    unit.location = dest;
-                } else {
-                    return Err(GameError::InvalidAction);
-                }
+                unit.location = location;
             } else {
-                // It should be impossible for this error to trigger, given that we've already
-                // checked that the unit exists.
                 return Err(GameError::InternalEngineError);
             }
-        } else {
-            return Err(GameError::InvalidAction);
-        }
-        let planet_info = self.get_planet_info_mut();
-        if let Some(unit) = planet_info.units_by_loc.remove(&src) {
-            planet_info.units_by_loc.insert(dest, unit);
+            self.units_by_loc.insert(location, id);
             Ok(())
         } else {
             Err(GameError::InternalEngineError)
+        }
+    }
+
+    /// Removes a unit from the map. Assumes the unit is on the map.
+    pub fn remove_unit(&mut self, id: unit::UnitID) -> Result<(), GameError> {
+        let location = if let Some(unit) = self.get_unit_mut(id) {
+            // TODO: unit locations should probably be an Option
+            // to better handle unplaced units.
+            let location = unit.location;
+            unit.location = MapLocation::new(Planet::Earth, -1, -1);
+            location
+        } else {
+            return Err(GameError::InternalEngineError);
+        };
+        self.units_by_loc.remove(&location);
+        Ok(())
+    }
+
+    /// Inserts a given unit into the GameWorld, so that it can be referenced by ID.
+    pub fn register_unit(&mut self, unit: unit::Unit) {
+        self.units.insert(unit.id, unit);
+    }
+
+    /// Deletes a unit. Unit should be removed from map first.
+    pub fn delete_unit(&mut self, id: unit::UnitID) {
+        self.units.remove(&id);
+    }
+
+    /// Returns whether the square is clear for a new unit to occupy, either by movement or by construction.
+    pub fn is_occupiable(&self, location: MapLocation) -> bool {
+        let planet_info = &self.planet_states[&location.planet];
+        return planet_info.map.is_passable_terrain[location.y as usize][location.x as usize] &&
+            !self.units_by_loc.contains_key(&location);
+    }
+
+    /// Tests whether the given unit can move.
+    pub fn can_move(&self, id: unit::UnitID, direction: Direction) -> bool {
+        if let Some(unit) = self.get_unit(id) {
+            unit.is_move_ready() && self.is_occupiable(unit.location.add(direction))
+        } else {
+            panic!("Internal Engine Error");
+        }
+    }
+
+    // Given that moving an unit comprises many edits to the GameWorld, it makes sense to define this here.
+    pub fn move_unit(&mut self, id: unit::UnitID, direction: Direction) -> Result<(), GameError> {
+        let dest = if let Some(unit) = self.get_unit(id) {
+            unit.location.add(direction)
+        } else {
+            return Err(GameError::NoSuchUnit);
+        };
+        if self.can_move(id, direction) {
+            self.remove_unit(id);
+            self.place_unit(id, dest);
+            Ok(())
+        } else {
+            Err(GameError::InvalidAction)
         }
     }
 
@@ -245,6 +275,6 @@ mod tests {
 
     #[test]
     fn test_is_occupiable() {
-        let mut world = GameWorld::new()
+        let mut world = GameWorld::new();
     }
 }
