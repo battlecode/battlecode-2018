@@ -2,8 +2,9 @@
 
 use fnv::FnvHashMap;
 
+use super::constants::*;
 use super::schema::Delta;
-use super::location;
+use super::location::*;
 use super::unit;
 use super::research;
 use super::error::GameError;
@@ -31,7 +32,7 @@ pub struct Map {
     /// minimum x and y coordinates for this map. Each lies within
     /// [constants::MAP_MIN_COORDINATE, constants::MAP_MAX_COORDINATE],
     /// inclusive.
-    origin: location::MapLocation,
+    origin: MapLocation,
 
     /// Whether the specified square contains passable terrain. Is only
     /// false when the square contains impassable terrain (distinct from
@@ -41,6 +42,17 @@ pub struct Map {
     /// represents a square's y-coordinate, and the second index its 
     /// x-coordinate. These coordinates are *relative to the origin*.
     is_passable_terrain: Vec<Vec<bool>>,
+}
+
+impl Map {
+    pub fn new() -> Map {
+        Map {
+            height: MAP_MIN_HEIGHT,
+            width: MAP_MIN_WIDTH,
+            origin: MapLocation::new(Planet::Earth, 0, 0),
+            is_passable_terrain: vec![vec![true; MAP_MIN_WIDTH]; MAP_MIN_HEIGHT],
+        }
+    }
 }
 
 /// The state for one of the planets in a game.
@@ -64,7 +76,18 @@ pub struct PlanetInfo {
     units: FnvHashMap<unit::UnitID, unit::Unit>,
 
     /// All the units on the map, by location.
-    units_by_loc: FnvHashMap<location::MapLocation, unit::Unit>,
+    units_by_loc: FnvHashMap<MapLocation, unit::Unit>,
+}
+
+impl PlanetInfo {
+    pub fn new() -> PlanetInfo {
+        PlanetInfo {
+            map: Map::new(),
+            karbonite: vec![vec![0; MAP_MAX_WIDTH]; MAP_MAX_HEIGHT],
+            units: FnvHashMap::default(),
+            units_by_loc: FnvHashMap::default(),
+        }
+    }
 }
 
 /// A team-shared communication array.
@@ -79,7 +102,7 @@ pub type TeamArrayHistory = Vec<TeamArray>;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TeamInfo {
     /// Communication array histories for each planet.
-    team_arrays: FnvHashMap<location::Planet, TeamArrayHistory>,
+    team_arrays: FnvHashMap<Planet, TeamArrayHistory>,
 
     /// The current status of the team's research. The values defines the level
     /// of the research, where 0 represents no progress.
@@ -93,6 +116,17 @@ pub struct TeamInfo {
     research_rounds_left: u32,
 }
 
+impl TeamInfo {
+    pub fn new() -> TeamInfo {
+        TeamInfo {
+            team_arrays: FnvHashMap::default(),
+            research_status: FnvHashMap::default(),
+            research_queue: Vec::new(),
+            research_rounds_left: 0,
+        }
+    }
+}
+
 /// A player represents a program controlling some group of units.
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub struct Player {
@@ -100,7 +134,7 @@ pub struct Player {
     pub team: Team,
 
     /// The planet for this player. Each team disjointly controls the robots on each planet.
-    pub planet: location::Planet,
+    pub planet: Planet,
 }
 
 /// The full world of the Battlecode game.
@@ -112,16 +146,18 @@ pub struct GameWorld {
     /// The player whose turn it is.
     pub player_to_move: Player,
 
-    pub planet_states: FnvHashMap<location::Planet, PlanetInfo>,
+    pub planet_states: FnvHashMap<Planet, PlanetInfo>,
     pub team_states: FnvHashMap<Team, TeamInfo>,
 }
 
 impl GameWorld {
     pub fn new() -> GameWorld {
+        let mut planet_states = FnvHashMap::default();
+        planet_states.insert(Planet::Earth, PlanetInfo::new());
         GameWorld {
             round: 1,
-            player_to_move: Player { team: Team::Red, planet: location::Planet::Earth },
-            planet_states: FnvHashMap::default(),
+            player_to_move: Player { team: Team::Red, planet: Planet::Earth },
+            planet_states: planet_states,
             team_states: FnvHashMap::default(),
         }
     }
@@ -151,14 +187,14 @@ impl GameWorld {
     }
 
     /// Returns whether the square is clear for a new unit to occupy, either by movement or by construction.
-    fn is_occupiable(&self, location: &location::MapLocation) -> bool {
+    pub fn is_occupiable(&self, location: &MapLocation) -> bool {
         let planet_info = &self.planet_states[&location.planet];
         return planet_info.map.is_passable_terrain[location.y as usize][location.x as usize] &&
             !planet_info.units_by_loc.contains_key(location);
     }
-
+    
     // Given that moving an unit comprises many edits to the GameWorld, it makes sense to define this here.
-    pub fn move_unit(&mut self, id: unit::UnitID, direction: location::Direction) -> Result<(), GameError> {
+    pub fn move_unit(&mut self, id: unit::UnitID, direction: Direction) -> Result<(), GameError> {
         let (src, dest) = if let Some(unit) = self.get_unit(id) {
             if unit.is_move_ready() {
                 (unit.location, unit.location.add(direction))
@@ -202,6 +238,13 @@ impl GameWorld {
 
 #[cfg(test)]
 mod tests {
+    use super::GameWorld;
+
     #[test]
     fn it_works() {}
+
+    #[test]
+    fn test_is_occupiable() {
+        let mut world = GameWorld::new()
+    }
 }
