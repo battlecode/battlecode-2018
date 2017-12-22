@@ -120,6 +120,7 @@ impl MapLocation {
 mod tests {
     use super::Direction::*;
     use super::MapLocation;
+    use super::Planet;
 
     #[test]
     fn direction_opposite() {
@@ -163,14 +164,14 @@ mod tests {
     #[test]
     fn map_location_add() {
         let mut loc = MapLocation { planet: Planet::Earth, x: 0, y: 0 };
-        assert_eq!(loc.add(North),      MapLocation { x: 0, y: -1 });
-        assert_eq!(loc.add(Northeast),  MapLocation { x: 1, y: -1 });
-        assert_eq!(loc.add(East),       MapLocation { x: 1, y: 0 });
-        assert_eq!(loc.add(Southeast),  MapLocation { x: 1, y: 1 });
-        assert_eq!(loc.add(South),      MapLocation { x: 0, y: 1 });
-        assert_eq!(loc.add(Southwest),  MapLocation { x: -1, y: 1 });
-        assert_eq!(loc.add(West),       MapLocation { x: -1, y: 0 });
-        assert_eq!(loc.add(Northwest),  MapLocation { x: -1, y: -1 });
-        assert_eq!(loc.add(Center),     MapLocation { x: 0, y: 0 });
+        assert_eq!(loc.add(North),      MapLocation { planet: Planet::Earth, x: 0, y: -1 });
+        assert_eq!(loc.add(Northeast),  MapLocation { planet: Planet::Earth, x: 1, y: -1 });
+        assert_eq!(loc.add(East),       MapLocation { planet: Planet::Earth, x: 1, y: 0 });
+        assert_eq!(loc.add(Southeast),  MapLocation { planet: Planet::Earth, x: 1, y: 1 });
+        assert_eq!(loc.add(South),      MapLocation { planet: Planet::Earth, x: 0, y: 1 });
+        assert_eq!(loc.add(Southwest),  MapLocation { planet: Planet::Earth, x: -1, y: 1 });
+        assert_eq!(loc.add(West),       MapLocation { planet: Planet::Earth, x: -1, y: 0 });
+        assert_eq!(loc.add(Northwest),  MapLocation { planet: Planet::Earth, x: -1, y: -1 });
+        assert_eq!(loc.add(Center),     MapLocation { planet: Planet::Earth, x: 0, y: 0 });
     }
 }

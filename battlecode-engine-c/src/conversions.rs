@@ -63,7 +63,6 @@ mod tests {
     #[test]
     fn map_location_convertions() {
         let l = bc_map_location_t {
-            planet: Planet::Earth,
             x: -32,
             y: 57
         };
