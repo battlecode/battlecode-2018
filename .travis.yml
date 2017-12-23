@@ -15,7 +15,7 @@ cache:
     - target
     - ~/.cache/pip
 install:
-  - python3 -m pip install -r battlecode-engine-py/requirements.txt --user
+  - python3 -m pip install -r frankenstein/python/requirements.txt --user
 
 script:
   - cargo build --verbose --all

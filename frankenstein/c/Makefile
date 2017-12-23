@@ -7,7 +7,7 @@ default: c_test
 
 test: c_test_run
 
-c_test: test/c_test.c cargo
+c_test: test/c_test.c
 	$(call build_command,$(CC) test/c_test.c -std=gnu99 \
 		-o test/c_test -g -Iinclude/ -L../../target/debug/deps -lbattlecode)
 
@@ -18,7 +18,3 @@ c_test_run: c_test
 .PHONY: clean
 clean:
 	rm test/*o test/c_test
-
-.PHONY: cargo
-cargo:
-	cargo build
