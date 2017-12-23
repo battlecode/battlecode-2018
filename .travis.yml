@@ -19,7 +19,7 @@ install:
 
 script:
   - cargo build --verbose --all
-  - bash ./run_all_tests.sh
+  - make test
   - |
     if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
       bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)
