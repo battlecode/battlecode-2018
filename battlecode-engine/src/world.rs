@@ -8,6 +8,7 @@ use super::location::*;
 use super::unit;
 use super::research;
 use super::error::GameError;
+use failure::Error;
 
 /// There are two teams in Battlecode: Red and Blue.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Hash, PartialEq, Eq)]
@@ -187,22 +188,22 @@ impl GameWorld {
     }
 
     /// Places a unit onto the map at the given location. Assumes the given square is occupiable.
-    pub fn place_unit(&mut self, id: unit::UnitID, location: MapLocation) -> Result<(), GameError> {
+    pub fn place_unit(&mut self, id: unit::UnitID, location: MapLocation) -> Result<(), Error> {
         if self.is_occupiable(location) {
             if let Some(unit) = self.get_unit_mut(id) {
                 unit.location = location;
             } else {
-                return Err(GameError::InternalEngineError);
+                Err(GameError::InternalEngineError)?
             }
             self.units_by_loc.insert(location, id);
             Ok(())
         } else {
-            Err(GameError::InternalEngineError)
+            Err(GameError::InternalEngineError)?
         }
     }
 
     /// Removes a unit from the map. Assumes the unit is on the map.
-    pub fn remove_unit(&mut self, id: unit::UnitID) -> Result<(), GameError> {
+    pub fn remove_unit(&mut self, id: unit::UnitID) -> Result<(), Error> {
         let location = if let Some(unit) = self.get_unit_mut(id) {
             // TODO: unit locations should probably be an Option
             // to better handle unplaced units.
@@ -210,7 +211,7 @@ impl GameWorld {
             unit.location = MapLocation::new(Planet::Earth, -1, -1);
             location
         } else {
-            return Err(GameError::InternalEngineError);
+            Err(GameError::InternalEngineError)?
         };
         self.units_by_loc.remove(&location);
         Ok(())
@@ -243,22 +244,22 @@ impl GameWorld {
     }
 
     // Given that moving an unit comprises many edits to the GameWorld, it makes sense to define this here.
-    pub fn move_unit(&mut self, id: unit::UnitID, direction: Direction) -> Result<(), GameError> {
+    pub fn move_unit(&mut self, id: unit::UnitID, direction: Direction) -> Result<(), Error> {
         let dest = if let Some(unit) = self.get_unit(id) {
             unit.location.add(direction)
         } else {
-            return Err(GameError::NoSuchUnit);
+            Err(GameError::NoSuchUnit)?
         };
         if self.can_move(id, direction) {
             self.remove_unit(id);
             self.place_unit(id, dest);
             Ok(())
         } else {
-            Err(GameError::InvalidAction)
+            Err(GameError::InvalidAction)?
         }
     }
 
-    fn apply(&mut self, delta: Delta) -> Result<(), GameError> {
+    fn apply(&mut self, delta: Delta) -> Result<(), Error> {
         match delta {
             Delta::Move{id, direction} => self.move_unit(id, direction),
             _ => Ok(()),

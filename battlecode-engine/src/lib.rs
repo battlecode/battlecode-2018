@@ -15,7 +15,7 @@ extern crate serde;
 extern crate serde_json;
 
 // Error handling.
-extern crate failure;
+#[macro_use] extern crate failure;
 
 // Provides FnvHashMap and FnvHashSet, which are like std::HashMap and std::HashSet, but
 // significantly faster for integer keys.
