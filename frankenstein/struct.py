@@ -61,6 +61,9 @@ class StructType(Type):
 
         return f'Box::into_raw(Box::new(borrow_check({result})))'
 
+    def unwrap_python_value(self, name):
+        return f'{name}._ptr'
+
 class StructWrapper(object):
     def __init__(self, module, name, docs=''):
         self.module = module
@@ -208,10 +211,9 @@ class StructWrapper(object):
             '__init__',
             self.constructor_.docs
             )
-        cpyargs = ', '.join(a.to_python() for a in cargs)
+        cpyargs = ', '.join(a.type.unwrap_python_value(a.name) for a in cargs[1:])
         cbody = f'self._ptr = _lib.{self.constructor_.name}({cpyargs})\n'
         cbody += '_check_errors()\n'
-        cbody += 'assert self._ptr != _ffi.NULL, "unexpected null return value"\n'
         
         constructor = cinit + s(cbody, indent=4) + '\n'
 

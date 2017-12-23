@@ -38,21 +38,18 @@ class Function(object):
         pyargs = ', '.join(a.to_python() for a in args)
         start = f'def {pyname}({pyargs}):\n'
         docs = s(f"'''{docs}'''\n", indent=4)
-        #checks = '\n'.join(
-        #    f'assert type({a.name}) is {a.type.to_python()}, "{{}} is not an instance of {a.type.to_python()}".format({a.name})'
-        #    for a in args
-        #) + '\n'
         return start + docs #+ s(checks, indent=4)
 
     def to_python(self):
         # note: we assume that error + null checking, etc. will occur on the rust side.
         # (it'll probably be much faster there in any case.)
         if self.pyname != self.name:
-            # this only happens for python methods
+            # this only happens for python methods, lol
+            # kinda a dirty hack
             args = [Var(self.args[0].type, 'self')] + self.args[1:]
         else:
             args = self.args
-        pyargs = ', '.join(a.to_python() for a in args)
+        pyargs = ', '.join(a.type.unwrap_python_value(a.name) for a in args)
 
         body = f'result = _lib.{self.name}({pyargs})\n'
         body += '_check_errors()\n'

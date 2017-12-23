@@ -34,6 +34,9 @@ class Type(object):
     def unwrap_rust_value(self, value):
        return value
 
+    def unwrap_python_value(self, value):
+        return value
+
 class BuiltinWrapper(object):
     def __init__(self, *args):
         self.type = Type(*args)

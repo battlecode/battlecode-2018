@@ -36,6 +36,6 @@ with open("bc.h", "w+") as f:
 with open("bc.i", "w+") as f:
     f.write(p.to_swig())
 
-with open("python/bc.py", "w+") as f:
+with open("python/battlecode/bc.py", "w+") as f:
     f.write(p.to_python())
 print('Done.')

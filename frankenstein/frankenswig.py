@@ -236,8 +236,8 @@ SWIG_FOOTER = ''
 
 PYTHON_HEADER = '''"""{docs}"""
 
-import _{module}.lib as _lib
-import _{module}.ffi as _ffi
+from ._{module} import ffi as _ffi
+from ._{module} import lib as _lib
 import threading
 
 # might be cheaper to just allocate new strings, TODO benchmark.
