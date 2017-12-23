@@ -3,13 +3,13 @@
 //! as handwritten message parsing.
 
 use super::location::*;
-use super::entity::*;
+use super::unit::*;
 
 /// A single, atomic "change" in the game world.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Delta {
     /// Moves a robot with the given ID.
-    Move { id: EntityID, location: MapLocation },
+    Move { id: UnitID, direction: Direction },
     /// Nothing happens.
     Nothing,
 }
