@@ -55,3 +55,13 @@ u64 = BuiltinWrapper('u64', 'uint64_t', 'int', '0')
 i64 = BuiltinWrapper('i64', 'int64_t', 'int', '0')
 void = BuiltinWrapper('()', 'void', 'int', '()')
 
+# boolean's an odd case.
+# it's size isn't actually defined by C, so we can't return it from rust.
+# instead, we pass around uint8s, and convert them to bools when they get into other languages.
+# todo: java
+boolean = BuiltinWrapper('u8', 'uint8_t', 'bool', '0')
+boolean.type.wrap_c_value = lambda name: ('', f'{name} as bool', '')
+boolean.type.unwrap_rust_value = lambda name: f'{name} as u8'
+boolean.type.python_postfix = lambda: 'result = bool(result)\n'
+boolean.type.unwrap_python_value = lambda name: f'int({name})'
+

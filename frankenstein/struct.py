@@ -38,7 +38,7 @@ class StructType(Type):
 
     def wrap_c_value(self, name):
         if self.kind == StructType.RUST_BY_VALUE:
-            name = f'(*{name}).clone()'
+            name = f'(unsafe{{&*{name}}}).clone()'
             return ('', name, '')
         elif self.kind == StructType.RUST_MUT_REF:
             pre_check = f'let _{name} = check_null!({name}, default);'

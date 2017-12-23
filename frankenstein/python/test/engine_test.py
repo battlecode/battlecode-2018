@@ -16,3 +16,7 @@ def test_direction():
     locne = loc.add(bc.Direction.Northeast)
     assert locne.x == 2, locne.x
     assert locne.y == 1, locne.y
+
+def test_unit():
+    unit = bc.Unit(0, bc.Team.Red, 100, bc.MapLocation(bc.Planet.Earth,1,2), 100, bc.UnitInfo())
+    assert unit.is_move_ready()

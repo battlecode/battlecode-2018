@@ -40,18 +40,25 @@ MapLocation = p.struct('location::MapLocation',
 
 MapLocation.method(MapLocation.type, 'add', [Var(Direction.type, 'direction')])
 
-   
+UnitID = p.typedef('unit::UnitID', u16.type)
 
+Team = p.c_enum('world::Team')\
+    .variant('Red', 0)\
+    .variant('Blue', 1)
 
-EntityId = p.typedef('entity::EntityId', u16.type)
+UnitInfo = p.struct('unit::UnitInfo')\
+    .constructor('default', [])
 
-#EntityInfo = p.struct('entity::EntityInfo',
-#    'Generic info for a single entity, and the associated body.')\
-#    .member(EntityId.type, 'id')\
-#    .member(u32.type, 'max_health')\
-#    .member(MapLocation.type, 'location')\
-#    .member(u32.type, 'health')\
-#    .constructor('new', [])\
+Unit = p.struct('unit::Unit')\
+    .constructor('new', [
+        Var(UnitID.type, 'id'),
+        Var(Team.type, 'team'),
+        Var(u32.type, 'max_health'),
+        Var(MapLocation.type, 'location'),
+        Var(u32.type, 'health'),
+        Var(UnitInfo.type, 'unit_info')
+    ])\
+    .method(boolean.type, 'is_move_ready', [])
 
 print('Generating...')
 with open("src/bindings.rs", "w+") as f:
