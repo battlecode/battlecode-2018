@@ -163,7 +163,7 @@ mod tests {
 
     #[test]
     fn map_location_add() {
-        let mut loc = MapLocation { planet: Planet::Earth, x: 0, y: 0 };
+        let loc = MapLocation { planet: Planet::Earth, x: 0, y: 0 };
         assert_eq!(loc.add(North),      MapLocation { planet: Planet::Earth, x: 0, y: -1 });
         assert_eq!(loc.add(Northeast),  MapLocation { planet: Planet::Earth, x: 1, y: -1 });
         assert_eq!(loc.add(East),       MapLocation { planet: Planet::Earth, x: 1, y: 0 });

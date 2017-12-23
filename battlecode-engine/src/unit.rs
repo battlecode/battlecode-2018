@@ -1,4 +1,4 @@
-//! Entities are player-controlled units with certain characteristics and
+//! Units are player-controlled entities that can perform certain
 //! game actions, depending on their type.
 
 use super::location;
@@ -56,7 +56,7 @@ pub struct Unit {
 impl Unit {
 
     /// Create a generic unit, for testing purposes.
-    pub fn new(id: UnitID) -> Unit {
+    pub fn test_unit(id: UnitID) -> Unit {
         Unit {
             id: id,
             team: Team::Red,

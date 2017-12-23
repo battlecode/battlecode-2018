@@ -46,7 +46,7 @@ pub struct Map {
 }
 
 impl Map {
-    pub fn new() -> Map {
+    pub fn test_map() -> Map {
         Map {
             height: MAP_MIN_HEIGHT,
             width: MAP_MIN_WIDTH,
@@ -75,9 +75,9 @@ pub struct PlanetInfo {
 }
 
 impl PlanetInfo {
-    pub fn new() -> PlanetInfo {
+    pub fn test_planet_info() -> PlanetInfo {
         PlanetInfo {
-            map: Map::new(),
+            map: Map::test_map(),
             karbonite: vec![vec![0; MAP_MAX_WIDTH]; MAP_MAX_HEIGHT],
         }
     }
@@ -150,9 +150,22 @@ pub struct GameWorld {
 }
 
 impl GameWorld {
+
     pub fn new() -> GameWorld {
+        GameWorld {
+            round: 1,
+            player_to_move: Player { team: Team::Red, planet: Planet::Earth },
+            units: FnvHashMap::default(),
+            units_by_loc: FnvHashMap::default(),
+            planet_states: FnvHashMap::default(),
+            team_states: FnvHashMap::default(),
+        }
+    }
+
+    /// Creates a GameWorld for testing purposes.
+    pub fn test_world() -> GameWorld {
         let mut planet_states = FnvHashMap::default();
-        planet_states.insert(Planet::Earth, PlanetInfo::new());
+        planet_states.insert(Planet::Earth, PlanetInfo::test_planet_info());
         GameWorld {
             round: 1,
             player_to_move: Player { team: Team::Red, planet: Planet::Earth },
@@ -221,7 +234,7 @@ impl GameWorld {
     }
 
     /// Inserts a given unit into the GameWorld, so that it can be referenced by ID.
-    pub fn register_unit(&mut self, unit: unit::Unit) {
+    pub fn add_unit(&mut self, unit: unit::Unit) {
         self.units.insert(unit.id, unit);
     }
 
@@ -274,14 +287,14 @@ mod tests {
 
     #[test]
     fn test_unit_move() {
-        // Create the game world, and create and register some robots.
-        let mut world = GameWorld::new();
+        // Create the game world, and create and add some robots.
+        let mut world = GameWorld::test_world();
         let a = 0;
         let b = 1;
-        let unit_a = Unit::new(a);
-        let unit_b = Unit::new(b);
-        world.register_unit(unit_a);
-        world.register_unit(unit_b);
+        let unit_a = Unit::test_unit(a);
+        let unit_b = Unit::test_unit(b);
+        world.add_unit(unit_a);
+        world.add_unit(unit_b);
 
         // Place the robots onto the map. B is one square east of A.
         world.place_unit(a, MapLocation::new(Planet::Earth, 5, 5)).unwrap();
