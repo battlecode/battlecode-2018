@@ -27,9 +27,9 @@ ffibuilder.cdef(stripped)
 ffibuilder.set_source(
     'battlecode._bc',
     contents,
-    library_dirs=['../../target/debug/deps'],
+    library_dirs=['../../target/release/deps'],
     libraries=libraries,
-    extra_link_args=['../../target/debug/deps/libbattlecode.a']
+    extra_link_args=['../../target/release/deps/libbattlecode.a']
 )
 
 if __name__ == '__main__':

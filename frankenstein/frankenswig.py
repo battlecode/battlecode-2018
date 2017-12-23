@@ -117,7 +117,19 @@ fn set_error(code: SwigError, err: String) {{
         *e.borrow_mut() = Some((code, err));
     }});
 }}
+
 // called from c
+#[no_mangle]
+pub unsafe extern "C" fn {module}_has_err() -> u8 {{
+    let mut result = 0;
+    ERROR.with(|e| {{
+        if let &Some(..) = &*e.borrow() {{
+            result = 1;
+        }}
+    }});
+    result
+}}
+
 #[no_mangle]
 pub unsafe extern "C" fn {module}_get_last_err(result: *mut *mut c_char) -> i8 {{
     let mut result_code = 0i8;
@@ -183,6 +195,7 @@ extern "C" {{
 #endif
 
 #include <stdint.h>
+uint8_t {module}_has_err();
 int8_t {module}_get_last_err(char** result);
 int8_t {module}_free_err(char* err);
 '''
@@ -242,15 +255,13 @@ import threading
 import enum
 
 # might be cheaper to just allocate new strings, TODO benchmark.
-_lasterrorlock = threading.Lock()
-_lasterror = _ffi.new('char**')
 def _check_errors():
-    with _lasterrorlock:
+    if _lib.{module}_has_err():
+        _lasterror = _ffi.new('char**')
         err = _lib.{module}_get_last_err(_lasterror)
-        if err:
-            errtext = _ffi.string(_lasterror[0])
-            _lib.{module}_free_err(_lasterror[0])
-            raise Exception(errtext)
+        errtext = _ffi.string(_lasterror[0])
+        _lib.{module}_free_err(_lasterror[0])
+        raise Exception(errtext)
 
 '''
 PYTHON_FOOTER = ''
