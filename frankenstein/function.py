@@ -1,16 +1,12 @@
 from helpers import *
 
 class Function(object):
-    def __init__(self, type, name, args, body='', docs='', pyname=None):
+    def __init__(self, type, name, args, body='', docs=''):
         self.type = type
         self.name = name
         self.args = args
         self.body = body
         self.docs = docs
-        if pyname is None:
-            self.pyname = self.name
-        else:
-            self.pyname = pyname
 
     def to_swig(self):
         result = s(f'''\
@@ -40,19 +36,49 @@ class Function(object):
         docs = s(f"'''{docs}'''\n", indent=4)
         return start + docs #+ s(checks, indent=4)
 
+    def to_swig(self):
+        result = s(f'''\
+            %feature("docstring", "{self.docs}");
+            {self.type.to_swig()} {self.name}({', '.join(a.to_swig() for a in self.args)});
+        ''')
+        return result
+
     def to_python(self):
         # note: we assume that error + null checking, etc. will occur on the rust side.
         # (it'll probably be much faster there in any case.)
-        if self.pyname != self.name:
-            # this only happens for python methods, lol
-            # kinda a dirty hack
-            args = [Var(self.args[0].type, 'self')] + self.args[1:]
+        pyargs = ', '.join(a.type.unwrap_python_value(a.name) for a in self.args)
+
+        body = f'result = _lib.{self.name}({pyargs})\n'
+        body += '_check_errors()\n'
+        body += self.type.python_postfix()
+        body += 'return result\n'
+        return Function.pyentry(self.args, self.name, self.docs) + s(body, indent=4)
+
+class Method(Function):
+    '''A function contained within some type.'''
+    def __init__(self, type, container, method_name, args, body='', docs='', pyname=None):
+        self.container = container
+        self.method_name = method_name
+        super().__init__(type, f'{self.container}_{self.method_name}', args, body, docs)
+        if pyname is None:
+            self.pyname = self.method_name
         else:
-            args = self.args
+            self.pyname = pyname
+
+    def to_swig(self):
+        result = s(f'''\
+            %feature("docstring", "{self.docs}");
+            {self.type.to_swig()} {self.method_name}({', '.join(a.to_swig() for a in self.args)});
+        ''')
+        return result
+    
+    def to_python(self):
+        args = [Var(self.args[0].type, 'self')] + self.args[1:]
         pyargs = ', '.join(a.type.unwrap_python_value(a.name) for a in args)
 
         body = f'result = _lib.{self.name}({pyargs})\n'
         body += '_check_errors()\n'
+        body += self.type.python_postfix()
         body += 'return result\n'
         return Function.pyentry(args, self.pyname, self.docs) + s(body, indent=4)
 

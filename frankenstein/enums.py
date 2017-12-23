@@ -1,5 +1,6 @@
 from helpers import *
 from type import Type
+from function import Function, Method
 from struct import StructWrapper
 
 class CEnum(object):
@@ -58,13 +59,25 @@ class CEnumWrapper(CEnum):
     def __init__(self, module, rust_name, docs=''):
         self.type = CEnumWrapperType(module, rust_name)
         super().__init__(module, self.type.san_name)
+        self.module = module
         self.docs = docs
+        self.methods = []
     
     def variant(self, name, value):
         super().variant(name, value)
         # this is.. unfortunate, but necessary due to builder pattern
         if self.type.default is None:
             self.type.default = f'{self.c_name}::{name}'
+        return self
+
+    def method(self, type, name, args, docs=''):
+        original = f'{self.type.orig_name}::{name}'
+        actual_args = [Var(self.type, 'this')] + args
+
+        self.methods.append(Method(type, self.c_name, name, actual_args,
+            make_safe_call(type, original, actual_args), docs=docs
+        , pyname=name))
+
         return self
     
     def to_rust(self):
@@ -90,8 +103,22 @@ class CEnumWrapper(CEnum):
             ''')
 
             decl += start + s(body, indent=12) + end
+        
+        methods = '\n'.join(m.to_rust() for m in self.methods)
 
-        return decl
+        return decl + methods
+
+    def to_c(self):
+        methods = '\n'.join(m.to_c() for m in self.methods)
+        return super().to_c() + methods
+
+    def to_swig(self):
+        methods = '\n'.join(m.to_swig() for m in self.methods)
+        return super().to_swig() + methods
+
+    def to_python(self):
+        methods = '\n'.join(m.to_python() for m in self.methods)
+        return super().to_python() + s(methods, indent=4)
 
 class EnumWrapper(StructWrapper):
     def __init__(self, module, name, docs=''):

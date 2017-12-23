@@ -37,6 +37,9 @@ class Type(object):
     def unwrap_python_value(self, value):
         return value
 
+    def python_postfix(self):
+        return ''
+
 class BuiltinWrapper(object):
     def __init__(self, *args):
         self.type = Type(*args)

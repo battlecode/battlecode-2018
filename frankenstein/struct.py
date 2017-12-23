@@ -1,6 +1,6 @@
 from helpers import *
 from type import Type, void
-from function import Function
+from function import Function, Method
 
 class StructType(Type):
     '''Rust structs are always treated as pointers by SWIG.
@@ -63,6 +63,14 @@ class StructType(Type):
     def unwrap_python_value(self, name):
         return f'{name}._ptr'
 
+    def python_postfix(self):
+        pyname = sanitize_rust_name(self.wrapper.name)
+        return s(f'''\
+            _result = {pyname}.__new__({pyname})
+            _result._ptr = result
+            result = _result
+        ''')
+
 class StructWrapper(object):
     def __init__(self, module, name, docs=''):
         self.module = module
@@ -71,7 +79,6 @@ class StructWrapper(object):
         self.members = []
         self.member_docs = []
         self.methods = []
-        self.method_names = []
         self.getters = []
         self.setters = []
         self.type = StructType(self)
@@ -81,8 +88,7 @@ class StructWrapper(object):
         pre, arg, post = self.type.mut_ref().wrap_c_value('this')
         self.destructor = Function(void.type, f'delete_{self.c_name}',
             [Var(self.type, 'this')],
-            pre + f'\nunsafe {{ Box::from_raw({arg}); }}' + post,
-            pyname='__del__'
+            pre + f'\nunsafe {{ Box::from_raw({arg}); }}' + post
         )
 
     def constructor(self, rust_method, args, docs=''):
@@ -95,8 +101,7 @@ class StructWrapper(object):
             f'new_{self.c_name}',
             args,
             make_safe_call(self.type, method, args),
-            docs=docs,
-            pyname='__init__'
+            docs=docs
         )
 
         return self
@@ -108,7 +113,7 @@ class StructWrapper(object):
         pre, arg, post = self.type.mut_ref().wrap_c_value('this')
         arg = '(' + arg + ')'
 
-        getter = Function(type, f"{self.c_name}_{name}_get", [Var(self.type, 'this')],
+        getter = Method(type, self.c_name, f"{name}_get", [Var(self.type, 'this')],
             pre +
             '\nlet result = ' + type.unwrap_rust_value(arg + '.' + name) + ';\n' +
             post +
@@ -119,7 +124,7 @@ class StructWrapper(object):
 
         vpre, varg, vpost = type.wrap_c_value(name)
 
-        setter = Function(void.type, f"{self.c_name}_{name}_set",
+        setter = Method(void.type, self.c_name, f"{name}_set",
             [Var(self.type, 'this'), Var(type, name)],
             pre + vpre +
             f'\n{arg}.{name} = {varg};\n' +
@@ -137,13 +142,12 @@ class StructWrapper(object):
         # Type::method(&mut self, arg1, arg2)
         # which is equivalent to:
         # self.method(arg1, arg2)
-        method = f'{self.module}::{self.name}::{name}'
+        original = f'{self.module}::{self.name}::{name}'
         actual_args = [Var(self.type.mut_ref(), 'this')] + args
 
-        self.methods.append(Function(type, f"{self.c_name}_{name}", actual_args,
-            make_safe_call(type, method, actual_args), docs=docs
-        ), pyname=name)
-        self.method_names.append(name)
+        self.methods.append(Method(type, self.c_name, name, actual_args,
+            make_safe_call(type, original, actual_args), docs=docs
+        , pyname=name))
         return self
 
     def to_c(self):
@@ -179,8 +183,8 @@ class StructWrapper(object):
         body = f'%feature("docstring", "{self.constructor_.docs}");\n'
         body += f'''{self.c_name}({", ".join(a.to_swig() for a in self.constructor_.args)});\n'''
         body += f'~{self.c_name}();\n'
-        for method, method_name in zip(self.methods, self.method_names):
-            body += Function(method.type, method_name, method.args[1:], docs=method.docs).to_swig()
+        for method in self.methods:
+            body += method.to_swig()
         for member, member_docs in zip(self.members, self.member_docs):
             body += f'%feature("docstring", "{member_docs}");\n{member.to_swig()};\n'
 

@@ -8,14 +8,6 @@ Planet = p.c_enum('location::Planet', docs='The planets in the Battlecode world.
     .variant('Earth', 0)\
     .variant('Mars', 1)
 
-MapLocation = p.struct('location::MapLocation',
-    'Represents two-dimensional coordinates in the Battlecode world. Naive of which planet it is on.')\
-    .constructor('new', [Var(Planet.type, 'planet'), Var(i32.type, 'x'), Var(i32.type, 'y')],
-        docs='Create a new MapLocation.')\
-    .member(Planet.type, 'planet', docs='The planet lol.')\
-    .member(i32.type, 'x', docs='The x coordinate of the map location.')\
-    .member(i32.type, 'y', docs='The y coordinate of the map location.')
-
 Direction = p.c_enum('location::Direction', docs='''Represents a direction from one MapLocation to another.
 
 Directions for each of the cardinals (north, south, east, west), and each
@@ -33,7 +25,23 @@ Coordinates increase in the north and east directions.
     .variant('West', 6)\
     .variant('Northwest', 7)\
     .variant('Center', 8)
-    
+
+Direction.method(Direction.type, 'opposite', [])
+Direction.method(Direction.type, 'rotate_left', [])
+Direction.method(Direction.type, 'rotate_right', [])
+
+MapLocation = p.struct('location::MapLocation',
+    'Represents two-dimensional coordinates in the Battlecode world. Naive of which planet it is on.')\
+    .constructor('new', [Var(Planet.type, 'planet'), Var(i32.type, 'x'), Var(i32.type, 'y')],
+        docs='Create a new MapLocation.')\
+    .member(Planet.type, 'planet', docs='The planet lol.')\
+    .member(i32.type, 'x', docs='The x coordinate of the map location.')\
+    .member(i32.type, 'y', docs='The y coordinate of the map location.')
+
+MapLocation.method(MapLocation.type, 'add', [Var(Direction.type, 'direction')])
+
+   
+
 
 EntityId = p.typedef('entity::EntityId', u16.type)
 
