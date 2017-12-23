@@ -62,6 +62,7 @@ class CEnumWrapper(CEnum):
     
     def variant(self, name, value):
         super().variant(name, value)
+        # this is.. unfortunate, but necessary due to builder pattern
         if self.type.default is None:
             self.type.default = f'{self.c_name}::{name}'
         return self

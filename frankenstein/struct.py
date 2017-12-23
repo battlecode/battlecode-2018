@@ -51,7 +51,6 @@ class StructType(Type):
     def unwrap_rust_value(self, name):
         if self.kind == StructType.RUST_RAW_PTR:
             return name
-
         if self.kind == StructType.RUST_BY_VALUE:
             result = name
         elif self.kind == StructType.RUST_MUT_REF:
