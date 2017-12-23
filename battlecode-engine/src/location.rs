@@ -12,16 +12,16 @@ use location::Direction::*;
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Direction {
     North = 0,
-    Northeast,
-    East,
-    Southeast,
-    South,
-    Southwest,
-    West,
-    Northwest,
+    Northeast = 1,
+    East = 2,
+    Southeast = 3,
+    South = 4,
+    Southwest = 5,
+    West = 6,
+    Northwest = 7,
 
     // No direction
-    Center,
+    Center = 8,
 }
 
 impl Direction {
@@ -87,14 +87,15 @@ impl Direction {
 /// The planets in the Battlecode world.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub enum Planet {
-    Earth,
-    Mars,
+    Earth = 0,
+    Mars = 1,
 }
 
 /// Represents two-dimensional coordinates in the Battlecode world. Naive
 /// of which planet it is on.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct MapLocation {
+    pub planet: Planet,
     pub x: i32,
     pub y: i32,
 }
@@ -102,16 +103,24 @@ pub struct MapLocation {
 impl MapLocation {
     /// Returns a new MapLocation representing the location with the given
     /// coordinates.
-    pub fn new(x: i32, y: i32) -> MapLocation {
-        MapLocation { x: x, y: y }
+    pub fn new(planet: Planet, x: i32, y: i32) -> MapLocation {
+        MapLocation { planet: planet, x: x, y: y }
     }
 
-    // TODO: more methods
+    pub fn add(&self, direction: Direction) -> MapLocation {
+        MapLocation { 
+            planet: self.planet,
+            x: self.x + direction.delta().0, 
+            y: self.y + direction.delta().1,
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::Direction::*;
+    use super::MapLocation;
+    use super::Planet;
 
     #[test]
     fn direction_opposite() {
@@ -150,5 +159,19 @@ mod tests {
         assert_eq!(West.rotate_right(), Northwest);
         assert_eq!(Northwest.rotate_right(), North);
         assert_eq!(Center.rotate_right(), Center);
+    }
+
+    #[test]
+    fn map_location_add() {
+        let loc = MapLocation { planet: Planet::Earth, x: 0, y: 0 };
+        assert_eq!(loc.add(North),      MapLocation { planet: Planet::Earth, x: 0, y: -1 });
+        assert_eq!(loc.add(Northeast),  MapLocation { planet: Planet::Earth, x: 1, y: -1 });
+        assert_eq!(loc.add(East),       MapLocation { planet: Planet::Earth, x: 1, y: 0 });
+        assert_eq!(loc.add(Southeast),  MapLocation { planet: Planet::Earth, x: 1, y: 1 });
+        assert_eq!(loc.add(South),      MapLocation { planet: Planet::Earth, x: 0, y: 1 });
+        assert_eq!(loc.add(Southwest),  MapLocation { planet: Planet::Earth, x: -1, y: 1 });
+        assert_eq!(loc.add(West),       MapLocation { planet: Planet::Earth, x: -1, y: 0 });
+        assert_eq!(loc.add(Northwest),  MapLocation { planet: Planet::Earth, x: -1, y: -1 });
+        assert_eq!(loc.add(Center),     MapLocation { planet: Planet::Earth, x: 0, y: 0 });
     }
 }

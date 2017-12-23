@@ -203,7 +203,10 @@ class StructWrapper(object):
         return definition
 
     def to_python(self):
-        start = f'class {sanitize_rust_name(self.name)}(object):\n'
+        start = s(f'''\
+        class {sanitize_rust_name(self.name)}(object):
+            __slots__ = ['_ptr']
+        ''')
 
         cargs = [Var(self.type, 'self')] + self.constructor_.args
         cinit = Function.pyentry(
@@ -217,8 +220,16 @@ class StructWrapper(object):
         
         constructor = cinit + s(cbody, indent=4) + '\n'
 
-        #definition = self.constructor_.to_python()
-        definition = self.destructor.to_python() + '\n'
+        dinit = Function.pyentry([Var(self.type, 'self')], '__del__', 'Clean up the object.')
+        dbody = s(f'''\
+            if hasattr(self, '_ptr'):
+                # if there was an error in the constructor, we'll have no _ptr
+                _lib.{self.destructor.name}(self._ptr)
+                _check_errors()
+        ''', indent=4)
+
+        definition = dinit + dbody
+
         definition += '\n'.join('@property\n' + getter.to_python() for getter in self.getters) + '\n'
         definition += '\n'.join(f'@{setter.pyname}.setter\n' + setter.to_python()
                                 for setter in self.setters) + '\n'

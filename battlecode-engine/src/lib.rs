@@ -15,7 +15,7 @@ extern crate serde;
 extern crate serde_json;
 
 // Error handling.
-extern crate failure;
+#[macro_use] extern crate failure;
 
 // Provides FnvHashMap and FnvHashSet, which are like std::HashMap and std::HashSet, but
 // significantly faster for integer keys.
@@ -27,11 +27,14 @@ pub mod schema;
 // see world.rs
 pub mod world;
 
+// see error.rs
+pub mod error;
+
 // see location.rs
 pub mod location;
 
-// see entity.rs
-pub mod entity;
+// see unit.rs
+pub mod unit;
 
 // see research.rs
 pub mod research;

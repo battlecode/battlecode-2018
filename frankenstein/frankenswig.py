@@ -61,9 +61,9 @@ from collections import namedtuple
 
 from helpers import *
 from type import *
-from function import Function, FunctionWrapper
-from struct import StructType, StructWrapper
-from enums import CEnum, EnumWrapper
+from function import FunctionWrapper
+from struct import StructWrapper
+from enums import EnumWrapper, CEnumWrapper
 
 RUST_HEADER = '''/// GENERATED RUST, DO NOT EDIT
 extern crate {crate};
@@ -239,6 +239,7 @@ PYTHON_HEADER = '''"""{docs}"""
 from ._{module} import ffi as _ffi
 from ._{module} import lib as _lib
 import threading
+import enum
 
 # might be cheaper to just allocate new strings, TODO benchmark.
 _lasterrorlock = threading.Lock()
@@ -290,7 +291,7 @@ class Program(object):
     
     def to_python(self):
         return self.format(PYTHON_HEADER)\
-            + ''.join(elem.to_python() for elem in self.elements)\
+            + '\n'.join(elem.to_python() for elem in self.elements)\
             + self.format(PYTHON_FOOTER)
 
     def struct(self, *args, **kwargs):
@@ -307,3 +308,14 @@ class Program(object):
         result = TypedefWrapper(self.name, rust_name, c_type)
         self.elements.append(result)
         return result
+
+    def enum(self, *args, **kwargs):
+        result = EnumWrapper(self.name, *args, **kwargs)
+        self.elements.append(result)
+        return result
+
+    def c_enum(self, *args, **kwargs):
+        result = CEnumWrapper(self.name, *args, **kwargs)
+        self.elements.append(result)
+        return result
+

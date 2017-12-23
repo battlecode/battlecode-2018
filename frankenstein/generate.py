@@ -4,9 +4,15 @@ p = Program(name='bc', crate='battlecode_engine', docs='''Battlecode engine.
 
 Woo.''')
 
+Planet = p.c_enum('location::Planet', docs='The planets in the Battlecode world.')\
+    .variant('Earth', 0)\
+    .variant('Mars', 1)
+
 MapLocation = p.struct('location::MapLocation',
     'Represents two-dimensional coordinates in the Battlecode world. Naive of which planet it is on.')\
-    .constructor('new', [Var(i32.type, 'x'), Var(i32.type, 'y')], docs='Create a new MapLocation.')\
+    .constructor('new', [Var(Planet.type, 'planet'), Var(i32.type, 'x'), Var(i32.type, 'y')],
+        docs='Create a new MapLocation.')\
+    .member(Planet.type, 'planet', docs='The planet lol.')\
     .member(i32.type, 'x', docs='The x coordinate of the map location.')\
     .member(i32.type, 'y', docs='The y coordinate of the map location.')
 
@@ -19,12 +25,6 @@ EntityId = p.typedef('entity::EntityId', u16.type)
 #    .member(MapLocation.type, 'location')\
 #    .member(u32.type, 'health')\
 #    .constructor('new', [])\
-
-cenum = CEnum('bc', 'TestEnum')
-cenum.variant('BANANS', 1)
-cenum.variant('DOGGOS', 2)
-
-p.elements.append(cenum)
 
 print('Generating...')
 with open("src/bindings.rs", "w+") as f:
