@@ -18,5 +18,7 @@ def test_direction():
     assert locne.y == 1, locne.y
 
 def test_unit():
+    # note: something that might be confusing: references not working the way you expect when you
+    # pass things into the engine
     unit = bc.Unit(0, bc.Team.Red, 100, bc.MapLocation(bc.Planet.Earth,1,2), 100, bc.UnitInfo())
     assert unit.is_move_ready()

@@ -13,8 +13,8 @@ use failure::Error;
 /// There are two teams in Battlecode: Red and Blue.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub enum Team {
-    Red,
-    Blue,
+    Red = 0,
+    Blue = 1,
 }
 
 /// The map for one of the planets in the Battlecode world. This information

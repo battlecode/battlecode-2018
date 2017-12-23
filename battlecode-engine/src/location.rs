@@ -40,8 +40,8 @@ impl Direction {
     }
 
     /// Returns the (x, y) displacement of this direction.
-    pub fn delta(&self) -> (i32, i32) {
-        match *self {
+    pub fn delta(self) -> (i32, i32) {
+        match self {
             North => (0, -1),
             Northeast => (1, -1),
             East => (1, 0),
@@ -55,31 +55,31 @@ impl Direction {
     }
 
     /// Returns the direction opposite this one, or Center if it's Center.
-    pub fn opposite(&self) -> Direction {
-        if *self == Center {
+    pub fn opposite(self) -> Direction {
+        if self == Center {
             return Center;
         }
-        let new_dir = ((self.clone() as u8) + 4) % 8;
+        let new_dir = ((self as u8) + 4) % 8;
         Direction::num_to_direction(new_dir)
     }
 
     /// Returns the direction 45 degrees to the left (counter-clockwise) of
     /// this one, or Center if it's Center.
-    pub fn rotate_left(&self) -> Direction {
-        if *self == Center {
+    pub fn rotate_left(self) -> Direction {
+        if self == Center {
             return Center;
         }
-        let new_dir = ((self.clone() as u8) + 7) % 8;
+        let new_dir = ((self as u8) + 7) % 8;
         Direction::num_to_direction(new_dir)
     }
 
     /// Returns the direction 45 degrees to the right (clockwise) of this one,
     /// or Center if it's Center.
-    pub fn rotate_right(&self) -> Direction {
-        if *self == Center {
+    pub fn rotate_right(self) -> Direction {
+        if self == Center {
             return Center;
         }
-        let new_dir = ((self.clone() as u8) + 1) % 8;
+        let new_dir = ((self as u8) + 1) % 8;
         Direction::num_to_direction(new_dir)
     }
 }

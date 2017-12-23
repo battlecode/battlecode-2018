@@ -40,6 +40,12 @@ pub enum UnitInfo {
     Rocket(RocketInfo),
 }
 
+impl Default for UnitInfo {
+    fn default() -> UnitInfo {
+        Knight(KnightInfo {})
+    }
+}
+
 /// Generic info for a single unit, and the associated specific info.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Unit {
@@ -54,6 +60,16 @@ pub struct Unit {
 }
 
 impl Unit {
+    pub fn new(id: UnitID,
+               team: Team,
+               max_health: u32,
+               location: location::MapLocation,
+               health: u32,
+               unit_info: UnitInfo) -> Unit {
+        Unit {
+            id, team, max_health, location, health, unit_info
+        }
+    }
 
     /// Create a generic unit, for testing purposes.
     pub fn test_unit(id: UnitID) -> Unit {
