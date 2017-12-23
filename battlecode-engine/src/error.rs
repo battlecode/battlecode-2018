@@ -8,6 +8,10 @@ pub enum GameError {
     #[fail(display = "The action you attempted to perform is not allowed.")]
     InvalidAction,
 
+    /// The specified planet does not exist. This is probably the devs' fault.
+    #[fail(display = "The specified planet does not exist. This is probably the devs' fault.")]
+    NoSuchPlanet,
+
     /// The specified unit does not exist.
     #[fail(display = "The specified unit does not exist.")]
     NoSuchUnit,

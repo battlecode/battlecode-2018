@@ -163,38 +163,42 @@ impl GameWorld {
         }
     }
 
-    fn get_planet_info(&self, planet: Planet) -> &PlanetInfo {
+    fn get_planet_info(&self, planet: Planet) -> Result<&PlanetInfo, Error> {
         if let Some(planet_info) = self.planet_states.get(&planet) {
-            planet_info
+            Ok(planet_info)
         } else {
-            panic!("Internal engine error");
+            Err(GameError::NoSuchPlanet)?
         }
     }
     
-    fn get_planet_info_mut(&mut self, planet: Planet) -> &mut PlanetInfo {
+    fn get_planet_info_mut(&mut self, planet: Planet) -> Result<&mut PlanetInfo, Error> {
         if let Some(planet_info) = self.planet_states.get_mut(&planet) {
-            planet_info
+            Ok(planet_info)
         } else {
-            panic!("Internal engine error");
+            Err(GameError::NoSuchPlanet)?
         }
     }
 
-    pub fn get_unit(&self, id: unit::UnitID) -> Option<&unit::Unit> {
-        self.units.get(&id)
+    pub fn get_unit(&self, id: unit::UnitID) -> Result<&unit::Unit, Error> {
+        if let Some(unit) = self.units.get(&id) {
+            Ok(unit)
+        } else {
+            Err(GameError::NoSuchUnit)?
+        }
     }
 
-    fn get_unit_mut(&mut self, id: unit::UnitID) -> Option<&mut unit::Unit> {
-        self.units.get_mut(&id)
+    fn get_unit_mut(&mut self, id: unit::UnitID) -> Result<&mut unit::Unit, Error> {
+        if let Some(unit) = self.units.get_mut(&id) {
+            Ok(unit)
+        } else {
+            Err(GameError::NoSuchUnit)?
+        }
     }
 
     /// Places a unit onto the map at the given location. Assumes the given square is occupiable.
     pub fn place_unit(&mut self, id: unit::UnitID, location: MapLocation) -> Result<(), Error> {
         if self.is_occupiable(location) {
-            if let Some(unit) = self.get_unit_mut(id) {
-                unit.location = location;
-            } else {
-                Err(GameError::InternalEngineError)?
-            }
+            self.get_unit_mut(id)?.location = location;
             self.units_by_loc.insert(location, id);
             Ok(())
         } else {
@@ -204,14 +208,13 @@ impl GameWorld {
 
     /// Removes a unit from the map. Assumes the unit is on the map.
     pub fn remove_unit(&mut self, id: unit::UnitID) -> Result<(), Error> {
-        let location = if let Some(unit) = self.get_unit_mut(id) {
+        let location = {
             // TODO: unit locations should probably be an Option
             // to better handle unplaced units.
+            let unit = self.get_unit_mut(id)?;
             let location = unit.location;
             unit.location = MapLocation::new(Planet::Earth, -1, -1);
             location
-        } else {
-            Err(GameError::InternalEngineError)?
         };
         self.units_by_loc.remove(&location);
         Ok(())
@@ -235,24 +238,17 @@ impl GameWorld {
     }
 
     /// Tests whether the given unit can move.
-    pub fn can_move(&self, id: unit::UnitID, direction: Direction) -> bool {
-        if let Some(unit) = self.get_unit(id) {
-            unit.is_move_ready() && self.is_occupiable(unit.location.add(direction))
-        } else {
-            panic!("Internal Engine Error");
-        }
+    pub fn can_move(&self, id: unit::UnitID, direction: Direction) -> Result<bool, Error> {
+        let unit = self.get_unit(id)?;
+        Ok(unit.is_move_ready() && self.is_occupiable(unit.location.add(direction)))
     }
 
     // Given that moving an unit comprises many edits to the GameWorld, it makes sense to define this here.
     pub fn move_unit(&mut self, id: unit::UnitID, direction: Direction) -> Result<(), Error> {
-        let dest = if let Some(unit) = self.get_unit(id) {
-            unit.location.add(direction)
-        } else {
-            Err(GameError::NoSuchUnit)?
-        };
-        if self.can_move(id, direction) {
-            self.remove_unit(id);
-            self.place_unit(id, dest);
+        let dest = self.get_unit(id)?.location.add(direction);
+        if self.can_move(id, direction)? {
+            self.remove_unit(id)?;
+            self.place_unit(id, dest)?;
             Ok(())
         } else {
             Err(GameError::InvalidAction)?
@@ -288,24 +284,24 @@ mod tests {
         world.register_unit(unit_b);
 
         // Place the robots onto the map. B is one square east of A.
-        assert_eq![world.place_unit(a, MapLocation::new(Planet::Earth, 5, 5)), Ok(())];
-        assert_eq![world.place_unit(b, MapLocation::new(Planet::Earth, 6, 5)), Ok(())];
+        world.place_unit(a, MapLocation::new(Planet::Earth, 5, 5)).unwrap();
+        world.place_unit(b, MapLocation::new(Planet::Earth, 6, 5)).unwrap();
 
         // Robot A cannot move east, as this is where B is. However,
         // it can move northeast.
-        assert![!world.can_move(a, Direction::East)];
-        assert![world.can_move(a, Direction::Northeast)];
-        assert_eq![world.move_unit(a, Direction::Northeast), Ok(())];
+        assert![!world.can_move(a, Direction::East).unwrap()];
+        assert![world.can_move(a, Direction::Northeast).unwrap()];
+        world.move_unit(a, Direction::Northeast).unwrap();
 
         // A is now one square north of B. B cannot move north to
         // A's new location, but can move west to A's old location.
-        assert![!world.can_move(b, Direction::North)];
-        assert![world.can_move(b, Direction::West)];
-        assert_eq![world.move_unit(b, Direction::West), Ok(())];
+        assert![!world.can_move(b, Direction::North).unwrap()];
+        assert![world.can_move(b, Direction::West).unwrap()];
+        world.move_unit(b, Direction::West).unwrap();
 
         // Finally, let's test that A cannot move back to its old square.
-        assert![!world.can_move(a, Direction::Southwest)];
-        assert![world.can_move(a, Direction::South)];
-        assert_eq![world.move_unit(a, Direction::South), Ok(())];
+        assert![!world.can_move(a, Direction::Southwest).unwrap()];
+        assert![world.can_move(a, Direction::South).unwrap()];
+        world.move_unit(a, Direction::South).unwrap();
     }
 }
