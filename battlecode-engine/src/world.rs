@@ -210,7 +210,7 @@ impl GameWorld {
 
     /// Places a unit onto the map at the given location. Assumes the given square is occupiable.
     pub fn place_unit(&mut self, id: unit::UnitID, location: MapLocation) -> Result<(), Error> {
-        if self.is_occupiable(location) {
+        if self.is_occupiable(location)? {
             self.get_unit_mut(id)?.location = location;
             self.units_by_loc.insert(location, id);
             Ok(())
@@ -244,16 +244,16 @@ impl GameWorld {
     }
 
     /// Returns whether the square is clear for a new unit to occupy, either by movement or by construction.
-    pub fn is_occupiable(&self, location: MapLocation) -> bool {
-        let planet_info = &self.planet_states[&location.planet];
-        return planet_info.map.is_passable_terrain[location.y as usize][location.x as usize] &&
-            !self.units_by_loc.contains_key(&location);
+    pub fn is_occupiable(&self, location: MapLocation) -> Result<bool, Error> {
+        let planet_info = &self.get_planet_info(location.planet)?;
+        Ok(planet_info.map.is_passable_terrain[location.y as usize][location.x as usize] &&
+            !self.units_by_loc.contains_key(&location))
     }
 
     /// Tests whether the given unit can move.
     pub fn can_move(&self, id: unit::UnitID, direction: Direction) -> Result<bool, Error> {
         let unit = self.get_unit(id)?;
-        Ok(unit.is_move_ready() && self.is_occupiable(unit.location.add(direction)))
+        Ok(unit.is_move_ready() && self.is_occupiable(unit.location.add(direction))?)
     }
 
     // Given that moving an unit comprises many edits to the GameWorld, it makes sense to define this here.
