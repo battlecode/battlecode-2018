@@ -30,10 +30,10 @@ print('Generating...')
 with open("src/bindings.rs", "w+") as f:
     f.write(p.to_rust())
 
-with open("bc.h", "w+") as f:
+with open("c/include/bc.h", "w+") as f:
     f.write(p.to_c())
 
-with open("bc.i", "w+") as f:
+with open("c/include/bc.i", "w+") as f:
     f.write(p.to_swig())
 
 with open("python/battlecode/bc.py", "w+") as f:

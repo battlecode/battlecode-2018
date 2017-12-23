@@ -6,7 +6,7 @@ import re
 import os.path
 import sys
 
-with open('../bc.h', 'r') as f:
+with open('../c/include/bc.h', 'r') as f:
     contents = f.read()
 
 # sanitize contents for cffi, which expects input without #includes and such

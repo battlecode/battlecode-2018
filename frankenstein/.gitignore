@@ -1,5 +1,3 @@
-bc.h
-bc.i
-src
-java
-python
+include/bc.h
+include/bc.i
+src/bindings.rs

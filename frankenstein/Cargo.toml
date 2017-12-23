@@ -12,4 +12,3 @@ battlecode-engine = {path = "../battlecode-engine"}
 failure = "0.1.1"
 
 [build_dependencies]
-cc = "1.0.3"
