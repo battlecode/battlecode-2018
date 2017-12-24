@@ -36,9 +36,9 @@ pub struct PlanetInfo {
 
 impl PlanetInfo {
     /// Construct a planet with the given map, where the current karbonite
-    /// deposits are initialized with the map's starting deposits.
+    /// deposits are initialized with the map's initial deposits.
     pub fn new(map: Map) -> PlanetInfo {
-        let karbonite = map.starting_karbonite.clone();
+        let karbonite = map.initial_karbonite.clone();
         PlanetInfo {
             map: map,
             karbonite: karbonite,
@@ -48,7 +48,7 @@ impl PlanetInfo {
     pub fn test_planet_info() -> PlanetInfo {
         PlanetInfo {
             map: Map::test_map(),
-            karbonite: vec![vec![0; MAP_MAX_WIDTH]; MAP_MAX_HEIGHT],
+            karbonite: vec![vec![0; MAP_WIDTH_MAX]; MAP_HEIGHT_MAX],
         }
     }
 }
@@ -162,7 +162,11 @@ pub struct GameWorld {
 
 impl GameWorld {
     /// Initialize a new game world with maps from both planets.
-    pub fn new(weather: WeatherPattern, earth_map: Map, mars_map: Map) -> GameWorld {
+    pub fn new(weather: WeatherPattern, earth_map: Map, mars_map: Map) -> Result<GameWorld, Error> {
+        weather.validate()?;
+        earth_map.validate()?;
+        mars_map.validate()?;
+
         let mut planet_states = FnvHashMap::default();
         planet_states.insert(Planet::Earth, PlanetInfo::new(earth_map));
         planet_states.insert(Planet::Mars, PlanetInfo::new(mars_map));
@@ -171,7 +175,7 @@ impl GameWorld {
         team_states.insert(Team::Red, TeamInfo::new());
         team_states.insert(Team::Blue, TeamInfo::new());
 
-        GameWorld {
+        Ok(GameWorld {
             round: 1,
             id_generator: IDGenerator::new(),
             player_to_move: Player { team: Team::Red, planet: Planet::Earth },
@@ -180,7 +184,7 @@ impl GameWorld {
             weather: weather,
             planet_states: planet_states,
             team_states: team_states,
-        }
+        })
     }
 
     /// Creates a GameWorld for testing purposes.
