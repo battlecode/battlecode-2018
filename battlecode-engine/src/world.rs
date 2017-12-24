@@ -23,8 +23,8 @@ pub enum Team {
 /// planet's original map and the current karbonite deposits.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PlanetInfo {
-    /// The map of the game.
-    map: Map,
+    /// The map of the planet.
+    map: PlanetMap,
 
     /// The amount of Karbonite deposited on the specified square.
     ///
@@ -37,7 +37,7 @@ pub struct PlanetInfo {
 impl PlanetInfo {
     /// Construct a planet with the given map, where the current karbonite
     /// deposits are initialized with the map's initial deposits.
-    pub fn new(map: Map) -> PlanetInfo {
+    pub fn new(map: PlanetMap) -> PlanetInfo {
         let karbonite = map.initial_karbonite.clone();
         PlanetInfo {
             map: map,
@@ -47,7 +47,7 @@ impl PlanetInfo {
 
     pub fn test_planet_info() -> PlanetInfo {
         PlanetInfo {
-            map: Map::test_map(Planet::Earth),
+            map: PlanetMap::test_map(Planet::Earth),
             karbonite: vec![vec![0; MAP_WIDTH_MAX]; MAP_HEIGHT_MAX],
         }
     }
@@ -64,6 +64,12 @@ pub type TeamArrayHistory = Vec<TeamArray>;
 /// the team info of their own team.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TeamInfo {
+    /// Team identification.
+    pub team: Team,
+
+    /// Unit ID generator.
+    id_generator: IDGenerator,
+
     /// Communication array histories for each planet.
     team_arrays: FnvHashMap<Planet, TeamArrayHistory>,
 
@@ -84,7 +90,7 @@ pub struct TeamInfo {
 
 impl TeamInfo {
     /// Construct a team with the default properties.
-    pub fn new() -> TeamInfo {
+    pub fn new(team: Team, seed: u32) -> TeamInfo {
         // Initialize default unit infos
         let mut unit_infos = FnvHashMap::default();
         let unit_types = vec![unit::UnitType::Worker, unit::UnitType::Knight,
@@ -97,6 +103,8 @@ impl TeamInfo {
         }
 
         TeamInfo {
+            team: team,
+            id_generator: IDGenerator::new(team, seed),
             team_arrays: FnvHashMap::default(),
             unit_infos: unit_infos,
             research_status: FnvHashMap::default(),
@@ -138,9 +146,6 @@ pub struct GameWorld {
     /// The current round, starting at 1.
     pub round: u32,
 
-    /// Unit ID generator.
-    id_generator: IDGenerator,
-
     /// The player whose turn it is.
     pub player_to_move: Player,
 
@@ -162,26 +167,23 @@ pub struct GameWorld {
 
 impl GameWorld {
     /// Initialize a new game world with maps from both planets.
-    pub fn new(weather: WeatherPattern, earth_map: Map, mars_map: Map) -> Result<GameWorld, Error> {
-        weather.validate()?;
-        earth_map.validate()?;
-        mars_map.validate()?;
+    pub fn new(map: GameMap) -> Result<GameWorld, Error> {
+        map.validate()?;
 
         let mut planet_states = FnvHashMap::default();
-        planet_states.insert(Planet::Earth, PlanetInfo::new(earth_map));
-        planet_states.insert(Planet::Mars, PlanetInfo::new(mars_map));
+        planet_states.insert(Planet::Earth, PlanetInfo::new(map.earth_map));
+        planet_states.insert(Planet::Mars, PlanetInfo::new(map.mars_map));
 
         let mut team_states = FnvHashMap::default();
-        team_states.insert(Team::Red, TeamInfo::new());
-        team_states.insert(Team::Blue, TeamInfo::new());
+        team_states.insert(Team::Red, TeamInfo::new(Team::Red, map.seed));
+        team_states.insert(Team::Blue, TeamInfo::new(Team::Blue, map.seed));
 
         Ok(GameWorld {
             round: 1,
-            id_generator: IDGenerator::new(),
             player_to_move: Player { team: Team::Red, planet: Planet::Earth },
             units: FnvHashMap::default(),
             units_by_loc: FnvHashMap::default(),
-            weather: weather,
+            weather: map.weather,
             planet_states: planet_states,
             team_states: team_states,
         })
@@ -194,15 +196,14 @@ impl GameWorld {
         planet_states.insert(Planet::Mars, PlanetInfo::test_planet_info());
 
         let mut team_states = FnvHashMap::default();
-        team_states.insert(Team::Red, TeamInfo::new());
-        team_states.insert(Team::Blue, TeamInfo::new());
+        team_states.insert(Team::Red, TeamInfo::new(Team::Red, 6147));
+        team_states.insert(Team::Blue, TeamInfo::new(Team::Blue, 6147));
 
         let weather = WeatherPattern::new(AsteroidPattern::new(&FnvHashMap::default()),
                                           OrbitPattern::new(100, 100, 400));
 
         GameWorld {
             round: 1,
-            id_generator: IDGenerator::new(),
             player_to_move: Player { team: Team::Red, planet: Planet::Earth },
             units: FnvHashMap::default(),
             units_by_loc: FnvHashMap::default(),
@@ -275,7 +276,7 @@ impl GameWorld {
     /// referenced by ID.
     pub fn create_unit(&mut self, team: Team, location: MapLocation,
                        unit_type: unit::UnitType) -> Result<unit::UnitID, Error> {
-        let id = self.id_generator.next_id();
+        let id = self.get_team_info_mut(team)?.id_generator.next_id();
         let unit_info = self.get_team_info(team)?.get_unit_info(unit_type)?.clone();
         let unit = unit::Unit::new(id, team, location, unit_info);
 

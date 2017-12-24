@@ -3,7 +3,7 @@
 use std::f32;
 use failure::Error;
 use fnv::FnvHashMap;
-use rand;
+use rand::{Rng, SeedableRng, StdRng};
 use rand::distributions::IndependentSample;
 use rand::distributions::range::Range;
 
@@ -12,10 +12,33 @@ use error::GameError;
 use location::*;
 use unit::Unit;
 
+/// The map defining the starting state for an entire game.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GameMap {
+    /// Seed for random number generation.
+    pub seed: u32,
+    /// Earth map.
+    pub earth_map: PlanetMap,
+    /// Mars map.
+    pub mars_map: PlanetMap,
+    /// Weather pattern.
+    pub weather: WeatherPattern,
+}
+
+impl GameMap {
+    /// Validate the game map.
+    pub fn validate(&self) -> Result<(), Error> {
+        self.earth_map.validate()?;
+        self.mars_map.validate()?;
+        self.weather.validate()?;
+        Ok(())
+    }
+}
+
 /// The map for one of the planets in the Battlecode world. This information
 /// defines the terrain, dimensions, and initial units of the planet.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Map {
+pub struct PlanetMap {
     /// The planet of the map.
     pub planet: Planet,
 
@@ -57,7 +80,7 @@ pub struct Map {
     pub initial_units: Vec<Unit>,
 }
 
-impl Map {
+impl PlanetMap {
     /// Validates the map and checks some invariants are followed.
     pub fn validate(&self) -> Result<(), Error> {
         // The width and height are of valid dimensions.
@@ -145,8 +168,8 @@ impl Map {
             && location.y < self.origin.y + self.height as i32
     }
 
-    pub fn test_map(planet: Planet) -> Map {
-        Map {
+    pub fn test_map(planet: Planet) -> PlanetMap {
+        PlanetMap {
             planet: planet,
             height: MAP_HEIGHT_MIN,
             width: MAP_WIDTH_MIN,
@@ -204,7 +227,7 @@ impl AsteroidPattern {
     }
 
     /// Constructs a pseudorandom asteroid pattern given a map of Mars.
-    pub fn random(mars_map: &Map) -> AsteroidPattern {
+    pub fn random(seed: u32, mars_map: &PlanetMap) -> AsteroidPattern {
         let mut pattern: FnvHashMap<u32, AsteroidStrike> = FnvHashMap::default();
 
         let karbonite_gen = Range::new(ASTEROID_KARB_MIN, ASTEROID_KARB_MAX);
@@ -212,7 +235,8 @@ impl AsteroidPattern {
         let x_gen = Range::new(mars_map.origin.x, mars_map.origin.x + mars_map.width as i32);
         let y_gen = Range::new(mars_map.origin.y, mars_map.origin.y + mars_map.height as i32);
 
-        let mut rng = rand::thread_rng();
+        let seed: &[_] = &[seed as usize];
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
         let mut round = 0;
         loop {
             round += round_gen.ind_sample(&mut rng);
@@ -374,13 +398,13 @@ mod tests {
     #[test]
     fn validate_asteroid() {
         // Valid randomly-generated asteroid patterns.
-        let ref mars_map = super::Map::test_map(Planet::Mars);
-        for _ in 0..5 {
-            AsteroidPattern::random(mars_map).validate().is_ok();
+        let ref mars_map = super::PlanetMap::test_map(Planet::Mars);
+        for seed in 0..5 {
+            AsteroidPattern::random(seed, mars_map).validate().is_ok();
         }
 
         // Generate an asteroid pattern from a map.
-        let asteroid_map = AsteroidPattern::random(mars_map).get_asteroid_map();
+        let asteroid_map = AsteroidPattern::random(0, mars_map).get_asteroid_map();
         let asteroids = AsteroidPattern::new(&asteroid_map);
         asteroids.validate().is_ok();
 
