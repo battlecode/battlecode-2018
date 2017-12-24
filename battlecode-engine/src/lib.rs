@@ -36,6 +36,9 @@ pub mod error;
 // see location.rs
 pub mod location;
 
+// see map.rs
+pub mod map;
+
 // see id_generator.rs
 pub mod id_generator;
 

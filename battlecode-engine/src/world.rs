@@ -6,6 +6,7 @@ use super::constants::*;
 use super::schema::Delta;
 use super::id_generator::IDGenerator;
 use super::location::*;
+use super::map::*;
 use super::unit;
 use super::research;
 use super::error::GameError;
@@ -18,50 +19,8 @@ pub enum Team {
     Blue,
 }
 
-/// The map for one of the planets in the Battlecode world. This information
-/// defines the terrain and dimensions of the planet.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct Map {
-    /// The height of this map, in squares. Must be in the range
-    /// [constants::MAP_MIN_HEIGHT, constants::MAP_MAX_HEIGHT], inclusive.
-    height: usize,
-
-    /// The width of this map, in squares. Must be in the range
-    /// [constants::MAP_MIN_WIDTH, constants::MAP_MAX_WIDTH], inclusive.
-    width: usize,
-
-    /// The coordinates of the bottom-left corner. Essentially, the
-    /// minimum x and y coordinates for this map. Each lies within
-    /// [constants::MAP_MIN_COORDINATE, constants::MAP_MAX_COORDINATE],
-    /// inclusive.
-    origin: MapLocation,
-
-    /// Whether the specified square contains passable terrain. Is only
-    /// false when the square contains impassable terrain (distinct from
-    /// containing a building, for instance).
-    ///
-    /// Stored as a two-dimensional array, where the first index 
-    /// represents a square's y-coordinate, and the second index its 
-    /// x-coordinate. These coordinates are *relative to the origin*.
-    is_passable_terrain: Vec<Vec<bool>>,
-}
-
-impl Map {
-    pub fn test_map() -> Map {
-        Map {
-            height: MAP_MIN_HEIGHT,
-            width: MAP_MIN_WIDTH,
-            origin: MapLocation::new(Planet::Earth, 0, 0),
-            is_passable_terrain: vec![vec![true; MAP_MIN_WIDTH]; MAP_MIN_HEIGHT],
-        }
-    }
-}
-
-/// The state for one of the planets in a game.
-///
-/// Stores neutral map info (map dimension, terrain, and karbonite deposits)
-/// and non-neutral unit info (robots, factories, rockets). This information
-/// is generally readable by both teams, and is ephemeral.
+/// The state for one of the planets in a game. Stores neutral info like the
+/// planet's original map and the current karbonite deposits.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PlanetInfo {
     /// The map of the game.
@@ -76,6 +35,16 @@ pub struct PlanetInfo {
 }
 
 impl PlanetInfo {
+    /// Construct a planet with the given map, where the current karbonite
+    /// deposits are initialized with the map's starting deposits.
+    pub fn new(map: Map) -> PlanetInfo {
+        let karbonite = map.starting_karbonite.clone();
+        PlanetInfo {
+            map: map,
+            karbonite: karbonite,
+        }
+    }
+
     pub fn test_planet_info() -> PlanetInfo {
         PlanetInfo {
             map: Map::test_map(),
@@ -114,6 +83,7 @@ pub struct TeamInfo {
 }
 
 impl TeamInfo {
+    /// Construct a team with the default properties.
     pub fn new() -> TeamInfo {
         // Initialize default unit infos
         let mut unit_infos = FnvHashMap::default();
@@ -180,13 +150,23 @@ pub struct GameWorld {
     /// All the units on the map, by location.
     units_by_loc: FnvHashMap<MapLocation, unit::UnitID>,
 
+    /// The weather patterns.
+    pub weather: WeatherPattern,
+
+    /// The state of each planet.
     pub planet_states: FnvHashMap<Planet, PlanetInfo>,
+
+    /// The state of each team.
     pub team_states: FnvHashMap<Team, TeamInfo>,
 }
 
 impl GameWorld {
+    /// Initialize a new game world with maps from both planets.
+    pub fn new(weather: WeatherPattern, earth_map: Map, mars_map: Map) -> GameWorld {
+        let mut planet_states = FnvHashMap::default();
+        planet_states.insert(Planet::Earth, PlanetInfo::new(earth_map));
+        planet_states.insert(Planet::Mars, PlanetInfo::new(mars_map));
 
-    pub fn new() -> GameWorld {
         let mut team_states = FnvHashMap::default();
         team_states.insert(Team::Red, TeamInfo::new());
         team_states.insert(Team::Blue, TeamInfo::new());
@@ -197,7 +177,8 @@ impl GameWorld {
             player_to_move: Player { team: Team::Red, planet: Planet::Earth },
             units: FnvHashMap::default(),
             units_by_loc: FnvHashMap::default(),
-            planet_states: FnvHashMap::default(),
+            weather: weather,
+            planet_states: planet_states,
             team_states: team_states,
         }
     }
@@ -206,10 +187,14 @@ impl GameWorld {
     pub fn test_world() -> GameWorld {
         let mut planet_states = FnvHashMap::default();
         planet_states.insert(Planet::Earth, PlanetInfo::test_planet_info());
+        planet_states.insert(Planet::Mars, PlanetInfo::test_planet_info());
 
         let mut team_states = FnvHashMap::default();
         team_states.insert(Team::Red, TeamInfo::new());
         team_states.insert(Team::Blue, TeamInfo::new());
+
+        let weather = WeatherPattern::new(AsteroidPattern::new(FnvHashMap::default()),
+                                          OrbitPattern::new(100, 100, 400));
 
         GameWorld {
             round: 1,
@@ -217,6 +202,7 @@ impl GameWorld {
             player_to_move: Player { team: Team::Red, planet: Planet::Earth },
             units: FnvHashMap::default(),
             units_by_loc: FnvHashMap::default(),
+            weather: weather,
             planet_states: planet_states,
             team_states: team_states,
         }
