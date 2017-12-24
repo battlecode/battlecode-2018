@@ -47,7 +47,7 @@ impl PlanetInfo {
 
     pub fn test_planet_info() -> PlanetInfo {
         PlanetInfo {
-            map: Map::test_map(),
+            map: Map::test_map(Planet::Earth),
             karbonite: vec![vec![0; MAP_WIDTH_MAX]; MAP_HEIGHT_MAX],
         }
     }
@@ -197,7 +197,7 @@ impl GameWorld {
         team_states.insert(Team::Red, TeamInfo::new());
         team_states.insert(Team::Blue, TeamInfo::new());
 
-        let weather = WeatherPattern::new(AsteroidPattern::new(FnvHashMap::default()),
+        let weather = WeatherPattern::new(AsteroidPattern::new(&FnvHashMap::default()),
                                           OrbitPattern::new(100, 100, 400));
 
         GameWorld {
