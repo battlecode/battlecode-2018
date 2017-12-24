@@ -12,6 +12,14 @@ pub enum GameError {
     #[fail(display = "The specified planet does not exist. This is probably the devs' fault.")]
     NoSuchPlanet,
 
+    /// The specified team does not exist.
+    #[fail(display = "The specified team does not exist. This is probably the devs' fault.")]
+    NoSuchTeam,
+
+    /// The specified unit type does not exist.
+    #[fail(display = "The specified unit type does not exist. This is probably the devs' fault.")]
+    NoSuchUnitType,
+
     /// The specified unit does not exist.
     #[fail(display = "The specified unit does not exist.")]
     NoSuchUnit,

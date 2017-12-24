@@ -4,6 +4,7 @@ use fnv::FnvHashMap;
 
 use super::constants::*;
 use super::schema::Delta;
+use super::id_generator::IDGenerator;
 use super::location::*;
 use super::unit;
 use super::research;
@@ -97,6 +98,9 @@ pub struct TeamInfo {
     /// Communication array histories for each planet.
     team_arrays: FnvHashMap<Planet, TeamArrayHistory>,
 
+    /// Unit info of a given type at initialization.
+    unit_infos: FnvHashMap<unit::UnitType, unit::UnitInfo>,
+
     /// The current status of the team's research. The values defines the level
     /// of the research, where 0 represents no progress.
     research_status: FnvHashMap<research::Branch, u32>,
@@ -111,11 +115,39 @@ pub struct TeamInfo {
 
 impl TeamInfo {
     pub fn new() -> TeamInfo {
+        // Initialize default unit infos
+        let mut unit_infos = FnvHashMap::default();
+        let unit_types = vec![unit::UnitType::Worker, unit::UnitType::Knight,
+                              unit::UnitType::Ranger, unit::UnitType::Mage,
+                              unit::UnitType::Healer, unit::UnitType::Factory,
+                              unit::UnitType::Rocket];
+        for unit_type in unit_types {
+            let unit_info = unit_type.default();
+            unit_infos.insert(unit_type, unit_info);
+        }
+
         TeamInfo {
             team_arrays: FnvHashMap::default(),
+            unit_infos: unit_infos,
             research_status: FnvHashMap::default(),
             research_queue: Vec::new(),
             research_rounds_left: 0,
+        }
+    }
+
+    pub fn get_unit_info(&self, unit_type: unit::UnitType) -> Result<&unit::UnitInfo, Error> {
+        if let Some(unit_info) = self.unit_infos.get(&unit_type) {
+            Ok(unit_info)
+        } else {
+            Err(GameError::NoSuchUnitType)?
+        }
+    }
+
+    fn get_unit_info_mut(&mut self, unit_type: unit::UnitType) -> Result<&unit::UnitInfo, Error> {
+        if let Some(unit_info) = self.unit_infos.get_mut(&unit_type) {
+            Ok(unit_info)
+        } else {
+            Err(GameError::NoSuchUnitType)?
         }
     }
 }
@@ -136,6 +168,9 @@ pub struct GameWorld {
     /// The current round, starting at 1.
     pub round: u32,
 
+    /// Unit ID generator.
+    id_generator: IDGenerator,
+
     /// The player whose turn it is.
     pub player_to_move: Player,
 
@@ -152,13 +187,18 @@ pub struct GameWorld {
 impl GameWorld {
 
     pub fn new() -> GameWorld {
+        let mut team_states = FnvHashMap::default();
+        team_states.insert(Team::Red, TeamInfo::new());
+        team_states.insert(Team::Blue, TeamInfo::new());
+
         GameWorld {
             round: 1,
+            id_generator: IDGenerator::new(),
             player_to_move: Player { team: Team::Red, planet: Planet::Earth },
             units: FnvHashMap::default(),
             units_by_loc: FnvHashMap::default(),
             planet_states: FnvHashMap::default(),
-            team_states: FnvHashMap::default(),
+            team_states: team_states,
         }
     }
 
@@ -166,13 +206,19 @@ impl GameWorld {
     pub fn test_world() -> GameWorld {
         let mut planet_states = FnvHashMap::default();
         planet_states.insert(Planet::Earth, PlanetInfo::test_planet_info());
+
+        let mut team_states = FnvHashMap::default();
+        team_states.insert(Team::Red, TeamInfo::new());
+        team_states.insert(Team::Blue, TeamInfo::new());
+
         GameWorld {
             round: 1,
+            id_generator: IDGenerator::new(),
             player_to_move: Player { team: Team::Red, planet: Planet::Earth },
             units: FnvHashMap::default(),
             units_by_loc: FnvHashMap::default(),
             planet_states: planet_states,
-            team_states: FnvHashMap::default(),
+            team_states: team_states,
         }
     }
 
@@ -189,6 +235,22 @@ impl GameWorld {
             Ok(planet_info)
         } else {
             Err(GameError::NoSuchPlanet)?
+        }
+    }
+
+    fn get_team_info(&self, team: Team) -> Result<&TeamInfo, Error> {
+        if let Some(team_info) = self.team_states.get(&team) {
+            Ok(team_info)
+        } else {
+            Err(GameError::NoSuchTeam)?
+        }
+    }
+
+    fn get_team_info_mut(&mut self, team: Team) -> Result<&mut TeamInfo, Error> {
+        if let Some(team_info) = self.team_states.get_mut(&team) {
+            Ok(team_info)
+        } else {
+            Err(GameError::NoSuchTeam)?
         }
     }
 
@@ -219,6 +281,19 @@ impl GameWorld {
         }
     }
 
+    /// Creates and inserts a new unit into the game world, so that it can be
+    /// referenced by ID.
+    pub fn create_unit(&mut self, team: Team, location: MapLocation,
+                       unit_type: unit::UnitType) -> Result<unit::UnitID, Error> {
+        let id = self.id_generator.next_id();
+        let unit_info = self.get_team_info(team)?.get_unit_info(unit_type)?.clone();
+        let unit = unit::Unit::new(id, team, location, unit_info);
+
+        self.units.insert(unit.id, unit);
+        self.place_unit(id, location);
+        Ok(id)
+    }
+
     /// Removes a unit from the map. Assumes the unit is on the map.
     pub fn remove_unit(&mut self, id: unit::UnitID) -> Result<(), Error> {
         let location = {
@@ -231,11 +306,6 @@ impl GameWorld {
         };
         self.units_by_loc.remove(&location);
         Ok(())
-    }
-
-    /// Inserts a given unit into the GameWorld, so that it can be referenced by ID.
-    pub fn add_unit(&mut self, unit: unit::Unit) {
-        self.units.insert(unit.id, unit);
     }
 
     /// Deletes a unit. Unit should be removed from map first.
@@ -279,26 +349,39 @@ impl GameWorld {
 #[cfg(test)]
 mod tests {
     use super::GameWorld;
-    use super::unit::Unit;
+    use super::Team;
+    use super::unit::UnitType;
     use super::super::location::*;
 
     #[test]
-    fn it_works() {}
+    fn test_unit_create() {
+        // Create the game world, and create and add some robots.
+        let mut world = GameWorld::test_world();
+        let loc_a = MapLocation::new(Planet::Earth, 0, 1);
+        let loc_b = MapLocation::new(Planet::Earth, 0, 2);
+        let id_a = world.create_unit(Team::Red, loc_a, UnitType::Knight).unwrap();
+        let id_b = world.create_unit(Team::Red, loc_b, UnitType::Knight).unwrap();
+
+        // The robots have different IDs.
+        assert_ne!(id_a, id_b);
+
+        // Both robots exist and are at the right locations.
+        let unit_a = world.get_unit(id_a).unwrap();
+        let unit_b = world.get_unit(id_b).unwrap();
+        assert_eq!(unit_a.location, loc_a);
+        assert_eq!(unit_b.location, loc_b);
+    }
 
     #[test]
     fn test_unit_move() {
-        // Create the game world, and create and add some robots.
+        // Create the game world.
         let mut world = GameWorld::test_world();
-        let a = 0;
-        let b = 1;
-        let unit_a = Unit::test_unit(a);
-        let unit_b = Unit::test_unit(b);
-        world.add_unit(unit_a);
-        world.add_unit(unit_b);
+        let loc_a = MapLocation::new(Planet::Earth, 5, 5);
+        let loc_b = MapLocation::new(Planet::Earth, 6, 5);
 
-        // Place the robots onto the map. B is one square east of A.
-        world.place_unit(a, MapLocation::new(Planet::Earth, 5, 5)).unwrap();
-        world.place_unit(b, MapLocation::new(Planet::Earth, 6, 5)).unwrap();
+        // Create and add some robots. B is one square east of A.
+        let a = world.create_unit(Team::Red, loc_a, UnitType::Knight).unwrap();
+        let b = world.create_unit(Team::Red, loc_b, UnitType::Knight).unwrap();
 
         // Robot A cannot move east, as this is where B is. However,
         // it can move northeast.

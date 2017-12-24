@@ -8,11 +8,10 @@ use unit::UnitID;
 const ID_BLOCK_SIZE: usize = 4096;
 
 /// Generates a sequence of unique pseudorandom positive integer IDS for units.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IDGenerator {
     /// The block of reserved IDs we walk through.
-    reserved_ids: [UnitID; ID_BLOCK_SIZE],
-    /// The random generator used to shuffle blocks.
-    rng: rand::ThreadRng,
+    reserved_ids: Vec<UnitID>,
     /// Where we are in the current block.
     cursor: usize,
     /// The number at the start of the next block.
@@ -23,8 +22,7 @@ impl IDGenerator {
     /// Create a new generator.
     pub fn new() -> IDGenerator {
         let mut id_gen = IDGenerator {
-            rng: rand::thread_rng(),
-            reserved_ids: [0; ID_BLOCK_SIZE as usize],
+            reserved_ids: vec![0; ID_BLOCK_SIZE as usize],
             cursor: 0,
             next_id_block: 0,
         };
@@ -33,7 +31,7 @@ impl IDGenerator {
         id_gen
     }
 
-    /// Return a new ID.
+    /// Return a new ID. Each unit ID is unique.
     pub fn next_id(&mut self) -> UnitID {
         let id = self.reserved_ids[self.cursor];
         self.cursor += 1;
@@ -44,14 +42,14 @@ impl IDGenerator {
         id
     }
 
-    /// Reserve the next ID_BLOCK_SIZE ints after this.nextIDBlock, shuffle
+    /// Reserve the next ID_BLOCK_SIZE ints after self.next_id_block, shuffle
     /// them, and reset the cursor.
     fn allocate_next_block(&mut self) {
         self.cursor = 0;
         for i in 0..ID_BLOCK_SIZE {
             self.reserved_ids[i] = self.next_id_block + i as UnitID;
         }
-        self.rng.shuffle(&mut self.reserved_ids);
+        rand::thread_rng().shuffle(&mut self.reserved_ids);
         self.next_id_block += ID_BLOCK_SIZE as UnitID;
     }
 }
