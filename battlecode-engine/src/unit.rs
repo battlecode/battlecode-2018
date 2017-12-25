@@ -36,7 +36,7 @@ impl UnitType {
                     damage: 0,
                     attack_range: 0,
                     vision_range: 50,
-                    movement_cooldown: 2,
+                    movement_cooldown: 20,
                     attack_cooldown: 0,
                 },
                 build_health: 5,
@@ -48,8 +48,8 @@ impl UnitType {
                     damage: 100,
                     attack_range: 1,
                     vision_range: 50,
-                    movement_cooldown: 2, // 1.5
-                    attack_cooldown: 2,
+                    movement_cooldown: 15,
+                    attack_cooldown: 20,
                 }
             }),
             UnitType::Ranger => Ranger(RangerInfo {
@@ -58,8 +58,8 @@ impl UnitType {
                     damage: 70,
                     attack_range: 50,
                     vision_range: 70,
-                    movement_cooldown: 2,
-                    attack_cooldown: 2,
+                    movement_cooldown: 20,
+                    attack_cooldown: 20,
                 },
                 cannot_attack_range: 10,
             }),
@@ -69,8 +69,8 @@ impl UnitType {
                     damage: 150,
                     attack_range: 30,
                     vision_range: 30,
-                    movement_cooldown: 2,
-                    attack_cooldown: 2,
+                    movement_cooldown: 20,
+                    attack_cooldown: 20,
                 }
             }),
             UnitType::Healer => Healer(HealerInfo {
@@ -79,8 +79,8 @@ impl UnitType {
                     damage: -10,
                     attack_range: 30,
                     vision_range: 50,
-                    movement_cooldown: 3, // 2.5
-                    attack_cooldown: 1,
+                    movement_cooldown: 25,
+                    attack_cooldown: 10,
                 }
             }),
             UnitType::Factory => Factory(FactoryInfo {
