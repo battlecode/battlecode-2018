@@ -121,7 +121,8 @@ impl TeamInfo {
         }
     }
 
-    pub fn get_unit_info_mut(&mut self, unit_type: unit::UnitType) -> Result<&unit::UnitInfo, Error> {
+    pub fn get_unit_info_mut(&mut self, unit_type: unit::UnitType)
+                             -> Result<&mut unit::UnitInfo, Error> {
         if let Some(unit_info) = self.unit_infos.get_mut(&unit_type) {
             Ok(unit_info)
         } else {
