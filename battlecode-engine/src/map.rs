@@ -3,7 +3,7 @@
 use std::f32;
 use failure::Error;
 use fnv::FnvHashMap;
-use rand::{Rng, SeedableRng, StdRng};
+use rand::{SeedableRng, StdRng};
 use rand::distributions::IndependentSample;
 use rand::distributions::range::Range;
 
@@ -367,7 +367,6 @@ impl WeatherPattern {
 
 #[cfg(test)]
 mod tests {
-    use failure::Error;
     use fnv::FnvHashMap;
 
     use super::AsteroidPattern;

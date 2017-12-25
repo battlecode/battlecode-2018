@@ -1,6 +1,5 @@
 //! Generates a sequence of unique pseudorandom positive integer IDS for units.
 
-use rand;
 use rand::{Rng, SeedableRng, StdRng};
 use unit::UnitID;
 use world::Team;
@@ -69,7 +68,6 @@ impl IDGenerator {
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
-    use std::io::{self, Write};
     use super::super::world::Team;
 
     #[test]
@@ -81,7 +79,7 @@ mod tests {
         // Generate a bunch of IDs. All the IDs should be unique.
         // Also all red IDs are even, and blue IDs are odd.
         let mut ids = HashSet::new();
-        for i in 0..super::ID_BLOCK_SIZE * 2 {
+        for _ in 0..super::ID_BLOCK_SIZE * 2 {
             let id_a = id_gen_a.next_id();
             assert!(!ids.contains(&id_a));
             assert_eq!(id_a % 2, 0);
@@ -99,7 +97,7 @@ mod tests {
         // ID generators with the same seed and team produce the same results.
         let mut id_gen_a = super::IDGenerator::new(Team::Red, 1);
         let mut id_gen_b = super::IDGenerator::new(Team::Red, 1);
-        for i in 0..super::ID_BLOCK_SIZE * 2 {
+        for _ in 0..super::ID_BLOCK_SIZE * 2 {
             let id_a = id_gen_a.next_id();
             let id_b = id_gen_b.next_id();
             assert_eq!(id_a, id_b);
@@ -109,7 +107,7 @@ mod tests {
         let mut id_gen_a = super::IDGenerator::new(Team::Red, 1);
         let mut id_gen_b = super::IDGenerator::new(Team::Red, 2);
         let mut different_results = false;
-        for i in 0..super::ID_BLOCK_SIZE * 2 {
+        for _ in 0..super::ID_BLOCK_SIZE * 2 {
             let id_a = id_gen_a.next_id();
             let id_b = id_gen_b.next_id();
             different_results = different_results || id_a != id_b;

@@ -121,7 +121,7 @@ impl TeamInfo {
         }
     }
 
-    fn get_unit_info_mut(&mut self, unit_type: unit::UnitType) -> Result<&unit::UnitInfo, Error> {
+    pub fn get_unit_info_mut(&mut self, unit_type: unit::UnitType) -> Result<&unit::UnitInfo, Error> {
         if let Some(unit_info) = self.unit_infos.get_mut(&unit_type) {
             Ok(unit_info)
         } else {
@@ -221,7 +221,7 @@ impl GameWorld {
         }
     }
     
-    fn get_planet_info_mut(&mut self, planet: Planet) -> Result<&mut PlanetInfo, Error> {
+    pub fn get_planet_info_mut(&mut self, planet: Planet) -> Result<&mut PlanetInfo, Error> {
         if let Some(planet_info) = self.planet_states.get_mut(&planet) {
             Ok(planet_info)
         } else {
@@ -281,7 +281,7 @@ impl GameWorld {
         let unit = unit::Unit::new(id, team, location, unit_info);
 
         self.units.insert(unit.id, unit);
-        self.place_unit(id, location);
+        self.place_unit(id, location)?;
         Ok(id)
     }
 
@@ -329,7 +329,7 @@ impl GameWorld {
         }
     }
 
-    fn apply(&mut self, delta: Delta) -> Result<(), Error> {
+    pub fn apply(&mut self, delta: Delta) -> Result<(), Error> {
         match delta {
             Delta::Move{id, direction} => self.move_unit(id, direction),
             _ => Ok(()),
