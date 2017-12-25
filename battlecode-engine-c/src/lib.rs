@@ -114,7 +114,7 @@ pub unsafe extern "C" fn bc_new_game_world(bc: *mut bc_t) -> *mut bc_game_world_
     // This macro is from macros.rs
     handle_errors!{bc () -> *mut bc_game_world_t [0] {
         let result = Box::into_raw(Box::new(
-            bc_game_world_t(eng::world::GameWorld::new())));
+            bc_game_world_t(eng::world::GameWorld::test_world())));
         Ok(result)
     }}
 }

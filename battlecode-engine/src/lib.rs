@@ -17,6 +17,9 @@ extern crate serde_json;
 // Error handling.
 #[macro_use] extern crate failure;
 
+// Random number generation.
+extern crate rand;
+
 // Provides FnvHashMap and FnvHashSet, which are like std::HashMap and std::HashSet, but
 // significantly faster for integer keys.
 extern crate fnv;
@@ -32,6 +35,12 @@ pub mod error;
 
 // see location.rs
 pub mod location;
+
+// see map.rs
+pub mod map;
+
+// see id_generator.rs
+pub mod id_generator;
 
 // see unit.rs
 pub mod unit;
