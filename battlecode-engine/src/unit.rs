@@ -38,7 +38,9 @@ impl UnitType {
                     vision_range: 50,
                     movement_cooldown: 2,
                     attack_cooldown: 0,
-                }
+                },
+                build_health: 5,
+                harvest_amount: 3,
             }),
             UnitType::Knight => Knight(KnightInfo {
                 robot_stats: RobotStats {
@@ -58,7 +60,8 @@ impl UnitType {
                     vision_range: 70,
                     movement_cooldown: 2,
                     attack_cooldown: 2,
-                }
+                },
+                cannot_attack_range: 10,
             }),
             UnitType::Mage => Mage(MageInfo {
                 robot_stats: RobotStats {
@@ -83,10 +86,12 @@ impl UnitType {
             UnitType::Factory => Factory(FactoryInfo {
                 max_health: 1000,
                 production_queue: vec![],
+                built: false,
             }),
             UnitType::Rocket => Rocket(RocketInfo {
                 max_health: 200,
                 max_capacity: 8,
+                built: false
             }),
         }
     }
@@ -114,6 +119,10 @@ pub struct RobotStats {
 pub struct WorkerInfo {
     /// The robot stats.
     robot_stats: RobotStats,
+    /// The health restored when building or repairing a factory or rocket.
+    build_health: u32,
+    /// The maximum amount of karbonite harvested from a deposit in one turn.
+    harvest_amount: u32,
 }
 
 /// Info specific to Knights.
@@ -128,6 +137,8 @@ pub struct KnightInfo {
 pub struct RangerInfo {
     /// The robot stats.
     robot_stats: RobotStats,
+    /// The range within the ranger cannot attack.
+    cannot_attack_range: u32,
 }
 
 /// Info specific to Mages.
@@ -147,6 +158,8 @@ pub struct HealerInfo {
 /// Info specific to factories.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FactoryInfo {
+    /// Whether the factory has been built.
+    built: bool,
     /// The maximum health.
     max_health: u32,
     /// Units queued to be produced.
@@ -156,6 +169,8 @@ pub struct FactoryInfo {
 /// Info specific to rockets.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RocketInfo {
+    /// Whether the rocket has been built.
+    built: bool,
     /// The maximum health.
     max_health: u32,
     /// The maximum number of robots it can hold at once.
