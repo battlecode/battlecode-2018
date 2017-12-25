@@ -13,7 +13,7 @@ import ujson as json
 
 
 
-class Game(object):
+class Game(object): # pylint: disable=too-many-instance-attributes
     '''
     This function contains the game information, and is started at the begining
     of the process
@@ -39,7 +39,20 @@ class Game(object):
         print(self.player_ids)
         self.state = state
         self.started = False
-        self.num_log_in = 0
+        self.running_lock = threading.RLock()
+        self.next_player_id = 0
+
+    @property
+    def num_log_in(self):
+        '''
+        Returns the number of people who have been logged in
+        '''
+        total = 0
+        for key in self.player_logged:
+            if self.player_logged[key]:
+                total += 1
+        return total
+
 
     def verify_login(self, data: str):
         '''
@@ -64,11 +77,65 @@ class Game(object):
         if self.player_logged[client_id]:
             return "Already Logged In"
 
-        self.num_log_in += 1
         self.player_logged[client_id] = True
+
+        # Check if all the players are logged in and then start the game
         if len(self.player_ids) == self.num_log_in:
-            self.started = True
+            self.start_game()
         return client_id
+
+    def start_game(self):
+        '''
+        This code handles starting the game. Anything that is meant to be
+        triggered when a game starts is stored here.
+        '''
+
+        #Init the player who starts and then tell everyone we started
+        self.next_player_id = self.player_ids[0]
+        self.started = True
+        return
+
+
+
+    def end_turn(self, client_id: int):
+        '''
+        This function handles the release of all locks and moving the player to
+        the next turn. It also handles sleeping the docker instances.
+        Args:
+            client_id: The int of the client that this thread is related to
+        '''
+
+        # sleep docker instance
+
+        # Increment to the next player
+        index = self.player_ids.index(self.next_player_id)
+        index = (index + 1) % len(self.player_ids)
+        self.next_player_id = self.player_ids[index]
+
+        self.running_lock.release()
+
+
+    def start_turn(self, client_id: int):
+        '''
+        This is a blocking function that waits until it client_id's turn to
+        start the game. It attempts to take the game lock and then checks to see
+        if the client_id matches the next player id. If it does it returns and
+        the player can start running.
+
+        This also handles waking the docker instances to start computing
+        '''
+
+        while True:
+            time.sleep(0.05)
+            self.running_lock.acquire()
+            if  self.next_player_id == client_id:
+                break
+            self.running_lock.release()
+
+        # Start Docker instance
+        return
+
+
 
 
     def make_action(self, data: bytes):
@@ -81,9 +148,9 @@ class Game(object):
         Return:
             State diff to be send back to the client
         '''
-        action = json.loads(data)
-        return action
         # interact with the engine
+
+        return data
 
 
 def create_receive_handler(game: Game, dockers) -> socketserver.BaseRequestHandler:
@@ -116,10 +183,11 @@ def create_receive_handler(game: Game, dockers) -> socketserver.BaseRequestHandl
             This does all the processing of the data we receive and we spend our
             time in this function.
             '''
+
             logged_in = False
 
-            # TODO Change the while true to a more meaningful statement
-            while True:
+            # Handle Login fase
+            while not logged_in:
                 self._socket = self.request.makefile('rwb', 2)
                 # We if the try fails the client dced
                 try:
@@ -130,17 +198,40 @@ def create_receive_handler(game: Game, dockers) -> socketserver.BaseRequestHandl
                     break
 
                 data = data.decode("utf-8").strip()
-                # This Block
-                if not logged_in:
-                    client_id = self.game.verify_login(data)
-                    if isinstance(client_id, int):
-                        # TODO Here we send the error message back
-                        # TODO Need to figure out what to do here
-                        break
-                    logged_in = True
-                    continue
 
-                # Unpack the data to process it
+                client_id = self.game.verify_login(data)
+
+                if not isinstance(client_id, int):
+                    # TODO Here we send the error message back
+                    # TODO Need to figure out what to do here
+                    continue
+                logged_in = True
+
+            # Sleep the docker instance
+
+            while not self.game.started:
+                # Spin while waiting for game to start
+                time.sleep(0.5)
+
+
+            # TODO Change the while true to a more meaningful statement
+            while self.game.started:
+                # This is the loop that the code will always remain in
+
+                # Blocks until it this clients turn
+                self.game.start_turn(client_id)
+
+                print("Started Turn")
+                self._socket = self.request.makefile('rwb', 2)
+                # We if the try fails the client dced
+                try:
+                    data = next(self._socket)
+                except IOError:
+                    # Print DC message
+                    print("Client" + str(self.client_address) +  "Disconnected")
+                    break
+
+                data = data.decode("utf-8").strip()
                 unpacked_data = json.loads(data)
 
                 # Check client is who they claim they are
@@ -153,8 +244,14 @@ def create_receive_handler(game: Game, dockers) -> socketserver.BaseRequestHandl
                 # Process action that the client is doing
                 game.make_action(moves, client_id)
 
-                # TODO sleep the docker instance
+                # Send information back to client
+
+                self.game.end_turn(client_id)
+
+
     return ReceiveHandler
+
+
 def start_server(sock_file: str, game: Game, dockers) -> socketserver.BaseServer:
     '''
     Start a socket server for the players to connect to
