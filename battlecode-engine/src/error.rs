@@ -12,6 +12,10 @@ pub enum GameError {
     #[fail(display = "The map-related object is invalid.")]
     InvalidMapObject,
 
+    /// The level of research is invalid.
+    #[fail(display = "The level of research is invalid.")]
+    InvalidResearchLevel,
+
     /// The specified planet does not exist. This is probably the devs' fault.
     #[fail(display = "The specified planet does not exist. This is probably the devs' fault.")]
     NoSuchPlanet,

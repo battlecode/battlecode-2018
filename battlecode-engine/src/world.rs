@@ -8,7 +8,7 @@ use super::id_generator::IDGenerator;
 use super::location::*;
 use super::map::*;
 use super::unit;
-use super::research;
+use super::research::*;
 use super::error::GameError;
 use failure::Error;
 
@@ -76,16 +76,8 @@ pub struct TeamInfo {
     /// Unit info of a given type at initialization.
     unit_infos: FnvHashMap<unit::UnitType, unit::UnitInfo>,
 
-    /// The current status of the team's research. The values defines the level
-    /// of the research, where 0 represents no progress.
-    research_status: FnvHashMap<research::Branch, u32>,
-
-    /// Research branches queued to be researched, including the current branch.
-    research_queue: Vec<research::Branch>,
-
-    /// The number of rounds to go until the first branch in the research
-    /// queue is finished. 0 if the research queue is empty.
-    research_rounds_left: u32,
+    /// The current state of research.
+    research: ResearchInfo,
 }
 
 impl TeamInfo {
@@ -93,11 +85,7 @@ impl TeamInfo {
     pub fn new(team: Team, seed: u32) -> TeamInfo {
         // Initialize default unit infos
         let mut unit_infos = FnvHashMap::default();
-        let unit_types = vec![unit::UnitType::Worker, unit::UnitType::Knight,
-                              unit::UnitType::Ranger, unit::UnitType::Mage,
-                              unit::UnitType::Healer, unit::UnitType::Factory,
-                              unit::UnitType::Rocket];
-        for unit_type in unit_types {
+        for unit_type in unit::UnitType::all() {
             let unit_info = unit_type.default();
             unit_infos.insert(unit_type, unit_info);
         }
@@ -107,9 +95,7 @@ impl TeamInfo {
             id_generator: IDGenerator::new(team, seed),
             team_arrays: FnvHashMap::default(),
             unit_infos: unit_infos,
-            research_status: FnvHashMap::default(),
-            research_queue: Vec::new(),
-            research_rounds_left: 0,
+            research: ResearchInfo::new(),
         }
     }
 

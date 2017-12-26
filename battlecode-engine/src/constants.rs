@@ -51,6 +51,31 @@ pub const ORBIT_FLIGHT_MIN: i32 = 100;
 pub const ORBIT_FLIGHT_MAX: i32 = 400;
 
 // *********************************
+// ****** RESEARCH CONSTANTS *******
+// *********************************
+
+/// The cost of each level of research on the Worker branch.
+pub const WORKER_COST: [u32; 5] = [0, 60, 80, 100, 200];
+
+/// The cost of each level of research on the Knight branch.
+pub const KNIGHT_COST: [u32; 4] = [0, 80, 100, 200];
+
+/// The cost of each level of research on the Ranger branch.
+pub const RANGER_COST: [u32; 4] = [0, 80, 100, 200];
+
+/// The cost of each level of research on the Mage branch.
+pub const MAGE_COST: [u32; 5] = [0, 60, 80, 100, 200];
+
+/// The cost of each level of research on the Healer branch.
+pub const HEALER_COST: [u32; 4] = [0, 80, 100, 200];
+
+/// The cost of each level of research on the Factory branch.
+pub const FACTORY_COST: [u32; 1] = [0];
+
+/// The cost of each level of research on the Rocket branch.
+pub const ROCKET_COST: [u32; 4] = [0, 300, 200, 200];
+
+// *********************************
 // ****** GAME PARAMETERS **********
 // *********************************
 

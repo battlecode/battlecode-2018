@@ -28,6 +28,20 @@ pub enum UnitType {
 }
 
 impl UnitType {
+    /// List all the unit types.
+    pub fn all() -> Vec<UnitType> {
+        vec![
+            UnitType::Worker,
+            UnitType::Knight,
+            UnitType::Ranger,
+            UnitType::Mage,
+            UnitType::Healer,
+            UnitType::Factory,
+            UnitType::Rocket,
+        ]
+    }
+
+    /// Return the default stats of the given unit type.
     pub fn default(&self) -> UnitInfo {
         match *self {
             UnitType::Worker => Worker(WorkerInfo {
