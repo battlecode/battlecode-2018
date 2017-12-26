@@ -205,8 +205,10 @@ pub struct Unit {
     /// The team the unit belongs to.
     pub team: Team,
 
-    /// The location of the unit.
-    pub location: MapLocation,
+    /// The location of the unit, if currently on the map. Units
+    /// can be temporarily removed from the map in rocket-related
+    /// situations.
+    pub location: Option<MapLocation>,
     /// The current health of the unit.
     pub health: u32,
     /// The movement heat of the unit.
@@ -220,8 +222,7 @@ pub struct Unit {
 
 impl Unit {
     /// Create a new unit of the given type.
-    pub fn new(id: UnitID, team: Team, location: MapLocation,
-               unit_info: UnitInfo) -> Unit {
+    pub fn new(id: UnitID, team: Team, unit_info: UnitInfo) -> Unit {
         let health = match unit_info {
             Worker(ref info) => info.robot_stats.max_health,
             Knight(ref info) => info.robot_stats.max_health,
@@ -235,7 +236,7 @@ impl Unit {
         Unit {
             id: id,
             team: team,
-            location: location,
+            location: None,
             health: health,
             movement_heat: 0,
             attack_heat: 0,
@@ -255,8 +256,7 @@ impl Unit {
                 attack_cooldown: 0,
             }
         });
-        let location = MapLocation::new(Planet::Earth, -1, -1);
-        Unit::new(id, Team::Red, location, unit_info)
+        Unit::new(id, Team::Red, unit_info)
     }
 
     /// Returns whether the unit is currently able to make a movement to a valid location.

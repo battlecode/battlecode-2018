@@ -142,9 +142,10 @@ impl PlanetMap {
             }
         }
         for ref unit in &self.initial_units {
-            let x = (unit.location.x - self.origin.x) as usize;
-            let y = (unit.location.y - self.origin.y) as usize;
-            if unit.location.planet != self.planet {
+            let location = unit.location.ok_or(GameError::InvalidMapObject)?;
+            let x = (location.x - self.origin.x) as usize;
+            let y = (location.y - self.origin.y) as usize;
+            if location.planet != self.planet {
                 Err(GameError::InvalidMapObject)?
             }
             if !self.is_passable_terrain[y][x] {

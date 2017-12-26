@@ -277,7 +277,7 @@ impl GameWorld {
         Ok(())
     }
 
-    pub fn next_round(&mut self) -> Result<Option<Team>, Error> {
+    pub fn next_round(&mut self) -> Result<(), Error> {
         self.round += 1;
 
         // Update unit cooldowns.
@@ -296,13 +296,20 @@ impl GameWorld {
             planet_info.karbonite[location.y as usize][location.x as usize] += karbonite;
         }
 
-        Ok(());
+        Ok(())
     }
 
     /// Places a unit onto the map at the given location. Assumes the given square is occupiable.
     pub fn place_unit(&mut self, id: unit::UnitID, location: MapLocation) -> Result<(), Error> {
         if self.is_occupiable(location)? {
-            self.get_unit_mut(id)?.location = location;
+            {
+                let unit = self.get_unit_mut(id)?;
+                if unit.location.is_some() {
+                    // The unit has already been placed.
+                    Err(GameError::InternalEngineError)?;
+                }
+                unit.location = Some(location);
+            }
             self.units_by_loc.insert(location, id);
             Ok(())
         } else {
@@ -316,7 +323,7 @@ impl GameWorld {
                        unit_type: unit::UnitType) -> Result<unit::UnitID, Error> {
         let id = self.get_team_info_mut(team)?.id_generator.next_id();
         let unit_info = self.get_team_info(team)?.get_unit_info(unit_type)?.clone();
-        let unit = unit::Unit::new(id, team, location, unit_info);
+        let unit = unit::Unit::new(id, team, unit_info);
 
         self.units.insert(unit.id, unit);
         self.place_unit(id, location)?;
@@ -326,12 +333,11 @@ impl GameWorld {
     /// Removes a unit from the map. Assumes the unit is on the map.
     pub fn remove_unit(&mut self, id: unit::UnitID) -> Result<(), Error> {
         let location = {
-            // TODO: unit locations should probably be an Option
-            // to better handle unplaced units.
             let unit = self.get_unit_mut(id)?;
             let location = unit.location;
-            unit.location = MapLocation::new(Planet::Earth, -1, -1);
-            location
+            unit.location = None;
+            // If location is None, then the unit was already removed.
+            location.ok_or(GameError::InternalEngineError)?
         };
         self.units_by_loc.remove(&location);
         Ok(())
@@ -352,12 +358,16 @@ impl GameWorld {
     /// Tests whether the given unit can move.
     pub fn can_move(&self, id: unit::UnitID, direction: Direction) -> Result<bool, Error> {
         let unit = self.get_unit(id)?;
-        Ok(unit.is_move_ready() && self.is_occupiable(unit.location.add(direction))?)
+        if let Some(location) = unit.location {
+            Ok(unit.is_move_ready() && self.is_occupiable(location.add(direction))?)
+        } else {
+            Ok(false)
+        }
     }
 
     // Given that moving an unit comprises many edits to the GameWorld, it makes sense to define this here.
     pub fn move_unit(&mut self, id: unit::UnitID, direction: Direction) -> Result<(), Error> {
-        let dest = self.get_unit(id)?.location.add(direction);
+        let dest = self.get_unit(id)?.location.ok_or(GameError::InvalidAction)?.add(direction);
         if self.can_move(id, direction)? {
             self.remove_unit(id)?;
             self.place_unit(id, dest)?;
@@ -365,6 +375,10 @@ impl GameWorld {
         } else {
             Err(GameError::InvalidAction)?
         }
+    }
+
+    pub fn launch_rocket(&mut self, id: unit::UnitID, destination: MapLocation) -> Result<(), Error> {
+        Ok(())
     }
 
     pub fn apply(&mut self, delta: Delta) -> Result<(), Error> {
@@ -398,8 +412,8 @@ mod tests {
         // Both robots exist and are at the right locations.
         let unit_a = world.get_unit(id_a).unwrap();
         let unit_b = world.get_unit(id_b).unwrap();
-        assert_eq!(unit_a.location, loc_a);
-        assert_eq!(unit_b.location, loc_b);
+        assert_eq!(unit_a.location.unwrap(), loc_a);
+        assert_eq!(unit_b.location.unwrap(), loc_b);
     }
 
     #[test]
