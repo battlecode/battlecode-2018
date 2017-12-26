@@ -1,6 +1,7 @@
 //! The core battlecode engine.
 
 use fnv::FnvHashMap;
+use std::cmp;
 
 use super::constants::*;
 use super::schema::Delta;
@@ -262,6 +263,42 @@ impl GameWorld {
         }
     }
 
+    pub fn next_turn(&mut self) -> Result<(), Error> {
+        self.player_to_move = match self.player_to_move {
+            Player { team: Team::Red, planet: Planet::Earth } => Player { team: Team::Blue, planet: Planet::Earth},
+            Player { team: Team::Blue, planet: Planet::Earth } => Player { team: Team::Red, planet: Planet::Mars},
+            Player { team: Team::Red, planet: Planet::Mars } => Player { team: Team::Blue, planet: Planet::Mars},
+            Player { team: Team::Blue, planet: Planet::Mars } => {
+                // This is the last player to move, so we can advance to the next round.
+                self.next_round()?;
+                Player { team: Team::Red, planet: Planet::Earth}
+            },
+        };
+        Ok(())
+    }
+
+    pub fn next_round(&mut self) -> Result<Option<Team>, Error> {
+        self.round += 1;
+
+        // Update unit cooldowns.
+        for (_, unit) in &mut self.units {
+            unit.movement_heat -= cmp::min(HEAT_LOSS_PER_ROUND, unit.movement_heat);
+            unit.attack_heat -= cmp::min(HEAT_LOSS_PER_ROUND, unit.attack_heat);
+        }
+
+        // Process any potential asteroid impacts.
+        if self.weather.asteroids.get_asteroid(self.round).is_some() {
+            let (location, karbonite) = {
+                let asteroid = self.weather.asteroids.get_asteroid(self.round).unwrap();
+                (asteroid.location, asteroid.karbonite)
+            };
+            let planet_info = self.get_planet_info_mut(location.planet)?;
+            planet_info.karbonite[location.y as usize][location.x as usize] += karbonite;
+        }
+
+        Ok(());
+    }
+
     /// Places a unit onto the map at the given location. Assumes the given square is occupiable.
     pub fn place_unit(&mut self, id: unit::UnitID, location: MapLocation) -> Result<(), Error> {
         if self.is_occupiable(location)? {
@@ -332,6 +369,7 @@ impl GameWorld {
 
     pub fn apply(&mut self, delta: Delta) -> Result<(), Error> {
         match delta {
+            Delta::EndTurn => self.next_turn(),
             Delta::Move{id, direction} => self.move_unit(id, direction),
             _ => Ok(()),
         }

@@ -51,6 +51,13 @@ pub const ORBIT_FLIGHT_MIN: i32 = 100;
 pub const ORBIT_FLIGHT_MAX: i32 = 400;
 
 // *********************************
+// ****** UNIT CONSTANTS ***********
+// *********************************
+
+/// The heat each robot dissipates per round.
+pub const HEAT_LOSS_PER_ROUND: u32 = 10;
+
+// *********************************
 // ****** GAME PARAMETERS **********
 // *********************************
 

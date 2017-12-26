@@ -182,12 +182,12 @@ impl PlanetMap {
 }
 
 /// A single asteroid strike on Mars.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AsteroidStrike {
     /// The karbonite on the asteroid.
-    karbonite: u32,
+    pub karbonite: u32,
     /// The location of the strike.
-    location: MapLocation,
+    pub location: MapLocation,
 }
 
 /// The round number to an asteroid strike.

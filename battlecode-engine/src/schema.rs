@@ -8,6 +8,8 @@ use super::unit::*;
 /// A single, atomic "change" in the game world.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Delta {
+    /// Ends the current turn, and begins the next.
+    EndTurn,
     /// Moves a robot with the given ID.
     Move { id: UnitID, direction: Direction },
     /// Nothing happens.
