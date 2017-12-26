@@ -9,11 +9,12 @@ use fnv::FnvHashMap;
 use super::constants;
 use super::error::GameError;
 use super::unit::UnitType as Branch;
+use super::world::Rounds;
 
 /// Research level.
 pub type Level = usize;
 
-fn get_cost_array(branch: &Branch) -> Vec<u32> {
+fn get_cost_array(branch: &Branch) -> Vec<Rounds> {
     match branch {
         &Branch::Worker  => constants::WORKER_COST.to_vec(),
         &Branch::Knight  => constants::KNIGHT_COST.to_vec(),
@@ -32,7 +33,7 @@ pub fn get_max_level(branch: &Branch) -> Level {
 
 /// Returns the cost of a level, in rounds, of a research branch. Errors if the
 /// level can't be researched i.e. not in the range [0, get_max_level(branch)].
-pub fn get_cost(branch: &Branch, level: Level) -> Result<u32, Error> {
+pub fn get_cost(branch: &Branch, level: Level) -> Result<Rounds, Error> {
     if let Some(cost) = get_cost_array(branch).get(level) {
         Ok(*cost)
     } else {
@@ -54,7 +55,7 @@ pub struct ResearchInfo {
 
     /// The number of rounds to go until the first branch in the queue is
     /// finished, if the queue is not empty.
-    rounds_left: Option<u32>,
+    rounds_left: Option<Rounds>,
 }
 
 impl ResearchInfo {
@@ -124,7 +125,7 @@ impl ResearchInfo {
 
     /// Returns the number of rounds left until the upgrade at the front of the
     /// research queue is applied, or None if the queue is empty.
-    pub fn get_rounds_left(&self) -> Option<u32> {
+    pub fn get_rounds_left(&self) -> Option<Rounds> {
         self.rounds_left.clone()
     }
 
@@ -231,7 +232,7 @@ mod tests {
     #[test]
     fn simple_research_queue_mutators() {
         let mut r = ResearchInfo::new();
-        let knight_cost: u32 = super::get_cost(&Branch::Knight, 1).unwrap();
+        let knight_cost = super::get_cost(&Branch::Knight, 1).unwrap();
 
         // Add a Knight.
         assert!(r.add_to_queue(&Branch::Knight));

@@ -12,6 +12,9 @@ use super::research::*;
 use super::error::GameError;
 use failure::Error;
 
+// A round consists of a turn from each player.
+pub type Rounds = u32;
+
 /// There are two teams in Battlecode: Red and Blue.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub enum Team {
@@ -131,7 +134,7 @@ pub struct Player {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GameWorld {
     /// The current round, starting at 1.
-    pub round: u32,
+    pub round: Rounds,
 
     /// The player whose turn it is.
     pub player_to_move: Player,

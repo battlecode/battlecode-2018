@@ -11,6 +11,7 @@ use constants::*;
 use error::GameError;
 use location::*;
 use unit::Unit;
+use super::world::Rounds;
 
 /// The map defining the starting state for an entire game.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -193,7 +194,7 @@ pub struct AsteroidStrike {
 /// The round number to an asteroid strike.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AsteroidPattern {
-    pattern: FnvHashMap<u32, AsteroidStrike>,
+    pattern: FnvHashMap<Rounds, AsteroidStrike>,
 }
 
 /// The orbit pattern that determines a rocket's flight duration. This pattern
@@ -220,7 +221,7 @@ impl AsteroidStrike {
 
 impl AsteroidPattern {
     /// Constructs a new asteroid pattern from a map of round number to strike.
-    pub fn new(pattern: &FnvHashMap<u32, AsteroidStrike>) -> AsteroidPattern {
+    pub fn new(pattern: &FnvHashMap<Rounds, AsteroidStrike>) -> AsteroidPattern {
         AsteroidPattern {
             pattern: pattern.clone(),
         }
@@ -228,7 +229,7 @@ impl AsteroidPattern {
 
     /// Constructs a pseudorandom asteroid pattern given a map of Mars.
     pub fn random(seed: u32, mars_map: &PlanetMap) -> AsteroidPattern {
-        let mut pattern: FnvHashMap<u32, AsteroidStrike> = FnvHashMap::default();
+        let mut pattern: FnvHashMap<Rounds, AsteroidStrike> = FnvHashMap::default();
 
         let karbonite_gen = Range::new(ASTEROID_KARB_MIN, ASTEROID_KARB_MAX);
         let round_gen = Range::new(ASTEROID_ROUND_MIN, ASTEROID_ROUND_MAX);
@@ -277,7 +278,7 @@ impl AsteroidPattern {
 
         // An asteroid strikes every [ASTEROID_ROUND_MIN,
         // ASTEROID_ROUND_MAX] rounds, inclusive.
-        let mut rounds: Vec<&u32> = self.pattern.keys().collect();
+        let mut rounds: Vec<&Rounds> = self.pattern.keys().collect();
         rounds.sort();
         if rounds[0] - 1 > ASTEROID_ROUND_MAX {
             Err(GameError::InvalidMapObject)?
@@ -295,12 +296,12 @@ impl AsteroidPattern {
     }
 
     /// Get the asteroid strike at the given round.
-    pub fn get_asteroid(&self, round: u32) -> Option<&AsteroidStrike> {
+    pub fn get_asteroid(&self, round: Rounds) -> Option<&AsteroidStrike> {
         self.pattern.get(&round)
     }
 
     /// Get a map of round numbers to asteroid strikes.
-    pub fn get_asteroid_map(&self) -> FnvHashMap<u32, AsteroidStrike> {
+    pub fn get_asteroid_map(&self) -> FnvHashMap<Rounds, AsteroidStrike> {
         self.pattern.clone()
     }
 }
@@ -374,16 +375,18 @@ mod tests {
     use super::OrbitPattern;
     use super::super::constants::*;
     use super::super::location::*;
+    use super::super::world::Rounds;
 
-    fn insert_and_err(pattern: &FnvHashMap<u32, AsteroidStrike>,
-                      round: u32, karbonite: u32, location: MapLocation) {
+    fn insert_and_err(pattern: &FnvHashMap<Rounds, AsteroidStrike>,
+                      round: Rounds, karbonite: u32, location: MapLocation) {
         let mut invalid = pattern.clone();
         invalid.insert(round, AsteroidStrike::new(karbonite, location));
         assert!(AsteroidPattern::new(&invalid).validate().is_err());
     }
 
-    fn gen_asteroid_map(start_round: u32, skip_round: u32) -> FnvHashMap<u32, AsteroidStrike> {
-        let mut asteroid_map: FnvHashMap<u32, AsteroidStrike> = FnvHashMap::default();
+    fn gen_asteroid_map(start_round: Rounds, skip_round: Rounds)
+                        -> FnvHashMap<Rounds, AsteroidStrike> {
+        let mut asteroid_map: FnvHashMap<Rounds, AsteroidStrike> = FnvHashMap::default();
         let mut round = start_round;
         let default_loc = MapLocation::new(Planet::Mars, 0, 0);
         let default_strike = AsteroidStrike::new(ASTEROID_KARB_MIN, default_loc);
