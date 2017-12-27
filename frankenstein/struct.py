@@ -13,7 +13,6 @@ class StructType(Type):
     RUST_BY_VALUE = 0
     RUST_REF = 1
     RUST_MUT_REF = 2
-    RUST_RAW_PTR = 3
 
     def __init__(self, wrapper, kind=0):
         self.wrapper = wrapper
@@ -33,24 +32,17 @@ class StructType(Type):
     def mut_ref(self):
         return StructType(self.wrapper, kind=StructType.RUST_MUT_REF)
 
-    def raw(self):
-        return StructType(self.wrapper, kind=StructType.RUST_RAW_PTR)
-
     def wrap_c_value(self, name):
+        pre_check = f'let _{name} = check_null!({name}, default);'
         if self.kind == StructType.RUST_BY_VALUE:
-            name = f'(unsafe{{&*{name}}}).clone()'
-            return ('', name, '')
+            value = f'_{name}.clone()'
         elif self.kind == StructType.RUST_MUT_REF:
-            pre_check = f'let _{name} = check_null!({name}, default);'
             value = f'_{name}'
-            post_check = ''
-            return (pre_check, value, post_check)
         else:
             raise Exception(f'Unknown pointer type: {self.kind}')
+        return (pre_check, value, '')
     
     def unwrap_rust_value(self, name):
-        if self.kind == StructType.RUST_RAW_PTR:
-            return name
         if self.kind == StructType.RUST_BY_VALUE:
             result = name
         elif self.kind == StructType.RUST_MUT_REF:
@@ -60,7 +52,7 @@ class StructType(Type):
 
         return f'Box::into_raw(Box::new(borrow_check({result})))'
 
-    def unwrap_python_value(self, name):
+    def wrap_python_value(self, name):
         return f'{name}._ptr'
 
     def python_postfix(self):
@@ -217,7 +209,7 @@ class StructWrapper(object):
             '__init__',
             self.constructor_.docs
             )
-        cpyargs = ', '.join(a.type.unwrap_python_value(a.name) for a in cargs[1:])
+        cpyargs = ', '.join(a.type.wrap_python_value(a.name) for a in cargs[1:])
         cbody = f'self._ptr = _lib.{self.constructor_.name}({cpyargs})\n'
         cbody += '_check_errors()\n'
         

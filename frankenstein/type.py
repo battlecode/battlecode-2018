@@ -34,11 +34,14 @@ class Type(object):
     def unwrap_rust_value(self, value):
        return value
 
-    def unwrap_python_value(self, value):
+    def wrap_python_value(self, value):
         return value
 
     def python_postfix(self):
         return ''
+
+    def result(self):
+        return ResultType(self)
 
 class BuiltinWrapper(object):
     def __init__(self, *args):
@@ -63,5 +66,21 @@ boolean = BuiltinWrapper('u8', 'uint8_t', 'bool', '0')
 boolean.type.wrap_c_value = lambda name: ('', f'{name} as bool', '')
 boolean.type.unwrap_rust_value = lambda name: f'{name} as u8'
 boolean.type.python_postfix = lambda: 'result = bool(result)\n'
-boolean.type.unwrap_python_value = lambda name: f'int({name})'
+boolean.type.wrap_python_value = lambda name: f'int({name})'
 
+class ResultType(Type):
+    '''A Result<T, failure::Error>.'''
+
+    def __init__(self, wrapped):
+        super().__init__(wrapped.rust, wrapped.swig, wrapped.python, wrapped.default)
+        self.wrapped = wrapped
+
+    
+    def wrap_c_value(self, value):
+        raise Exception("Results can only be returned")
+    
+    def wrap_python_value(self, value):
+        raise Exception("Results can only be returned")
+    
+    def unwrap_rust_value(self, value):
+        return self.wrapped.unwrap_rust_value(f'check_result!({value}, default)')

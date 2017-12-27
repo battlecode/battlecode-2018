@@ -1,6 +1,6 @@
 include ../../colors.mk
 
-build:
+build: 
 	$(call build_command,cargo build --release)
 	$(call build_command,python setup.py build_ext --inplace)
 

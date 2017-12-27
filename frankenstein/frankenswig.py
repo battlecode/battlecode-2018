@@ -183,6 +183,19 @@ macro_rules! check_panic {{
         }}
     }};
 }}
+macro_rules! check_result {{
+    ($result:expr, $default:expr) => {{
+        match $result {{
+            Err(err) => {{
+                set_error(SwigError::Runtime, format!("{{}}", err));
+                $default
+            }},
+            Ok(result) => {{
+                result
+            }}
+        }}
+    }};
+}}
 
 '''
 RUST_FOOTER = ''

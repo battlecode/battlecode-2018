@@ -46,7 +46,7 @@ class Function(object):
     def to_python(self):
         # note: we assume that error + null checking, etc. will occur on the rust side.
         # (it'll probably be much faster there in any case.)
-        pyargs = ', '.join(a.type.unwrap_python_value(a.name) for a in self.args)
+        pyargs = ', '.join(a.type.wrap_python_value(a.name) for a in self.args)
 
         body = f'result = _lib.{self.name}({pyargs})\n'
         body += '_check_errors()\n'
@@ -74,7 +74,7 @@ class Method(Function):
     
     def to_python(self):
         args = [Var(self.args[0].type, 'self')] + self.args[1:]
-        pyargs = ', '.join(a.type.unwrap_python_value(a.name) for a in args)
+        pyargs = ', '.join(a.type.wrap_python_value(a.name) for a in args)
 
         body = f'result = _lib.{self.name}({pyargs})\n'
         body += '_check_errors()\n'
