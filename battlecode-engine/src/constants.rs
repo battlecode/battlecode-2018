@@ -57,6 +57,9 @@ pub const ORBIT_FLIGHT_MAX: i32 = 400;
 /// The heat each robot dissipates per round.
 pub const HEAT_LOSS_PER_ROUND: u32 = 10;
 
+/// The damage a rocket deals to adjacent units upon landing.
+pub const ROCKET_BLAST_DAMAGE: u32 = 50;
+
 // *********************************
 // ****** GAME PARAMETERS **********
 // *********************************

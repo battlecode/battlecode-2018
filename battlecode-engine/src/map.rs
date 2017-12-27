@@ -33,6 +33,11 @@ impl GameMap {
         self.weather.validate()?;
         Ok(())
     }
+
+    /// Whether a location is on the map.
+    pub fn on_map(&self, location: &MapLocation) -> bool {
+        self.earth_map.on_map(location) || self.mars_map.on_map(location)
+    }
 }
 
 /// The map for one of the planets in the Battlecode world. This information

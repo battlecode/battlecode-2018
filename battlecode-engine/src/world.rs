@@ -157,6 +157,10 @@ pub struct GameWorld {
     /// All the units on the map, by location.
     units_by_loc: FnvHashMap<MapLocation, unit::UnitID>,
 
+    /// Rocket landings. Maps round numbers to a list of rockets
+    /// landing on the given round.
+    rocket_landings: FnvHashMap<u32, Vec<(unit::UnitID, MapLocation)>>,
+
     /// The weather patterns.
     pub weather: WeatherPattern,
 
@@ -185,6 +189,7 @@ impl GameWorld {
             player_to_move: Player { team: Team::Red, planet: Planet::Earth },
             units: FnvHashMap::default(),
             units_by_loc: FnvHashMap::default(),
+            rocket_landings: FnvHashMap::default(),
             weather: map.weather,
             planet_states: planet_states,
             team_states: team_states,
@@ -209,6 +214,7 @@ impl GameWorld {
             player_to_move: Player { team: Team::Red, planet: Planet::Earth },
             units: FnvHashMap::default(),
             units_by_loc: FnvHashMap::default(),
+            rocket_landings: FnvHashMap::default(),
             weather: weather,
             planet_states: planet_states,
             team_states: team_states,
@@ -286,6 +292,16 @@ impl GameWorld {
             unit.attack_heat -= cmp::min(HEAT_LOSS_PER_ROUND, unit.attack_heat);
         }
 
+        // Land rockets.
+        let landings = if let Some(landings) = self.rocket_landings.get(&self.round) {
+            landings.clone()
+        } else {
+            vec![]
+        };
+        for &(id, location) in landings.iter() {
+            self.land_rocket(id, location)?;
+        }
+
         // Process any potential asteroid impacts.
         if self.weather.asteroids.get_asteroid(self.round).is_some() {
             let (location, karbonite) = {
@@ -348,6 +364,44 @@ impl GameWorld {
         self.units.remove(&id);
     }
 
+    /// Destroys a unit.
+    pub fn destroy_unit(&mut self, id: unit::UnitID) -> Result<(), Error> {
+        if self.get_unit(id)?.location.is_some() {
+            self.remove_unit(id)?;
+        }
+        let units_to_destroy = if let unit::UnitInfo::Rocket(ref rocket_info) = self.get_unit(id)?.unit_info {
+            rocket_info.garrisoned_units.clone()
+        } else {
+            vec![]
+        };
+        for utd_id in units_to_destroy.iter() {
+            self.destroy_unit(*utd_id)?;
+        }
+        self.delete_unit(id);
+        Ok(())
+    }
+
+    /// Deals damage to any unit in the target square, potentially destroying it.
+    pub fn damage_location(&mut self, location: MapLocation, damage: u32) -> Result<(), Error> {
+        let id = if let Some(id) = self.units_by_loc.get(&location) {
+            *id
+        } else {
+            return Ok(());
+        };
+
+        let should_destroy_unit = {
+            let unit = self.get_unit_mut(id)?;
+            // TODO: Knight damage resistance??
+            unit.health -= cmp::min(damage, unit.health);
+            unit.health == 0
+        };
+
+        if should_destroy_unit {
+            self.destroy_unit(id)?;
+        }
+        Ok(())
+    }
+
     /// Returns whether the square is clear for a new unit to occupy, either by movement or by construction.
     pub fn is_occupiable(&self, location: MapLocation) -> Result<bool, Error> {
         let planet_info = &self.get_planet_info(location.planet)?;
@@ -378,6 +432,45 @@ impl GameWorld {
     }
 
     pub fn launch_rocket(&mut self, id: unit::UnitID, destination: MapLocation) -> Result<(), Error> {
+        {
+            let map = &self.get_planet_info(destination.planet)?.map;
+            if !map.is_passable_terrain[destination.y as usize][destination.x as usize] || !map.on_map(&destination) {
+                Err(GameError::InvalidAction)?;
+            }
+        }
+
+        self.remove_unit(id)?;
+        let landing_round = self.round + self.weather.orbit.get_duration(self.round as i32) as u32;
+        if self.rocket_landings.contains_key(&landing_round) {
+            self.rocket_landings.get_mut(&landing_round).unwrap().push((id, destination));
+        } else {
+            self.rocket_landings.insert(landing_round, vec![(id, destination)]);
+        }
+        Ok(())
+    }
+
+    pub fn land_rocket(&mut self, id: unit::UnitID, destination: MapLocation) -> Result<(), Error> {
+        if self.units_by_loc.contains_key(&destination) {
+            let victim_id = *self.units_by_loc.get(&destination).unwrap();
+            let should_destroy_rocket = match self.get_unit(victim_id)?.unit_info {
+                unit::UnitInfo::Rocket(_) => true,
+                unit::UnitInfo::Factory(_) => true,
+                _ => false,
+            };
+            if should_destroy_rocket {
+                self.destroy_unit(id)?;
+            }
+            self.destroy_unit(victim_id)?;
+        } else {
+            self.place_unit(id, destination)?;
+        }
+
+        let mut dir = Direction::North;
+        for _ in 0..7 {
+            self.damage_location(destination.add(dir), ROCKET_BLAST_DAMAGE)?;
+            dir = dir.rotate_right();
+        }
+
         Ok(())
     }
 

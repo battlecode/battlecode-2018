@@ -91,7 +91,8 @@ impl UnitType {
             UnitType::Rocket => Rocket(RocketInfo {
                 max_health: 200,
                 max_capacity: 8,
-                built: false
+                built: false,
+                garrisoned_units: vec![],
             }),
         }
     }
@@ -175,6 +176,8 @@ pub struct RocketInfo {
     max_health: u32,
     /// The maximum number of robots it can hold at once.
     max_capacity: usize,
+    /// The units contained within this rocket.
+    pub garrisoned_units: Vec<UnitID>,
 }
 
 /// Units are player-controlled objects with certain characteristics and
