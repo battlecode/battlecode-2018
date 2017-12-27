@@ -103,20 +103,19 @@ impl TeamInfo {
         }
     }
 
-    pub fn get_unit_info(&self, unit_type: UnitType) -> Result<&UnitInfo, Error> {
+    pub fn get_unit_info(&self, unit_type: UnitType) -> &UnitInfo {
         if let Some(unit_info) = self.unit_infos.get(&unit_type) {
-            Ok(unit_info)
+            unit_info
         } else {
-            Err(GameError::NoSuchUnitType)?
+            unreachable!();
         }
     }
 
-    pub fn get_unit_info_mut(&mut self, unit_type: UnitType)
-                             -> Result<&mut UnitInfo, Error> {
+    pub fn get_unit_info_mut(&mut self, unit_type: UnitType) -> &mut UnitInfo {
         if let Some(unit_info) = self.unit_infos.get_mut(&unit_type) {
-            Ok(unit_info)
+            unit_info
         } else {
-            Err(GameError::NoSuchUnitType)?
+            unreachable!();
         }
     }
 }
@@ -214,35 +213,35 @@ impl GameWorld {
     // ****************************** ACCESSORS *******************************
     // ************************************************************************
 
-    fn get_planet_info(&self, planet: Planet) -> Result<&PlanetInfo, Error> {
+    fn get_planet_info(&self, planet: Planet) -> &PlanetInfo {
         if let Some(planet_info) = self.planet_states.get(&planet) {
-            Ok(planet_info)
+            planet_info
         } else {
-            Err(GameError::NoSuchPlanet)?
+            unreachable!();
         }
     }
     
-    pub fn get_planet_info_mut(&mut self, planet: Planet) -> Result<&mut PlanetInfo, Error> {
+    pub fn get_planet_info_mut(&mut self, planet: Planet) -> &mut PlanetInfo {
         if let Some(planet_info) = self.planet_states.get_mut(&planet) {
-            Ok(planet_info)
+            planet_info
         } else {
-            Err(GameError::NoSuchPlanet)?
+            unreachable!();
         }
     }
 
-    fn get_team_info(&self, team: Team) -> Result<&TeamInfo, Error> {
+    fn get_team_info(&self, team: Team) -> &TeamInfo {
         if let Some(team_info) = self.team_states.get(&team) {
-            Ok(team_info)
+            team_info
         } else {
-            Err(GameError::NoSuchTeam)?
+            unreachable!();
         }
     }
 
-    fn get_team_info_mut(&mut self, team: Team) -> Result<&mut TeamInfo, Error> {
+    fn get_team_info_mut(&mut self, team: Team) -> &mut TeamInfo {
         if let Some(team_info) = self.team_states.get_mut(&team) {
-            Ok(team_info)
+            team_info
         } else {
-            Err(GameError::NoSuchTeam)?
+            unreachable!();
         }
     }
 
@@ -288,8 +287,8 @@ impl GameWorld {
     /// referenced by ID.
     pub fn create_unit(&mut self, team: Team, location: MapLocation,
                        unit_type: UnitType) -> Result<UnitID, Error> {
-        let id = self.get_team_info_mut(team)?.id_generator.next_id();
-        let unit_info = self.get_team_info(team)?.get_unit_info(unit_type)?.clone();
+        let id = self.get_team_info_mut(team).id_generator.next_id();
+        let unit_info = self.get_team_info(team).get_unit_info(unit_type).clone();
         let unit = Unit::new(id, team, unit_info);
 
         self.units.insert(unit.id, unit);
@@ -338,7 +337,7 @@ impl GameWorld {
 
     /// Returns whether the square is clear for a new unit to occupy, either by movement or by construction.
     pub fn is_occupiable(&self, location: MapLocation) -> Result<bool, Error> {
-        let planet_info = &self.get_planet_info(location.planet)?;
+        let planet_info = &self.get_planet_info(location.planet);
         Ok(planet_info.map.is_passable_terrain[location.y as usize][location.x as usize] &&
             !self.units_by_loc.contains_key(&location))
     }
@@ -400,7 +399,7 @@ impl GameWorld {
 
     pub fn launch_rocket(&mut self, id: UnitID, destination: MapLocation) -> Result<(), Error> {
         {
-            let map = &self.get_planet_info(destination.planet)?.map;
+            let map = &self.get_planet_info(destination.planet).map;
             if !map.on_map(&destination) || !map.is_passable_terrain[destination.y as usize][destination.x as usize] {
                 Err(GameError::InvalidAction)?;
             }
@@ -484,7 +483,7 @@ impl GameWorld {
                 let asteroid = self.weather.asteroids.get_asteroid(self.round).unwrap();
                 (asteroid.location, asteroid.karbonite)
             };
-            let planet_info = self.get_planet_info_mut(location.planet)?;
+            let planet_info = self.get_planet_info_mut(location.planet);
             planet_info.karbonite[location.y as usize][location.x as usize] += karbonite;
         }
 
@@ -590,7 +589,7 @@ mod tests {
         let earth_loc_b = MapLocation::new(Planet::Earth, 0, 1);
         let mars_loc_off_map = MapLocation::new(Planet::Mars, 10000, 10000);
         let mars_loc_impassable = MapLocation::new(Planet::Mars, 0, 0);
-        world.get_planet_info_mut(Planet::Mars).unwrap().map.is_passable_terrain[0][0] = false;
+        world.get_planet_info_mut(Planet::Mars).map.is_passable_terrain[0][0] = false;
         let mars_loc_knight = MapLocation::new(Planet::Mars, 0, 1);
         let mars_loc_factory = MapLocation::new(Planet::Mars, 0, 2);
         let rocket_a = world.create_unit(Team::Red, earth_loc_a, UnitType::Rocket).unwrap();
