@@ -46,9 +46,9 @@ impl PlanetInfo {
         }
     }
 
-    pub fn test_planet_info() -> PlanetInfo {
+    pub fn test_planet_info(planet: Planet) -> PlanetInfo {
         PlanetInfo {
-            map: PlanetMap::test_map(Planet::Earth),
+            map: PlanetMap::test_map(planet),
             karbonite: vec![vec![0; MAP_WIDTH_MAX]; MAP_HEIGHT_MAX],
         }
     }
@@ -199,8 +199,8 @@ impl GameWorld {
     /// Creates a GameWorld for testing purposes.
     pub fn test_world() -> GameWorld {
         let mut planet_states = FnvHashMap::default();
-        planet_states.insert(Planet::Earth, PlanetInfo::test_planet_info());
-        planet_states.insert(Planet::Mars, PlanetInfo::test_planet_info());
+        planet_states.insert(Planet::Earth, PlanetInfo::test_planet_info(Planet::Earth));
+        planet_states.insert(Planet::Mars, PlanetInfo::test_planet_info(Planet::Mars));
 
         let mut team_states = FnvHashMap::default();
         team_states.insert(Team::Red, TeamInfo::new(Team::Red, 6147));
@@ -434,7 +434,7 @@ impl GameWorld {
     pub fn launch_rocket(&mut self, id: unit::UnitID, destination: MapLocation) -> Result<(), Error> {
         {
             let map = &self.get_planet_info(destination.planet)?.map;
-            if !map.is_passable_terrain[destination.y as usize][destination.x as usize] || !map.on_map(&destination) {
+            if !map.on_map(&destination) || !map.is_passable_terrain[destination.y as usize][destination.x as usize] {
                 Err(GameError::InvalidAction)?;
             }
         }
@@ -466,7 +466,7 @@ impl GameWorld {
         }
 
         let mut dir = Direction::North;
-        for _ in 0..7 {
+        for _ in 0..8 {
             self.damage_location(destination.add(dir), ROCKET_BLAST_DAMAGE)?;
             dir = dir.rotate_right();
         }
@@ -487,6 +487,7 @@ impl GameWorld {
 mod tests {
     use super::GameWorld;
     use super::Team;
+    use super::unit::UnitID;
     use super::unit::UnitType;
     use super::super::location::*;
 
@@ -536,5 +537,64 @@ mod tests {
         assert![!world.can_move(a, Direction::Southwest).unwrap()];
         assert![world.can_move(a, Direction::South).unwrap()];
         world.move_unit(a, Direction::South).unwrap();
+    }
+
+    #[test]
+    fn test_rocket_success() {
+        // Create the game world.
+        let mut world = GameWorld::test_world();
+        let earth_loc = MapLocation::new(Planet::Earth, 5, 5);
+        let mars_loc = MapLocation::new(Planet::Mars, 5, 5);
+        let rocket = world.create_unit(Team::Red, earth_loc, UnitType::Rocket).unwrap();
+
+        // Create units around the target location.
+        let mut bystanders: Vec<UnitID> = vec![];
+        let mut direction = Direction::North;
+        for _ in 0..8 {
+            bystanders.push(world.create_unit(Team::Red, mars_loc.add(direction), UnitType::Knight).unwrap());
+            direction = direction.rotate_right();
+        }
+
+        // Launch the rocket, and force land it.
+        world.launch_rocket(rocket, mars_loc).unwrap();
+        world.land_rocket(rocket, mars_loc).unwrap();
+        assert_eq![world.get_unit(rocket).unwrap().location.unwrap(), mars_loc];
+        let damaged_knight_health = 200;
+        for id in bystanders.iter() {
+            assert_eq![world.get_unit(*id).unwrap().health, damaged_knight_health];
+        }
+    }
+
+    #[test]
+    fn test_rocket_failure() {
+        // Create the game world.
+        let mut world = GameWorld::test_world();
+        let earth_loc_a = MapLocation::new(Planet::Earth, 0, 0);
+        let earth_loc_b = MapLocation::new(Planet::Earth, 0, 1);
+        let mars_loc_off_map = MapLocation::new(Planet::Mars, 10000, 10000);
+        let mars_loc_impassable = MapLocation::new(Planet::Mars, 0, 0);
+        world.get_planet_info_mut(Planet::Mars).unwrap().map.is_passable_terrain[0][0] = false;
+        let mars_loc_knight = MapLocation::new(Planet::Mars, 0, 1);
+        let mars_loc_factory = MapLocation::new(Planet::Mars, 0, 2);
+        let rocket_a = world.create_unit(Team::Red, earth_loc_a, UnitType::Rocket).unwrap();
+        let rocket_b = world.create_unit(Team::Red, earth_loc_b, UnitType::Rocket).unwrap();
+        let knight = world.create_unit(Team::Blue, mars_loc_knight, UnitType::Knight).unwrap();
+        let factory = world.create_unit(Team::Blue, mars_loc_factory, UnitType::Factory).unwrap();
+
+        // Failed launches.
+        assert![world.launch_rocket(rocket_a, mars_loc_off_map).is_err()];
+        assert![world.launch_rocket(rocket_a, mars_loc_impassable).is_err()];
+
+        // Rocket landing on a robot should destroy the robot.
+        world.launch_rocket(rocket_a, mars_loc_knight).unwrap();
+        world.land_rocket(rocket_a, mars_loc_knight).unwrap();
+        assert![world.get_unit(rocket_a).is_ok()];
+        assert![world.get_unit(knight).is_err()];
+
+        // Rocket landing on a factory should destroy both units.
+        world.launch_rocket(rocket_b, mars_loc_factory).unwrap();
+        world.land_rocket(rocket_b, mars_loc_factory).unwrap();
+        assert![world.get_unit(rocket_b).is_err()];
+        assert![world.get_unit(factory).is_err()];
     }
 }
