@@ -287,7 +287,7 @@ impl GameWorld {
         self.round += 1;
 
         // Update unit cooldowns.
-        for (_, unit) in &mut self.units {
+        for unit in &mut self.units.values_mut() {
             unit.movement_heat -= cmp::min(HEAT_LOSS_PER_ROUND, unit.movement_heat);
             unit.attack_heat -= cmp::min(HEAT_LOSS_PER_ROUND, unit.attack_heat);
         }
