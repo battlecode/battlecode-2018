@@ -431,6 +431,58 @@ impl GameWorld {
         }
     }
 
+    // Tests whether the given robot can board the given rocket.
+    pub fn can_board_rocket(&self, robot_id: unit::UnitID, rocket_id: unit::UnitID) -> Result<bool, Error> {
+        let robot_loc = {
+            let robot = self.get_unit(robot_id)?;
+            // The robot must be able to perform a normal move in order to board.
+            if !robot.is_move_ready() {
+                return Ok(false);
+            }
+            if let Some(location) = robot.location {
+                location
+            } else {
+                return Ok(false);
+            }
+        };
+
+        let rocket_loc = {
+            let rocket = self.get_unit(rocket_id)?;
+            if let unit::UnitInfo::Rocket(ref rocket_info) = rocket.unit_info {
+                // Check that the rocket has space.
+                if rocket_info.garrisoned_units.len() >= rocket_info.max_capacity {
+                    return Ok(false);
+                }
+            } else {
+                Err(GameError::InappropriateUnitType)?;
+            };
+            if let Some(location) = rocket.location {
+                location
+            } else {
+                return Ok(false);
+            }
+        };
+
+        // True if the rocket and the robot are adjacent.
+        Ok(robot_loc.distance_squared_to(rocket_loc) <= 2)
+    }
+
+    // Moves a robot into the garrison of the specified rocket.
+    pub fn board_rocket(&mut self, robot_id: unit::UnitID, rocket_id: unit::UnitID) -> Result<(), Error> {
+        if self.can_board_rocket(robot_id, rocket_id)? {
+            self.remove_unit(robot_id)?;
+            let rocket = self.get_unit_mut(rocket_id)?;
+            if let unit::UnitInfo::Rocket(ref mut rocket_info) = rocket.unit_info {
+                rocket_info.garrisoned_units.push(robot_id);
+            } else {
+                unreachable!();
+            }
+            Ok(())
+        } else {
+            Err(GameError::InvalidAction)?
+        }
+    }
+
     pub fn launch_rocket(&mut self, id: unit::UnitID, destination: MapLocation) -> Result<(), Error> {
         {
             let map = &self.get_planet_info(destination.planet)?.map;

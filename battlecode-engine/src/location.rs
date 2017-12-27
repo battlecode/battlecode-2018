@@ -114,6 +114,16 @@ impl MapLocation {
             y: self.y + direction.delta().1,
         }
     }
+
+    /// Returns the distance between two locations. If on different
+    /// planets, arbitrarily returns 1_000_000.
+    pub fn distance_squared_to(&self, o: MapLocation) -> u32 {
+        if self.planet == o.planet {
+            ((self.x - o.x) * (self.x - o.x) + (self.y - o.y) * (self.y - o.y)) as u32
+        } else {
+            1_000_000
+        }
+    }
 }
 
 #[cfg(test)]

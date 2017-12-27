@@ -4,6 +4,7 @@
 use super::location::*;
 use super::world::Team;
 use unit::UnitInfo::*;
+use super::constants::*;
 
 /// The ID of an unit is assigned when the unit is spawned.
 pub type UnitID = u32;
@@ -175,7 +176,7 @@ pub struct RocketInfo {
     /// The maximum health.
     max_health: u32,
     /// The maximum number of robots it can hold at once.
-    max_capacity: usize,
+    pub max_capacity: usize,
     /// The units contained within this rocket.
     pub garrisoned_units: Vec<UnitID>,
 }
@@ -266,8 +267,13 @@ impl Unit {
     pub fn is_move_ready(&self) -> bool {
         match self.unit_info {
             // TODO: check if movement delay, etc. are ready.
-            Knight(ref _knight_info) => true,
-            _ => false,
+            Worker(_) => self.movement_heat < MAX_HEAT_TO_ACT,
+            Knight(_) => self.movement_heat < MAX_HEAT_TO_ACT,
+            Ranger(_) => self.movement_heat < MAX_HEAT_TO_ACT,
+            Mage(_) => self.movement_heat < MAX_HEAT_TO_ACT,
+            Healer(_) => self.movement_heat < MAX_HEAT_TO_ACT,
+            Factory(_) => false,
+            Rocket(_) => false,
         }
     }
 }
