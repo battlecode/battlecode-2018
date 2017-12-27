@@ -94,7 +94,7 @@ impl TeamInfo {
         }
     }
 
-    pub fn get_unit_info(&self, unit_type: UnitType) -> &UnitInfo {
+    pub fn get_unit_info(&self, unit_type: &UnitType) -> &UnitInfo {
         self.get_research().get_unit_info(&unit_type)
     }
 
@@ -143,9 +143,6 @@ pub struct GameWorld {
     /// landing on the given round.
     rocket_landings: FnvHashMap<Rounds, Vec<(UnitID, MapLocation)>>,
 
-    /// Research to be completed at the start of the next round.
-    research: Vec<(Branch, Team)>,
-
     /// The weather patterns.
     pub weather: WeatherPattern,
 
@@ -175,7 +172,6 @@ impl GameWorld {
             units: FnvHashMap::default(),
             units_by_loc: FnvHashMap::default(),
             rocket_landings: FnvHashMap::default(),
-            research: vec![],
             weather: map.weather,
             planet_states: planet_states,
             team_states: team_states,
@@ -201,7 +197,6 @@ impl GameWorld {
             units: FnvHashMap::default(),
             units_by_loc: FnvHashMap::default(),
             rocket_landings: FnvHashMap::default(),
-            research: vec![],
             weather: weather,
             planet_states: planet_states,
             team_states: team_states,
@@ -287,8 +282,8 @@ impl GameWorld {
     pub fn create_unit(&mut self, team: Team, location: MapLocation,
                        unit_type: UnitType) -> Result<UnitID, Error> {
         let id = self.get_team_info_mut(team).id_generator.next_id();
-        let unit_info = self.get_team_info(team).get_unit_info(unit_type).clone();
-        let unit = Unit::new(id, team, unit_info);
+        let unit_info = self.get_team_info(team).get_unit_info(&unit_type).clone();
+        let unit = Unit::new(id, team, unit_type, unit_info);
 
         self.units.insert(unit.id, unit);
         self.place_unit(id, location)?;
@@ -318,13 +313,13 @@ impl GameWorld {
         if self.get_unit(id)?.location.is_some() {
             self.remove_unit(id)?;
         }
-        let units_to_destroy = if let UnitInfo::Rocket(ref rocket_info) = self.get_unit(id)?.unit_info {
-            rocket_info.garrisoned_units.clone()
+        let units_to_destroy = if let Some(units) = self.get_unit(id)?.get_garrisoned_units() {
+            units
         } else {
             vec![]
         };
-        for utd_id in units_to_destroy.iter() {
-            self.destroy_unit(*utd_id)?;
+        for unit in units_to_destroy.iter() {
+            self.destroy_unit(unit.id)?;
         }
         self.delete_unit(id);
         Ok(())
