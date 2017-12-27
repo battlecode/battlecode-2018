@@ -8,14 +8,15 @@ addons:
     apt:
         packages:
             - libssl-dev
-            - python3-pip
+            - python-pip
+            - python3.6
 cache:
   - cargo
   - directories:
     - target
     - ~/.cache/pip
 install:
-  - python3 -m pip install -r frankenstein/python/requirements.txt --user
+  - python -m pip install -r frankenstein/python/requirements.txt --user
 
 script:
   - make test
