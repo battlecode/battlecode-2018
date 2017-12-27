@@ -467,7 +467,7 @@ impl GameWorld {
         Ok(robot_loc.distance_squared_to(rocket_loc) <= 2)
     }
 
-    // Moves a robot into the garrison of the specified rocket.
+    /// Moves a robot into the garrison of the specified rocket.
     pub fn board_rocket(&mut self, robot_id: unit::UnitID, rocket_id: unit::UnitID) -> Result<(), Error> {
         if self.can_board_rocket(robot_id, rocket_id)? {
             self.remove_unit(robot_id)?;
@@ -478,6 +478,46 @@ impl GameWorld {
                 unreachable!();
             }
             Ok(())
+        } else {
+            Err(GameError::InvalidAction)?
+        }
+    }
+
+    /// Tests whether the given rocket is able to disembark a unit in the
+    /// given direction.
+    pub fn can_disembark_rocket(&self, rocket_id: unit::UnitID, direction: Direction) -> Result<bool, Error> {
+        let rocket_loc = {
+            let rocket = self.get_unit(rocket_id)?;
+            if let unit::UnitInfo::Rocket(ref rocket_info) = rocket.unit_info {
+                // There must be a garrisoned unit to disembark.
+                if rocket_info.garrisoned_units.len() == 0 {
+                    return Ok(false);
+                }
+            } else {
+                Err(GameError::InappropriateUnitType)?;
+            }
+            if let Some(location) = rocket.location {
+                location
+            } else {
+                return Ok(false);
+            }
+        };
+        Ok(self.is_occupiable(rocket_loc.add(direction))?)
+    }
+
+    /// Disembarks a robot from the garrison of the specified rocket. Robots
+    /// are disembarked in the order they boarded.
+    pub fn disembark_rocket(&mut self, rocket_id: unit::UnitID, direction: Direction) -> Result<(), Error> {
+        if self.can_disembark_rocket(rocket_id, direction)? {
+            let (robot_id, rocket_loc) = {
+                let rocket = self.get_unit_mut(rocket_id)?;
+                if let unit::UnitInfo::Rocket(ref mut rocket_info) = rocket.unit_info {
+                    (rocket_info.garrisoned_units.remove(0), rocket.location.unwrap())
+                } else {
+                    unreachable!();
+                }
+            };
+            self.place_unit(robot_id, rocket_loc.add(direction))
         } else {
             Err(GameError::InvalidAction)?
         }
