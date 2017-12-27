@@ -1,6 +1,7 @@
 //! The core battlecode engine.
 
 use fnv::FnvHashMap;
+use std::cmp;
 
 use super::constants::*;
 use super::schema::Delta;
@@ -45,9 +46,9 @@ impl PlanetInfo {
         }
     }
 
-    pub fn test_planet_info() -> PlanetInfo {
+    pub fn test_planet_info(planet: Planet) -> PlanetInfo {
         PlanetInfo {
-            map: PlanetMap::test_map(Planet::Earth),
+            map: PlanetMap::test_map(planet),
             karbonite: vec![vec![0; MAP_WIDTH_MAX]; MAP_HEIGHT_MAX],
         }
     }
@@ -156,6 +157,10 @@ pub struct GameWorld {
     /// All the units on the map, by location.
     units_by_loc: FnvHashMap<MapLocation, unit::UnitID>,
 
+    /// Rocket landings. Maps round numbers to a list of rockets
+    /// landing on the given round.
+    rocket_landings: FnvHashMap<u32, Vec<(unit::UnitID, MapLocation)>>,
+
     /// The weather patterns.
     pub weather: WeatherPattern,
 
@@ -184,6 +189,7 @@ impl GameWorld {
             player_to_move: Player { team: Team::Red, planet: Planet::Earth },
             units: FnvHashMap::default(),
             units_by_loc: FnvHashMap::default(),
+            rocket_landings: FnvHashMap::default(),
             weather: map.weather,
             planet_states: planet_states,
             team_states: team_states,
@@ -193,8 +199,8 @@ impl GameWorld {
     /// Creates a GameWorld for testing purposes.
     pub fn test_world() -> GameWorld {
         let mut planet_states = FnvHashMap::default();
-        planet_states.insert(Planet::Earth, PlanetInfo::test_planet_info());
-        planet_states.insert(Planet::Mars, PlanetInfo::test_planet_info());
+        planet_states.insert(Planet::Earth, PlanetInfo::test_planet_info(Planet::Earth));
+        planet_states.insert(Planet::Mars, PlanetInfo::test_planet_info(Planet::Mars));
 
         let mut team_states = FnvHashMap::default();
         team_states.insert(Team::Red, TeamInfo::new(Team::Red, 6147));
@@ -208,6 +214,7 @@ impl GameWorld {
             player_to_move: Player { team: Team::Red, planet: Planet::Earth },
             units: FnvHashMap::default(),
             units_by_loc: FnvHashMap::default(),
+            rocket_landings: FnvHashMap::default(),
             weather: weather,
             planet_states: planet_states,
             team_states: team_states,
@@ -262,10 +269,63 @@ impl GameWorld {
         }
     }
 
+    pub fn next_turn(&mut self) -> Result<(), Error> {
+        self.player_to_move = match self.player_to_move {
+            Player { team: Team::Red, planet: Planet::Earth } => Player { team: Team::Blue, planet: Planet::Earth},
+            Player { team: Team::Blue, planet: Planet::Earth } => Player { team: Team::Red, planet: Planet::Mars},
+            Player { team: Team::Red, planet: Planet::Mars } => Player { team: Team::Blue, planet: Planet::Mars},
+            Player { team: Team::Blue, planet: Planet::Mars } => {
+                // This is the last player to move, so we can advance to the next round.
+                self.next_round()?;
+                Player { team: Team::Red, planet: Planet::Earth}
+            },
+        };
+        Ok(())
+    }
+
+    pub fn next_round(&mut self) -> Result<(), Error> {
+        self.round += 1;
+
+        // Update unit cooldowns.
+        for unit in &mut self.units.values_mut() {
+            unit.movement_heat -= cmp::min(HEAT_LOSS_PER_ROUND, unit.movement_heat);
+            unit.attack_heat -= cmp::min(HEAT_LOSS_PER_ROUND, unit.attack_heat);
+        }
+
+        // Land rockets.
+        let landings = if let Some(landings) = self.rocket_landings.get(&self.round) {
+            landings.clone()
+        } else {
+            vec![]
+        };
+        for &(id, location) in landings.iter() {
+            self.land_rocket(id, location)?;
+        }
+
+        // Process any potential asteroid impacts.
+        if self.weather.asteroids.get_asteroid(self.round).is_some() {
+            let (location, karbonite) = {
+                let asteroid = self.weather.asteroids.get_asteroid(self.round).unwrap();
+                (asteroid.location, asteroid.karbonite)
+            };
+            let planet_info = self.get_planet_info_mut(location.planet)?;
+            planet_info.karbonite[location.y as usize][location.x as usize] += karbonite;
+        }
+
+        Ok(())
+    }
+
     /// Places a unit onto the map at the given location. Assumes the given square is occupiable.
     pub fn place_unit(&mut self, id: unit::UnitID, location: MapLocation) -> Result<(), Error> {
         if self.is_occupiable(location)? {
-            self.get_unit_mut(id)?.location = location;
+            {
+                let unit = self.get_unit_mut(id)?;
+                if unit.location.is_some() {
+                    // The unit has already been placed.
+                    Err(GameError::InternalEngineError)?;
+                }
+                unit.location = Some(location);
+            }
             self.units_by_loc.insert(location, id);
             Ok(())
         } else {
@@ -279,7 +339,7 @@ impl GameWorld {
                        unit_type: unit::UnitType) -> Result<unit::UnitID, Error> {
         let id = self.get_team_info_mut(team)?.id_generator.next_id();
         let unit_info = self.get_team_info(team)?.get_unit_info(unit_type)?.clone();
-        let unit = unit::Unit::new(id, team, location, unit_info);
+        let unit = unit::Unit::new(id, team, unit_info);
 
         self.units.insert(unit.id, unit);
         self.place_unit(id, location)?;
@@ -289,12 +349,11 @@ impl GameWorld {
     /// Removes a unit from the map. Assumes the unit is on the map.
     pub fn remove_unit(&mut self, id: unit::UnitID) -> Result<(), Error> {
         let location = {
-            // TODO: unit locations should probably be an Option
-            // to better handle unplaced units.
             let unit = self.get_unit_mut(id)?;
             let location = unit.location;
-            unit.location = MapLocation::new(Planet::Earth, -1, -1);
-            location
+            unit.location = None;
+            // If location is None, then the unit was already removed.
+            location.ok_or(GameError::InternalEngineError)?
         };
         self.units_by_loc.remove(&location);
         Ok(())
@@ -303,6 +362,44 @@ impl GameWorld {
     /// Deletes a unit. Unit should be removed from map first.
     pub fn delete_unit(&mut self, id: unit::UnitID) {
         self.units.remove(&id);
+    }
+
+    /// Destroys a unit.
+    pub fn destroy_unit(&mut self, id: unit::UnitID) -> Result<(), Error> {
+        if self.get_unit(id)?.location.is_some() {
+            self.remove_unit(id)?;
+        }
+        let units_to_destroy = if let unit::UnitInfo::Rocket(ref rocket_info) = self.get_unit(id)?.unit_info {
+            rocket_info.garrisoned_units.clone()
+        } else {
+            vec![]
+        };
+        for utd_id in units_to_destroy.iter() {
+            self.destroy_unit(*utd_id)?;
+        }
+        self.delete_unit(id);
+        Ok(())
+    }
+
+    /// Deals damage to any unit in the target square, potentially destroying it.
+    pub fn damage_location(&mut self, location: MapLocation, damage: u32) -> Result<(), Error> {
+        let id = if let Some(id) = self.units_by_loc.get(&location) {
+            *id
+        } else {
+            return Ok(());
+        };
+
+        let should_destroy_unit = {
+            let unit = self.get_unit_mut(id)?;
+            // TODO: Knight damage resistance??
+            unit.health -= cmp::min(damage, unit.health);
+            unit.health == 0
+        };
+
+        if should_destroy_unit {
+            self.destroy_unit(id)?;
+        }
+        Ok(())
     }
 
     /// Returns whether the square is clear for a new unit to occupy, either by movement or by construction.
@@ -315,12 +412,16 @@ impl GameWorld {
     /// Tests whether the given unit can move.
     pub fn can_move(&self, id: unit::UnitID, direction: Direction) -> Result<bool, Error> {
         let unit = self.get_unit(id)?;
-        Ok(unit.is_move_ready() && self.is_occupiable(unit.location.add(direction))?)
+        if let Some(location) = unit.location {
+            Ok(unit.is_move_ready() && self.is_occupiable(location.add(direction))?)
+        } else {
+            Ok(false)
+        }
     }
 
     // Given that moving an unit comprises many edits to the GameWorld, it makes sense to define this here.
     pub fn move_unit(&mut self, id: unit::UnitID, direction: Direction) -> Result<(), Error> {
-        let dest = self.get_unit(id)?.location.add(direction);
+        let dest = self.get_unit(id)?.location.ok_or(GameError::InvalidAction)?.add(direction);
         if self.can_move(id, direction)? {
             self.remove_unit(id)?;
             self.place_unit(id, dest)?;
@@ -330,8 +431,52 @@ impl GameWorld {
         }
     }
 
+    pub fn launch_rocket(&mut self, id: unit::UnitID, destination: MapLocation) -> Result<(), Error> {
+        {
+            let map = &self.get_planet_info(destination.planet)?.map;
+            if !map.on_map(&destination) || !map.is_passable_terrain[destination.y as usize][destination.x as usize] {
+                Err(GameError::InvalidAction)?;
+            }
+        }
+
+        self.remove_unit(id)?;
+        let landing_round = self.round + self.weather.orbit.get_duration(self.round as i32) as u32;
+        if self.rocket_landings.contains_key(&landing_round) {
+            self.rocket_landings.get_mut(&landing_round).unwrap().push((id, destination));
+        } else {
+            self.rocket_landings.insert(landing_round, vec![(id, destination)]);
+        }
+        Ok(())
+    }
+
+    pub fn land_rocket(&mut self, id: unit::UnitID, destination: MapLocation) -> Result<(), Error> {
+        if self.units_by_loc.contains_key(&destination) {
+            let victim_id = *self.units_by_loc.get(&destination).unwrap();
+            let should_destroy_rocket = match self.get_unit(victim_id)?.unit_info {
+                unit::UnitInfo::Rocket(_) => true,
+                unit::UnitInfo::Factory(_) => true,
+                _ => false,
+            };
+            if should_destroy_rocket {
+                self.destroy_unit(id)?;
+            }
+            self.destroy_unit(victim_id)?;
+        } else {
+            self.place_unit(id, destination)?;
+        }
+
+        let mut dir = Direction::North;
+        for _ in 0..8 {
+            self.damage_location(destination.add(dir), ROCKET_BLAST_DAMAGE)?;
+            dir = dir.rotate_right();
+        }
+
+        Ok(())
+    }
+
     pub fn apply(&mut self, delta: Delta) -> Result<(), Error> {
         match delta {
+            Delta::EndTurn => self.next_turn(),
             Delta::Move{id, direction} => self.move_unit(id, direction),
             _ => Ok(()),
         }
@@ -342,6 +487,7 @@ impl GameWorld {
 mod tests {
     use super::GameWorld;
     use super::Team;
+    use super::unit::UnitID;
     use super::unit::UnitType;
     use super::super::location::*;
 
@@ -360,8 +506,8 @@ mod tests {
         // Both robots exist and are at the right locations.
         let unit_a = world.get_unit(id_a).unwrap();
         let unit_b = world.get_unit(id_b).unwrap();
-        assert_eq!(unit_a.location, loc_a);
-        assert_eq!(unit_b.location, loc_b);
+        assert_eq!(unit_a.location.unwrap(), loc_a);
+        assert_eq!(unit_b.location.unwrap(), loc_b);
     }
 
     #[test]
@@ -391,5 +537,64 @@ mod tests {
         assert![!world.can_move(a, Direction::Southwest).unwrap()];
         assert![world.can_move(a, Direction::South).unwrap()];
         world.move_unit(a, Direction::South).unwrap();
+    }
+
+    #[test]
+    fn test_rocket_success() {
+        // Create the game world.
+        let mut world = GameWorld::test_world();
+        let earth_loc = MapLocation::new(Planet::Earth, 5, 5);
+        let mars_loc = MapLocation::new(Planet::Mars, 5, 5);
+        let rocket = world.create_unit(Team::Red, earth_loc, UnitType::Rocket).unwrap();
+
+        // Create units around the target location.
+        let mut bystanders: Vec<UnitID> = vec![];
+        let mut direction = Direction::North;
+        for _ in 0..8 {
+            bystanders.push(world.create_unit(Team::Red, mars_loc.add(direction), UnitType::Knight).unwrap());
+            direction = direction.rotate_right();
+        }
+
+        // Launch the rocket, and force land it.
+        world.launch_rocket(rocket, mars_loc).unwrap();
+        world.land_rocket(rocket, mars_loc).unwrap();
+        assert_eq![world.get_unit(rocket).unwrap().location.unwrap(), mars_loc];
+        let damaged_knight_health = 200;
+        for id in bystanders.iter() {
+            assert_eq![world.get_unit(*id).unwrap().health, damaged_knight_health];
+        }
+    }
+
+    #[test]
+    fn test_rocket_failure() {
+        // Create the game world.
+        let mut world = GameWorld::test_world();
+        let earth_loc_a = MapLocation::new(Planet::Earth, 0, 0);
+        let earth_loc_b = MapLocation::new(Planet::Earth, 0, 1);
+        let mars_loc_off_map = MapLocation::new(Planet::Mars, 10000, 10000);
+        let mars_loc_impassable = MapLocation::new(Planet::Mars, 0, 0);
+        world.get_planet_info_mut(Planet::Mars).unwrap().map.is_passable_terrain[0][0] = false;
+        let mars_loc_knight = MapLocation::new(Planet::Mars, 0, 1);
+        let mars_loc_factory = MapLocation::new(Planet::Mars, 0, 2);
+        let rocket_a = world.create_unit(Team::Red, earth_loc_a, UnitType::Rocket).unwrap();
+        let rocket_b = world.create_unit(Team::Red, earth_loc_b, UnitType::Rocket).unwrap();
+        let knight = world.create_unit(Team::Blue, mars_loc_knight, UnitType::Knight).unwrap();
+        let factory = world.create_unit(Team::Blue, mars_loc_factory, UnitType::Factory).unwrap();
+
+        // Failed launches.
+        assert![world.launch_rocket(rocket_a, mars_loc_off_map).is_err()];
+        assert![world.launch_rocket(rocket_a, mars_loc_impassable).is_err()];
+
+        // Rocket landing on a robot should destroy the robot.
+        world.launch_rocket(rocket_a, mars_loc_knight).unwrap();
+        world.land_rocket(rocket_a, mars_loc_knight).unwrap();
+        assert![world.get_unit(rocket_a).is_ok()];
+        assert![world.get_unit(knight).is_err()];
+
+        // Rocket landing on a factory should destroy both units.
+        world.launch_rocket(rocket_b, mars_loc_factory).unwrap();
+        world.land_rocket(rocket_b, mars_loc_factory).unwrap();
+        assert![world.get_unit(rocket_b).is_err()];
+        assert![world.get_unit(factory).is_err()];
     }
 }

@@ -33,6 +33,11 @@ impl GameMap {
         self.weather.validate()?;
         Ok(())
     }
+
+    /// Whether a location is on the map.
+    pub fn on_map(&self, location: &MapLocation) -> bool {
+        self.earth_map.on_map(location) || self.mars_map.on_map(location)
+    }
 }
 
 /// The map for one of the planets in the Battlecode world. This information
@@ -142,9 +147,10 @@ impl PlanetMap {
             }
         }
         for ref unit in &self.initial_units {
-            let x = (unit.location.x - self.origin.x) as usize;
-            let y = (unit.location.y - self.origin.y) as usize;
-            if unit.location.planet != self.planet {
+            let location = unit.location.ok_or(GameError::InvalidMapObject)?;
+            let x = (location.x - self.origin.x) as usize;
+            let y = (location.y - self.origin.y) as usize;
+            if location.planet != self.planet {
                 Err(GameError::InvalidMapObject)?
             }
             if !self.is_passable_terrain[y][x] {
@@ -182,12 +188,12 @@ impl PlanetMap {
 }
 
 /// A single asteroid strike on Mars.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AsteroidStrike {
     /// The karbonite on the asteroid.
-    karbonite: u32,
+    pub karbonite: u32,
     /// The location of the strike.
-    location: MapLocation,
+    pub location: MapLocation,
 }
 
 /// The round number to an asteroid strike.
