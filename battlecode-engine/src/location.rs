@@ -184,4 +184,18 @@ mod tests {
         assert_eq!(loc.add(Northwest),  MapLocation { planet: Planet::Earth, x: -1, y: -1 });
         assert_eq!(loc.add(Center),     MapLocation { planet: Planet::Earth, x: 0, y: 0 });
     }
+
+    #[test]
+    fn map_location_distance_squared_to() {
+        let a = MapLocation::new(Planet::Earth, 4, 4);
+        let b = MapLocation::new(Planet::Earth, 4, 6);
+        let c = MapLocation::new(Planet::Earth, 7, 4);
+        let d = MapLocation::new(Planet::Mars, 4, 4);
+        assert_eq!(a.distance_squared_to(a), 0);
+        assert_eq!(a.distance_squared_to(b), 4);
+        assert_eq!(b.distance_squared_to(a), 4);
+        assert_eq!(a.distance_squared_to(c), 9);
+        assert_eq!(b.distance_squared_to(c), 13);
+        assert!(a.distance_squared_to(d) == 1_000_000);
+    }
 }
