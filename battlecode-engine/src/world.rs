@@ -538,6 +538,11 @@ impl GameWorld {
         } else {
             self.rocket_landings.insert(landing_round, vec![(id, destination)]);
         }
+        let mut dir = Direction::North;
+        for _ in 0..8 {
+            self.damage_location(destination.add(dir), ROCKET_BLAST_DAMAGE)?;
+            dir = dir.rotate_right();
+        }
         Ok(())
     }
 
@@ -643,12 +648,13 @@ mod tests {
         let mut bystanders: Vec<UnitID> = vec![];
         let mut direction = Direction::North;
         for _ in 0..8 {
+            bystanders.push(world.create_unit(Team::Red, earth_loc.add(direction), UnitType::Knight).unwrap());
             bystanders.push(world.create_unit(Team::Red, mars_loc.add(direction), UnitType::Knight).unwrap());
             direction = direction.rotate_right();
         }
 
         // Launch the rocket, and force land it.
-        world.launch_rocket(rocket, mars_loc).unwrap();
+        world.launch_rocket(rocket, earth_loc).unwrap();
         world.land_rocket(rocket, mars_loc).unwrap();
         assert_eq![world.get_unit(rocket).unwrap().location.unwrap(), mars_loc];
         let damaged_knight_health = 200;
