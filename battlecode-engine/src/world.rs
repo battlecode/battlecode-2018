@@ -9,6 +9,8 @@ use super::id_generator::IDGenerator;
 use super::location::*;
 use super::map::*;
 use super::unit::*;
+use super::unit::UnitType as Branch;
+use super::research;
 use super::research::*;
 use super::error::GameError;
 use failure::Error;
@@ -117,6 +119,14 @@ impl TeamInfo {
         } else {
             unreachable!();
         }
+    }
+
+    pub fn get_research(&self) -> &ResearchInfo {
+        &self.research
+    }
+
+    pub fn get_research_mut(&mut self) -> &mut ResearchInfo {
+        &mut self.research
     }
 }
 
@@ -392,6 +402,66 @@ impl GameWorld {
     // ************************************************************************
     // ************************** RESEARCH METHODS ****************************
     // ************************************************************************
+
+    /// Returns research info of the current player.
+    fn get_research(&self) -> ResearchInfo {
+        let team = self.player_to_move.team;
+        self.get_team_info(team).get_research().clone()
+    }
+
+    /// Returns mutable research info of the current player.
+    fn get_research_mut(&mut self) -> &mut ResearchInfo {
+        let team = self.player_to_move.team;
+        self.get_team_info_mut(team).get_research_mut()
+    }
+
+    /// Returns the maximum level of the research branch.
+    pub fn get_research_max_level(branch: &Branch) -> Level {
+        research::get_max_level(branch)
+    }
+
+    /// Returns the cost of a level, in rounds, of a research branch. Errors if the
+    /// level can't be researched i.e. not in the range [0, get_max_level(branch)].
+    pub fn get_research_cost(branch: &Branch, level: Level) -> Result<Rounds, Error> {
+        research::get_cost(branch, level)
+    }
+
+    /// Returns the current level of the research branch.
+    pub fn get_research_level(&self, branch: &Branch) -> Level {
+        self.get_research().get_level(branch)
+    }
+
+    /// Returns the research queue, where the front of the queue is at the
+    /// beginning of the list.
+    pub fn get_research_queue(&self) -> Vec<Branch> {
+        self.get_research().get_queue()
+    }
+
+    /// Returns the next branch to be researched, which is the branch at the
+    /// front of the research queue. Returns None if the queue is empty.
+    pub fn get_next_in_research_queue(&self) -> Option<Branch> {
+        self.get_research().get_next_in_queue()
+    }
+
+    /// Returns the number of rounds left until the upgrade at the front of the
+    /// research queue is applied, or None if the queue is empty.
+    pub fn get_research_rounds_left(&self) -> Option<Rounds> {
+        self.get_research().get_rounds_left()
+    }
+
+    /// Resets the research queue to be empty. Returns true if the queue was
+    /// not empty before, and false otherwise.
+    pub fn reset_research_queue(&mut self) -> bool {
+        self.get_research_mut().reset_queue()
+    }
+
+    /// Adds a branch to the back of the queue, if it is a valid upgrade, and
+    /// starts research if it is the first in the queue.
+    ///
+    /// Returns whether the branch was successfully added.
+    pub fn add_to_research_queue(&mut self, branch: &Branch) -> bool {
+        self.get_research_mut().add_to_queue(branch)
+    }
 
     // ************************************************************************
     // *************************** ROCKET METHODS *****************************
