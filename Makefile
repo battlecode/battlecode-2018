@@ -1,8 +1,8 @@
 include colors.mk
 
 build:
-	$(call build_command,cargo build)
 	@$(MAKE) -wC frankenstein
+	$(call build_command,cargo build)
 
 test: build
 	$(call test_command,cargo test)
