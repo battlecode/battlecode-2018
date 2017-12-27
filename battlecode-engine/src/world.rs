@@ -8,7 +8,7 @@ use super::schema::Delta;
 use super::id_generator::IDGenerator;
 use super::location::*;
 use super::map::*;
-use super::unit;
+use super::unit::*;
 use super::research::*;
 use super::error::GameError;
 use failure::Error;
@@ -78,7 +78,7 @@ pub struct TeamInfo {
     team_arrays: FnvHashMap<Planet, TeamArrayHistory>,
 
     /// Unit info of a given type at initialization.
-    unit_infos: FnvHashMap<unit::UnitType, unit::UnitInfo>,
+    unit_infos: FnvHashMap<UnitType, UnitInfo>,
 
     /// The current state of research.
     research: ResearchInfo,
@@ -89,7 +89,7 @@ impl TeamInfo {
     pub fn new(team: Team, seed: u32) -> TeamInfo {
         // Initialize default unit infos
         let mut unit_infos = FnvHashMap::default();
-        for unit_type in unit::UnitType::all() {
+        for unit_type in UnitType::all() {
             let unit_info = unit_type.default();
             unit_infos.insert(unit_type, unit_info);
         }
@@ -103,7 +103,7 @@ impl TeamInfo {
         }
     }
 
-    pub fn get_unit_info(&self, unit_type: unit::UnitType) -> Result<&unit::UnitInfo, Error> {
+    pub fn get_unit_info(&self, unit_type: UnitType) -> Result<&UnitInfo, Error> {
         if let Some(unit_info) = self.unit_infos.get(&unit_type) {
             Ok(unit_info)
         } else {
@@ -111,8 +111,8 @@ impl TeamInfo {
         }
     }
 
-    pub fn get_unit_info_mut(&mut self, unit_type: unit::UnitType)
-                             -> Result<&mut unit::UnitInfo, Error> {
+    pub fn get_unit_info_mut(&mut self, unit_type: UnitType)
+                             -> Result<&mut UnitInfo, Error> {
         if let Some(unit_info) = self.unit_infos.get_mut(&unit_type) {
             Ok(unit_info)
         } else {
@@ -141,14 +141,14 @@ pub struct GameWorld {
     pub player_to_move: Player,
 
     /// All the units on the map.
-    units: FnvHashMap<unit::UnitID, unit::Unit>,
+    units: FnvHashMap<UnitID, Unit>,
 
     /// All the units on the map, by location.
-    units_by_loc: FnvHashMap<MapLocation, unit::UnitID>,
+    units_by_loc: FnvHashMap<MapLocation, UnitID>,
 
     /// Rocket landings. Maps round numbers to a list of rockets
     /// landing on the given round.
-    rocket_landings: FnvHashMap<u32, Vec<(unit::UnitID, MapLocation)>>,
+    rocket_landings: FnvHashMap<u32, Vec<(UnitID, MapLocation)>>,
 
     /// The weather patterns.
     pub weather: WeatherPattern,
@@ -246,7 +246,7 @@ impl GameWorld {
         }
     }
 
-    pub fn get_unit(&self, id: unit::UnitID) -> Result<&unit::Unit, Error> {
+    pub fn get_unit(&self, id: UnitID) -> Result<&Unit, Error> {
         if let Some(unit) = self.units.get(&id) {
             Ok(unit)
         } else {
@@ -254,7 +254,7 @@ impl GameWorld {
         }
     }
 
-    fn get_unit_mut(&mut self, id: unit::UnitID) -> Result<&mut unit::Unit, Error> {
+    fn get_unit_mut(&mut self, id: UnitID) -> Result<&mut Unit, Error> {
         if let Some(unit) = self.units.get_mut(&id) {
             Ok(unit)
         } else {
@@ -267,7 +267,7 @@ impl GameWorld {
     // ************************************************************************
 
     /// Places a unit onto the map at the given location. Assumes the given square is occupiable.
-    pub fn place_unit(&mut self, id: unit::UnitID, location: MapLocation) -> Result<(), Error> {
+    pub fn place_unit(&mut self, id: UnitID, location: MapLocation) -> Result<(), Error> {
         if self.is_occupiable(location)? {
             {
                 let unit = self.get_unit_mut(id)?;
@@ -287,10 +287,10 @@ impl GameWorld {
     /// Creates and inserts a new unit into the game world, so that it can be
     /// referenced by ID.
     pub fn create_unit(&mut self, team: Team, location: MapLocation,
-                       unit_type: unit::UnitType) -> Result<unit::UnitID, Error> {
+                       unit_type: UnitType) -> Result<UnitID, Error> {
         let id = self.get_team_info_mut(team)?.id_generator.next_id();
         let unit_info = self.get_team_info(team)?.get_unit_info(unit_type)?.clone();
-        let unit = unit::Unit::new(id, team, unit_info);
+        let unit = Unit::new(id, team, unit_info);
 
         self.units.insert(unit.id, unit);
         self.place_unit(id, location)?;
@@ -298,7 +298,7 @@ impl GameWorld {
     }
 
     /// Removes a unit from the map. Assumes the unit is on the map.
-    pub fn remove_unit(&mut self, id: unit::UnitID) -> Result<(), Error> {
+    pub fn remove_unit(&mut self, id: UnitID) -> Result<(), Error> {
         let location = {
             let unit = self.get_unit_mut(id)?;
             let location = unit.location;
@@ -311,16 +311,16 @@ impl GameWorld {
     }
 
     /// Deletes a unit. Unit should be removed from map first.
-    pub fn delete_unit(&mut self, id: unit::UnitID) {
+    pub fn delete_unit(&mut self, id: UnitID) {
         self.units.remove(&id);
     }
 
     /// Destroys a unit.
-    pub fn destroy_unit(&mut self, id: unit::UnitID) -> Result<(), Error> {
+    pub fn destroy_unit(&mut self, id: UnitID) -> Result<(), Error> {
         if self.get_unit(id)?.location.is_some() {
             self.remove_unit(id)?;
         }
-        let units_to_destroy = if let unit::UnitInfo::Rocket(ref rocket_info) = self.get_unit(id)?.unit_info {
+        let units_to_destroy = if let UnitInfo::Rocket(ref rocket_info) = self.get_unit(id)?.unit_info {
             rocket_info.garrisoned_units.clone()
         } else {
             vec![]
@@ -344,7 +344,7 @@ impl GameWorld {
     }
 
     /// Tests whether the given unit can move.
-    pub fn can_move(&self, id: unit::UnitID, direction: Direction) -> Result<bool, Error> {
+    pub fn can_move(&self, id: UnitID, direction: Direction) -> Result<bool, Error> {
         let unit = self.get_unit(id)?;
         if let Some(location) = unit.location {
             Ok(unit.is_move_ready() && self.is_occupiable(location.add(direction))?)
@@ -354,7 +354,7 @@ impl GameWorld {
     }
 
     // Given that moving an unit comprises many edits to the GameWorld, it makes sense to define this here.
-    pub fn move_unit(&mut self, id: unit::UnitID, direction: Direction) -> Result<(), Error> {
+    pub fn move_unit(&mut self, id: UnitID, direction: Direction) -> Result<(), Error> {
         let dest = self.get_unit(id)?.location.ok_or(GameError::InvalidAction)?.add(direction);
         if self.can_move(id, direction)? {
             self.remove_unit(id)?;
@@ -398,7 +398,7 @@ impl GameWorld {
     // *************************** ROCKET METHODS *****************************
     // ************************************************************************
 
-    pub fn launch_rocket(&mut self, id: unit::UnitID, destination: MapLocation) -> Result<(), Error> {
+    pub fn launch_rocket(&mut self, id: UnitID, destination: MapLocation) -> Result<(), Error> {
         {
             let map = &self.get_planet_info(destination.planet)?.map;
             if !map.on_map(&destination) || !map.is_passable_terrain[destination.y as usize][destination.x as usize] {
@@ -416,12 +416,12 @@ impl GameWorld {
         Ok(())
     }
 
-    pub fn land_rocket(&mut self, id: unit::UnitID, destination: MapLocation) -> Result<(), Error> {
+    pub fn land_rocket(&mut self, id: UnitID, destination: MapLocation) -> Result<(), Error> {
         if self.units_by_loc.contains_key(&destination) {
             let victim_id = *self.units_by_loc.get(&destination).unwrap();
             let should_destroy_rocket = match self.get_unit(victim_id)?.unit_info {
-                unit::UnitInfo::Rocket(_) => true,
-                unit::UnitInfo::Factory(_) => true,
+                UnitInfo::Rocket(_) => true,
+                UnitInfo::Factory(_) => true,
                 _ => false,
             };
             if should_destroy_rocket {
@@ -504,8 +504,8 @@ impl GameWorld {
 mod tests {
     use super::GameWorld;
     use super::Team;
-    use super::unit::UnitID;
-    use super::unit::UnitType;
+    use super::super::unit::UnitID;
+    use super::super::unit::UnitType;
     use super::super::location::*;
 
     #[test]
