@@ -116,11 +116,7 @@ impl ResearchInfo {
     /// Returns the next branch to be researched, which is the branch at the
     /// front of the research queue. Returns None if the queue is empty.
     pub fn get_next_in_queue(&self) -> Option<Branch> {
-        if let Some(branch) = self.queue.get(0) {
-            Some(branch.clone())
-        } else {
-            None
-        }
+        self.queue.get(0).map(|branch| branch.clone())
     }
 
     /// Returns the number of rounds left until the upgrade at the front of the
