@@ -425,6 +425,7 @@ impl GameWorld {
         if self.can_move(id, direction)? {
             self.remove_unit(id)?;
             self.place_unit(id, dest)?;
+            // TODO: increment movement heat
             Ok(())
         } else {
             Err(GameError::InvalidAction)?
@@ -433,20 +434,20 @@ impl GameWorld {
 
     // Tests whether the given robot can board the given rocket.
     pub fn can_board_rocket(&self, robot_id: unit::UnitID, rocket_id: unit::UnitID) -> Result<bool, Error> {
-        let robot_loc = {
+        let (robot_loc, robot_team) = {
             let robot = self.get_unit(robot_id)?;
             // The robot must be able to perform a normal move in order to board.
             if !robot.is_move_ready() {
                 return Ok(false);
             }
             if let Some(location) = robot.location {
-                location
+                (location, robot.team)
             } else {
                 return Ok(false);
             }
         };
 
-        let rocket_loc = {
+        let (rocket_loc, rocket_team) = {
             let rocket = self.get_unit(rocket_id)?;
             if let unit::UnitInfo::Rocket(ref rocket_info) = rocket.unit_info {
                 // Check that the rocket has space.
@@ -457,14 +458,14 @@ impl GameWorld {
                 Err(GameError::InappropriateUnitType)?;
             };
             if let Some(location) = rocket.location {
-                location
+                (location, rocket.team)
             } else {
                 return Ok(false);
             }
         };
 
         // True if the rocket and the robot are adjacent.
-        Ok(robot_loc.distance_squared_to(rocket_loc) <= 2)
+        Ok(robot_team == rocket_team && robot_loc.distance_squared_to(rocket_loc) <= 2)
     }
 
     /// Moves a robot into the garrison of the specified rocket.
@@ -712,5 +713,85 @@ mod tests {
         world.land_rocket(rocket_b, mars_loc_factory).unwrap();
         assert![world.get_unit(rocket_b).is_err()];
         assert![world.get_unit(factory).is_err()];
+    }
+
+    #[test]
+    fn test_rocket_board() {
+        // Create the game world and the rocket for this test.
+        let mut world = GameWorld::test_world();
+        let takeoff_loc = MapLocation::new(Planet::Earth, 10, 10);        
+        let rocket = world.create_unit(Team::Red, takeoff_loc, UnitType::Rocket).unwrap();
+
+        // Correct boarding.
+        let valid_boarder = world.create_unit(Team::Red, takeoff_loc.add(Direction::North), UnitType::Knight).unwrap();
+        assert![world.board_rocket(valid_boarder, rocket).is_ok()];
+
+        // Boarding fails when too far from the rocket.
+        let invalid_boarder_too_far = world.create_unit(Team::Red, takeoff_loc.add(Direction::North).add(Direction::North), UnitType::Knight).unwrap();
+        assert![world.board_rocket(invalid_boarder_too_far, rocket).is_err()];
+
+        // Boarding fails when the robot has already moved.
+        // uncomment when movement cooldown is implemented
+        //assert![world.move_unit(invalid_boarder_too_far, Direction::South).is_ok()];
+        //let invalid_boarder_already_moved = invalid_boarder_too_far;
+        //assert![!world.get_unit(invalid_boarder_already_moved).unwrap().is_move_ready()];
+        //assert![world.board_rocket(invalid_boarder_already_moved, rocket).is_err()];
+
+        // Factories and rockets cannot board rockets.
+        let invalid_boarder_factory = world.create_unit(Team::Red, takeoff_loc.add(Direction::Southeast), UnitType::Factory).unwrap();
+        assert![world.board_rocket(invalid_boarder_factory, rocket).is_err()];
+        let invalid_boarder_rocket = world.create_unit(Team::Red, takeoff_loc.add(Direction::South), UnitType::Rocket).unwrap();
+        assert![world.board_rocket(invalid_boarder_rocket, rocket).is_err()];
+
+        // Rockets can be loaded up to their capacity...
+        for _ in 1..8 {
+            let valid_extra_boarder = world.create_unit(Team::Red, takeoff_loc.add(Direction::East), UnitType::Knight).unwrap();
+            assert![world.board_rocket(valid_extra_boarder, rocket).is_ok()];
+        }
+
+        // ... but not beyond their capacity.
+        let invalid_boarder_rocket_full = world.create_unit(Team::Red, takeoff_loc.add(Direction::East), UnitType::Knight).unwrap();
+        assert![world.board_rocket(invalid_boarder_rocket_full, rocket).is_err()];
+
+        // A unit should not be able to board another team's rocket.
+        let blue_takeoff_loc = MapLocation::new(Planet::Earth, 5, 5);
+        let blue_rocket = world.create_unit(Team::Blue, blue_takeoff_loc, UnitType::Rocket).unwrap();
+        let invalid_boarder_wrong_team = world.create_unit(Team::Red, blue_takeoff_loc.add(Direction::North), UnitType::Knight).unwrap();
+        assert![world.board_rocket(invalid_boarder_wrong_team, blue_rocket).is_err()];
+    }
+
+    #[test]
+    fn test_rocket_disembark() {
+        // Create the game world and the rocket for this test.
+        let mut world = GameWorld::test_world();
+        let takeoff_loc = MapLocation::new(Planet::Earth, 10, 10);        
+        let rocket = world.create_unit(Team::Red, takeoff_loc, UnitType::Rocket).unwrap();
+        
+        // Load the rocket with robots.
+        for _ in 0..2 {
+            let boarder = world.create_unit(Team::Red, takeoff_loc.add(Direction::North), UnitType::Knight).unwrap();
+            assert![world.board_rocket(boarder, rocket).is_ok()];
+        }
+
+        // Fly the rocket to Mars.
+        let landing_loc = MapLocation::new(Planet::Mars, 10, 10);
+        assert![world.launch_rocket(rocket, landing_loc).is_ok()];
+        assert![world.land_rocket(rocket, landing_loc).is_ok()];
+
+        // Correct disembarking.
+        assert![world.disembark_rocket(rocket, Direction::North).is_ok()];
+
+        // Cannot disembark into an occupied square.
+        assert![world.disembark_rocket(rocket, Direction::North).is_err()];
+
+        // Cannot disembark into an impassable square.
+        world.get_planet_info_mut(Planet::Mars).unwrap().map.is_passable_terrain[10][11] = false;
+        assert![world.disembark_rocket(rocket, Direction::East).is_err()];
+
+        // Correct disembarking, again.
+        assert![world.disembark_rocket(rocket, Direction::South).is_ok()];
+
+        // Cannot disembark an empty rocket.
+        assert![world.disembark_rocket(rocket, Direction::West).is_err()];
     }
 }
