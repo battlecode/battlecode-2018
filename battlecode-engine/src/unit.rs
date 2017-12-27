@@ -92,6 +92,7 @@ impl UnitType {
             UnitType::Rocket => Rocket(RocketInfo {
                 max_health: 200,
                 max_capacity: 8,
+                used: false,
                 built: false,
                 garrisoned_units: vec![],
             }),
@@ -175,6 +176,8 @@ pub struct RocketInfo {
     built: bool,
     /// The maximum health.
     max_health: u32,
+    /// Whether the given rocket has been used.
+    pub used: bool,
     /// The maximum number of robots it can hold at once.
     pub max_capacity: usize,
     /// The units contained within this rocket.

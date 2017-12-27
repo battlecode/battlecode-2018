@@ -523,27 +523,45 @@ impl GameWorld {
         }
     }
 
-    pub fn launch_rocket(&mut self, id: unit::UnitID, destination: MapLocation) -> Result<(), Error> {
-        {
-            let map = &self.get_planet_info(destination.planet)?.map;
-            if !map.on_map(&destination) || !map.is_passable_terrain[destination.y as usize][destination.x as usize] {
-                Err(GameError::InvalidAction)?;
+    pub fn can_launch_rocket(&mut self, id: unit::UnitID, destination: MapLocation) -> Result<bool, Error> {
+        if let unit::UnitInfo::Rocket(ref rocket_info) = self.get_unit(id)?.unit_info {
+            if rocket_info.used {
+                return Ok(false);
             }
-        }
-
-        self.remove_unit(id)?;
-        let landing_round = self.round + self.weather.orbit.get_duration(self.round as i32) as u32;
-        if self.rocket_landings.contains_key(&landing_round) {
-            self.rocket_landings.get_mut(&landing_round).unwrap().push((id, destination));
         } else {
-            self.rocket_landings.insert(landing_round, vec![(id, destination)]);
+            Err(GameError::InappropriateUnitType)?;
+        }    
+        let map = &self.get_planet_info(destination.planet)?.map;
+        Ok(map.on_map(&destination) && map.is_passable_terrain[destination.y as usize][destination.x as usize])
+    }
+
+    pub fn launch_rocket(&mut self, id: unit::UnitID, destination: MapLocation) -> Result<(), Error> {
+        if self.can_launch_rocket(id, destination)? {
+            let takeoff_loc = {
+                let unit = self.get_unit_mut(id)?;
+                if let unit::UnitInfo::Rocket(ref mut rocket_info) = unit.unit_info {
+                    rocket_info.used = true;
+                } else {
+                    unreachable!();
+                }
+                unit.location.unwrap()
+            };
+            self.remove_unit(id)?;
+            let landing_round = self.round + self.weather.orbit.get_duration(self.round as i32) as u32;
+            if self.rocket_landings.contains_key(&landing_round) {
+                self.rocket_landings.get_mut(&landing_round).unwrap().push((id, destination));
+            } else {
+                self.rocket_landings.insert(landing_round, vec![(id, destination)]);
+            }
+            let mut dir = Direction::North;
+            for _ in 0..8 {
+                self.damage_location(takeoff_loc.add(dir), ROCKET_BLAST_DAMAGE)?;
+                dir = dir.rotate_right();
+            }
+            Ok(())
+        } else {
+            Err(GameError::InvalidAction)?
         }
-        let mut dir = Direction::North;
-        for _ in 0..8 {
-            self.damage_location(destination.add(dir), ROCKET_BLAST_DAMAGE)?;
-            dir = dir.rotate_right();
-        }
-        Ok(())
     }
 
     pub fn land_rocket(&mut self, id: unit::UnitID, destination: MapLocation) -> Result<(), Error> {
@@ -654,7 +672,7 @@ mod tests {
         }
 
         // Launch the rocket, and force land it.
-        world.launch_rocket(rocket, earth_loc).unwrap();
+        world.launch_rocket(rocket, mars_loc).unwrap();
         world.land_rocket(rocket, mars_loc).unwrap();
         assert_eq![world.get_unit(rocket).unwrap().location.unwrap(), mars_loc];
         let damaged_knight_health = 200;
