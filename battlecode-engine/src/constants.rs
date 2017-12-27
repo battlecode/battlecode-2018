@@ -78,6 +78,16 @@ pub const FACTORY_COST: [Rounds; 1] = [0];
 pub const ROCKET_COST: [Rounds; 4] = [0, 300, 200, 200];
 
 // *********************************
+// ****** UNIT CONSTANTS ***********
+// *********************************
+
+/// The heat each robot dissipates per round.
+pub const HEAT_LOSS_PER_ROUND: u32 = 10;
+
+/// The damage a rocket deals to adjacent units upon landing.
+pub const ROCKET_BLAST_DAMAGE: u32 = 50;
+
+// *********************************
 // ****** GAME PARAMETERS **********
 // *********************************
 
