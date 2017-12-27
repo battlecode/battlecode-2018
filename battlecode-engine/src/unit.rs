@@ -482,7 +482,12 @@ pub struct Unit {
 
 impl Unit {
     /// Create a new unit of the given type.
-    pub fn new(id: UnitID, team: Team, unit_type: UnitType, unit_info: UnitInfo) -> Unit {
+    pub fn new(id: UnitID, team: Team, unit_type: UnitType, level: Level) -> Result<Unit, Error> {
+        let mut unit_info = unit_type.default();
+        for _ in 0..level {
+            unit_info.research()?;
+        }
+
         let health = match unit_info {
             Worker(ref info) => info.robot_stats.max_health,
             Knight(ref info) => info.robot_stats.max_health,
@@ -494,7 +499,7 @@ impl Unit {
         };
 
         let is_ready = unit_type != UnitType::Factory && unit_type != UnitType::Rocket;
-        Unit {
+        Ok(Unit {
             id: id,
             team: team,
             unit_type: unit_type,
@@ -507,13 +512,12 @@ impl Unit {
             unit_list: vec![],
             is_ready: is_ready,
             unit_info: unit_info,
-        }
+        })
     }
 
     /// Create a generic unit, for testing purposes.
-    pub fn test_unit(id: UnitID) -> Unit {
-        let unit_info = Knight(KnightInfo::default());
-        Unit::new(id, Team::Red, UnitType::Knight, unit_info)
+    pub fn test_unit(id: UnitID) -> Result<Unit, Error> {
+        Unit::new(id, Team::Red, UnitType::Knight, 1)
     }
 
     /// Returns whether the unit is currently able to make a movement to a valid location.
@@ -537,6 +541,42 @@ impl Unit {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
-    fn it_works() {}
+    fn worker_constructor_and_research() {
+        let unit_a = Unit::new(1, Team::Red, UnitType::Worker, 0).unwrap();
+        assert_eq!(unit_a.id, 1);
+        assert_eq!(unit_a.team, Team::Red);
+        assert_eq!(unit_a.unit_type, UnitType::Worker);
+
+        let mut info = match unit_a.unit_info {
+            Worker(worker_info) => worker_info,
+            _ => panic!("expected Worker"),
+        };
+
+        assert_eq!(info.level, 0);
+        assert_eq!(info.harvest_amount, 3);
+        assert_eq!(info.build_repair_health, 5);
+
+        info.research().unwrap();
+        assert_eq!(info.level, 1);
+        assert_eq!(info.harvest_amount, 4);
+        assert_eq!(info.build_repair_health, 5);
+
+        info.research().unwrap();
+        assert_eq!(info.level, 2);
+        assert_eq!(info.harvest_amount, 4);
+        assert_eq!(info.build_repair_health, 6);
+
+        let unit_b = Unit::new(2, Team::Red, UnitType::Worker, 2).unwrap();
+        let info = match unit_b.unit_info {
+            Worker(worker_info) => worker_info,
+            _ => panic!("expected Worker"),
+        };
+
+        assert_eq!(info.level, 2);
+        assert_eq!(info.harvest_amount, 4);
+        assert_eq!(info.build_repair_health, 6);
+    }
 }

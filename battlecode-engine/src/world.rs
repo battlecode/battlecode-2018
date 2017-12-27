@@ -94,8 +94,8 @@ impl TeamInfo {
         }
     }
 
-    pub fn get_unit_info(&self, unit_type: &UnitType) -> &UnitInfo {
-        self.get_research().get_unit_info(&unit_type)
+    pub fn get_level(&self, unit_type: &UnitType) -> Level {
+        self.get_research().get_level(&unit_type)
     }
 
     pub fn get_research(&self) -> &ResearchInfo {
@@ -282,8 +282,8 @@ impl GameWorld {
     pub fn create_unit(&mut self, team: Team, location: MapLocation,
                        unit_type: UnitType) -> Result<UnitID, Error> {
         let id = self.get_team_info_mut(team).id_generator.next_id();
-        let unit_info = self.get_team_info(team).get_unit_info(&unit_type).clone();
-        let unit = Unit::new(id, team, unit_type, unit_info);
+        let level = self.get_team_info(team).get_level(&unit_type);
+        let unit = Unit::new(id, team, unit_type, level)?;
 
         self.units.insert(unit.id, unit);
         self.place_unit(id, location)?;
