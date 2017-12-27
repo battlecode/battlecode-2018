@@ -210,6 +210,10 @@ impl GameWorld {
         }
     }
 
+    // ************************************************************************
+    // ****************************** ACCESSORS *******************************
+    // ************************************************************************
+
     fn get_planet_info(&self, planet: Planet) -> Result<&PlanetInfo, Error> {
         if let Some(planet_info) = self.planet_states.get(&planet) {
             Ok(planet_info)
@@ -258,51 +262,9 @@ impl GameWorld {
         }
     }
 
-    pub fn next_turn(&mut self) -> Result<(), Error> {
-        self.player_to_move = match self.player_to_move {
-            Player { team: Team::Red, planet: Planet::Earth } => Player { team: Team::Blue, planet: Planet::Earth},
-            Player { team: Team::Blue, planet: Planet::Earth } => Player { team: Team::Red, planet: Planet::Mars},
-            Player { team: Team::Red, planet: Planet::Mars } => Player { team: Team::Blue, planet: Planet::Mars},
-            Player { team: Team::Blue, planet: Planet::Mars } => {
-                // This is the last player to move, so we can advance to the next round.
-                self.next_round()?;
-                Player { team: Team::Red, planet: Planet::Earth}
-            },
-        };
-        Ok(())
-    }
-
-    pub fn next_round(&mut self) -> Result<(), Error> {
-        self.round += 1;
-
-        // Update unit cooldowns.
-        for unit in &mut self.units.values_mut() {
-            unit.movement_heat -= cmp::min(HEAT_LOSS_PER_ROUND, unit.movement_heat);
-            unit.attack_heat -= cmp::min(HEAT_LOSS_PER_ROUND, unit.attack_heat);
-        }
-
-        // Land rockets.
-        let landings = if let Some(landings) = self.rocket_landings.get(&self.round) {
-            landings.clone()
-        } else {
-            vec![]
-        };
-        for &(id, location) in landings.iter() {
-            self.land_rocket(id, location)?;
-        }
-
-        // Process any potential asteroid impacts.
-        if self.weather.asteroids.get_asteroid(self.round).is_some() {
-            let (location, karbonite) = {
-                let asteroid = self.weather.asteroids.get_asteroid(self.round).unwrap();
-                (asteroid.location, asteroid.karbonite)
-            };
-            let planet_info = self.get_planet_info_mut(location.planet)?;
-            planet_info.karbonite[location.y as usize][location.x as usize] += karbonite;
-        }
-
-        Ok(())
-    }
+    // ************************************************************************
+    // **************** UNIT CREATION / DESTRUCTION METHODS *******************
+    // ************************************************************************
 
     /// Places a unit onto the map at the given location. Assumes the given square is occupiable.
     pub fn place_unit(&mut self, id: unit::UnitID, location: MapLocation) -> Result<(), Error> {
@@ -370,26 +332,9 @@ impl GameWorld {
         Ok(())
     }
 
-    /// Deals damage to any unit in the target square, potentially destroying it.
-    pub fn damage_location(&mut self, location: MapLocation, damage: u32) -> Result<(), Error> {
-        let id = if let Some(id) = self.units_by_loc.get(&location) {
-            *id
-        } else {
-            return Ok(());
-        };
-
-        let should_destroy_unit = {
-            let unit = self.get_unit_mut(id)?;
-            // TODO: Knight damage resistance??
-            unit.health -= cmp::min(damage, unit.health);
-            unit.health == 0
-        };
-
-        if should_destroy_unit {
-            self.destroy_unit(id)?;
-        }
-        Ok(())
-    }
+    // ************************************************************************
+    // ************************* LOCATION METHODS *****************************
+    // ************************************************************************
 
     /// Returns whether the square is clear for a new unit to occupy, either by movement or by construction.
     pub fn is_occupiable(&self, location: MapLocation) -> Result<bool, Error> {
@@ -419,6 +364,39 @@ impl GameWorld {
             Err(GameError::InvalidAction)?
         }
     }
+
+    // ************************************************************************
+    // *************************** ATTACK METHODS *****************************
+    // ************************************************************************
+
+    /// Deals damage to any unit in the target square, potentially destroying it.
+    pub fn damage_location(&mut self, location: MapLocation, damage: u32) -> Result<(), Error> {
+        let id = if let Some(id) = self.units_by_loc.get(&location) {
+            *id
+        } else {
+            return Ok(());
+        };
+
+        let should_destroy_unit = {
+            let unit = self.get_unit_mut(id)?;
+            // TODO: Knight damage resistance??
+            unit.health -= cmp::min(damage, unit.health);
+            unit.health == 0
+        };
+
+        if should_destroy_unit {
+            self.destroy_unit(id)?;
+        }
+        Ok(())
+    }
+
+    // ************************************************************************
+    // ************************** RESEARCH METHODS ****************************
+    // ************************************************************************
+
+    // ************************************************************************
+    // *************************** ROCKET METHODS *****************************
+    // ************************************************************************
 
     pub fn launch_rocket(&mut self, id: unit::UnitID, destination: MapLocation) -> Result<(), Error> {
         {
@@ -458,6 +436,56 @@ impl GameWorld {
         for _ in 0..8 {
             self.damage_location(destination.add(dir), ROCKET_BLAST_DAMAGE)?;
             dir = dir.rotate_right();
+        }
+
+        Ok(())
+    }
+
+    // ************************************************************************
+    // ****************************** GAME LOOP *******************************
+    // ************************************************************************
+
+    pub fn next_turn(&mut self) -> Result<(), Error> {
+        self.player_to_move = match self.player_to_move {
+            Player { team: Team::Red, planet: Planet::Earth } => Player { team: Team::Blue, planet: Planet::Earth},
+            Player { team: Team::Blue, planet: Planet::Earth } => Player { team: Team::Red, planet: Planet::Mars},
+            Player { team: Team::Red, planet: Planet::Mars } => Player { team: Team::Blue, planet: Planet::Mars},
+            Player { team: Team::Blue, planet: Planet::Mars } => {
+                // This is the last player to move, so we can advance to the next round.
+                self.next_round()?;
+                Player { team: Team::Red, planet: Planet::Earth}
+            },
+        };
+        Ok(())
+    }
+
+    pub fn next_round(&mut self) -> Result<(), Error> {
+        self.round += 1;
+
+        // Update unit cooldowns.
+        for unit in &mut self.units.values_mut() {
+            unit.movement_heat -= cmp::min(HEAT_LOSS_PER_ROUND, unit.movement_heat);
+            unit.attack_heat -= cmp::min(HEAT_LOSS_PER_ROUND, unit.attack_heat);
+        }
+
+        // Land rockets.
+        let landings = if let Some(landings) = self.rocket_landings.get(&self.round) {
+            landings.clone()
+        } else {
+            vec![]
+        };
+        for &(id, location) in landings.iter() {
+            self.land_rocket(id, location)?;
+        }
+
+        // Process any potential asteroid impacts.
+        if self.weather.asteroids.get_asteroid(self.round).is_some() {
+            let (location, karbonite) = {
+                let asteroid = self.weather.asteroids.get_asteroid(self.round).unwrap();
+                (asteroid.location, asteroid.karbonite)
+            };
+            let planet_info = self.get_planet_info_mut(location.planet)?;
+            planet_info.karbonite[location.y as usize][location.x as usize] += karbonite;
         }
 
         Ok(())
