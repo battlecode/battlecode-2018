@@ -211,20 +211,20 @@ impl ResearchInfo {
     /// and continues work on the next upgrade in the queue.
     ///
     /// Otherwise returns None.
-    pub fn update(&mut self) -> Option<Branch> {
+    pub fn update(&mut self) -> Result<Option<Branch>, Error> {
         if let Some(rounds_left) = self.rounds_left {
             if rounds_left > 1 {
                 self.rounds_left = Some(rounds_left - 1);
-                return None;
+                return Ok(None);
             }
 
             let branch = self.queue.remove(0);
             *self.get_level_mut(&branch) += 1;
             self.reset_rounds_left();
-            // TODO: Update the UnitInfo of the completed upgrade
-            Some(branch)
+            self.get_unit_info_mut(&branch).research()?;
+            Ok(Some(branch))
         } else {
-            None
+            Ok(None)
         }
     }
 }

@@ -449,8 +449,17 @@ impl GameWorld {
 
     /// Update the current research and process any completed upgrades.
     fn process_research(&mut self, team: Team) -> Result<(), Error> {
-        if let Some(branch) = self.get_team_info_mut(team).get_research_mut().update() {
-            // TODO: Update the UnitInfos of all living units of the team.
+        if let Some(branch) = self.get_team_info_mut(team).get_research_mut().update()? {
+            // Update the UnitInfos of all living units of the team.
+            // TODO: This could probably be more efficient, considering the
+            // UnitInfo of every unit of a given type is the same. If we didn't
+            // store it in the Unit at all, we'd have to reference the
+            // constants through ResearchInfo when applying updates.
+            for (_, unit) in self.units.iter_mut() {
+                if unit.unit_type == branch {
+                    unit.unit_info.research()?;
+                }
+            }
             Ok(())
         } else {
             Ok(())

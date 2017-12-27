@@ -431,6 +431,21 @@ pub enum UnitInfo {
     Rocket(RocketInfo),
 }
 
+impl UnitInfo {
+    /// Research the next level.
+    pub fn research(&mut self) -> Result<(), Error> {
+        match self {
+            &mut Worker(ref mut info)  => info.research(),
+            &mut Knight(ref mut info)  => info.research(),
+            &mut Ranger(ref mut info)  => info.research(),
+            &mut Mage(ref mut info)    => info.research(),
+            &mut Healer(ref mut info)  => info.research(),
+            &mut Factory(ref mut info) => info.research(),
+            &mut Rocket(ref mut info)  => info.research(),
+        }
+    }
+}
+
 /// A single unit in the game.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Unit {
