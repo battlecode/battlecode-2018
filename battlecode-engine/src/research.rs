@@ -8,6 +8,8 @@ use failure::Error;
 use fnv::FnvHashMap;
 use super::constants;
 use super::error::GameError;
+use super::unit::UnitInfo;
+use super::unit::UnitType;
 use super::unit::UnitType as Branch;
 use super::world::Rounds;
 
@@ -44,8 +46,8 @@ pub fn get_cost(branch: &Branch, level: Level) -> Result<Rounds, Error> {
 /// The status of research for a single team.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct ResearchInfo {
-    /// The current level of each research branch, starting at 0.
-    level: FnvHashMap<Branch, Level>,
+    /// Stats of each unit type, and the current research levels.
+    unit_infos: FnvHashMap<UnitType, UnitInfo>,
 
     /// The level of each branch if the queue were to be exhausted.
     maybe_level: FnvHashMap<Branch, Level>,
@@ -61,33 +63,63 @@ pub struct ResearchInfo {
 impl ResearchInfo {
     /// Construct an initial research state.
     pub fn new() -> ResearchInfo {
+        let mut unit_infos = FnvHashMap::default();
+        for unit_type in UnitType::all() {
+            let unit_info = unit_type.default();
+            unit_infos.insert(unit_type, unit_info);
+        }
+
         let mut level = FnvHashMap::default();
         for unit in Branch::all() {
             level.insert(unit.clone(), 0);
         }
 
         ResearchInfo {
-            level: level.clone(),
+            unit_infos: unit_infos,
             maybe_level: level,
             queue: vec![],
             rounds_left: None,
         }
     }
 
-    /// Returns the current level of the research branch.
-    pub fn get_level(&self, branch: &Branch) -> Level {
-        if let Some(level) = self.level.get(branch) {
-            level.clone()
+    pub fn get_unit_info(&self, unit_type: &UnitType) -> &UnitInfo {
+        if let Some(unit_info) = self.unit_infos.get(unit_type) {
+            unit_info
         } else {
             unreachable!();
         }
     }
 
-    fn get_level_mut(&mut self, branch: &Branch) -> &mut Level {
-        if let Some(level) = self.level.get_mut(branch) {
-            level
+    fn get_unit_info_mut(&mut self, unit_type: &UnitType) -> &mut UnitInfo {
+        if let Some(unit_info) = self.unit_infos.get_mut(unit_type) {
+            unit_info
         } else {
             unreachable!();
+        }
+    }
+
+    /// Returns the current level of the research branch.
+    pub fn get_level(&self, branch: &Branch) -> Level {
+        match *self.get_unit_info(branch) {
+            UnitInfo::Worker(ref info)  => info.level,
+            UnitInfo::Knight(ref info)  => info.level,
+            UnitInfo::Ranger(ref info)  => info.level,
+            UnitInfo::Mage(ref info)    => info.level,
+            UnitInfo::Healer(ref info)  => info.level,
+            UnitInfo::Factory(ref info) => info.level,
+            UnitInfo::Rocket(ref info)  => info.level,
+        }
+    }
+
+    fn get_level_mut(&mut self, branch: &Branch) -> &mut Level {
+        match *self.get_unit_info_mut(branch) {
+            UnitInfo::Worker(ref mut info)  => &mut info.level,
+            UnitInfo::Knight(ref mut info)  => &mut info.level,
+            UnitInfo::Ranger(ref mut info)  => &mut info.level,
+            UnitInfo::Mage(ref mut info)    => &mut info.level,
+            UnitInfo::Healer(ref mut info)  => &mut info.level,
+            UnitInfo::Factory(ref mut info) => &mut info.level,
+            UnitInfo::Rocket(ref mut info)  => &mut info.level,
         }
     }
 
@@ -189,6 +221,7 @@ impl ResearchInfo {
             let branch = self.queue.remove(0);
             *self.get_level_mut(&branch) += 1;
             self.reset_rounds_left();
+            // TODO: Update the UnitInfo of the completed upgrade
             Some(branch)
         } else {
             None

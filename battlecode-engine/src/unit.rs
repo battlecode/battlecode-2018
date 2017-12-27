@@ -2,6 +2,7 @@
 //! game actions, depending on their type.
 
 use super::location::*;
+use super::research::Level;
 use super::world::Team;
 use unit::UnitInfo::*;
 
@@ -45,6 +46,7 @@ impl UnitType {
     pub fn default(&self) -> UnitInfo {
         match *self {
             UnitType::Worker => Worker(WorkerInfo {
+                level: 0,
                 robot_stats: RobotStats {
                     max_health: 100,
                     damage: 0,
@@ -53,10 +55,11 @@ impl UnitType {
                     movement_cooldown: 20,
                     attack_cooldown: 0,
                 },
-                build_health: 5,
+                build_repair_health: 5,
                 harvest_amount: 3,
             }),
             UnitType::Knight => Knight(KnightInfo {
+                level: 0,
                 robot_stats: RobotStats {
                     max_health: 250,
                     damage: 100,
@@ -67,6 +70,7 @@ impl UnitType {
                 }
             }),
             UnitType::Ranger => Ranger(RangerInfo {
+                level: 0,
                 robot_stats: RobotStats {
                     max_health: 200,
                     damage: 70,
@@ -78,6 +82,7 @@ impl UnitType {
                 cannot_attack_range: 10,
             }),
             UnitType::Mage => Mage(MageInfo {
+                level: 0,
                 robot_stats: RobotStats {
                     max_health: 100,
                     damage: 150,
@@ -88,6 +93,7 @@ impl UnitType {
                 }
             }),
             UnitType::Healer => Healer(HealerInfo {
+                level: 0,
                 robot_stats: RobotStats {
                     max_health: 100,
                     damage: -10,
@@ -98,11 +104,13 @@ impl UnitType {
                 }
             }),
             UnitType::Factory => Factory(FactoryInfo {
+                level: 0,
                 max_health: 1000,
                 production_queue: vec![],
                 built: false,
             }),
             UnitType::Rocket => Rocket(RocketInfo {
+                level: 0,
                 max_health: 200,
                 max_capacity: 8,
                 built: false,
@@ -132,64 +140,94 @@ pub struct RobotStats {
 /// Info specific to Workers.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct WorkerInfo {
+    /// The research level.
+    pub level: Level,
     /// The robot stats.
-    robot_stats: RobotStats,
+    pub robot_stats: RobotStats,
     /// The health restored when building or repairing a factory or rocket.
-    build_health: u32,
+    pub build_repair_health: u32,
     /// The maximum amount of karbonite harvested from a deposit in one turn.
-    harvest_amount: u32,
+    pub harvest_amount: u32,
+}
+
+impl WorkerInfo {
+    /// The Worker's Tree
+    ///
+    /// 1) Gimme some of that Black Stuff: Workers harvest an additional +1
+    ///    Karbonite from a deposit (not deducted from the deposit).
+    /// 2) Time is of the Essence: Workers add 20% more health when repairing
+    ///    or constructing a building.
+    /// 3) Time is of the Essence II: Workers add 50% more health when
+    ///    repairing or constructing a building.
+    /// 4) Time is of the Essence III: Workers add 100% more health when
+    ///    repairing or constructing a building.
+    pub fn research(&mut self) {
+
+    }
 }
 
 /// Info specific to Knights.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct KnightInfo {
+    /// The research level.
+    pub level: Level,
     /// The robot stats.
-    robot_stats: RobotStats,
+    pub robot_stats: RobotStats,
 }
 
 /// Info specific to Rangers.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RangerInfo {
+    /// The research level.
+    pub level: Level,
     /// The robot stats.
-    robot_stats: RobotStats,
+    pub robot_stats: RobotStats,
     /// The range within the ranger cannot attack.
-    cannot_attack_range: u32,
+    pub cannot_attack_range: u32,
 }
 
 /// Info specific to Mages.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MageInfo {
+    /// The research level.
+    pub level: Level,
     /// The robot stats.
-    robot_stats: RobotStats,
+    pub robot_stats: RobotStats,
 }
 
 /// Info specific to Healers.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct HealerInfo {
+    /// The research level.
+    pub level: Level,
     /// The robot stats.
-    robot_stats: RobotStats,
+    pub robot_stats: RobotStats,
 }
 
 /// Info specific to factories.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FactoryInfo {
+    /// The research level.
+    pub level: Level,
     /// Whether the factory has been built.
-    built: bool,
+    pub built: bool,
     /// The maximum health.
-    max_health: u32,
+    pub max_health: u32,
     /// Units queued to be produced.
-    production_queue: Vec<Unit>,
+    pub production_queue: Vec<Unit>,
 }
 
 /// Info specific to rockets.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RocketInfo {
+    /// The research level.
+    pub level: Level,
     /// Whether the rocket has been built.
-    built: bool,
+    pub built: bool,
     /// The maximum health.
-    max_health: u32,
+    pub max_health: u32,
     /// The maximum number of robots it can hold at once.
-    max_capacity: usize,
+    pub max_capacity: usize,
     /// The units contained within this rocket.
     pub garrisoned_units: Vec<UnitID>,
 }
@@ -263,8 +301,9 @@ impl Unit {
 
     /// Create a generic unit, for testing purposes.
     pub fn test_unit(id: UnitID) -> Unit {
-        let unit_info = Knight(KnightInfo{
-            robot_stats: RobotStats{
+        let unit_info = Knight(KnightInfo {
+            level: 0,
+            robot_stats: RobotStats {
                 max_health: 100,
                 damage: 0,
                 attack_range: 0,

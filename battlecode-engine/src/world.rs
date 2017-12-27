@@ -79,9 +79,6 @@ pub struct TeamInfo {
     /// Communication array histories for each planet.
     team_arrays: FnvHashMap<Planet, TeamArrayHistory>,
 
-    /// Unit info of a given type at initialization.
-    unit_infos: FnvHashMap<UnitType, UnitInfo>,
-
     /// The current state of research.
     research: ResearchInfo,
 }
@@ -89,36 +86,16 @@ pub struct TeamInfo {
 impl TeamInfo {
     /// Construct a team with the default properties.
     pub fn new(team: Team, seed: u32) -> TeamInfo {
-        // Initialize default unit infos
-        let mut unit_infos = FnvHashMap::default();
-        for unit_type in UnitType::all() {
-            let unit_info = unit_type.default();
-            unit_infos.insert(unit_type, unit_info);
-        }
-
         TeamInfo {
             team: team,
             id_generator: IDGenerator::new(team, seed),
             team_arrays: FnvHashMap::default(),
-            unit_infos: unit_infos,
             research: ResearchInfo::new(),
         }
     }
 
     pub fn get_unit_info(&self, unit_type: UnitType) -> &UnitInfo {
-        if let Some(unit_info) = self.unit_infos.get(&unit_type) {
-            unit_info
-        } else {
-            unreachable!();
-        }
-    }
-
-    pub fn get_unit_info_mut(&mut self, unit_type: UnitType) -> &mut UnitInfo {
-        if let Some(unit_info) = self.unit_infos.get_mut(&unit_type) {
-            unit_info
-        } else {
-            unreachable!();
-        }
+        self.get_research().get_unit_info(&unit_type)
     }
 
     pub fn get_research(&self) -> &ResearchInfo {
@@ -140,6 +117,13 @@ pub struct Player {
     pub planet: Planet,
 }
 
+impl Player {
+    /// Constructs a new player.
+    pub fn new(team: Team, planet: Planet) -> Player {
+        Player { team: team, planet: planet }
+    }
+}
+
 /// The full world of the Battlecode game.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GameWorld {
@@ -157,7 +141,10 @@ pub struct GameWorld {
 
     /// Rocket landings. Maps round numbers to a list of rockets
     /// landing on the given round.
-    rocket_landings: FnvHashMap<u32, Vec<(UnitID, MapLocation)>>,
+    rocket_landings: FnvHashMap<Rounds, Vec<(UnitID, MapLocation)>>,
+
+    /// Research to be completed at the start of the next round.
+    research: Vec<(Branch, Team)>,
 
     /// The weather patterns.
     pub weather: WeatherPattern,
@@ -188,6 +175,7 @@ impl GameWorld {
             units: FnvHashMap::default(),
             units_by_loc: FnvHashMap::default(),
             rocket_landings: FnvHashMap::default(),
+            research: vec![],
             weather: map.weather,
             planet_states: planet_states,
             team_states: team_states,
@@ -213,6 +201,7 @@ impl GameWorld {
             units: FnvHashMap::default(),
             units_by_loc: FnvHashMap::default(),
             rocket_landings: FnvHashMap::default(),
+            research: vec![],
             weather: weather,
             planet_states: planet_states,
             team_states: team_states,
@@ -463,6 +452,16 @@ impl GameWorld {
         self.get_research_mut().add_to_queue(branch)
     }
 
+    /// Update the current research and process any completed upgrades.
+    fn process_research(&mut self, team: Team) -> Result<(), Error> {
+        if let Some(branch) = self.get_team_info_mut(team).get_research_mut().update() {
+            // TODO: Update the UnitInfos of all living units of the team.
+            Ok(())
+        } else {
+            Ok(())
+        }
+    }
+
     // ************************************************************************
     // *************************** ROCKET METHODS *****************************
     // ************************************************************************
@@ -556,6 +555,10 @@ impl GameWorld {
             let planet_info = self.get_planet_info_mut(location.planet);
             planet_info.karbonite[location.y as usize][location.x as usize] += karbonite;
         }
+
+        // Update the current research and process any completed upgrades.
+        self.process_research(Team::Red)?;
+        self.process_research(Team::Blue)?;
 
         Ok(())
     }
