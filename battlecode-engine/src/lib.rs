@@ -24,6 +24,9 @@ extern crate rand;
 // significantly faster for integer keys.
 extern crate fnv;
 
+// Provides SmallVec, a type that reduces allocations for small vectors.
+extern crate smallvec;
+
 // see schema.rs
 pub mod schema;
 
@@ -50,6 +53,8 @@ pub mod research;
 
 // see constants.rs
 pub mod constants;
+
+pub mod quadtree;
 
 #[cfg(test)]
 mod tests {

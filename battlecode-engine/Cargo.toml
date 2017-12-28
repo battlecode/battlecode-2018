@@ -18,6 +18,9 @@ rand = "0.3"
 # fast hash maps
 fnv = "1.0.6"
 
+# small vectors
+smallvec = "0.6.0"
+
 # linter
 # run with `cargo build --features clippy`
 clippy = {version = "0.0.174", optional = true}
