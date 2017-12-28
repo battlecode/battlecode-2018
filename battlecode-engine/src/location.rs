@@ -107,6 +107,7 @@ impl MapLocation {
         MapLocation { planet: planet, x: x, y: y }
     }
 
+    /// Returns the MapLocation one square from this one in the given direciton.
     pub fn add(&self, direction: Direction) -> MapLocation {
         MapLocation { 
             planet: self.planet,
@@ -123,6 +124,11 @@ impl MapLocation {
         } else {
             1_000_000
         }
+    }
+
+    /// Tests if the given MapLocation is adjacent to this one (including diagonally).
+    pub fn adjacent_to(&self, o: MapLocation) -> bool {
+        self.distance_squared_to(o) <= 2
     }
 }
 
@@ -197,5 +203,20 @@ mod tests {
         assert_eq!(a.distance_squared_to(c), 9);
         assert_eq!(b.distance_squared_to(c), 13);
         assert!(a.distance_squared_to(d) == 1_000_000);
+    }
+
+    #[test]
+    fn map_location_adjacent_to() {
+        let a = MapLocation::new(Planet::Earth, 4, 4);
+        let b = MapLocation::new(Planet::Earth, 4, 5);
+        let c = MapLocation::new(Planet::Earth, 5, 5);
+        let d = MapLocation::new(Planet::Earth, 6, 5);
+        let e = MapLocation::new(Planet::Mars, 4, 5);
+        assert!(a.adjacent_to(b));
+        assert!(a.adjacent_to(c));
+        assert!(b.adjacent_to(c));
+        assert!(d.adjacent_to(c));
+        assert!(!a.adjacent_to(d));
+        assert!(!a.adjacent_to(e));
     }
 }

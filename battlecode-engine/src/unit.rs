@@ -275,8 +275,7 @@ impl Unit {
             Ranger(_) => self.movement_heat < MAX_HEAT_TO_ACT,
             Mage(_) => self.movement_heat < MAX_HEAT_TO_ACT,
             Healer(_) => self.movement_heat < MAX_HEAT_TO_ACT,
-            Factory(_) => false,
-            Rocket(_) => false,
+            _ => false,
         }
     }
 }
