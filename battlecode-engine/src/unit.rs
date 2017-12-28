@@ -48,7 +48,7 @@ impl UnitType {
     }
 
     /// Return the default stats of the given unit type.
-    pub fn default(&self) -> UnitInfo {
+    fn default(&self) -> UnitInfo {
         match *self {
             UnitType::Worker => Worker(WorkerInfo::default()),
             UnitType::Knight => Knight(KnightInfo::default()),
@@ -63,7 +63,7 @@ impl UnitType {
 
 /// Inherent properties of a robot.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct RobotStats {
+struct RobotStats {
     /// The maximum health of the robot.
     pub max_health: u32,
     /// The damage inflicted by the robot during a normal attack.
@@ -80,7 +80,7 @@ pub struct RobotStats {
 
 /// Info specific to Workers.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WorkerInfo {
+struct WorkerInfo {
     /// The research level.
     pub level: Level,
     /// The robot stats.
@@ -134,7 +134,7 @@ impl WorkerInfo {
 
 /// Info specific to Knights.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct KnightInfo {
+struct KnightInfo {
     /// The research level.
     pub level: Level,
     /// The robot stats.
@@ -191,7 +191,7 @@ impl KnightInfo {
 
 /// Info specific to Rangers.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct RangerInfo {
+struct RangerInfo {
     /// The research level.
     pub level: Level,
     /// The robot stats.
@@ -200,6 +200,10 @@ pub struct RangerInfo {
     pub cannot_attack_range: u32,
     /// Whether Snipe is unlocked.
     pub is_snipe_unlocked: bool,
+    /// The countdown (for Ranger snipe attacks).
+    countdown: u32,
+    /// The target location (for Ranger snipe attacks).
+    target_location: Option<MapLocation>,
 }
 
 impl RangerInfo {
@@ -217,6 +221,8 @@ impl RangerInfo {
             },
             cannot_attack_range: 10,
             is_snipe_unlocked: false,
+            countdown: 0,
+            target_location: None,
         }
     }
 
@@ -239,7 +245,7 @@ impl RangerInfo {
 
 /// Info specific to Mages.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct MageInfo {
+struct MageInfo {
     /// The research level.
     pub level: Level,
     /// The robot stats.
@@ -294,7 +300,7 @@ impl MageInfo {
 
 /// Info specific to Healers.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct HealerInfo {
+struct HealerInfo {
     /// The research level.
     pub level: Level,
     /// The robot stats.
@@ -343,11 +349,15 @@ impl HealerInfo {
 
 /// Info specific to factories.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct FactoryInfo {
+struct FactoryInfo {
     /// The research level.
     pub level: Level,
     /// The maximum health.
     pub max_health: u32,
+    /// The unit production queue.
+    production_queue: Vec<Unit>,
+    /// Whether the unit is ready to be used.
+    is_ready: bool,
 }
 
 impl FactoryInfo {
@@ -356,6 +366,8 @@ impl FactoryInfo {
         FactoryInfo {
             level: 0,
             max_health: 1000,
+            production_queue: vec![],
+            is_ready: false,
         }
     }
     /// The Factory's Tree does not exist.
@@ -366,7 +378,7 @@ impl FactoryInfo {
 
 /// Info specific to rockets.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct RocketInfo {
+struct RocketInfo {
     /// The research level.
     pub level: Level,
     /// The maximum health.
@@ -377,6 +389,10 @@ pub struct RocketInfo {
     pub is_rocketry_unlocked: bool,
     /// The percentage of typical travel time required by a rocket.
     pub travel_time_multiplier: Percent,
+    /// The units garrisoned inside a rocket.
+    garrisoned_units: Vec<Unit>,
+    /// Whether the unit is ready to be used.
+    is_ready: bool,
 }
 
 impl RocketInfo {
@@ -388,6 +404,8 @@ impl RocketInfo {
             max_capacity: 8,
             is_rocketry_unlocked: false,
             travel_time_multiplier: 100,
+            garrisoned_units: vec![],
+            is_ready: false,
         }
     }
 
@@ -409,12 +427,16 @@ impl RocketInfo {
         self.level += 1;
         Ok(())
     }
+
+    pub fn garrisoned_units(&self) -> Vec<Unit> {
+        self.garrisoned_units.clone()
+    }
 }
 
 /// Units are player-controlled objects with certain characteristics and
 /// game actions, depending on their type.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum UnitInfo {
+enum UnitInfo {
     /// Workers are the foundation of the civilization.
     Worker(WorkerInfo),
     /// Knights are a melee unit that is strong in numbers.
@@ -429,21 +451,6 @@ pub enum UnitInfo {
     Factory(FactoryInfo),
     /// Rockets are the only unit that can move between planets.
     Rocket(RocketInfo),
-}
-
-impl UnitInfo {
-    /// Research the next level.
-    pub fn research(&mut self) -> Result<(), Error> {
-        match self {
-            &mut Worker(ref mut info)  => info.research(),
-            &mut Knight(ref mut info)  => info.research(),
-            &mut Ranger(ref mut info)  => info.research(),
-            &mut Mage(ref mut info)    => info.research(),
-            &mut Healer(ref mut info)  => info.research(),
-            &mut Factory(ref mut info) => info.research(),
-            &mut Rocket(ref mut info)  => info.research(),
-        }
-    }
 }
 
 /// A single unit in the game.
@@ -467,27 +474,14 @@ pub struct Unit {
     /// The attack heat of the unit.
     pub attack_heat: u32,
 
-    /// The countdown (for Ranger snipe attacks).
-    countdown: u32,
-    /// The target location (for Ranger snipe attacks).
-    target_location: Option<MapLocation>,
-    /// The Factory production queue or the units inside a Rocket.
-    unit_list: Vec<Unit>,
-    /// Whether the unit is ready to be used (Factories and Rockets).
-    is_ready: bool,
-
     /// The unit-specific info (a robot, factory, or rocket).
-    pub unit_info: UnitInfo,
+    unit_info: UnitInfo,
 }
 
 impl Unit {
     /// Create a new unit of the given type.
     pub fn new(id: UnitID, team: Team, unit_type: UnitType, level: Level) -> Result<Unit, Error> {
-        let mut unit_info = unit_type.default();
-        for _ in 0..level {
-            unit_info.research()?;
-        }
-
+        let unit_info = unit_type.default();
         let health = match unit_info {
             Worker(ref info) => info.robot_stats.max_health,
             Knight(ref info) => info.robot_stats.max_health,
@@ -498,8 +492,7 @@ impl Unit {
             Rocket(ref info) => info.max_health / 4,
         };
 
-        let is_ready = unit_type != UnitType::Factory && unit_type != UnitType::Rocket;
-        Ok(Unit {
+        let mut unit = Unit {
             id: id,
             team: team,
             unit_type: unit_type,
@@ -507,12 +500,13 @@ impl Unit {
             health: health,
             movement_heat: 0,
             attack_heat: 0,
-            countdown: 0,
-            target_location: None,
-            unit_list: vec![],
-            is_ready: is_ready,
             unit_info: unit_info,
-        })
+        };
+
+        for _ in 0..level {
+            unit.research()?;
+        }
+        Ok(unit)
     }
 
     /// Create a generic unit, for testing purposes.
@@ -531,10 +525,23 @@ impl Unit {
 
     /// Returns the garrisoned units in this unit. Only applicable to Rockets,
     /// and returns None otherwise.
-    pub fn get_garrisoned_units(&self) -> Option<Vec<Unit>> {
-        match self.unit_type {
-            UnitType::Rocket => Some(self.unit_list.clone()),
+    pub fn garrisoned_units(&self) -> Option<Vec<Unit>> {
+        match self.unit_info {
+            Rocket(ref info) => Some(info.garrisoned_units()),
             _ => None,
+        }
+    }
+
+    /// Research the next level.
+    pub fn research(&mut self) -> Result<(), Error> {
+        match self.unit_info {
+            Worker(ref mut info)  => info.research(),
+            Knight(ref mut info)  => info.research(),
+            Ranger(ref mut info)  => info.research(),
+            Mage(ref mut info)    => info.research(),
+            Healer(ref mut info)  => info.research(),
+            Factory(ref mut info) => info.research(),
+            Rocket(ref mut info)  => info.research(),
         }
     }
 }

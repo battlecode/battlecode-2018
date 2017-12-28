@@ -313,7 +313,7 @@ impl GameWorld {
         if self.get_unit(id)?.location.is_some() {
             self.remove_unit(id)?;
         }
-        let units_to_destroy = if let Some(units) = self.get_unit(id)?.get_garrisoned_units() {
+        let units_to_destroy = if let Some(units) = self.get_unit(id)?.garrisoned_units() {
             units
         } else {
             vec![]
@@ -457,7 +457,7 @@ impl GameWorld {
             // constants through ResearchInfo when applying updates.
             for (_, unit) in self.units.iter_mut() {
                 if unit.unit_type == branch {
-                    unit.unit_info.research()?;
+                    unit.research()?;
                 }
             }
             Ok(())
@@ -491,9 +491,9 @@ impl GameWorld {
     pub fn land_rocket(&mut self, id: UnitID, destination: MapLocation) -> Result<(), Error> {
         if self.units_by_loc.contains_key(&destination) {
             let victim_id = *self.units_by_loc.get(&destination).unwrap();
-            let should_destroy_rocket = match self.get_unit(victim_id)?.unit_info {
-                UnitInfo::Rocket(_) => true,
-                UnitInfo::Factory(_) => true,
+            let should_destroy_rocket = match self.get_unit(victim_id)?.unit_type {
+                UnitType::Rocket => true,
+                UnitType::Factory => true,
                 _ => false,
             };
             if should_destroy_rocket {
