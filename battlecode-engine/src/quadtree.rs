@@ -17,10 +17,10 @@ pub const SIZE: usize = 256;
 /// The maximum depth of the quadtree.
 pub const DEPTH: u8 = 5;
 
-pub const SPLIT_THRESH: usize = 16;
+const SPLIT_THRESH: usize = 16;
 
 /// A "pointer" to a node; actually an index into a backing vector.
-pub type NodePtr = u16;
+type NodePtr = u16;
 
 /// An entry in the quadtree.
 #[derive(Debug, Clone)]
@@ -136,12 +136,10 @@ enum Node<T: Clone> {
     Branch {
         bounds: Bounds,
         children: [NodePtr; 4],
-        parent: NodePtr
     },
     Leaf {
         bounds: Bounds,
         elements: SmallVec<[Entry<T>; 8]>,
-        parent: NodePtr
     }
 }
 impl<T: Clone> Node<T> {
@@ -151,13 +149,6 @@ impl<T: Clone> Node<T> {
             &Node::Leaf { ref bounds, .. } => bounds,
         }
     }
-    fn parent(&self) -> NodePtr {
-        match self {
-            &Node::Branch { parent, .. } => parent,
-            &Node::Leaf { parent, .. } => parent,
-        }
-    }
-
 }
 
 /// A quadtree.
@@ -180,7 +171,6 @@ impl <T: Clone + Debug> Quadtree<T> {
                 Node::Leaf {
                     bounds: Bounds::top_level(),
                     elements: SmallVec::new(),
-                    parent: 0
                 }
             ]
         }
@@ -207,8 +197,8 @@ impl <T: Clone + Debug> Quadtree<T> {
     pub fn insert(&mut self, loc: Loc, value: T) {
         let (ptr, depth) = self.lookup(loc);
 
-        let (parent, bounds, children) =
-            if let &mut Node::Leaf { bounds, ref mut elements, parent } = &mut self.nodes[ptr as usize] {
+        let (bounds, children) =
+            if let &mut Node::Leaf { bounds, ref mut elements } = &mut self.nodes[ptr as usize] {
             if elements.len() < SPLIT_THRESH || depth == DEPTH {
                 if cfg!(debug) {
                     for elem in elements.iter() {
@@ -242,12 +232,12 @@ impl <T: Clone + Debug> Quadtree<T> {
                 }
                 let newbounds = bounds.split();
                 let children = (
-                    Node::Leaf { parent: ptr, bounds: newbounds[0], elements: child_elements.0 },
-                    Node::Leaf { parent: ptr, bounds: newbounds[1], elements: child_elements.1 },
-                    Node::Leaf { parent: ptr, bounds: newbounds[2], elements: child_elements.2 },
-                    Node::Leaf { parent: ptr, bounds: newbounds[3], elements: child_elements.3 },
+                    Node::Leaf { bounds: newbounds[0], elements: child_elements.0 },
+                    Node::Leaf { bounds: newbounds[1], elements: child_elements.1 },
+                    Node::Leaf { bounds: newbounds[2], elements: child_elements.2 },
+                    Node::Leaf { bounds: newbounds[3], elements: child_elements.3 },
                 );
-                (parent, bounds, children)
+                (bounds, children)
             }
         } else {
             unreachable!();
@@ -261,7 +251,6 @@ impl <T: Clone + Debug> Quadtree<T> {
         self.nodes.push(c3);
 
         self.nodes[ptr as usize] = Node::Branch {
-            parent: parent,
             bounds: bounds,
             children: [
                 ptr0 + 0,
@@ -276,7 +265,7 @@ impl <T: Clone + Debug> Quadtree<T> {
     pub fn get(&mut self, loc: Loc) -> Option<&T> {
         let (idx, _) = self.lookup(loc);
         let node = &mut self.nodes[idx as usize];
-        if let &mut Node::Leaf { ref mut elements, bounds, .. } = node {
+        if let &mut Node::Leaf { ref mut elements, .. } = node {
             //println!("get {:?} bounds: {:?}, {:?}", loc, bounds, elements);
             elements.iter().filter(|e| e.loc == loc).next().map(|e| &e.value)
         } else {
@@ -299,46 +288,64 @@ impl <T: Clone + Debug> Quadtree<T> {
     }
 
     fn check(&self) {
-        for (idx, node) in self.nodes.iter().enumerate() {
+        for node in self.nodes.iter() {
             if let &Node::Leaf { bounds, ref elements, .. } = node {
                 bounds.check();
                 for elem in elements {
                     assert!(bounds.contains(elem.loc));
                 }
-            } else if let &Node::Branch { bounds, children, .. } = node {
+            } else if let &Node::Branch { bounds, .. } = node {
                 bounds.check();
-                for child in children.iter() {
-                    assert_eq!(self.nodes[*child as usize].parent(), idx as NodePtr);
-                }
             }
         }
     }
 
-    ///// Query all values in a range, calling "callback" for each one.
-    //pub fn range_query<F: FnMut(Loc, T)>(&self, loc: Loc, range: Coord, cb: F) {
-    //    self.rect_query(
-    //        loc.0 - range,
-    //        loc.0 + range,
-    //        loc.1 - range,
-    //        loc.1 + range
-    //        cb
-    //    )
-    //}
+    /// Query all values in a range, calling "callback" for each one.
+    /// Range defines the region:
+    /// [loc.0 - range, loc.0 + range] x [loc.1 - range, loc.1 + range]
+    pub fn range_query<F: FnMut(Loc, &T)>(&self, loc: Loc, range: Coord, cb: F) {
+        self.rect_query(
+            loc.0 - range,
+            loc.0 + range,
+            loc.1 - range,
+            loc.1 + range,
+            cb
+        )
+    }
 
-    ///// Query all values in a rectangle, calling "callback" for each one.
-    //pub fn rect_query<F: FnMut(Loc, T)>(&self, minx: Coord, maxx: Coord, miny: Coord, maxy: Coord, cb: F) {
-    //    // this should probably be an iterator but haha have fun writing that code
-    //    let bounds = Bounds {minx, maxx, miny, maxy};
+    /// Query all values in a rectangle, calling "callback" for each one.
+    pub fn rect_query<F: FnMut(Loc, &T)>(&self, minx: Coord, maxx: Coord, miny: Coord, maxy: Coord, mut cb: F) {
+        // this should probably be an iterator but haha have fun writing that code
+        let bounds = Bounds {minx, maxx, miny, maxy};
+        self._rect_query(bounds, 0, &mut cb);
+    }
 
-    //    let idx = 0usize;
-
-    //    loop {
-    //        match &self.nodes[idx] {
-    //            &Node::Leaf {bounds: }
-    //        }
-    //        let node_bounds = self.nodes[idx].bounds()
-    //    }
-    //}
+    fn _rect_query<F: FnMut(Loc, &T)>(&self, bounds: Bounds, ptr: NodePtr, cb: &mut F) {
+        match &self.nodes[ptr as usize] {
+            &Node::Leaf { ref elements, .. } => {
+                for element in elements {
+                    if bounds.contains(element.loc) {
+                        cb(element.loc, &element.value);
+                    }
+                }
+            },
+            &Node::Branch { ref children, bounds: branch_bounds } => {
+                let child_bounds = branch_bounds.split();
+                if bounds.overlaps(&child_bounds[0]) {
+                    self._rect_query(bounds, children[0], cb);
+                }
+                if bounds.overlaps(&child_bounds[1]) {
+                    self._rect_query(bounds, children[1], cb);
+                }
+                if bounds.overlaps(&child_bounds[2]) {
+                    self._rect_query(bounds, children[2], cb);
+                }
+                if bounds.overlaps(&child_bounds[3]) {
+                    self._rect_query(bounds, children[3], cb);
+                }
+            }
+        }
+    }
 
     ///// "Garbage collect" unused nodes in the tree; that is, if a branch node has fewer than
     ///// SPLIT_THRESH children, it will be transformed into a leaf node.
@@ -367,6 +374,7 @@ fn remove_unordered<A: Array>(vec: &mut SmallVec<A>, element: usize) -> Option<A
 #[cfg(test)]
 mod test {
     use super::*;
+    use fnv::FnvHashSet;
 
     #[test]
     fn bounds() {
@@ -390,6 +398,24 @@ mod test {
                 }
             }
         }
+    }
+
+    fn bounds_overlap() {
+        let bounds_a = Bounds {
+            minx: 12, maxx: 37,
+            miny: 55, maxy: 200
+        };
+        let bounds_b = Bounds {
+            minx: 25, maxx: 27,
+            miny: 190, maxy: 255
+        };
+        let bounds_c = Bounds {
+            minx: 0, maxx: 128,
+            miny: 210, maxy: 220
+        };
+        assert!(bounds_a.overlaps(&bounds_b));
+        assert!(bounds_b.overlaps(&bounds_c));
+        assert!(!bounds_a.overlaps(&bounds_c));
     }
 
     #[test]
@@ -420,5 +446,17 @@ mod test {
                 assert_eq!(q.get((x,y)), Some(&hash(x,y)));
             }
         }
+        let mut count = 0;
+        let mut visited = FnvHashSet::default();
+        let bounds = Bounds {minx: 3, maxx: 97, miny: 66, maxy: 78};
+        q.rect_query(bounds.minx, bounds.maxx, bounds.miny, bounds.maxy, |loc, &value| {
+            assert!(bounds.contains(loc));
+            assert_eq!(value, hash(loc.0, loc.1));
+            assert!(!visited.contains(&loc));
+            visited.insert(loc);
+            count += 1;
+        });
+        assert_eq!(count, (bounds.maxx - bounds.minx + 1) as usize
+                        * (bounds.maxy - bounds.miny + 1) as usize);
     }
 }

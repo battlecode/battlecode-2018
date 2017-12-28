@@ -28,3 +28,11 @@ clippy = {version = "0.0.174", optional = true}
 [features]
 # we can add custom features here later, if we want
 default = []
+
+[dev-dependencies]
+# rigorous benchmarking
+criterion = "0.1.1"
+
+[[bench]]
+name = "quadtree"
+harness = false
