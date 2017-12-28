@@ -494,8 +494,8 @@ impl Unit {
             Ranger(ref info) => info.robot_stats.max_health,
             Mage(ref info) => info.robot_stats.max_health,
             Healer(ref info) => info.robot_stats.max_health,
-            Factory(ref info) => (info.max_health as f32 * 0.25) as u32,
-            Rocket(ref info) => (info.max_health as f32 * 0.25) as u32,
+            Factory(ref info) => info.max_health / 4,
+            Rocket(ref info) => info.max_health / 4,
         };
 
         let is_ready = unit_type != UnitType::Factory && unit_type != UnitType::Rocket;
