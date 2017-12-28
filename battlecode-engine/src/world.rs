@@ -8,10 +8,15 @@ use super::schema::Delta;
 use super::id_generator::IDGenerator;
 use super::location::*;
 use super::map::*;
-use super::unit;
+use super::unit::*;
+use super::unit::UnitType as Branch;
 use super::research;
+use super::research::*;
 use super::error::GameError;
 use failure::Error;
+
+// A round consists of a turn from each player.
+pub type Rounds = u32;
 
 /// There are two teams in Battlecode: Red and Blue.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Hash, PartialEq, Eq)]
@@ -74,61 +79,31 @@ pub struct TeamInfo {
     /// Communication array histories for each planet.
     team_arrays: FnvHashMap<Planet, TeamArrayHistory>,
 
-    /// Unit info of a given type at initialization.
-    unit_infos: FnvHashMap<unit::UnitType, unit::UnitInfo>,
-
-    /// The current status of the team's research. The values defines the level
-    /// of the research, where 0 represents no progress.
-    research_status: FnvHashMap<research::Branch, u32>,
-
-    /// Research branches queued to be researched, including the current branch.
-    research_queue: Vec<research::Branch>,
-
-    /// The number of rounds to go until the first branch in the research
-    /// queue is finished. 0 if the research queue is empty.
-    research_rounds_left: u32,
+    /// The current state of research.
+    research: ResearchInfo,
 }
 
 impl TeamInfo {
     /// Construct a team with the default properties.
     pub fn new(team: Team, seed: u32) -> TeamInfo {
-        // Initialize default unit infos
-        let mut unit_infos = FnvHashMap::default();
-        let unit_types = vec![unit::UnitType::Worker, unit::UnitType::Knight,
-                              unit::UnitType::Ranger, unit::UnitType::Mage,
-                              unit::UnitType::Healer, unit::UnitType::Factory,
-                              unit::UnitType::Rocket];
-        for unit_type in unit_types {
-            let unit_info = unit_type.default();
-            unit_infos.insert(unit_type, unit_info);
-        }
-
         TeamInfo {
             team: team,
             id_generator: IDGenerator::new(team, seed),
             team_arrays: FnvHashMap::default(),
-            unit_infos: unit_infos,
-            research_status: FnvHashMap::default(),
-            research_queue: Vec::new(),
-            research_rounds_left: 0,
+            research: ResearchInfo::new(),
         }
     }
 
-    pub fn get_unit_info(&self, unit_type: unit::UnitType) -> Result<&unit::UnitInfo, Error> {
-        if let Some(unit_info) = self.unit_infos.get(&unit_type) {
-            Ok(unit_info)
-        } else {
-            Err(GameError::NoSuchUnitType)?
-        }
+    pub fn get_level(&self, unit_type: &UnitType) -> Level {
+        self.get_research().get_level(&unit_type)
     }
 
-    pub fn get_unit_info_mut(&mut self, unit_type: unit::UnitType)
-                             -> Result<&mut unit::UnitInfo, Error> {
-        if let Some(unit_info) = self.unit_infos.get_mut(&unit_type) {
-            Ok(unit_info)
-        } else {
-            Err(GameError::NoSuchUnitType)?
-        }
+    pub fn get_research(&self) -> &ResearchInfo {
+        &self.research
+    }
+
+    pub fn get_research_mut(&mut self) -> &mut ResearchInfo {
+        &mut self.research
     }
 }
 
@@ -142,24 +117,31 @@ pub struct Player {
     pub planet: Planet,
 }
 
+impl Player {
+    /// Constructs a new player.
+    pub fn new(team: Team, planet: Planet) -> Player {
+        Player { team: team, planet: planet }
+    }
+}
+
 /// The full world of the Battlecode game.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GameWorld {
     /// The current round, starting at 1.
-    pub round: u32,
+    pub round: Rounds,
 
     /// The player whose turn it is.
     pub player_to_move: Player,
 
     /// All the units on the map.
-    units: FnvHashMap<unit::UnitID, unit::Unit>,
+    units: FnvHashMap<UnitID, Unit>,
 
     /// All the units on the map, by location.
-    units_by_loc: FnvHashMap<MapLocation, unit::UnitID>,
+    units_by_loc: FnvHashMap<MapLocation, UnitID>,
 
     /// Rocket landings. Maps round numbers to a list of rockets
     /// landing on the given round.
-    rocket_landings: FnvHashMap<u32, Vec<(unit::UnitID, MapLocation)>>,
+    rocket_landings: FnvHashMap<Rounds, Vec<(UnitID, MapLocation)>>,
 
     /// The weather patterns.
     pub weather: WeatherPattern,
@@ -221,39 +203,43 @@ impl GameWorld {
         }
     }
 
-    fn get_planet_info(&self, planet: Planet) -> Result<&PlanetInfo, Error> {
+    // ************************************************************************
+    // ****************************** ACCESSORS *******************************
+    // ************************************************************************
+
+    fn get_planet_info(&self, planet: Planet) -> &PlanetInfo {
         if let Some(planet_info) = self.planet_states.get(&planet) {
-            Ok(planet_info)
+            planet_info
         } else {
-            Err(GameError::NoSuchPlanet)?
+            unreachable!();
         }
     }
     
-    pub fn get_planet_info_mut(&mut self, planet: Planet) -> Result<&mut PlanetInfo, Error> {
+    pub fn get_planet_info_mut(&mut self, planet: Planet) -> &mut PlanetInfo {
         if let Some(planet_info) = self.planet_states.get_mut(&planet) {
-            Ok(planet_info)
+            planet_info
         } else {
-            Err(GameError::NoSuchPlanet)?
+            unreachable!();
         }
     }
 
-    fn get_team_info(&self, team: Team) -> Result<&TeamInfo, Error> {
+    fn get_team_info(&self, team: Team) -> &TeamInfo {
         if let Some(team_info) = self.team_states.get(&team) {
-            Ok(team_info)
+            team_info
         } else {
-            Err(GameError::NoSuchTeam)?
+            unreachable!();
         }
     }
 
-    fn get_team_info_mut(&mut self, team: Team) -> Result<&mut TeamInfo, Error> {
+    fn get_team_info_mut(&mut self, team: Team) -> &mut TeamInfo {
         if let Some(team_info) = self.team_states.get_mut(&team) {
-            Ok(team_info)
+            team_info
         } else {
-            Err(GameError::NoSuchTeam)?
+            unreachable!();
         }
     }
 
-    pub fn get_unit(&self, id: unit::UnitID) -> Result<&unit::Unit, Error> {
+    pub fn get_unit(&self, id: UnitID) -> Result<&Unit, Error> {
         if let Some(unit) = self.units.get(&id) {
             Ok(unit)
         } else {
@@ -261,13 +247,275 @@ impl GameWorld {
         }
     }
 
-    fn get_unit_mut(&mut self, id: unit::UnitID) -> Result<&mut unit::Unit, Error> {
+    fn get_unit_mut(&mut self, id: UnitID) -> Result<&mut Unit, Error> {
         if let Some(unit) = self.units.get_mut(&id) {
             Ok(unit)
         } else {
             Err(GameError::NoSuchUnit)?
         }
     }
+
+    // ************************************************************************
+    // **************** UNIT CREATION / DESTRUCTION METHODS *******************
+    // ************************************************************************
+
+    /// Places a unit onto the map at the given location. Assumes the given square is occupiable.
+    pub fn place_unit(&mut self, id: UnitID, location: MapLocation) -> Result<(), Error> {
+        if self.is_occupiable(location)? {
+            {
+                let unit = self.get_unit_mut(id)?;
+                if unit.location.is_some() {
+                    // The unit has already been placed.
+                    Err(GameError::InternalEngineError)?;
+                }
+                unit.location = Some(location);
+            }
+            self.units_by_loc.insert(location, id);
+            Ok(())
+        } else {
+            Err(GameError::InternalEngineError)?
+        }
+    }
+
+    /// Creates and inserts a new unit into the game world, so that it can be
+    /// referenced by ID.
+    pub fn create_unit(&mut self, team: Team, location: MapLocation,
+                       unit_type: UnitType) -> Result<UnitID, Error> {
+        let id = self.get_team_info_mut(team).id_generator.next_id();
+        let level = self.get_team_info(team).get_level(&unit_type);
+        let unit = Unit::new(id, team, unit_type, level)?;
+
+        self.units.insert(unit.id, unit);
+        self.place_unit(id, location)?;
+        Ok(id)
+    }
+
+    /// Removes a unit from the map. Assumes the unit is on the map.
+    pub fn remove_unit(&mut self, id: UnitID) -> Result<(), Error> {
+        let location = {
+            let unit = self.get_unit_mut(id)?;
+            let location = unit.location;
+            unit.location = None;
+            // If location is None, then the unit was already removed.
+            location.ok_or(GameError::InternalEngineError)?
+        };
+        self.units_by_loc.remove(&location);
+        Ok(())
+    }
+
+    /// Deletes a unit. Unit should be removed from map first.
+    pub fn delete_unit(&mut self, id: UnitID) {
+        self.units.remove(&id);
+    }
+
+    /// Destroys a unit.
+    pub fn destroy_unit(&mut self, id: UnitID) -> Result<(), Error> {
+        if self.get_unit(id)?.location.is_some() {
+            self.remove_unit(id)?;
+        }
+        let units_to_destroy = if let Some(units) = self.get_unit(id)?.get_garrisoned_units() {
+            units
+        } else {
+            vec![]
+        };
+        for unit in units_to_destroy.iter() {
+            self.destroy_unit(unit.id)?;
+        }
+        self.delete_unit(id);
+        Ok(())
+    }
+
+    // ************************************************************************
+    // ************************* LOCATION METHODS *****************************
+    // ************************************************************************
+
+    /// Returns whether the square is clear for a new unit to occupy, either by movement or by construction.
+    pub fn is_occupiable(&self, location: MapLocation) -> Result<bool, Error> {
+        let planet_info = &self.get_planet_info(location.planet);
+        Ok(planet_info.map.is_passable_terrain[location.y as usize][location.x as usize] &&
+            !self.units_by_loc.contains_key(&location))
+    }
+
+    /// Tests whether the given unit can move.
+    pub fn can_move(&self, id: UnitID, direction: Direction) -> Result<bool, Error> {
+        let unit = self.get_unit(id)?;
+        if let Some(location) = unit.location {
+            Ok(unit.is_move_ready() && self.is_occupiable(location.add(direction))?)
+        } else {
+            Ok(false)
+        }
+    }
+
+    // Given that moving an unit comprises many edits to the GameWorld, it makes sense to define this here.
+    pub fn move_unit(&mut self, id: UnitID, direction: Direction) -> Result<(), Error> {
+        let dest = self.get_unit(id)?.location.ok_or(GameError::InvalidAction)?.add(direction);
+        if self.can_move(id, direction)? {
+            self.remove_unit(id)?;
+            self.place_unit(id, dest)?;
+            Ok(())
+        } else {
+            Err(GameError::InvalidAction)?
+        }
+    }
+
+    // ************************************************************************
+    // *************************** ATTACK METHODS *****************************
+    // ************************************************************************
+
+    /// Deals damage to any unit in the target square, potentially destroying it.
+    pub fn damage_location(&mut self, location: MapLocation, damage: u32) -> Result<(), Error> {
+        let id = if let Some(id) = self.units_by_loc.get(&location) {
+            *id
+        } else {
+            return Ok(());
+        };
+
+        let should_destroy_unit = {
+            let unit = self.get_unit_mut(id)?;
+            // TODO: Knight damage resistance??
+            unit.health -= cmp::min(damage, unit.health);
+            unit.health == 0
+        };
+
+        if should_destroy_unit {
+            self.destroy_unit(id)?;
+        }
+        Ok(())
+    }
+
+    // ************************************************************************
+    // ************************** RESEARCH METHODS ****************************
+    // ************************************************************************
+
+    /// Returns research info of the current player.
+    fn get_research(&self) -> ResearchInfo {
+        let team = self.player_to_move.team;
+        self.get_team_info(team).get_research().clone()
+    }
+
+    /// Returns mutable research info of the current player.
+    fn get_research_mut(&mut self) -> &mut ResearchInfo {
+        let team = self.player_to_move.team;
+        self.get_team_info_mut(team).get_research_mut()
+    }
+
+    /// Returns the maximum level of the research branch.
+    pub fn get_research_max_level(branch: &Branch) -> Level {
+        research::get_max_level(branch)
+    }
+
+    /// Returns the cost of a level, in rounds, of a research branch. Errors if the
+    /// level can't be researched i.e. not in the range [0, get_max_level(branch)].
+    pub fn get_research_cost(branch: &Branch, level: Level) -> Result<Rounds, Error> {
+        research::get_cost(branch, level)
+    }
+
+    /// Returns the current level of the research branch.
+    pub fn get_research_level(&self, branch: &Branch) -> Level {
+        self.get_research().get_level(branch)
+    }
+
+    /// Returns the research queue, where the front of the queue is at the
+    /// beginning of the list.
+    pub fn get_research_queue(&self) -> Vec<Branch> {
+        self.get_research().get_queue()
+    }
+
+    /// Returns the next branch to be researched, which is the branch at the
+    /// front of the research queue. Returns None if the queue is empty.
+    pub fn get_next_in_research_queue(&self) -> Option<Branch> {
+        self.get_research().get_next_in_queue()
+    }
+
+    /// Returns the number of rounds left until the upgrade at the front of the
+    /// research queue is applied, or None if the queue is empty.
+    pub fn get_research_rounds_left(&self) -> Option<Rounds> {
+        self.get_research().get_rounds_left()
+    }
+
+    /// Resets the research queue to be empty. Returns true if the queue was
+    /// not empty before, and false otherwise.
+    pub fn reset_research_queue(&mut self) -> bool {
+        self.get_research_mut().reset_queue()
+    }
+
+    /// Adds a branch to the back of the queue, if it is a valid upgrade, and
+    /// starts research if it is the first in the queue.
+    ///
+    /// Returns whether the branch was successfully added.
+    pub fn add_to_research_queue(&mut self, branch: &Branch) -> bool {
+        self.get_research_mut().add_to_queue(branch)
+    }
+
+    /// Update the current research and process any completed upgrades.
+    fn process_research(&mut self, team: Team) -> Result<(), Error> {
+        if let Some(branch) = self.get_team_info_mut(team).get_research_mut().update()? {
+            // Update the UnitInfos of all living units of the team.
+            // TODO: This could probably be more efficient, considering the
+            // UnitInfo of every unit of a given type is the same. If we didn't
+            // store it in the Unit at all, we'd have to reference the
+            // constants through ResearchInfo when applying updates.
+            for (_, unit) in self.units.iter_mut() {
+                if unit.unit_type == branch {
+                    unit.unit_info.research()?;
+                }
+            }
+            Ok(())
+        } else {
+            Ok(())
+        }
+    }
+
+    // ************************************************************************
+    // *************************** ROCKET METHODS *****************************
+    // ************************************************************************
+
+    pub fn launch_rocket(&mut self, id: UnitID, destination: MapLocation) -> Result<(), Error> {
+        {
+            let map = &self.get_planet_info(destination.planet).map;
+            if !map.on_map(&destination) || !map.is_passable_terrain[destination.y as usize][destination.x as usize] {
+                Err(GameError::InvalidAction)?;
+            }
+        }
+
+        self.remove_unit(id)?;
+        let landing_round = self.round + self.weather.orbit.get_duration(self.round as i32) as u32;
+        if self.rocket_landings.contains_key(&landing_round) {
+            self.rocket_landings.get_mut(&landing_round).unwrap().push((id, destination));
+        } else {
+            self.rocket_landings.insert(landing_round, vec![(id, destination)]);
+        }
+        Ok(())
+    }
+
+    pub fn land_rocket(&mut self, id: UnitID, destination: MapLocation) -> Result<(), Error> {
+        if self.units_by_loc.contains_key(&destination) {
+            let victim_id = *self.units_by_loc.get(&destination).unwrap();
+            let should_destroy_rocket = match self.get_unit(victim_id)?.unit_info {
+                UnitInfo::Rocket(_) => true,
+                UnitInfo::Factory(_) => true,
+                _ => false,
+            };
+            if should_destroy_rocket {
+                self.destroy_unit(id)?;
+            }
+            self.destroy_unit(victim_id)?;
+        } else {
+            self.place_unit(id, destination)?;
+        }
+
+        let mut dir = Direction::North;
+        for _ in 0..8 {
+            self.damage_location(destination.add(dir), ROCKET_BLAST_DAMAGE)?;
+            dir = dir.rotate_right();
+        }
+
+        Ok(())
+    }
+
+    // ************************************************************************
+    // ****************************** GAME LOOP *******************************
+    // ************************************************************************
 
     pub fn next_turn(&mut self) -> Result<(), Error> {
         self.player_to_move = match self.player_to_move {
@@ -308,168 +556,13 @@ impl GameWorld {
                 let asteroid = self.weather.asteroids.get_asteroid(self.round).unwrap();
                 (asteroid.location, asteroid.karbonite)
             };
-            let planet_info = self.get_planet_info_mut(location.planet)?;
+            let planet_info = self.get_planet_info_mut(location.planet);
             planet_info.karbonite[location.y as usize][location.x as usize] += karbonite;
         }
 
-        Ok(())
-    }
-
-    /// Places a unit onto the map at the given location. Assumes the given square is occupiable.
-    pub fn place_unit(&mut self, id: unit::UnitID, location: MapLocation) -> Result<(), Error> {
-        if self.is_occupiable(location)? {
-            {
-                let unit = self.get_unit_mut(id)?;
-                if unit.location.is_some() {
-                    // The unit has already been placed.
-                    Err(GameError::InternalEngineError)?;
-                }
-                unit.location = Some(location);
-            }
-            self.units_by_loc.insert(location, id);
-            Ok(())
-        } else {
-            Err(GameError::InternalEngineError)?
-        }
-    }
-
-    /// Creates and inserts a new unit into the game world, so that it can be
-    /// referenced by ID.
-    pub fn create_unit(&mut self, team: Team, location: MapLocation,
-                       unit_type: unit::UnitType) -> Result<unit::UnitID, Error> {
-        let id = self.get_team_info_mut(team)?.id_generator.next_id();
-        let unit_info = self.get_team_info(team)?.get_unit_info(unit_type)?.clone();
-        let unit = unit::Unit::new(id, team, unit_info);
-
-        self.units.insert(unit.id, unit);
-        self.place_unit(id, location)?;
-        Ok(id)
-    }
-
-    /// Removes a unit from the map. Assumes the unit is on the map.
-    pub fn remove_unit(&mut self, id: unit::UnitID) -> Result<(), Error> {
-        let location = {
-            let unit = self.get_unit_mut(id)?;
-            let location = unit.location;
-            unit.location = None;
-            // If location is None, then the unit was already removed.
-            location.ok_or(GameError::InternalEngineError)?
-        };
-        self.units_by_loc.remove(&location);
-        Ok(())
-    }
-
-    /// Deletes a unit. Unit should be removed from map first.
-    pub fn delete_unit(&mut self, id: unit::UnitID) {
-        self.units.remove(&id);
-    }
-
-    /// Destroys a unit.
-    pub fn destroy_unit(&mut self, id: unit::UnitID) -> Result<(), Error> {
-        if self.get_unit(id)?.location.is_some() {
-            self.remove_unit(id)?;
-        }
-        let units_to_destroy = if let unit::UnitInfo::Rocket(ref rocket_info) = self.get_unit(id)?.unit_info {
-            rocket_info.garrisoned_units.clone()
-        } else {
-            vec![]
-        };
-        for utd_id in units_to_destroy.iter() {
-            self.destroy_unit(*utd_id)?;
-        }
-        self.delete_unit(id);
-        Ok(())
-    }
-
-    /// Deals damage to any unit in the target square, potentially destroying it.
-    pub fn damage_location(&mut self, location: MapLocation, damage: u32) -> Result<(), Error> {
-        let id = if let Some(id) = self.units_by_loc.get(&location) {
-            *id
-        } else {
-            return Ok(());
-        };
-
-        let should_destroy_unit = {
-            let unit = self.get_unit_mut(id)?;
-            // TODO: Knight damage resistance??
-            unit.health -= cmp::min(damage, unit.health);
-            unit.health == 0
-        };
-
-        if should_destroy_unit {
-            self.destroy_unit(id)?;
-        }
-        Ok(())
-    }
-
-    /// Returns whether the square is clear for a new unit to occupy, either by movement or by construction.
-    pub fn is_occupiable(&self, location: MapLocation) -> Result<bool, Error> {
-        let planet_info = &self.get_planet_info(location.planet)?;
-        Ok(planet_info.map.is_passable_terrain[location.y as usize][location.x as usize] &&
-            !self.units_by_loc.contains_key(&location))
-    }
-
-    /// Tests whether the given unit can move.
-    pub fn can_move(&self, id: unit::UnitID, direction: Direction) -> Result<bool, Error> {
-        let unit = self.get_unit(id)?;
-        if let Some(location) = unit.location {
-            Ok(unit.is_move_ready() && self.is_occupiable(location.add(direction))?)
-        } else {
-            Ok(false)
-        }
-    }
-
-    // Given that moving an unit comprises many edits to the GameWorld, it makes sense to define this here.
-    pub fn move_unit(&mut self, id: unit::UnitID, direction: Direction) -> Result<(), Error> {
-        let dest = self.get_unit(id)?.location.ok_or(GameError::InvalidAction)?.add(direction);
-        if self.can_move(id, direction)? {
-            self.remove_unit(id)?;
-            self.place_unit(id, dest)?;
-            Ok(())
-        } else {
-            Err(GameError::InvalidAction)?
-        }
-    }
-
-    pub fn launch_rocket(&mut self, id: unit::UnitID, destination: MapLocation) -> Result<(), Error> {
-        {
-            let map = &self.get_planet_info(destination.planet)?.map;
-            if !map.on_map(&destination) || !map.is_passable_terrain[destination.y as usize][destination.x as usize] {
-                Err(GameError::InvalidAction)?;
-            }
-        }
-
-        self.remove_unit(id)?;
-        let landing_round = self.round + self.weather.orbit.get_duration(self.round as i32) as u32;
-        if self.rocket_landings.contains_key(&landing_round) {
-            self.rocket_landings.get_mut(&landing_round).unwrap().push((id, destination));
-        } else {
-            self.rocket_landings.insert(landing_round, vec![(id, destination)]);
-        }
-        Ok(())
-    }
-
-    pub fn land_rocket(&mut self, id: unit::UnitID, destination: MapLocation) -> Result<(), Error> {
-        if self.units_by_loc.contains_key(&destination) {
-            let victim_id = *self.units_by_loc.get(&destination).unwrap();
-            let should_destroy_rocket = match self.get_unit(victim_id)?.unit_info {
-                unit::UnitInfo::Rocket(_) => true,
-                unit::UnitInfo::Factory(_) => true,
-                _ => false,
-            };
-            if should_destroy_rocket {
-                self.destroy_unit(id)?;
-            }
-            self.destroy_unit(victim_id)?;
-        } else {
-            self.place_unit(id, destination)?;
-        }
-
-        let mut dir = Direction::North;
-        for _ in 0..8 {
-            self.damage_location(destination.add(dir), ROCKET_BLAST_DAMAGE)?;
-            dir = dir.rotate_right();
-        }
+        // Update the current research and process any completed upgrades.
+        self.process_research(Team::Red)?;
+        self.process_research(Team::Blue)?;
 
         Ok(())
     }
@@ -487,8 +580,8 @@ impl GameWorld {
 mod tests {
     use super::GameWorld;
     use super::Team;
-    use super::unit::UnitID;
-    use super::unit::UnitType;
+    use super::super::unit::UnitID;
+    use super::super::unit::UnitType;
     use super::super::location::*;
 
     #[test]
@@ -573,7 +666,7 @@ mod tests {
         let earth_loc_b = MapLocation::new(Planet::Earth, 0, 1);
         let mars_loc_off_map = MapLocation::new(Planet::Mars, 10000, 10000);
         let mars_loc_impassable = MapLocation::new(Planet::Mars, 0, 0);
-        world.get_planet_info_mut(Planet::Mars).unwrap().map.is_passable_terrain[0][0] = false;
+        world.get_planet_info_mut(Planet::Mars).map.is_passable_terrain[0][0] = false;
         let mars_loc_knight = MapLocation::new(Planet::Mars, 0, 1);
         let mars_loc_factory = MapLocation::new(Planet::Mars, 0, 2);
         let rocket_a = world.create_unit(Team::Red, earth_loc_a, UnitType::Rocket).unwrap();

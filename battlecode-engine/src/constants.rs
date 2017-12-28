@@ -1,5 +1,7 @@
 //! Defines constants that affect gameplay.
 
+use super::world::Rounds;
+
 // *********************************
 // ****** MAP CONSTANTS ************
 // *********************************
@@ -33,10 +35,10 @@ pub const MAP_KARBONITE_MAX: u32 = 50;
 // *********************************
 
 /// The minimum number of rounds since the last asteroid strike.
-pub const ASTEROID_ROUND_MIN: u32 = 2;
+pub const ASTEROID_ROUND_MIN: Rounds = 2;
 
 /// The maximum number of rounds since the last asteroid strike.
-pub const ASTEROID_ROUND_MAX: u32 = 20;
+pub const ASTEROID_ROUND_MAX: Rounds = 20;
 
 /// The minimum karbonite in an asteroid strike.
 pub const ASTEROID_KARB_MIN: u32 = 20;
@@ -49,6 +51,31 @@ pub const ORBIT_FLIGHT_MIN: i32 = 100;
 
 /// The maximum flight time due to the orbit.
 pub const ORBIT_FLIGHT_MAX: i32 = 400;
+
+// *********************************
+// ****** RESEARCH CONSTANTS *******
+// *********************************
+
+/// The cost of each level of research on the Worker branch.
+pub const WORKER_COST: [Rounds; 5] = [0, 60, 80, 100, 200];
+
+/// The cost of each level of research on the Knight branch.
+pub const KNIGHT_COST: [Rounds; 4] = [0, 80, 100, 200];
+
+/// The cost of each level of research on the Ranger branch.
+pub const RANGER_COST: [Rounds; 4] = [0, 80, 100, 200];
+
+/// The cost of each level of research on the Mage branch.
+pub const MAGE_COST: [Rounds; 5] = [0, 60, 80, 100, 200];
+
+/// The cost of each level of research on the Healer branch.
+pub const HEALER_COST: [Rounds; 4] = [0, 80, 100, 200];
+
+/// The cost of each level of research on the Factory branch.
+pub const FACTORY_COST: [Rounds; 1] = [0];
+
+/// The cost of each level of research on the Rocket branch.
+pub const ROCKET_COST: [Rounds; 4] = [0, 300, 200, 200];
 
 // *********************************
 // ****** UNIT CONSTANTS ***********
@@ -65,7 +92,7 @@ pub const ROCKET_BLAST_DAMAGE: u32 = 50;
 // *********************************
 
 /// The round at which the game is forced to end
-pub const ROUND_LIMIT: u32 = 1000;
+pub const ROUND_LIMIT: Rounds = 1000;
 
 /// The length of the communication array, in bytes
 pub const COMMUNICATION_ARRAY_LENGTH: usize = 100;
