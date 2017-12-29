@@ -39,6 +39,21 @@ impl Direction {
         }
     }
 
+    /// Returns all the directions ordered clockwise, starting with north and
+    /// not including the center direction.
+    pub fn all() -> Vec<Direction> {
+        vec![
+            North,
+            Northeast,
+            East,
+            Southeast,
+            South,
+            Southwest,
+            West,
+            Northwest
+        ]
+    }
+
     /// Returns the (x, y) displacement of this direction.
     pub fn delta(&self) -> (i32, i32) {
         match *self {

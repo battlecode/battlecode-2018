@@ -1,7 +1,6 @@
 //! The core battlecode engine.
 
 use fnv::FnvHashMap;
-use std::cmp;
 
 use super::constants::*;
 use super::schema::Delta;
@@ -264,11 +263,11 @@ impl GameWorld {
         if self.is_occupiable(location)? {
             {
                 let unit = self.get_unit_mut(id)?;
-                if unit.location.is_some() {
+                if unit.location().is_some() {
                     // The unit has already been placed.
                     Err(GameError::InternalEngineError)?;
                 }
-                unit.location = Some(location);
+                unit.move_to(Some(location));
             }
             self.units_by_loc.insert(location, id);
             Ok(())
@@ -285,7 +284,7 @@ impl GameWorld {
         let level = self.get_team_info(team).get_level(&unit_type);
         let unit = Unit::new(id, team, unit_type, level)?;
 
-        self.units.insert(unit.id, unit);
+        self.units.insert(unit.id(), unit);
         self.place_unit(id, location)?;
         Ok(id)
     }
@@ -294,8 +293,8 @@ impl GameWorld {
     pub fn remove_unit(&mut self, id: UnitID) -> Result<(), Error> {
         let location = {
             let unit = self.get_unit_mut(id)?;
-            let location = unit.location;
-            unit.location = None;
+            let location = unit.location();
+            unit.move_to(None);
             // If location is None, then the unit was already removed.
             location.ok_or(GameError::InternalEngineError)?
         };
@@ -310,11 +309,11 @@ impl GameWorld {
 
     /// Destroys a unit.
     pub fn destroy_unit(&mut self, id: UnitID) -> Result<(), Error> {
-        if self.get_unit(id)?.location.is_some() {
+        if self.get_unit(id)?.location().is_some() {
             self.remove_unit(id)?;
         }
-        if self.get_unit(id)?.unit_type == UnitType::Rocket {
-            let units_to_destroy = self.get_unit_mut(id)?.get_garrisoned_units()?.clone();
+        if self.get_unit(id)?.unit_type() == UnitType::Rocket {
+            let units_to_destroy = self.get_unit_mut(id)?.garrisoned_units()?;
             for utd_id in units_to_destroy.iter() {
                 self.destroy_unit(*utd_id)?;
             }
@@ -337,7 +336,7 @@ impl GameWorld {
     /// Tests whether the given unit can move.
     pub fn can_move(&self, id: UnitID, direction: Direction) -> Result<bool, Error> {
         let unit = self.get_unit(id)?;
-        if let Some(location) = unit.location {
+        if let Some(location) = unit.location() {
             Ok(unit.is_move_ready() && self.is_occupiable(location.add(direction))?)
         } else {
             Ok(false)
@@ -346,7 +345,7 @@ impl GameWorld {
 
     // Given that moving an unit comprises many edits to the GameWorld, it makes sense to define this here.
     pub fn move_unit(&mut self, id: UnitID, direction: Direction) -> Result<(), Error> {
-        let dest = self.get_unit(id)?.location.ok_or(GameError::InvalidAction)?.add(direction);
+        let dest = self.get_unit(id)?.location().ok_or(GameError::InvalidAction)?.add(direction);
         if self.can_move(id, direction)? {
             self.remove_unit(id)?;
             self.place_unit(id, dest)?;
@@ -368,13 +367,7 @@ impl GameWorld {
             return Ok(());
         };
 
-        let should_destroy_unit = {
-            let unit = self.get_unit_mut(id)?;
-            // TODO: Knight damage resistance??
-            unit.health -= cmp::min(damage, unit.health);
-            unit.health == 0
-        };
-
+        let should_destroy_unit = self.get_unit_mut(id)?.take_damage(damage);
         if should_destroy_unit {
             self.destroy_unit(id)?;
         }
@@ -448,14 +441,9 @@ impl GameWorld {
     /// Update the current research and process any completed upgrades.
     fn process_research(&mut self, team: Team) -> Result<(), Error> {
         if let Some(branch) = self.get_team_info_mut(team).get_research_mut().update()? {
-            // Update the UnitInfos of all living units of the team.
-            // TODO: This could probably be more efficient, considering the
-            // UnitInfo of every unit of a given type is the same. If we didn't
-            // store it in the Unit at all, we'd have to reference the
-            // constants through ResearchInfo when applying updates.
             for (_, unit) in self.units.iter_mut() {
-                if unit.unit_type == branch {
-                    unit.unit_info.research()?;
+                if unit.unit_type() == branch {
+                    unit.research()?;
                 }
             }
             Ok(())
@@ -470,38 +458,9 @@ impl GameWorld {
 
     // Tests whether the given robot can board the given rocket.
     pub fn can_board_rocket(&self, robot_id: UnitID, rocket_id: UnitID) -> Result<bool, Error> {
-        let (robot_loc, robot_team) = {
-            let robot = self.get_unit(robot_id)?;
-            // The robot must be able to perform a normal move in order to board.
-            if !robot.is_move_ready() {
-                return Ok(false);
-            }
-            if let Some(location) = robot.location {
-                (location, robot.team)
-            } else {
-                return Ok(false);
-            }
-        };
-
-        let (rocket_loc, rocket_team) = {
-            let rocket = self.get_unit(rocket_id)?;
-            if let UnitInfo::Rocket(ref rocket_info) = rocket.unit_info {
-                // Check that the rocket has space.
-                if rocket.get_garrisoned_units()?.len() >= rocket_info.max_capacity {
-                    return Ok(false);
-                }
-            } else {
-                Err(GameError::InappropriateUnitType)?;
-            };
-            if let Some(location) = rocket.location {
-                (location, rocket.team)
-            } else {
-                return Ok(false);
-            }
-        };
-
-        // True if the rocket and the robot are adjacent.
-        Ok(robot_team == rocket_team && robot_loc.distance_squared_to(rocket_loc) <= 2)
+        let robot = self.get_unit(robot_id)?;
+        let rocket = self.get_unit(rocket_id)?;
+        robot.can_board_rocket(rocket)
     }
 
     /// Moves a robot into the garrison of the specified rocket.
@@ -509,7 +468,7 @@ impl GameWorld {
         if self.can_board_rocket(robot_id, rocket_id)? {
             self.remove_unit(robot_id)?;
             let rocket = self.get_unit_mut(rocket_id)?;
-            rocket.get_garrisoned_units_mut()?.push(robot_id);
+            rocket.board_rocket(robot_id);
             Ok(())
         } else {
             Err(GameError::InvalidAction)?
@@ -521,11 +480,11 @@ impl GameWorld {
     pub fn can_disembark_rocket(&self, rocket_id: UnitID, direction: Direction) -> Result<bool, Error> {
         let rocket_loc = {
             let rocket = self.get_unit(rocket_id)?;
-            if rocket.get_garrisoned_units()?.len() == 0 {
+            if rocket.garrisoned_units()?.len() == 0 {
                 // There must be a garrisoned unit to disembark.
                 return Ok(false);
             }
-            if let Some(location) = rocket.location {
+            if let Some(location) = rocket.location() {
                 location
             } else {
                 return Ok(false);
@@ -540,7 +499,7 @@ impl GameWorld {
         if self.can_disembark_rocket(rocket_id, direction)? {
             let (robot_id, rocket_loc) = {
                 let rocket = self.get_unit_mut(rocket_id)?;
-                (rocket.get_garrisoned_units_mut()?.remove(0), rocket.location.unwrap())
+                (rocket.disembark_rocket()?, rocket.location().unwrap())
             };
             self.place_unit(robot_id, rocket_loc.add(direction))
         } else {
@@ -549,13 +508,10 @@ impl GameWorld {
     }
 
     pub fn can_launch_rocket(&mut self, id: UnitID, destination: MapLocation) -> Result<bool, Error> {
-        if let UnitInfo::Rocket(ref rocket_info) = self.get_unit(id)?.unit_info {
-            if rocket_info.used {
-                return Ok(false);
-            }
-        } else {
-            Err(GameError::InappropriateUnitType)?;
-        }    
+        let rocket = self.get_unit(id)?;
+        if rocket.is_rocket_used()? {
+            return Ok(false);
+        }
         let map = &self.get_planet_info(destination.planet).map;
         Ok(map.on_map(&destination) && map.is_passable_terrain[destination.y as usize][destination.x as usize])
     }
@@ -564,12 +520,8 @@ impl GameWorld {
         if self.can_launch_rocket(id, destination)? {
             let takeoff_loc = {
                 let unit = self.get_unit_mut(id)?;
-                if let UnitInfo::Rocket(ref mut rocket_info) = unit.unit_info {
-                    rocket_info.used = true;
-                } else {
-                    unreachable!();
-                }
-                unit.location.unwrap()
+                unit.use_rocket()?;
+                unit.location().unwrap()
             };
             self.remove_unit(id)?;
             let landing_round = self.round + self.weather.orbit.get_duration(self.round as i32) as u32;
@@ -578,10 +530,8 @@ impl GameWorld {
             } else {
                 self.rocket_landings.insert(landing_round, vec![(id, destination)]);
             }
-            let mut dir = Direction::North;
-            for _ in 0..8 {
+            for dir in Direction::all() {
                 self.damage_location(takeoff_loc.add(dir), ROCKET_BLAST_DAMAGE)?;
-                dir = dir.rotate_right();
             }
             Ok(())
         } else {
@@ -592,9 +542,9 @@ impl GameWorld {
     pub fn land_rocket(&mut self, id: UnitID, destination: MapLocation) -> Result<(), Error> {
         if self.units_by_loc.contains_key(&destination) {
             let victim_id = *self.units_by_loc.get(&destination).unwrap();
-            let should_destroy_rocket = match self.get_unit(victim_id)?.unit_info {
-                UnitInfo::Rocket(_) => true,
-                UnitInfo::Factory(_) => true,
+            let should_destroy_rocket = match self.get_unit(victim_id)?.unit_type() {
+                UnitType::Rocket => true,
+                UnitType::Factory => true,
                 _ => false,
             };
             if should_destroy_rocket {
@@ -605,10 +555,8 @@ impl GameWorld {
             self.place_unit(id, destination)?;
         }
 
-        let mut dir = Direction::North;
-        for _ in 0..8 {
+        for dir in Direction::all() {
             self.damage_location(destination.add(dir), ROCKET_BLAST_DAMAGE)?;
-            dir = dir.rotate_right();
         }
 
         Ok(())
@@ -637,8 +585,7 @@ impl GameWorld {
 
         // Update unit cooldowns.
         for unit in &mut self.units.values_mut() {
-            unit.movement_heat -= cmp::min(HEAT_LOSS_PER_ROUND, unit.movement_heat);
-            unit.attack_heat -= cmp::min(HEAT_LOSS_PER_ROUND, unit.attack_heat);
+            unit.next_round();
         }
 
         // Land rockets.
@@ -700,8 +647,8 @@ mod tests {
         // Both robots exist and are at the right locations.
         let unit_a = world.get_unit(id_a).unwrap();
         let unit_b = world.get_unit(id_b).unwrap();
-        assert_eq!(unit_a.location.unwrap(), loc_a);
-        assert_eq!(unit_b.location.unwrap(), loc_b);
+        assert_eq!(unit_a.location().unwrap(), loc_a);
+        assert_eq!(unit_b.location().unwrap(), loc_b);
     }
 
     #[test]
@@ -753,10 +700,10 @@ mod tests {
         // Launch the rocket, and force land it.
         world.launch_rocket(rocket, mars_loc).unwrap();
         world.land_rocket(rocket, mars_loc).unwrap();
-        assert_eq![world.get_unit(rocket).unwrap().location.unwrap(), mars_loc];
+        assert_eq![world.get_unit(rocket).unwrap().location().unwrap(), mars_loc];
         let damaged_knight_health = 200;
         for id in bystanders.iter() {
-            assert_eq![world.get_unit(*id).unwrap().health, damaged_knight_health];
+            assert_eq![world.get_unit(*id).unwrap().health(), damaged_knight_health];
         }
     }
 
