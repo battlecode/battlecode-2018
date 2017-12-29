@@ -1,0 +1,87 @@
+//! The outermost layer of the engine stack. Responsible for exposing
+//! the API that the player will use, and for generating messages to
+//! send to other parts of the Battlecode infrastructure.
+
+use config::Config;
+use location::*;
+use schema::*;
+use unit::*;
+use world::GameWorld;
+
+use failure::Error;
+
+struct GameController {
+    game_world: GameWorld,
+    config: Config,
+    turn: TurnMessage,
+}
+
+impl GameController {
+
+    // ************************************************************************
+    // **************************** PLAYER API ********************************
+    // ************************************************************************
+
+    /// Initializes the game world and creates a new controller
+    /// for a player to interact with it.
+    pub fn new() -> GameController {
+        GameController {
+            // TODO: load an actual map.
+            game_world: GameWorld::test_world(),
+            config: Config::player_config(),
+            turn: TurnMessage { changes: vec![] }
+        }
+    }
+
+    /// Ends the current turn. Returns the list of changes made in this turn.
+    pub fn end_turn(&mut self) -> Result<TurnMessage, Error> {
+        self.game_world.end_turn()?;
+        // v Does this deep copy? v
+        let turn = self.turn.clone();
+        self.turn = TurnMessage { changes: vec![] };
+        Ok(turn)
+    }
+
+    /// Tests whether the given robot can move in the specified direction.
+    /// Returns an error if the id does not correspond to a known robot, etc...
+    pub fn can_move_robot(&self, robot_id: UnitID, direction: Direction) -> Result<bool, Error> {
+        Ok(self.game_world.can_move(robot_id, direction)?)
+    }
+
+    /// Commands the given robot to move one square in the specified
+    /// direction. Returns an error if the move is unsuccessful, etc...
+    pub fn move_robot(&mut self, robot_id: UnitID, direction: Direction) -> Result<(), Error> {
+        let delta = Delta::Move { robot_id, direction };
+        if self.config.generate_turn_messages {
+            self.turn.changes.push(delta.clone());
+        }
+        Ok(self.game_world.apply(&delta)?)
+    }
+
+    // TODO: wrappers for all of the other functions.
+
+    // ************************************************************************
+    // **************************** RUNNER API ********************************
+    // ************************************************************************
+
+    /// Initializes the game world and creates a new controller
+    /// for the runner to interact with it.
+    pub fn new_runner() -> GameController {
+        GameController {
+            // TODO: load an actual map.
+            game_world: GameWorld::test_world(),
+            config: Config::runner_config(),
+            turn: TurnMessage { changes: vec![] }
+        }
+    }
+
+    /// Given a TurnMessage from a player, apply those changes.
+    pub fn apply_turn(&mut self, turn: TurnMessage) -> Result<(StartTurnMessage, ViewerMessage), Error> {
+        self.game_world.apply_turn(&turn)?;
+        // TODO: send updates to the players.
+        let start_turn_message = StartTurnMessage {};
+        // TODO: serialize the game state and other juicy info to send to viewer.
+        let viewer_message = ViewerMessage {};
+        Ok((start_turn_message, viewer_message))
+    }
+}

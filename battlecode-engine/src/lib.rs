@@ -24,6 +24,12 @@ extern crate rand;
 // significantly faster for integer keys.
 extern crate fnv;
 
+// see controller.rs
+pub mod controller;
+
+// see config.rs
+pub mod config;
+
 // see schema.rs
 pub mod schema;
 

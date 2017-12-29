@@ -4,6 +4,7 @@ use fnv::FnvHashMap;
 
 use super::constants::*;
 use super::schema::Delta;
+use super::schema::TurnMessage;
 use super::id_generator::IDGenerator;
 use super::location::*;
 use super::map::*;
@@ -510,21 +511,25 @@ impl GameWorld {
     // ****************************** GAME LOOP *******************************
     // ************************************************************************
 
-    pub fn next_turn(&mut self) -> Result<(), Error> {
+    /// Ends the current turn, and prepares for the next. Returns a tuple
+    /// containing the next player to move, and whether the round was also ended.
+    pub fn end_turn(&mut self) -> Result<(Player, bool), Error> {
+        let mut next_round = false;
         self.player_to_move = match self.player_to_move {
             Player { team: Team::Red, planet: Planet::Earth } => Player { team: Team::Blue, planet: Planet::Earth},
             Player { team: Team::Blue, planet: Planet::Earth } => Player { team: Team::Red, planet: Planet::Mars},
             Player { team: Team::Red, planet: Planet::Mars } => Player { team: Team::Blue, planet: Planet::Mars},
             Player { team: Team::Blue, planet: Planet::Mars } => {
                 // This is the last player to move, so we can advance to the next round.
-                self.next_round()?;
+                self.end_round()?;
+                next_round = true;
                 Player { team: Team::Red, planet: Planet::Earth}
             },
         };
-        Ok(())
+        Ok((self.player_to_move, next_round))
     }
 
-    pub fn next_round(&mut self) -> Result<(), Error> {
+    pub fn end_round(&mut self) -> Result<(), Error> {
         self.round += 1;
 
         // Update unit cooldowns.
@@ -559,13 +564,22 @@ impl GameWorld {
         Ok(())
     }
 
-    pub fn apply(&mut self, delta: Delta) -> Result<(), Error> {
-        match delta {
-            Delta::EndTurn => self.next_turn(),
+    /// Applies a single delta to this GameWorld.
+    pub fn apply(&mut self, delta: &Delta) -> Result<(), Error> {
+        match *delta {
             Delta::Move{robot_id, direction} => self.move_unit(robot_id, direction),
             Delta::Nothing => Ok(()),
             _ => unimplemented!(),
         }
+    }
+
+    /// Applies a turn message to this GameWorld, and ends the current turn. Returns
+    /// the next player to move, and whether the current round was also ended.
+    pub fn apply_turn(&mut self, turn: &TurnMessage) -> Result<(Player, bool), Error> {
+        for delta in turn.changes.iter() {
+            self.apply(delta)?;
+        }
+        Ok(self.end_turn()?)
     }
 }
 

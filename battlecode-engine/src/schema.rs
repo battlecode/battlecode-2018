@@ -21,8 +21,6 @@ pub enum Delta {
     Degarrison { structure_id: UnitID, direction: Direction },
     /// Commands the given unit to disintegrate.
     Disintegrate { unit_id: UnitID },
-    /// Ends the current turn, and begins the next.
-    EndTurn,
     /// Commands the given structure to pull the specified robot into its garrison.
     Garrison { structure_id: UnitID, robot_id: UnitID },
     /// Commands the given worker to mine karbonite from an adjacent square.
@@ -55,7 +53,19 @@ pub enum Delta {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TurnMessage {
     /// The changes to the game world.
-    changes: Vec<Delta>
+    pub changes: Vec<Delta>
+}
+
+/// A list of updates since the player's last turn.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct StartTurnMessage {
+    // TODO
+}
+
+/// A description of the current game state, for the viewer.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ViewerMessage {
+    // TODO
 }
 
 /// An error message in response to some error.
