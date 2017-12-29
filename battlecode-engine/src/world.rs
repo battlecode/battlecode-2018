@@ -591,8 +591,8 @@ mod tests {
         // Both robots exist and are at the right locations.
         let unit_a = world.get_unit(id_a).unwrap();
         let unit_b = world.get_unit(id_b).unwrap();
-        assert_eq!(unit_a.location.unwrap(), loc_a);
-        assert_eq!(unit_b.location.unwrap(), loc_b);
+        assert_eq!(unit_a.location().unwrap(), loc_a);
+        assert_eq!(unit_b.location().unwrap(), loc_b);
     }
 
     #[test]
@@ -643,10 +643,10 @@ mod tests {
         // Launch the rocket, and force land it.
         world.launch_rocket(rocket, mars_loc).unwrap();
         world.land_rocket(rocket, mars_loc).unwrap();
-        assert_eq![world.get_unit(rocket).unwrap().location.unwrap(), mars_loc];
+        assert_eq![world.get_unit(rocket).unwrap().location().unwrap(), mars_loc];
         let damaged_knight_health = 200;
         for id in bystanders.iter() {
-            assert_eq![world.get_unit(*id).unwrap().health, damaged_knight_health];
+            assert_eq![world.get_unit(*id).unwrap().health(), damaged_knight_health];
         }
     }
 
