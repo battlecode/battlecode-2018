@@ -18,12 +18,6 @@ pub const MAP_WIDTH_MIN: usize = 20;
 /// The maxiumum possible map width.
 pub const MAP_WIDTH_MAX: usize = 50;
 
-/// The minimum x or y-coordinate.
-pub const MAP_COORDINATE_MIN: i32 = -10000;
-
-/// The maximum x or y-coordinate.
-pub const MAP_COORDINATE_MAX: i32 = 10000;
-
 /// The minimum starting Karbonite deposit on Earth.
 pub const MAP_KARBONITE_MIN: u32 = 0;
 

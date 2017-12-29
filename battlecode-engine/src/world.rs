@@ -322,7 +322,7 @@ impl GameWorld {
     /// Returns whether the square is clear for a new unit to occupy, either by movement or by construction.
     pub fn is_occupiable(&self, location: MapLocation) -> Result<bool, Error> {
         let planet_info = &self.get_planet_info(location.planet);
-        Ok(planet_info.map.is_passable_terrain[location.y as usize][location.x as usize] &&
+        Ok(planet_info.map.is_passable_terrain_at(location)? &&
             !self.units_by_loc.contains_key(&location))
     }
 
@@ -507,7 +507,7 @@ impl GameWorld {
             return Ok(false);
         }
         let map = &self.get_planet_info(destination.planet).map;
-        Ok(map.on_map(&destination) && map.is_passable_terrain[destination.y as usize][destination.x as usize])
+        Ok(map.on_map(destination) && map.is_passable_terrain_at(destination)?)
     }
 
     pub fn launch_rocket(&mut self, id: UnitID, destination: MapLocation)
