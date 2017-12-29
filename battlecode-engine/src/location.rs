@@ -39,6 +39,21 @@ impl Direction {
         }
     }
 
+    /// Returns all the directions ordered clockwise, starting with north and
+    /// not including the center direction.
+    pub fn all() -> Vec<Direction> {
+        vec![
+            North,
+            Northeast,
+            East,
+            Southeast,
+            South,
+            Southwest,
+            West,
+            Northwest
+        ]
+    }
+
     /// Returns the (x, y) displacement of this direction.
     pub fn delta(&self) -> (i32, i32) {
         match *self {
@@ -107,12 +122,28 @@ impl MapLocation {
         MapLocation { planet: planet, x: x, y: y }
     }
 
+    /// Returns the MapLocation one square from this one in the given direciton.
     pub fn add(&self, direction: Direction) -> MapLocation {
         MapLocation { 
             planet: self.planet,
             x: self.x + direction.delta().0, 
             y: self.y + direction.delta().1,
         }
+    }
+
+    /// Returns the distance between two locations. If on different
+    /// planets, arbitrarily returns 1_000_000.
+    pub fn distance_squared_to(&self, o: MapLocation) -> u32 {
+        if self.planet == o.planet {
+            ((self.x - o.x) * (self.x - o.x) + (self.y - o.y) * (self.y - o.y)) as u32
+        } else {
+            1_000_000
+        }
+    }
+
+    /// Tests if the given MapLocation is adjacent to this one (including diagonally).
+    pub fn adjacent_to(&self, o: MapLocation) -> bool {
+        self.distance_squared_to(o) <= 2
     }
 }
 
@@ -173,5 +204,34 @@ mod tests {
         assert_eq!(loc.add(West),       MapLocation { planet: Planet::Earth, x: -1, y: 0 });
         assert_eq!(loc.add(Northwest),  MapLocation { planet: Planet::Earth, x: -1, y: -1 });
         assert_eq!(loc.add(Center),     MapLocation { planet: Planet::Earth, x: 0, y: 0 });
+    }
+
+    #[test]
+    fn map_location_distance_squared_to() {
+        let a = MapLocation::new(Planet::Earth, 4, 4);
+        let b = MapLocation::new(Planet::Earth, 4, 6);
+        let c = MapLocation::new(Planet::Earth, 7, 4);
+        let d = MapLocation::new(Planet::Mars, 4, 4);
+        assert_eq!(a.distance_squared_to(a), 0);
+        assert_eq!(a.distance_squared_to(b), 4);
+        assert_eq!(b.distance_squared_to(a), 4);
+        assert_eq!(a.distance_squared_to(c), 9);
+        assert_eq!(b.distance_squared_to(c), 13);
+        assert!(a.distance_squared_to(d) == 1_000_000);
+    }
+
+    #[test]
+    fn map_location_adjacent_to() {
+        let a = MapLocation::new(Planet::Earth, 4, 4);
+        let b = MapLocation::new(Planet::Earth, 4, 5);
+        let c = MapLocation::new(Planet::Earth, 5, 5);
+        let d = MapLocation::new(Planet::Earth, 6, 5);
+        let e = MapLocation::new(Planet::Mars, 4, 5);
+        assert!(a.adjacent_to(b));
+        assert!(a.adjacent_to(c));
+        assert!(b.adjacent_to(c));
+        assert!(d.adjacent_to(c));
+        assert!(!a.adjacent_to(d));
+        assert!(!a.adjacent_to(e));
     }
 }

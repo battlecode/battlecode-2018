@@ -214,9 +214,26 @@ impl Unit {
     pub fn is_move_ready(&self) -> bool {
         match self.controller {
             // TODO: check if movement delay, etc. are ready.
-            Knight(ref _controller) => true,
+            Worker(_) => self.movement_heat < MAX_HEAT_TO_ACT,
+            Knight(_) => self.movement_heat < MAX_HEAT_TO_ACT,
+            Ranger(_) => self.movement_heat < MAX_HEAT_TO_ACT,
+            Mage(_) => self.movement_heat < MAX_HEAT_TO_ACT,
+            Healer(_) => self.movement_heat < MAX_HEAT_TO_ACT,
             _ => false,
         }
+    }
+
+    /// Whether the unit is adjacent to the other unit.
+    pub fn is_adjacent_to(&self, unit: &Unit) -> bool {
+        let loc_a = match self.location() {
+            Some(loc) => loc,
+            None => {return false; },
+        };
+        let loc_b = match unit.location() {
+            Some(loc) => loc,
+            None => { return false; },
+        };
+        loc_a.adjacent_to(loc_b)
     }
 
     /// Move the unit to this location.
@@ -237,15 +254,83 @@ impl Unit {
     }
 
     // ************************************************************************
-    // *********************** SPECIAL ABILITY METHODS ************************
+    // *************************** ROCKET METHODS ****************************
     // ************************************************************************
 
-    /// Returns the garrisoned units in this unit. Only applicable to Rockets,
-    /// and returns None otherwise.
-    pub fn garrisoned_units(&self) -> Option<Vec<Unit>> {
+    /// The max capacity of a rocket.
+    ///
+    /// Errors if the unit is not a rocket.
+    pub fn max_capacity(&self) -> Result<usize, Error> {
         match self.controller {
-            Rocket(ref c) => Some(c.garrisoned_units()),
-            _ => None,
+            Rocket(ref c) => Ok(c.max_capacity()),
+            _ => Err(GameError::InappropriateUnitType)?,
+        }
+    }
+
+    /// Whether the rocket has already been used.
+    ///
+    /// Errors if the unit is not a rocket.
+    pub fn is_rocket_used(&self) -> Result<bool, Error> {
+        match self.controller {
+            Rocket(ref c) => Ok(c.used()),
+            _ => Err(GameError::InappropriateUnitType)?,
+        }
+    }
+
+    /// Marks the rocket as used.
+    ///
+    /// Errors if the unit is not a rocket.
+    pub fn use_rocket(&mut self) -> Result<(), Error> {
+        match self.controller {
+            Rocket(ref mut c) => {
+                c.mark_used();
+                Ok(())
+            },
+            _ => Err(GameError::InappropriateUnitType)?,
+        }
+    }
+
+    /// Returns the garrisoned units in a rocket.
+    ///
+    /// Errors if the unit is not a rocket.
+    pub fn garrisoned_units(&self) -> Result<Vec<UnitID>, Error> {
+        match self.controller {
+            Rocket(ref c) => Ok(c.garrisoned_units()),
+            _ => Err(GameError::InappropriateUnitType)?,
+        }
+    }
+
+    /// Whether the unit can board the rocket. The unit must be ready to move
+    /// and adjacent to the rocket. The rocket must have enough space.
+    ///
+    /// Errors if the rocket is the incorrect type.
+    pub fn can_board_rocket(&self, rocket: &Unit) -> Result<bool, Error> {
+        Ok(self.is_move_ready()
+            && rocket.garrisoned_units()?.len() < rocket.max_capacity()?
+            && self.team == rocket.team
+            && self.is_adjacent_to(rocket))
+    }
+
+    /// Moves the unit inside the rocket.
+    ///
+    /// Errors if the unit is not a rocket.
+    pub fn board_rocket(&mut self, id: UnitID) -> Result<(), Error> {
+        match self.controller {
+            Rocket(ref mut c) => {
+                c.push_unit(id);
+            },
+            _ => Err(GameError::InappropriateUnitType)?,
+        }
+        Ok(())
+    }
+
+    /// Disembarks a single unit from the rocket, and returns the unit ID.
+    ///
+    /// Errors if the unit is not a rocket or there are no units.
+    pub fn disembark_rocket(&mut self) -> Result<UnitID, Error> {
+        match self.controller {
+            Rocket(ref mut c) => Ok(c.remove_first_unit()?),
+            _ => Err(GameError::InappropriateUnitType)?,
         }
     }
 

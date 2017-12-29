@@ -84,6 +84,10 @@ pub const ROCKET_COST: [Rounds; 4] = [0, 300, 200, 200];
 /// The heat each robot dissipates per round.
 pub const HEAT_LOSS_PER_ROUND: u32 = 10;
 
+/// The robot must have less than this amount of heat to perform
+/// actions corresponding to that heat.
+pub const MAX_HEAT_TO_ACT: u32 = 10;
+
 /// The damage a rocket deals to adjacent units upon landing.
 pub const ROCKET_BLAST_DAMAGE: u32 = 50;
 

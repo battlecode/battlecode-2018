@@ -6,10 +6,11 @@ use super::*;
 pub struct RocketController {
     level: Level,
     max_health: u32,
+    used: bool,
     max_capacity: usize,
     is_rocketry_unlocked: bool,
     travel_time_multiplier: Percent,
-    garrisoned_units: Vec<Unit>,
+    garrisoned_units: Vec<UnitID>,
     is_ready: bool,
 }
 
@@ -19,6 +20,7 @@ impl RocketController {
         RocketController {
             level: 0,
             max_health: 200,
+            used: false,
             max_capacity: 8,
             is_rocketry_unlocked: false,
             travel_time_multiplier: 100,
@@ -37,6 +39,11 @@ impl RocketController {
         self.max_health
     }
 
+    /// Whether the rocket has been used to travel to another planet.
+    pub fn used(&self) -> bool {
+        self.used
+    }
+
     /// The maximum number of robots it can hold at once.
     pub fn max_capacity(&self) -> usize {
         self.max_capacity
@@ -53,7 +60,7 @@ impl RocketController {
     }
 
     /// The units garrisoned inside a rocket.
-    pub fn garrisoned_units(&self) -> Vec<Unit> {
+    pub fn garrisoned_units(&self) -> Vec<UnitID> {
         self.garrisoned_units.clone()
     }
 
@@ -79,5 +86,25 @@ impl RocketController {
         }
         self.level += 1;
         Ok(())
+    }
+
+    /// Boards the unit by ID. Assumes the unit can board.
+    pub fn push_unit(&mut self, id: UnitID) {
+        self.garrisoned_units.push(id);
+    }
+
+    /// Remove and returns the first unit to board by ID.
+    ///
+    /// Errors if there are no units.
+    pub fn remove_first_unit(&mut self) -> Result<UnitID, Error> {
+        if self.garrisoned_units.len() == 0 {
+            Err(GameError::InvalidAction)?
+        }
+        Ok(self.garrisoned_units.remove(0))
+    }
+
+    /// Marks the rocket as used.
+    pub fn mark_used(&mut self) {
+        self.used = true;
     }
 }

@@ -1,5 +1,9 @@
 #[derive(Debug, Fail, PartialEq, Eq)]
 pub enum GameError {
+    /// The given unit does not have a type appropriate for the given action.
+    #[fail(display = "The given unit does not have a type appropriate for the given action.")]
+    InappropriateUnitType,
+
     /// The engine encountered a problem. Report this to the devs.
     #[fail(display = "The engine encountered a problem. Report this to the devs.")]
     InternalEngineError,
