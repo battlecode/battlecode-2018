@@ -4,26 +4,39 @@ use super::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct MageController {
-    /// The research level.
-    pub level: Level,
-    /// The maximum health of the robot.
-    pub max_health: u32,
-    /// The damage inflicted by the robot during a normal attack.
-    pub damage: i32,
-    /// The distance squared, inclusive, of which a robot may attack.
-    pub attack_range: u32,
-    /// The distance squared, inclusive, of which a robot may see.
-    pub vision_range: u32,
-    /// The movement cooldown of the robot.
-    pub movement_cooldown: u32,
-    /// The attack cooldown of the robot.
-    pub attack_cooldown: u32,
-    /// The percentage of standard attack damage dealt when exploding itself.
-    pub explode_multiplier: Percent,
-    /// Whether Blink is unlocked.
-    pub is_blink_unlocked: bool,
-    /// The radius in which a Mage is able to teleport with Blink.
-    pub blink_radius: u32,
+    level: Level,
+    max_health: u32,
+    damage: i32,
+    attack_range: u32,
+    vision_range: u32,
+    movement_cooldown: u32,
+    attack_cooldown: u32,
+
+    explode_multiplier: Percent,
+    is_blink_unlocked: bool,
+    blink_radius: u32,
+}
+
+impl RobotController for MageController {
+    fn damage(&self) -> i32 {
+        self.damage
+    }
+
+    fn attack_range(&self) -> u32 {
+        self.attack_range
+    }
+
+    fn vision_range(&self) -> u32 {
+        self.vision_range
+    }
+
+    fn movement_cooldown(&self) -> u32 {
+        self.movement_cooldown
+    }
+
+    fn attack_cooldown(&self) -> u32 {
+        self.attack_cooldown
+    }
 }
 
 impl MageController {
@@ -41,6 +54,31 @@ impl MageController {
             is_blink_unlocked: false,
             blink_radius: 5,
         }
+    }
+
+    /// The research level.
+    pub fn level(&self) -> Level {
+        self.level
+    }
+
+    /// The maximum health.
+    pub fn max_health(&self) -> u32 {
+        self.max_health
+    }
+
+    /// The percentage of standard attack damage dealt when exploding itself.
+    pub fn explode_multiplier(&self) -> Percent {
+        self.explode_multiplier
+    }
+
+    /// Whether Blink is unlocked.
+    pub fn is_blink_unlocked(&self) -> bool {
+        self.is_blink_unlocked
+    }
+
+    /// The radius in which a Mage is able to teleport with Blink.
+    pub fn blink_radius(&self) -> u32 {
+        self.blink_radius
     }
 
     /// The Mage's Tree

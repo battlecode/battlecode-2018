@@ -4,24 +4,38 @@ use super::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct WorkerController {
-    /// The research level.
-    pub level: Level,
-    /// The maximum health of the robot.
-    pub max_health: u32,
-    /// The damage inflicted by the robot during a normal attack.
-    pub damage: i32,
-    /// The distance squared, inclusive, of which a robot may attack.
-    pub attack_range: u32,
-    /// The distance squared, inclusive, of which a robot may see.
-    pub vision_range: u32,
-    /// The movement cooldown of the robot.
-    pub movement_cooldown: u32,
-    /// The attack cooldown of the robot.
-    pub attack_cooldown: u32,
-    /// The health restored when building or repairing a factory or rocket.
-    pub build_repair_health: u32,
-    /// The maximum amount of karbonite harvested from a deposit in one turn.
-    pub harvest_amount: u32,
+    level: Level,
+    max_health: u32,
+    damage: i32,
+    attack_range: u32,
+    vision_range: u32,
+    movement_cooldown: u32,
+    attack_cooldown: u32,
+
+    build_repair_health: u32,
+    harvest_amount: u32,
+}
+
+impl RobotController for WorkerController {
+    fn damage(&self) -> i32 {
+        self.damage
+    }
+
+    fn attack_range(&self) -> u32 {
+        self.attack_range
+    }
+
+    fn vision_range(&self) -> u32 {
+        self.vision_range
+    }
+
+    fn movement_cooldown(&self) -> u32 {
+        self.movement_cooldown
+    }
+
+    fn attack_cooldown(&self) -> u32 {
+        self.attack_cooldown
+    }
 }
 
 impl WorkerController {
@@ -38,6 +52,26 @@ impl WorkerController {
             build_repair_health: 5,
             harvest_amount: 3,
         }
+    }
+
+    /// The research level.
+    pub fn level(&self) -> Level {
+        self.level
+    }
+
+    /// The maximum health.
+    pub fn max_health(&self) -> u32 {
+        self.max_health
+    }
+
+    /// The health restored when building or repairing a factory or rocket.
+    pub fn build_repair_health(&self) -> u32 {
+        self.build_repair_health
+    }
+
+    /// The maximum amount of karbonite harvested from a deposit in one turn.
+    pub fn harvest_amount(&self) -> u32 {
+        self.harvest_amount
     }
 
     /// The Worker's Tree

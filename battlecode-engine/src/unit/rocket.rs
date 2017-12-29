@@ -4,19 +4,12 @@ use super::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RocketController {
-    /// The research level.
-    pub level: Level,
-    /// The maximum health.
-    pub max_health: u32,
-    /// The maximum number of robots it can hold at once.
-    pub max_capacity: usize,
-    /// Whether Rocketry has been researched.
-    pub is_rocketry_unlocked: bool,
-    /// The percentage of typical travel time required by a rocket.
-    pub travel_time_multiplier: Percent,
-    /// The units garrisoned inside a rocket.
+    level: Level,
+    max_health: u32,
+    max_capacity: usize,
+    is_rocketry_unlocked: bool,
+    travel_time_multiplier: Percent,
     garrisoned_units: Vec<Unit>,
-    /// Whether the unit is ready to be used.
     is_ready: bool,
 }
 
@@ -32,6 +25,41 @@ impl RocketController {
             garrisoned_units: vec![],
             is_ready: false,
         }
+    }
+
+    /// The research level.
+    pub fn level(&self) -> Level {
+        self.level
+    }
+
+    /// The maximum health.
+    pub fn max_health(&self) -> u32 {
+        self.max_health
+    }
+
+    /// The maximum number of robots it can hold at once.
+    pub fn max_capacity(&self) -> usize {
+        self.max_capacity
+    }
+
+    /// Whether Rocketry has been researched.
+    pub fn is_rocketry_unlocked(&self) -> bool {
+        self.is_rocketry_unlocked
+    }
+
+    /// The percentage of typical travel time required by a rocket.
+    pub fn travel_time_multiplier(&self) -> Percent {
+        self.travel_time_multiplier
+    }
+
+    /// The units garrisoned inside a rocket.
+    pub fn garrisoned_units(&self) -> Vec<Unit> {
+        self.garrisoned_units.clone()
+    }
+
+    /// Whether the unit is ready to be used.
+    pub fn is_ready(&self) -> bool {
+        self.is_ready
     }
 
     /// The Rocket's Tree
@@ -51,9 +79,5 @@ impl RocketController {
         }
         self.level += 1;
         Ok(())
-    }
-
-    pub fn garrisoned_units(&self) -> Vec<Unit> {
-        self.garrisoned_units.clone()
     }
 }

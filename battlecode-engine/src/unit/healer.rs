@@ -4,24 +4,38 @@ use super::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct HealerController {
-    /// The research level.
-    pub level: Level,
-    /// The maximum health of the robot.
-    pub max_health: u32,
-    /// The damage inflicted by the robot during a normal attack.
-    pub damage: i32,
-    /// The distance squared, inclusive, of which a robot may attack.
-    pub attack_range: u32,
-    /// The distance squared, inclusive, of which a robot may see.
-    pub vision_range: u32,
-    /// The movement cooldown of the robot.
-    pub movement_cooldown: u32,
-    /// The attack cooldown of the robot.
-    pub attack_cooldown: u32,
-    /// This amount of health is automatically restored to itself each round.
-    pub self_heal_amount: u32,
-    /// Whether Overcharge is unlocked.
-    pub is_overcharge_unlocked: bool,
+    level: Level,
+    max_health: u32,
+    damage: i32,
+    attack_range: u32,
+    vision_range: u32,
+    movement_cooldown: u32,
+    attack_cooldown: u32,
+
+    self_heal_amount: u32,
+    is_overcharge_unlocked: bool,
+}
+
+impl RobotController for HealerController {
+    fn damage(&self) -> i32 {
+        self.damage
+    }
+
+    fn attack_range(&self) -> u32 {
+        self.attack_range
+    }
+
+    fn vision_range(&self) -> u32 {
+        self.vision_range
+    }
+
+    fn movement_cooldown(&self) -> u32 {
+        self.movement_cooldown
+    }
+
+    fn attack_cooldown(&self) -> u32 {
+        self.attack_cooldown
+    }
 }
 
 impl HealerController {
@@ -38,6 +52,26 @@ impl HealerController {
             self_heal_amount: 1,
             is_overcharge_unlocked: false,
         }
+    }
+
+    /// The research level.
+    pub fn level(&self) -> Level {
+        self.level
+    }
+
+    /// The maximum health.
+    pub fn max_health(&self) -> u32 {
+        self.max_health
+    }
+
+    /// This amount of health is automatically restored to itself each round.
+    pub fn self_heal_amount(&self) -> u32 {
+        self.self_heal_amount
+    }
+
+    /// Whether Overcharge is unlocked.
+    pub fn is_overcharge_unlocked(&self) -> bool {
+        self.is_overcharge_unlocked
     }
 
     /// The Healer's Tree

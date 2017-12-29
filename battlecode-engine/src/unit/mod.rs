@@ -80,6 +80,21 @@ impl UnitType {
     }
 }
 
+/// Implemented by all robot controllers. Robots include: Worker, Knight,
+/// Ranger, Mage, Healer.
+trait RobotController {
+    /// The damage inflicted by the robot during a normal attack.
+    fn damage(&self) -> i32;
+    /// The distance squared, inclusive, of which a robot may attack.
+    fn attack_range(&self) -> u32;
+    /// The distance squared, inclusive, of which a robot may see.
+    fn vision_range(&self) -> u32;
+    /// The movement cooldown of the robot.
+    fn movement_cooldown(&self) -> u32;
+    /// The attack cooldown of the robot.
+    fn attack_cooldown(&self) -> u32;
+}
+
 /// Units are player-controlled objects with certain characteristics and
 /// game actions, depending on their type.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -117,13 +132,13 @@ impl Unit {
     pub fn new(id: UnitID, team: Team, unit_type: UnitType, level: Level) -> Result<Unit, Error> {
         let controller = unit_type.default();
         let health = match controller {
-            Worker(ref c) => c.max_health,
-            Knight(ref c) => c.max_health,
-            Ranger(ref c) => c.max_health,
-            Mage(ref c) => c.max_health,
-            Healer(ref c) => c.max_health,
-            Factory(ref c) => c.max_health / 4,
-            Rocket(ref c) => c.max_health / 4,
+            Worker(ref c) => c.max_health(),
+            Knight(ref c) => c.max_health(),
+            Ranger(ref c) => c.max_health(),
+            Mage(ref c) => c.max_health(),
+            Healer(ref c) => c.max_health(),
+            Factory(ref c) => c.max_health() / 4,
+            Rocket(ref c) => c.max_health() / 4,
         };
 
         let mut unit = Unit {
@@ -274,19 +289,19 @@ mod tests {
             _ => panic!("expected Worker"),
         };
 
-        assert_eq!(c.level, 0);
-        assert_eq!(c.harvest_amount, 3);
-        assert_eq!(c.build_repair_health, 5);
+        assert_eq!(c.level(), 0);
+        assert_eq!(c.harvest_amount(), 3);
+        assert_eq!(c.build_repair_health(), 5);
 
         c.research().unwrap();
-        assert_eq!(c.level, 1);
-        assert_eq!(c.harvest_amount, 4);
-        assert_eq!(c.build_repair_health, 5);
+        assert_eq!(c.level(), 1);
+        assert_eq!(c.harvest_amount(), 4);
+        assert_eq!(c.build_repair_health(), 5);
 
         c.research().unwrap();
-        assert_eq!(c.level, 2);
-        assert_eq!(c.harvest_amount, 4);
-        assert_eq!(c.build_repair_health, 6);
+        assert_eq!(c.level(), 2);
+        assert_eq!(c.harvest_amount(), 4);
+        assert_eq!(c.build_repair_health(), 6);
 
         let unit_b = Unit::new(2, Team::Red, UnitType::Worker, 2).unwrap();
         let c = match unit_b.controller {
@@ -294,8 +309,8 @@ mod tests {
             _ => panic!("expected Worker"),
         };
 
-        assert_eq!(c.level, 2);
-        assert_eq!(c.harvest_amount, 4);
-        assert_eq!(c.build_repair_health, 6);
+        assert_eq!(c.level(), 2);
+        assert_eq!(c.harvest_amount(), 4);
+        assert_eq!(c.build_repair_health(), 6);
     }
 }

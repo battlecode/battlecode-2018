@@ -4,28 +4,40 @@ use super::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct KnightController {
-    /// The research level.
-    pub level: Level,
-    /// The maximum health of the robot.
-    pub max_health: u32,
-    /// The damage inflicted by the robot during a normal attack.
-    pub damage: i32,
-    /// The distance squared, inclusive, of which a robot may attack.
-    pub attack_range: u32,
-    /// The distance squared, inclusive, of which a robot may see.
-    pub vision_range: u32,
-    /// The movement cooldown of the robot.
-    pub movement_cooldown: u32,
-    /// The attack cooldown of the robot.
-    pub attack_cooldown: u32,
-    /// The decrease in attack on the knight per adjacent robot.
-    pub defense_per_robot: Percent,
-    /// Whether javelin is unlocked.
-    pub is_javelin_unlocked: bool,
-    /// Javelin attack range.
-    pub javelin_attack_range: u32,
-    /// Javelin attack cooldown.
-    pub javelin_attack_cooldown: u32,
+    level: Level,
+    max_health: u32,
+    damage: i32,
+    attack_range: u32,
+    vision_range: u32,
+    movement_cooldown: u32,
+    attack_cooldown: u32,
+
+    defense_per_robot: Percent,
+    is_javelin_unlocked: bool,
+    javelin_attack_range: u32,
+    javelin_attack_cooldown: u32,
+}
+
+impl RobotController for KnightController {
+    fn damage(&self) -> i32 {
+        self.damage
+    }
+
+    fn attack_range(&self) -> u32 {
+        self.attack_range
+    }
+
+    fn vision_range(&self) -> u32 {
+        self.vision_range
+    }
+
+    fn movement_cooldown(&self) -> u32 {
+        self.movement_cooldown
+    }
+
+    fn attack_cooldown(&self) -> u32 {
+        self.attack_cooldown
+    }
 }
 
 impl KnightController {
@@ -44,6 +56,36 @@ impl KnightController {
             javelin_attack_range: 10,
             javelin_attack_cooldown: 15,
         }
+    }
+
+    /// The research level.
+    pub fn level(&self) -> Level {
+        self.level
+    }
+
+    /// The maximum health.
+    pub fn max_health(&self) -> u32 {
+        self.max_health
+    }
+
+    /// The decrease in attack on the knight per adjacent robot.
+    pub fn defense_per_robot(&self) -> Percent {
+        self.defense_per_robot
+    }
+
+    /// Whether javelin is unlocked.
+    pub fn is_javelin_unlocked(&self) -> bool {
+        self.is_javelin_unlocked
+    }
+
+    /// Javelin attack range.
+    pub fn javelin_attack_range(&self) -> u32 {
+        self.javelin_attack_range
+    }
+
+    /// Javelin attack cooldown.
+    pub fn javelin_attack_cooldown(&self) -> u32 {
+        self.javelin_attack_cooldown
     }
 
     /// The Knight's Tree

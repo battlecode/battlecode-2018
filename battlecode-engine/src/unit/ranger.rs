@@ -4,28 +4,40 @@ use super::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RangerController {
-    /// The research level.
-    pub level: Level,
-    /// The maximum health of the robot.
-    pub max_health: u32,
-    /// The damage inflicted by the robot during a normal attack.
-    pub damage: i32,
-    /// The distance squared, inclusive, of which a robot may attack.
-    pub attack_range: u32,
-    /// The distance squared, inclusive, of which a robot may see.
-    pub vision_range: u32,
-    /// The movement cooldown of the robot.
-    pub movement_cooldown: u32,
-    /// The attack cooldown of the robot.
-    pub attack_cooldown: u32,
-    /// The range within which the Ranger cannot attack.
-    pub cannot_attack_range: u32,
-    /// Whether Snipe is unlocked.
-    pub is_snipe_unlocked: bool,
-    /// The countdown (for Ranger snipe attacks).
+    level: Level,
+    max_health: u32,
+    damage: i32,
+    attack_range: u32,
+    vision_range: u32,
+    movement_cooldown: u32,
+    attack_cooldown: u32,
+
+    cannot_attack_range: u32,
+    is_snipe_unlocked: bool,
     countdown: u32,
-    /// The target location (for Ranger snipe attacks).
     target_location: Option<MapLocation>,
+}
+
+impl RobotController for RangerController {
+    fn damage(&self) -> i32 {
+        self.damage
+    }
+
+    fn attack_range(&self) -> u32 {
+        self.attack_range
+    }
+
+    fn vision_range(&self) -> u32 {
+        self.vision_range
+    }
+
+    fn movement_cooldown(&self) -> u32 {
+        self.movement_cooldown
+    }
+
+    fn attack_cooldown(&self) -> u32 {
+        self.attack_cooldown
+    }
 }
 
 impl RangerController {
@@ -44,6 +56,36 @@ impl RangerController {
             countdown: 0,
             target_location: None,
         }
+    }
+
+    /// The research level.
+    pub fn level(&self) -> Level {
+        self.level
+    }
+
+    /// The maximum health.
+    pub fn max_health(&self) -> u32 {
+        self.max_health
+    }
+
+    /// The range within which the Ranger cannot attack.
+    pub fn cannot_attack_range(&self) -> u32 {
+        self.cannot_attack_range
+    }
+
+    /// Whether Snipe is unlocked.
+    pub fn is_snipe_unlocked(&self) -> bool {
+        self.is_snipe_unlocked
+    }
+
+    /// The countdown (for Ranger snipe attacks).
+    pub fn countdown(&self) -> u32 {
+        self.countdown
+    }
+
+    /// The target location (for Ranger snipe attacks).
+    pub fn target_location(&self) -> Option<MapLocation> {
+        self.target_location
     }
 
     /// The Ranger's Tree
