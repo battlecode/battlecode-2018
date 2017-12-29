@@ -16,7 +16,7 @@ pub enum Delta {
     /// Commands the given mage to blink to the given location.
     Blink { mage_id: UnitID, location: MapLocation },
     /// Commands the given worker to build a structure-in-progress.
-    BuildStrucutre { worker_id: UnitID, structure_id: UnitID },
+    BuildStructure { worker_id: UnitID, structure_id: UnitID },
     /// Commands the given structure to degarrison a unit in the given direction.
     Degarrison { structure_id: UnitID, direction: Direction },
     /// Commands the given unit to disintegrate.
