@@ -16,6 +16,10 @@ pub enum GameError {
     #[fail(display = "The map-related object is invalid.")]
     InvalidMapObject,
 
+    /// The parameter does not fit the specs of the function.
+    #[fail(display = "The parameter does not fit the specs of the function.")]
+    InvalidParameter,
+
     /// The level of research is invalid.
     #[fail(display = "The level of research is invalid.")]
     InvalidResearchLevel,

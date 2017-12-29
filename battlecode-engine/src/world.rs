@@ -259,16 +259,9 @@ impl GameWorld {
     // ************************************************************************
 
     /// Places a unit onto the map at the given location. Assumes the given square is occupiable.
-    pub fn place_unit(&mut self, id: UnitID, location: MapLocation) -> Result<(), Error> {
+    pub fn place_unit(&mut self, id: UnitID) -> Result<(), Error> {
+        let location = self.get_unit(id)?.location().unwrap();
         if self.is_occupiable(location)? {
-            {
-                let unit = self.get_unit_mut(id)?;
-                if unit.location().is_some() {
-                    // The unit has already been placed.
-                    Err(GameError::InternalEngineError)?;
-                }
-                unit.move_to(Some(location));
-            }
             self.units_by_loc.insert(location, id);
             Ok(())
         } else {
@@ -282,10 +275,10 @@ impl GameWorld {
                        unit_type: UnitType) -> Result<UnitID, Error> {
         let id = self.get_team_info_mut(team).id_generator.next_id();
         let level = self.get_team_info(team).get_level(&unit_type);
-        let unit = Unit::new(id, team, unit_type, level)?;
+        let unit = Unit::new(id, team, unit_type, level, location)?;
 
         self.units.insert(unit.id(), unit);
-        self.place_unit(id, location)?;
+        self.place_unit(id)?;
         Ok(id)
     }
 
@@ -294,7 +287,6 @@ impl GameWorld {
         let location = {
             let unit = self.get_unit_mut(id)?;
             let location = unit.location();
-            unit.move_to(None);
             // If location is None, then the unit was already removed.
             location.ok_or(GameError::InternalEngineError)?
         };
@@ -311,6 +303,7 @@ impl GameWorld {
     pub fn destroy_unit(&mut self, id: UnitID) -> Result<(), Error> {
         if self.get_unit(id)?.location().is_some() {
             self.remove_unit(id)?;
+            self.get_unit_mut(id)?.destroy();
         }
         if self.get_unit(id)?.unit_type() == UnitType::Rocket {
             let units_to_destroy = self.get_unit_mut(id)?.garrisoned_units()?;
@@ -337,7 +330,7 @@ impl GameWorld {
     pub fn can_move(&self, id: UnitID, direction: Direction) -> Result<bool, Error> {
         let unit = self.get_unit(id)?;
         if let Some(location) = unit.location() {
-            Ok(unit.is_move_ready() && self.is_occupiable(location.add(direction))?)
+            Ok(unit.is_move_ready()? && self.is_occupiable(location.add(direction))?)
         } else {
             Ok(false)
         }
@@ -348,7 +341,8 @@ impl GameWorld {
         let dest = self.get_unit(id)?.location().ok_or(GameError::InvalidAction)?.add(direction);
         if self.can_move(id, direction)? {
             self.remove_unit(id)?;
-            self.place_unit(id, dest)?;
+            self.get_unit_mut(id)?.move_to(Some(dest));
+            self.place_unit(id)?;
             Ok(())
         } else {
             Err(GameError::InvalidAction)?
@@ -360,7 +354,7 @@ impl GameWorld {
     // ************************************************************************
 
     /// Deals damage to any unit in the target square, potentially destroying it.
-    pub fn damage_location(&mut self, location: MapLocation, damage: u32) -> Result<(), Error> {
+    pub fn damage_location(&mut self, location: MapLocation, damage: i32) -> Result<(), Error> {
         let id = if let Some(id) = self.units_by_loc.get(&location) {
             *id
         } else {
@@ -501,7 +495,9 @@ impl GameWorld {
                 let rocket = self.get_unit_mut(rocket_id)?;
                 (rocket.disembark_rocket()?, rocket.location().unwrap())
             };
-            self.place_unit(robot_id, rocket_loc.add(direction))
+            let robot_loc = rocket_loc.add(direction);
+            self.get_unit_mut(robot_id)?.move_to(Some(robot_loc))?;
+            self.place_unit(robot_id)
         } else {
             Err(GameError::InvalidAction)?
         }
@@ -524,6 +520,7 @@ impl GameWorld {
                 unit.location().unwrap()
             };
             self.remove_unit(id)?;
+            self.get_unit_mut(id)?.launch_rocket()?;
             let landing_round = self.round + self.weather.orbit.get_duration(self.round as i32) as u32;
             if self.rocket_landings.contains_key(&landing_round) {
                 self.rocket_landings.get_mut(&landing_round).unwrap().push((id, destination));
@@ -552,7 +549,8 @@ impl GameWorld {
             }
             self.destroy_unit(victim_id)?;
         } else {
-            self.place_unit(id, destination)?;
+            self.get_unit_mut(id)?.land_rocket(destination)?;
+            self.place_unit(id)?;
         }
 
         for dir in Direction::all() {
@@ -674,6 +672,11 @@ mod tests {
         assert![world.can_move(b, Direction::West).unwrap()];
         world.move_unit(b, Direction::West).unwrap();
 
+        // A cannot move again until its cooldowns are reset.
+        assert![!world.can_move(a, Direction::South).unwrap()];
+        assert![world.move_unit(a, Direction::South).is_err()];
+        assert![world.next_round().is_ok()];
+
         // Finally, let's test that A cannot move back to its old square.
         assert![!world.can_move(a, Direction::Southwest).unwrap()];
         assert![world.can_move(a, Direction::South).unwrap()];
@@ -699,6 +702,7 @@ mod tests {
 
         // Launch the rocket, and force land it.
         world.launch_rocket(rocket, mars_loc).unwrap();
+        assert![world.get_unit(rocket).unwrap().location().is_none()];
         world.land_rocket(rocket, mars_loc).unwrap();
         assert_eq![world.get_unit(rocket).unwrap().location().unwrap(), mars_loc];
         let damaged_knight_health = 200;

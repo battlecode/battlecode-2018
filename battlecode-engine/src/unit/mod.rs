@@ -129,7 +129,11 @@ pub struct Unit {
 
 impl Unit {
     /// Create a new unit of the given type.
-    pub fn new(id: UnitID, team: Team, unit_type: UnitType, level: Level) -> Result<Unit, Error> {
+    pub fn new(id: UnitID,
+               team: Team,
+               unit_type: UnitType,
+               level: Level,
+               location: MapLocation) -> Result<Unit, Error> {
         let controller = unit_type.default();
         let health = match controller {
             Worker(ref c) => c.max_health(),
@@ -144,7 +148,7 @@ impl Unit {
         let mut unit = Unit {
             id: id,
             team: team,
-            location: None,
+            location: Some(location),
             health: health,
             movement_heat: 0,
             attack_heat: 0,
@@ -158,7 +162,7 @@ impl Unit {
     }
 
     // ************************************************************************
-    // ******************************* ACCESSORS ******************************
+    // ***************************** GENERAL METHODS **************************
     // ************************************************************************
 
     /// The unique ID of a unit.
@@ -184,77 +188,128 @@ impl Unit {
         }
     }
 
-    /// The location of the unit, if currently on the map. Units can be
-    /// temporarily removed from the map in rocket-related situations.
-    pub fn location(&self) -> Option<MapLocation> {
-        self.location
-    }
-
-    /// The current health of the unit.
-    pub fn health(&self) -> u32 {
-        self.health
-    }
-
-    /// The movement heat of the unit.
-    pub fn movement_heat(&self) -> u32 {
-        self.movement_heat
-    }
-
-    /// The attack heat of the unit.
-    pub fn attack_heat(&self) -> u32 {
-        self.attack_heat
-    }
-
     // ************************************************************************
     // ************************** MOVEMENT METHODS ****************************
     // ************************************************************************
 
-    /// Returns whether the unit is currently able to make a movement to a
-    /// valid location.
-    pub fn is_move_ready(&self) -> bool {
+    /// The location of the unit. None if the unit is traveling or in a rocket.
+    pub fn location(&self) -> Option<MapLocation> {
+        self.location
+    }
+
+    /// The movement heat.
+    ///
+    /// Errors if the unit is not a robot.
+    pub fn movement_heat(&self) -> Result<u32, Error> {
         match self.controller {
-            // TODO: check if movement delay, etc. are ready.
-            Worker(_) => self.movement_heat < MAX_HEAT_TO_ACT,
-            Knight(_) => self.movement_heat < MAX_HEAT_TO_ACT,
-            Ranger(_) => self.movement_heat < MAX_HEAT_TO_ACT,
-            Mage(_) => self.movement_heat < MAX_HEAT_TO_ACT,
-            Healer(_) => self.movement_heat < MAX_HEAT_TO_ACT,
-            _ => false,
+            Worker(_) => Ok(self.movement_heat),
+            Knight(_) => Ok(self.movement_heat),
+            Ranger(_) => Ok(self.movement_heat),
+            Mage(_)   => Ok(self.movement_heat),
+            Healer(_) => Ok(self.movement_heat),
+            _ => Err(GameError::InappropriateUnitType)?,
         }
     }
 
-    /// Whether the unit is adjacent to the other unit.
-    pub fn is_adjacent_to(&self, unit: &Unit) -> bool {
+    /// The movement cooldown.
+    ///
+    /// Errors if the unit is not a robot.
+    pub fn movement_cooldown(&self) -> Result<u32, Error> {
+        match self.controller {
+            Worker(ref c) => Ok(c.movement_cooldown()),
+            Knight(ref c) => Ok(c.movement_cooldown()),
+            Ranger(ref c) => Ok(c.movement_cooldown()),
+            Mage(ref c)   => Ok(c.movement_cooldown()),
+            Healer(ref c) => Ok(c.movement_cooldown()),
+            _ => Err(GameError::InappropriateUnitType)?,
+        }
+    }
+
+    /// Whether the unit is ready to move.
+    ///
+    /// Errors if the unit is not a robot.
+    pub fn is_move_ready(&self) -> Result<bool, Error> {
+        println!("movement_heat={} MAX_HEAT_TO_ACT={}", self.movement_heat()?, MAX_HEAT_TO_ACT);
+        Ok(self.movement_heat()? < MAX_HEAT_TO_ACT)
+    }
+
+    /// Moves the unit to this location.
+    /// 
+    /// Errors if the unit is not a robot, or not ready to move.
+    pub fn move_to(&mut self, location: Option<MapLocation>)
+                   -> Result<(), Error> {
+        if self.is_move_ready()? {
+            self.movement_heat += self.movement_cooldown()?;
+            self.location = location;
+            Ok(())
+        } else {
+            Err(GameError::InvalidAction)?
+        }
+    }
+
+    /// Whether the unit is adjacent to the location.
+    pub fn is_adjacent_to(&self, location: Option<MapLocation>) -> bool {
         let loc_a = match self.location() {
             Some(loc) => loc,
-            None => {return false; },
+            None => { return false; },
         };
-        let loc_b = match unit.location() {
+        let loc_b = match location {
             Some(loc) => loc,
             None => { return false; },
         };
         loc_a.adjacent_to(loc_b)
     }
 
-    /// Move the unit to this location.
-    pub fn move_to(&mut self, location: Option<MapLocation>) {
-        self.location = location;
-    }
-
     // ************************************************************************
     // *************************** COMBAT METHODS *****************************
     // ************************************************************************
 
+    /// The current health.
+    pub fn health(&self) -> u32 {
+        self.health
+    }
+
+    /// The maximum health.
+    pub fn max_health(&self) -> i32 {
+        unimplemented!()
+    }
+
+    /// The attack heat.
+    ///
+    /// Errors if the unit is not a robot.
+    pub fn attack_heat(&self) -> u32 {
+        unimplemented!()
+    }
+
+    /// Whether the unit is ready to attack.
+    ///
+    /// Errors if the unit is not a robot.
+    pub fn is_attack_ready(&self) -> bool {
+        unimplemented!()
+    }
+
+    /// Updates as if the unit has attacked, and returns the damage done.
+    ///
+    /// Errors if the unit is not a robot, or not ready to attack.
+    pub fn attack(&mut self) -> Result<i32, Error> {
+        unimplemented!()
+    }
+
     /// Take the amount of damage given, returning true if the unit has died.
     /// Returns false if the unit is still alive.
-    pub fn take_damage(&mut self, damage: u32) -> bool {
+    pub fn take_damage(&mut self, damage: i32) -> bool {
         // TODO: Knight damage resistance??
-        self.health -= cmp::min(damage, self.health);
+        self.health -= cmp::min(damage, self.health as i32) as u32;
         self.health == 0
     }
 
+    /// Destroys the unit. Equivalent to removing it from the game.
+    pub fn destroy(&mut self) {
+        self.location = None;
+    }
+
     // ************************************************************************
-    // *************************** ROCKET METHODS ****************************
+    // *************************** ROCKET METHODS *****************************
     // ************************************************************************
 
     /// The max capacity of a rocket.
@@ -305,10 +360,10 @@ impl Unit {
     ///
     /// Errors if the rocket is the incorrect type.
     pub fn can_board_rocket(&self, rocket: &Unit) -> Result<bool, Error> {
-        Ok(self.is_move_ready()
+        Ok(self.is_move_ready()?
             && rocket.garrisoned_units()?.len() < rocket.max_capacity()?
             && self.team == rocket.team
-            && self.is_adjacent_to(rocket))
+            && self.is_adjacent_to(rocket.location()))
     }
 
     /// Moves the unit inside the rocket.
@@ -322,6 +377,30 @@ impl Unit {
             _ => Err(GameError::InappropriateUnitType)?,
         }
         Ok(())
+    }
+
+    /// Launches the rocket.
+    ///
+    /// Errors if the unit is not a rocket.
+    pub fn launch_rocket(&mut self) -> Result<(), Error> {
+        if self.unit_type() == UnitType::Rocket {
+            self.location = None;
+            Ok(())
+        } else {
+            Err(GameError::InappropriateUnitType)?
+        }
+    }
+
+    /// Lands the rocket.
+    ///
+    /// Errors if the unit is not a rocket.
+    pub fn land_rocket(&mut self, location: MapLocation) -> Result<(), Error> {
+        if self.unit_type() == UnitType::Rocket {
+            self.location = Some(location);
+            Ok(())
+        } else {
+            Err(GameError::InappropriateUnitType)?
+        }
     }
 
     /// Disembarks a single unit from the rocket, and returns the unit ID.
@@ -364,7 +443,8 @@ mod tests {
 
     #[test]
     fn worker_constructor_and_research() {
-        let unit_a = Unit::new(1, Team::Red, UnitType::Worker, 0).unwrap();
+        let loc = MapLocation::new(Planet::Earth, 0, 0);
+        let unit_a = Unit::new(1, Team::Red, UnitType::Worker, 0, loc).unwrap();
         assert_eq!(unit_a.id, 1);
         assert_eq!(unit_a.team, Team::Red);
         assert_eq!(unit_a.unit_type(), UnitType::Worker);
@@ -388,7 +468,7 @@ mod tests {
         assert_eq!(c.harvest_amount(), 4);
         assert_eq!(c.build_repair_health(), 6);
 
-        let unit_b = Unit::new(2, Team::Red, UnitType::Worker, 2).unwrap();
+        let unit_b = Unit::new(2, Team::Red, UnitType::Worker, 2, loc).unwrap();
         let c = match unit_b.controller {
             Worker(worker_c) => worker_c,
             _ => panic!("expected Worker"),
