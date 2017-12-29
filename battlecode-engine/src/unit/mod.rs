@@ -229,7 +229,6 @@ impl Unit {
     ///
     /// Errors if the unit is not a robot.
     pub fn is_move_ready(&self) -> Result<bool, Error> {
-        println!("movement_heat={} MAX_HEAT_TO_ACT={}", self.movement_heat()?, MAX_HEAT_TO_ACT);
         Ok(self.movement_heat()? < MAX_HEAT_TO_ACT)
     }
 
@@ -270,29 +269,77 @@ impl Unit {
     }
 
     /// The maximum health.
-    pub fn max_health(&self) -> i32 {
-        unimplemented!()
+    pub fn max_health(&self) -> u32 {
+        match self.controller {
+            Worker(ref c)  => c.max_health(),
+            Knight(ref c)  => c.max_health(),
+            Ranger(ref c)  => c.max_health(),
+            Mage(ref c)    => c.max_health(),
+            Healer(ref c)  => c.max_health(),
+            Factory(ref c) => c.max_health(),
+            Rocket(ref c)  => c.max_health(),
+        }
     }
 
     /// The attack heat.
     ///
     /// Errors if the unit is not a robot.
-    pub fn attack_heat(&self) -> u32 {
-        unimplemented!()
+    pub fn attack_heat(&self) -> Result<u32, Error> {
+        match self.controller {
+            Worker(_) => Ok(self.attack_heat),
+            Knight(_) => Ok(self.attack_heat),
+            Ranger(_) => Ok(self.attack_heat),
+            Mage(_)   => Ok(self.attack_heat),
+            Healer(_) => Ok(self.attack_heat),
+            _ => Err(GameError::InappropriateUnitType)?,
+        }
+    }
+
+    /// The attack cooldown.
+    ///
+    /// Errors if the unit is not a robot.
+    pub fn attack_cooldown(&self) -> Result<u32, Error> {
+        match self.controller {
+            Worker(ref c) => Ok(c.attack_cooldown()),
+            Knight(ref c) => Ok(c.attack_cooldown()),
+            Ranger(ref c) => Ok(c.attack_cooldown()),
+            Mage(ref c)   => Ok(c.attack_cooldown()),
+            Healer(ref c) => Ok(c.attack_cooldown()),
+            _ => Err(GameError::InappropriateUnitType)?,
+        }
     }
 
     /// Whether the unit is ready to attack.
     ///
     /// Errors if the unit is not a robot.
-    pub fn is_attack_ready(&self) -> bool {
-        unimplemented!()
+    pub fn is_attack_ready(&self) -> Result<bool, Error> {
+        Ok(self.attack_heat()? < MAX_HEAT_TO_ACT)
+    }
+
+    /// The damage inflicted by the robot during a normal attack.
+    ///
+    /// Errors if the unit is not a robot.
+    pub fn damage(&self) -> Result<i32, Error> {
+        match self.controller {
+            Worker(ref c) => Ok(c.damage()),
+            Knight(ref c) => Ok(c.damage()),
+            Ranger(ref c) => Ok(c.damage()),
+            Mage(ref c)   => Ok(c.damage()),
+            Healer(ref c) => Ok(c.damage()),
+            _ => Err(GameError::InappropriateUnitType)?,
+        }
     }
 
     /// Updates as if the unit has attacked, and returns the damage done.
     ///
     /// Errors if the unit is not a robot, or not ready to attack.
     pub fn attack(&mut self) -> Result<i32, Error> {
-        unimplemented!()
+        if self.is_move_ready()? {
+            self.attack_heat += self.attack_cooldown()?;
+            Ok(self.damage()?)
+        } else {
+            Err(GameError::InvalidAction)?
+        }
     }
 
     /// Take the amount of damage given, returning true if the unit has died.
@@ -355,11 +402,11 @@ impl Unit {
         }
     }
 
-    /// Whether the unit can board the rocket. The unit must be ready to move
-    /// and adjacent to the rocket. The rocket must have enough space.
+    /// Whether the unit can garrison inside the rocket. The unit must be ready
+    /// to move and adjacent to the rocket. The rocket must have enough space.
     ///
     /// Errors if the rocket is the incorrect type.
-    pub fn can_board_rocket(&self, rocket: &Unit) -> Result<bool, Error> {
+    pub fn can_garrison(&self, rocket: &Unit) -> Result<bool, Error> {
         Ok(self.is_move_ready()?
             && rocket.garrisoned_units()?.len() < rocket.max_capacity()?
             && self.team == rocket.team
@@ -369,7 +416,7 @@ impl Unit {
     /// Moves the unit inside the rocket.
     ///
     /// Errors if the unit is not a rocket.
-    pub fn board_rocket(&mut self, id: UnitID) -> Result<(), Error> {
+    pub fn garrison(&mut self, id: UnitID) -> Result<(), Error> {
         match self.controller {
             Rocket(ref mut c) => {
                 c.push_unit(id);
@@ -403,10 +450,23 @@ impl Unit {
         }
     }
 
-    /// Disembarks a single unit from the rocket, and returns the unit ID.
+    /// Whether the rocket can degarrison a unit. The rocket must be on a
+    /// planet and it must have at least one unit to degarrison.
+    ///
+    /// Errors if the unit is not a rocket.
+    pub fn can_degarrison_unit(&self) -> Result<bool, Error> {
+        match self.controller {
+            Rocket(ref c) => {
+                Ok(self.location().is_some() && c.garrisoned_units().len() > 0)
+            },
+            _ => Err(GameError::InappropriateUnitType)?
+        }
+    }
+
+    /// Degarrisons a single unit from the rocket, and returns the unit ID.
     ///
     /// Errors if the unit is not a rocket or there are no units.
-    pub fn disembark_rocket(&mut self) -> Result<UnitID, Error> {
+    pub fn degarrison_unit(&mut self) -> Result<UnitID, Error> {
         match self.controller {
             Rocket(ref mut c) => Ok(c.remove_first_unit()?),
             _ => Err(GameError::InappropriateUnitType)?,
