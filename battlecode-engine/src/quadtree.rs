@@ -22,6 +22,17 @@ const SPLIT_THRESH: usize = 16;
 /// A "pointer" to a node; actually an index into a backing vector.
 type NodePtr = u16;
 
+macro_rules! idx {
+    ($arr:expr, $i:expr) => {
+        unsafe { $arr.get_unchecked($i) }
+    };
+}
+macro_rules! idx_mut {
+    ($arr:expr, $i:expr) => {
+        unsafe { $arr.get_unchecked_mut($i) }
+    };
+}
+
 /// An entry in the quadtree.
 #[derive(Debug, Clone)]
 struct Entry<T: Clone> {
@@ -54,6 +65,7 @@ impl Bounds {
     fn check(&self) {
         debug_assert!(self.minx <= self.maxx && self.miny <= self.maxy);
     }
+    #[inline(always)]
     fn split(&self) -> [Bounds; 4] {
         let Bounds {minx, maxx, miny, maxy} = *self;
         // don't do (minx + maxx)/2, that can overflow
@@ -72,35 +84,34 @@ impl Bounds {
             // BR (x: 1, y: 0)
             Bounds { minx: midx, maxx: maxx, miny: miny, maxy: midy-1}
         ];
-        debug_assert!(self.contains_other(&children[0]));
-        debug_assert!(self.contains_other(&children[1]));
-        debug_assert!(self.contains_other(&children[2]));
-        debug_assert!(self.contains_other(&children[3]));
-        debug_assert!(!children[0].overlaps(&children[1]));
-        debug_assert!(!children[0].overlaps(&children[2]));
-        debug_assert!(!children[0].overlaps(&children[3]));
-        debug_assert!(!children[1].overlaps(&children[2]));
-        debug_assert!(!children[1].overlaps(&children[3]));
-        debug_assert!(!children[2].overlaps(&children[3]));
+        //debug_assert!(self.contains_other(&children[0]));
+        //debug_assert!(self.contains_other(&children[1]));
+        //debug_assert!(self.contains_other(&children[2]));
+        //debug_assert!(self.contains_other(&children[3]));
+        //debug_assert!(!children[0].overlaps(&children[1]));
+        //debug_assert!(!children[0].overlaps(&children[2]));
+        //debug_assert!(!children[0].overlaps(&children[3]));
+        //debug_assert!(!children[1].overlaps(&children[2]));
+        //debug_assert!(!children[1].overlaps(&children[3]));
+        //debug_assert!(!children[2].overlaps(&children[3]));
 
         children
     }
+    #[inline(always)]
     fn contains(&self, loc: Loc) -> bool {
-        self.check();
         self.minx <= loc.0 &&
         self.miny <= loc.1 &&
         self.maxx >= loc.0 &&
         self.maxy >= loc.1
     }
     fn contains_other(&self, other: &Bounds) -> bool {
-        self.check();
         self.minx <= other.minx &&
         self.miny <= other.miny &&
         self.maxx >= other.maxx &&
         self.maxy >= other.maxy
     }
+    #[inline(always)]
     fn overlaps(&self, other: &Bounds) -> bool {
-        self.check();
         if self.maxx < other.minx || other.maxx < self.minx {
             false
         } else if self.maxy < other.miny || other.maxy < self.miny {
@@ -109,8 +120,8 @@ impl Bounds {
             true
         }
     }
+    #[inline(always)]
     fn child(&self, loc: Loc) -> Corner {
-        self.check();
         let Bounds {minx, maxx, miny, maxy} = *self;
         let midx = minx / 2 + maxx / 2;
         let midy = miny / 2 + maxy / 2;
@@ -182,9 +193,9 @@ impl <T: Clone + Debug> Quadtree<T> {
         let mut depth = 0u8;
 
         loop {
-            match &self.nodes[ptr] {
+            match idx!(self.nodes, ptr) {
                 &Node::Branch { ref bounds, ref children, .. } => {
-                    ptr = children[bounds.child(loc) as usize] as usize;
+                    ptr = (*idx!(children, bounds.child(loc) as usize)) as usize;
                     depth += 1;
                 }
                 &Node::Leaf { .. } => break
@@ -198,7 +209,7 @@ impl <T: Clone + Debug> Quadtree<T> {
         let (ptr, depth) = self.lookup(loc);
 
         let (bounds, children) =
-            if let &mut Node::Leaf { bounds, ref mut elements } = &mut self.nodes[ptr as usize] {
+            if let &mut Node::Leaf { bounds, ref mut elements } = idx_mut!(self.nodes, ptr as usize) {
             if elements.len() < SPLIT_THRESH || depth == DEPTH {
                 if cfg!(debug) {
                     for elem in elements.iter() {
@@ -331,17 +342,17 @@ impl <T: Clone + Debug> Quadtree<T> {
             },
             &Node::Branch { ref children, bounds: branch_bounds } => {
                 let child_bounds = branch_bounds.split();
-                if bounds.overlaps(&child_bounds[0]) {
-                    self._rect_query(bounds, children[0], cb);
+                if bounds.overlaps(idx!(child_bounds, 0)) {
+                    self._rect_query(bounds, *idx!(children, 0), cb);
                 }
-                if bounds.overlaps(&child_bounds[1]) {
-                    self._rect_query(bounds, children[1], cb);
+                if bounds.overlaps(idx!(child_bounds, 1)) {
+                    self._rect_query(bounds, *idx!(children, 1), cb);
                 }
-                if bounds.overlaps(&child_bounds[2]) {
-                    self._rect_query(bounds, children[2], cb);
+                if bounds.overlaps(idx!(child_bounds, 2)) {
+                    self._rect_query(bounds, *idx!(children, 2), cb);
                 }
-                if bounds.overlaps(&child_bounds[3]) {
-                    self._rect_query(bounds, children[3], cb);
+                if bounds.overlaps(idx!(child_bounds, 3)) {
+                    self._rect_query(bounds, *idx!(children, 3), cb);
                 }
             }
         }
