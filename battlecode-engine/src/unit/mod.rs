@@ -1,4 +1,4 @@
-//! Units are player-controlled entities that can perform certain
+    //! Units are player-controlled entities that can perform certain
 //! game actions, depending on their type.
 
 use failure::Error;
@@ -379,19 +379,6 @@ impl Unit {
         }
     }
 
-    /// Marks the rocket as used.
-    ///
-    /// Errors if the unit is not a rocket.
-    pub fn use_rocket(&mut self) -> Result<(), Error> {
-        match self.controller {
-            Rocket(ref mut c) => {
-                c.mark_used();
-                Ok(())
-            },
-            _ => Err(GameError::InappropriateUnitType)?,
-        }
-    }
-
     /// Returns the garrisoned units in a rocket.
     ///
     /// Errors if the unit is not a rocket.
@@ -426,15 +413,17 @@ impl Unit {
         Ok(())
     }
 
-    /// Launches the rocket.
+    /// Launches the rocket and marks it as used.
     ///
     /// Errors if the unit is not a rocket.
     pub fn launch_rocket(&mut self) -> Result<(), Error> {
-        if self.unit_type() == UnitType::Rocket {
-            self.location = None;
-            Ok(())
-        } else {
-            Err(GameError::InappropriateUnitType)?
+        match self.controller {
+            Rocket(ref mut c) => {
+                self.location = None;
+                c.mark_used();
+                Ok(())
+            },
+            _ => Err(GameError::InappropriateUnitType)?,
         }
     }
 

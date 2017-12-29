@@ -513,11 +513,7 @@ impl GameWorld {
     pub fn launch_rocket(&mut self, id: UnitID, destination: MapLocation)
                          -> Result<(), Error> {
         if self.can_launch_rocket(id, destination)? {
-            let takeoff_loc = {
-                let unit = self.get_unit_mut(id)?;
-                unit.use_rocket()?;
-                unit.location().unwrap()
-            };
+            let takeoff_loc = self.get_unit(id)?.location().unwrap();
             self.remove_unit(id)?;
             self.get_unit_mut(id)?.launch_rocket()?;
             let landing_round = self.round + self.weather.orbit.get_duration(self.round as i32) as u32;
