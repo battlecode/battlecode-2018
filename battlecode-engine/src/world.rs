@@ -455,7 +455,7 @@ impl GameWorld {
                         -> Result<bool, Error> {
         let robot = self.get_unit(robot_id)?;
         let rocket = self.get_unit(rocket_id)?;
-        robot.can_garrison(rocket)
+        rocket.can_garrison(robot)
     }
 
     /// Moves a robot into the garrison of the specified rocket.

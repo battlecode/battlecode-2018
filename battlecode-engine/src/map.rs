@@ -166,7 +166,7 @@ impl PlanetMap {
         if self.on_map(location) {
             Ok(self.is_passable_terrain[location.y as usize][location.x as usize])
         } else {
-            Err(GameError::InvalidParameter)?
+            Err(GameError::InvalidLocation)?
         }
     }
 
@@ -176,7 +176,7 @@ impl PlanetMap {
         if self.on_map(location) {
             Ok(self.initial_karbonite[location.y as usize][location.x as usize])
         } else {
-            Err(GameError::InvalidParameter)?
+            Err(GameError::InvalidLocation)?
         }
     }
 
