@@ -2,6 +2,9 @@
 //! game actions, depending on their type.
 
 use failure::Error;
+use std::cmp;
+
+use super::constants::*;
 use super::error::GameError;
 use super::location::*;
 use super::research::Level;
@@ -31,7 +34,7 @@ pub type Percent = u32;
 pub type UnitID = u32;
 
 /// The different unit types, which include factories, rockets, and the robots.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum UnitType {
     /// Workers are the foundation of the civilization.
     Worker,
@@ -100,25 +103,13 @@ enum UnitInfo {
 /// A single unit in the game.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Unit {
-    /// The unique ID of a unit.
-    pub id: UnitID,
-    /// The team the unit belongs to.
-    pub team: Team,
-    /// The unit type.
-    pub unit_type: UnitType,
-
-    /// The location of the unit, if currently on the map. Units
-    /// can be temporarily removed from the map in rocket-related
-    /// situations.
-    pub location: Option<MapLocation>,
-    /// The current health of the unit.
-    pub health: u32,
-    /// The movement heat of the unit.
-    pub movement_heat: u32,
-    /// The attack heat of the unit.
-    pub attack_heat: u32,
-
-    /// The unit-specific info (a robot, factory, or rocket).
+    id: UnitID,
+    team: Team,
+    unit_type: UnitType,
+    location: Option<MapLocation>,
+    health: u32,
+    movement_heat: u32,
+    attack_heat: u32,
     unit_info: UnitInfo,
 }
 
@@ -153,7 +144,52 @@ impl Unit {
         Ok(unit)
     }
 
-    /// Returns whether the unit is currently able to make a movement to a valid location.
+    // ************************************************************************
+    // ******************************* ACCESSORS ******************************
+    // ************************************************************************
+
+    /// The unique ID of a unit.
+    pub fn id(&self) -> UnitID {
+        self.id
+    }
+
+    /// The team the unit belongs to.
+    pub fn team(&self) -> Team {
+        self.team
+    }
+
+    /// The unit type.
+    pub fn unit_type(&self) -> UnitType {
+        self.unit_type
+    }
+
+    /// The location of the unit, if currently on the map. Units can be
+    /// temporarily removed from the map in rocket-related situations.
+    pub fn location(&self) -> Option<MapLocation> {
+        self.location
+    }
+
+    /// The current health of the unit.
+    pub fn health(&self) -> u32 {
+        self.health
+    }
+
+    /// The movement heat of the unit.
+    pub fn movement_heat(&self) -> u32 {
+        self.movement_heat
+    }
+
+    /// The attack heat of the unit.
+    pub fn attack_heat(&self) -> u32 {
+        self.attack_heat
+    }
+
+    // ************************************************************************
+    // ************************** MOVEMENT METHODS ****************************
+    // ************************************************************************
+
+    /// Returns whether the unit is currently able to make a movement to a
+    /// valid location.
     pub fn is_move_ready(&self) -> bool {
         match self.unit_info {
             // TODO: check if movement delay, etc. are ready.
@@ -161,6 +197,27 @@ impl Unit {
             _ => false,
         }
     }
+
+    /// Move the unit to this location.
+    pub fn move_to(&mut self, location: Option<MapLocation>) {
+        self.location = location;
+    }
+
+    // ************************************************************************
+    // *************************** COMBAT METHODS *****************************
+    // ************************************************************************
+
+    /// Take the amount of damage given, returning true if the unit has died.
+    /// Returns false if the unit is still alive.
+    pub fn take_damage(&mut self, damage: u32) -> bool {
+        // TODO: Knight damage resistance??
+        self.health -= cmp::min(damage, self.health);
+        self.health == 0
+    }
+
+    // ************************************************************************
+    // *********************** SPECIAL ABILITY METHODS ************************
+    // ************************************************************************
 
     /// Returns the garrisoned units in this unit. Only applicable to Rockets,
     /// and returns None otherwise.
@@ -170,6 +227,10 @@ impl Unit {
             _ => None,
         }
     }
+
+    // ************************************************************************
+    // **************************** OTHER METHODS *****************************
+    // ************************************************************************
 
     /// Research the next level.
     pub fn research(&mut self) -> Result<(), Error> {
@@ -182,6 +243,12 @@ impl Unit {
             Factory(ref mut info) => info.research(),
             Rocket(ref mut info)  => info.research(),
         }
+    }
+
+    /// Process the end of the round.
+    pub fn next_round(&mut self) {
+        self.movement_heat -= cmp::min(HEAT_LOSS_PER_ROUND, self.movement_heat);
+        self.attack_heat -= cmp::min(HEAT_LOSS_PER_ROUND, self.attack_heat);
     }
 }
 
