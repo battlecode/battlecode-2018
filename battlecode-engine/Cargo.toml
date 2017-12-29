@@ -31,7 +31,7 @@ default = []
 
 [dev-dependencies]
 # rigorous benchmarking
-criterion = "0.1.1"
+# criterion = "0.1.1"
 
 [[bench]]
 name = "quadtree"

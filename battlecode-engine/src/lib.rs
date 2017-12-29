@@ -54,7 +54,7 @@ pub mod research;
 // see constants.rs
 pub mod constants;
 
-pub mod quadtree;
+pub mod spatialhashmap;
 
 #[cfg(test)]
 mod tests {
