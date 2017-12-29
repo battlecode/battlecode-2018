@@ -9,3 +9,5 @@ __pycache__
 *.dylib
 *.d
 *.swp
+*.txt
+*.DS_Store
