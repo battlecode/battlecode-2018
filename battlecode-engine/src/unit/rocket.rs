@@ -1,8 +1,9 @@
+//! Rockets are the only unit that can move between planets.
+
 use super::*;
 
-/// Info specific to rockets.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct RocketInfo {
+pub struct RocketController {
     /// The research level.
     pub level: Level,
     /// The maximum health.
@@ -19,10 +20,10 @@ pub struct RocketInfo {
     is_ready: bool,
 }
 
-impl RocketInfo {
+impl RocketController {
     /// Default Rocket stats.
-    pub fn default() -> RocketInfo {
-        RocketInfo {
+    pub fn default() -> RocketController {
+        RocketController {
             level: 0,
             max_health: 200,
             max_capacity: 8,

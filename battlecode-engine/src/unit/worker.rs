@@ -2,9 +2,8 @@
 
 use super::*;
 
-/// Workers are the foundation of the civilization.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WorkerInfo {
+pub struct WorkerController {
     /// The research level.
     pub level: Level,
     /// The maximum health of the robot.
@@ -25,10 +24,10 @@ pub struct WorkerInfo {
     pub harvest_amount: u32,
 }
 
-impl WorkerInfo {
+impl WorkerController {
     /// Default worker stats.
-    pub fn default() -> WorkerInfo {
-        WorkerInfo {
+    pub fn default() -> WorkerController {
+        WorkerController {
             level: 0,
             max_health: 100,
             damage: 0,

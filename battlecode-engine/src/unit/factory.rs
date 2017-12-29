@@ -1,8 +1,9 @@
+//! Factories are the hub for producing combative robots.
+
 use super::*;
 
-/// Info specific to factories.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct FactoryInfo {
+pub struct FactoryController {
     /// The research level.
     pub level: Level,
     /// The maximum health.
@@ -13,10 +14,10 @@ pub struct FactoryInfo {
     is_ready: bool,
 }
 
-impl FactoryInfo {
+impl FactoryController {
     /// Default Factory stats.
-    pub fn default() -> FactoryInfo {
-        FactoryInfo {
+    pub fn default() -> FactoryController {
+        FactoryController {
             level: 0,
             max_health: 1000,
             production_queue: vec![],

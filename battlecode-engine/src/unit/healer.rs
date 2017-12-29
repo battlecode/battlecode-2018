@@ -1,8 +1,9 @@
+//! Healers are a suport unit that can heal other units.
+
 use super::*;
 
-/// Info specific to Healers.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct HealerInfo {
+pub struct HealerController {
     /// The research level.
     pub level: Level,
     /// The maximum health of the robot.
@@ -23,10 +24,10 @@ pub struct HealerInfo {
     pub is_overcharge_unlocked: bool,
 }
 
-impl HealerInfo {
+impl HealerController {
     /// Default Healer stats.
-    pub fn default() -> HealerInfo {
-        HealerInfo {
+    pub fn default() -> HealerController {
+        HealerController {
             level: 0,
             max_health: 100,
             damage: -10,

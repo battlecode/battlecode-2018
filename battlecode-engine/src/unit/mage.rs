@@ -1,8 +1,9 @@
+//! Mages are a fragile but specialized ranged unit for large areas.
+
 use super::*;
 
-/// Info specific to Mages.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct MageInfo {
+pub struct MageController {
     /// The research level.
     pub level: Level,
     /// The maximum health of the robot.
@@ -25,10 +26,10 @@ pub struct MageInfo {
     pub blink_radius: u32,
 }
 
-impl MageInfo {
+impl MageController {
     /// Default Mage stats.
-    pub fn default() -> MageInfo {
-        MageInfo {
+    pub fn default() -> MageController {
+        MageController {
             level: 0,
             max_health: 100,
             damage: 150,

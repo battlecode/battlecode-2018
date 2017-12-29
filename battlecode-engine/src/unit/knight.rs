@@ -1,8 +1,9 @@
+//! Knights are a melee unit that is strong in numbers.
+
 use super::*;
 
-/// Info specific to Knights.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct KnightInfo {
+pub struct KnightController {
     /// The research level.
     pub level: Level,
     /// The maximum health of the robot.
@@ -27,10 +28,10 @@ pub struct KnightInfo {
     pub javelin_attack_cooldown: u32,
 }
 
-impl KnightInfo {
+impl KnightController {
     /// Default Knight stats.
-    pub fn default() -> KnightInfo {
-        KnightInfo {
+    pub fn default() -> KnightController {
+        KnightController {
             level: 0,
             max_health: 250,
             damage: 100,

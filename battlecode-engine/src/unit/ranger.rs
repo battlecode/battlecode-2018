@@ -1,8 +1,9 @@
+//! Rangers are a ranged unit with good all-around combat.
+
 use super::*;
 
-/// Info specific to Rangers.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct RangerInfo {
+pub struct RangerController {
     /// The research level.
     pub level: Level,
     /// The maximum health of the robot.
@@ -27,10 +28,10 @@ pub struct RangerInfo {
     target_location: Option<MapLocation>,
 }
 
-impl RangerInfo {
+impl RangerController {
     /// Default Ranger stats.
-    pub fn default() -> RangerInfo {
-        RangerInfo {
+    pub fn default() -> RangerController {
+        RangerController {
             level: 0,
             max_health: 200,
             damage: 70,
