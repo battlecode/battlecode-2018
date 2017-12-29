@@ -4,14 +4,49 @@
 
 use super::location::*;
 use super::unit::*;
+use super::world::Team;
 
 /// A single, atomic "change" in the game world.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Delta {
+    /// Commands the given robot to attack a location.
+    Attack { robot_id: UnitID, location: MapLocation },
+    /// Commands the given worker to blueprint a structure.
+    BlueprintStructure { worker_id: UnitID, structure_type: UnitType },
+    /// Commands the given mage to blink to the given location.
+    Blink { mage_id: UnitID, location: MapLocation },
+    /// Commands the given worker to build a structure-in-progress.
+    BuildStrucutre { worker_id: UnitID, structure_id: UnitID },
+    /// Commands the given structure to degarrison a unit in the given direction.
+    Degarrison { structure_id: UnitID, direction: Direction },
+    /// Commands the given unit to disintegrate.
+    Disintegrate { unit_id: UnitID },
     /// Ends the current turn, and begins the next.
     EndTurn,
-    /// Moves a robot with the given ID.
-    Move { id: UnitID, direction: Direction },
+    /// Commands the given structure to pull the specified robot into its garrison.
+    Garrison { structure_id: UnitID, robot_id: UnitID },
+    /// Commands the given worker to mine karbonite from an adjacent square.
+    Harvest { worker_id: UnitID, direction: Direction },
+    /// Commands the given rocket to launch, ultimately landing in the specified location.
+    LaunchRocket { rocket_id: UnitID, location: MapLocation },
+    /// Commands the given robot to move in the given direction.
+    Move { robot_id: UnitID, direction: Direction },
+    /// Commands the given healer to overcharge the specified robot.
+    Overcharge { healer_id: UnitID, robot_id: UnitID },
+    /// Queues the next level of the given research branch, for the specified team.
+    QueueResearch { team: Team, branch: UnitType },
+    /// Commands the given factory to enqueue production a robot.
+    QueueRobotProduction { factory_id: UnitID, robot_type: UnitType },
+    /// Commands the given ranger to snipe the given location.
+    Snipe { ranger_id: UnitID, location: MapLocation },
+    /// Commands the given worker to repair the specified strucutre.
+    Repair { worker_id: UnitID, strucutre_id: UnitID },
+    /// Commands the given worker to replicate in the given direction.
+    Replicate { worker_id: UnitID, direction: Direction },
+    /// Resets the current research queue, for the specified team.
+    ResetResearchQueue { team: Team },
+    /// Commands the given knight to throw a javelin at the given location.
+    ThrowJavelin { knight_id: UnitID, location: MapLocation },
     /// Nothing happens.
     Nothing,
 }

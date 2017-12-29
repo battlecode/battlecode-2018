@@ -562,8 +562,9 @@ impl GameWorld {
     pub fn apply(&mut self, delta: Delta) -> Result<(), Error> {
         match delta {
             Delta::EndTurn => self.next_turn(),
-            Delta::Move{id, direction} => self.move_unit(id, direction),
-            _ => Ok(()),
+            Delta::Move{robot_id, direction} => self.move_unit(robot_id, direction),
+            Delta::Nothing => Ok(()),
+            _ => unimplemented!(),
         }
     }
 }
