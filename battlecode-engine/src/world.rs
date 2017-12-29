@@ -341,7 +341,7 @@ impl GameWorld {
         let dest = self.get_unit(id)?.location().ok_or(GameError::InvalidAction)?.add(direction);
         if self.can_move(id, direction)? {
             self.remove_unit(id)?;
-            self.get_unit_mut(id)?.move_to(Some(dest));
+            self.get_unit_mut(id)?.move_to(Some(dest))?;
             self.place_unit(id)?;
             Ok(())
         } else {
@@ -462,8 +462,9 @@ impl GameWorld {
     pub fn garrison(&mut self, robot_id: UnitID, rocket_id: UnitID)
                     -> Result<(), Error> {
         if self.can_garrison(robot_id, rocket_id)? {
-            self.get_unit_mut(rocket_id)?.garrison(robot_id);
+            self.get_unit_mut(rocket_id)?.garrison(robot_id)?;
             self.remove_unit(robot_id)?;
+            self.get_unit_mut(robot_id)?.move_to(None)?;
             Ok(())
         } else {
             Err(GameError::InvalidAction)?
@@ -471,13 +472,15 @@ impl GameWorld {
     }
 
     /// Tests whether the given rocket is able to degarrison a unit in the
-    /// given direction.
+    /// given direction. There must be space in that direction, and the unit
+    /// must be ready to move.
     pub fn can_degarrison(&self, rocket_id: UnitID, direction: Direction)
                           -> Result<bool, Error> {
         let rocket = self.get_unit(rocket_id)?;
         if rocket.can_degarrison_unit()? {
+            let robot = self.get_unit(rocket.garrisoned_units()?[0])?;
             let loc = rocket.location().unwrap().add(direction);
-            Ok(self.is_occupiable(loc)?)
+            Ok(self.is_occupiable(loc)? && robot.is_move_ready()?)
         } else {
             Ok(false)
         }
@@ -750,6 +753,7 @@ mod tests {
         // Correct garrisoning.
         let valid_boarder = world.create_unit(Team::Red, takeoff_loc.add(Direction::North), UnitType::Knight).unwrap();
         assert![world.garrison(valid_boarder, rocket).is_ok()];
+        assert_eq![world.get_unit(valid_boarder).unwrap().location(), None];
 
         // Boarding fails when too far from the rocket.
         let invalid_boarder_too_far = world.create_unit(Team::Red, takeoff_loc.add(Direction::North).add(Direction::North), UnitType::Knight).unwrap();
@@ -803,7 +807,11 @@ mod tests {
         assert![world.launch_rocket(rocket, landing_loc).is_ok()];
         assert![world.land_rocket(rocket, landing_loc).is_ok()];
 
+        // Cannot degarrison in the same round.
+        assert![world.degarrison(rocket, Direction::North).is_err()];
+
         // Correct degarrisoning.
+        world.next_round().unwrap();
         assert![world.degarrison(rocket, Direction::North).is_ok()];
 
         // Cannot degarrison into an occupied square.

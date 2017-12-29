@@ -356,6 +356,30 @@ impl Unit {
     }
 
     // ************************************************************************
+    // *************************** WORKER METHODS *****************************
+    // ************************************************************************
+
+    /// The health restored when building or repairing a factory or rocket.
+    ///
+    /// Errors if the unit is not a worker.
+    pub fn build_repair_health(&self) -> Result<u32, Error> {
+        match self.controller {
+            Worker(ref c) => Ok(c.build_repair_health()),
+            _ => Err(GameError::InappropriateUnitType)?,
+        }
+    }
+
+    /// The maximum amount of karbonite harvested from a deposit in one turn.
+    ///
+    /// Errors if the unit is not a worker.
+    pub fn harvest_amount(&self) -> Result<u32, Error> {
+        match self.controller {
+            Worker(ref c) => Ok(c.harvest_amount()),
+            _ => Err(GameError::InappropriateUnitType)?,
+        }
+    }
+
+    // ************************************************************************
     // *************************** ROCKET METHODS *****************************
     // ************************************************************************
 
@@ -466,6 +490,19 @@ impl Unit {
     // **************************** OTHER METHODS *****************************
     // ************************************************************************
 
+    /// The current research level.
+    pub fn research_level(&self) -> Level {
+        match self.controller {
+            Worker(ref c)  => c.level(),
+            Knight(ref c)  => c.level(),
+            Ranger(ref c)  => c.level(),
+            Mage(ref c)    => c.level(),
+            Healer(ref c)  => c.level(),
+            Factory(ref c) => c.level(),
+            Rocket(ref c)  => c.level(),
+        }
+    }
+
     /// Research the next level.
     pub fn research(&mut self) -> Result<(), Error> {
         match self.controller {
@@ -491,40 +528,115 @@ mod tests {
     use super::*;
 
     #[test]
-    fn worker_constructor_and_research() {
+    fn test_movement() {
+        let loc_a = MapLocation::new(Planet::Earth, 0, 0);
+        let loc_b = MapLocation::new(Planet::Earth, 1, 1);
+        let mut unit = Unit::new(1, Team::Red, UnitType::Healer, 0, loc_a).unwrap();
+        assert!(unit.location().is_some());
+        assert!(unit.movement_cooldown().unwrap() > 0);
+        assert!(unit.is_move_ready().unwrap());
+        assert_eq!(unit.location(), Some(loc_a));
+        assert_eq!(unit.movement_heat().unwrap(), 0);
+
+        // Move to a location, and fail to move immediately after.
+        assert!(unit.move_to(Some(loc_b)).is_ok());
+        assert!(!unit.is_move_ready().unwrap());
+        assert!(unit.move_to(Some(loc_a)).is_err());
+        assert_eq!(unit.location(), Some(loc_b));
+
+        // Wait one round, and fail to move again.
+        unit.next_round();
+        assert!(unit.movement_heat().unwrap() > MAX_HEAT_TO_ACT);
+        assert!(!unit.is_move_ready().unwrap());
+        assert!(unit.move_to(Some(loc_a)).is_err());
+        assert_eq!(unit.location(), Some(loc_b));
+
+        // Wait one more round, and succesfully move.
+        unit.next_round();
+        assert!(unit.movement_heat().unwrap() < MAX_HEAT_TO_ACT);
+        assert!(unit.is_move_ready().unwrap());
+        assert!(unit.move_to(Some(loc_a)).is_ok());
+        assert_eq!(unit.location(), Some(loc_a));
+    }
+
+    #[test]
+    fn test_is_adjacent_to() {
+        let loc_a = MapLocation::new(Planet::Earth, 0, 0);
+        let loc_b = MapLocation::new(Planet::Earth, 1, 1);
+        let loc_c = MapLocation::new(Planet::Earth, 1, 2);
+
+        let unit_a = Unit::new(1, Team::Red, UnitType::Ranger, 0, loc_a).unwrap();
+        let mut unit_b = Unit::new(2, Team::Red, UnitType::Worker, 0, loc_b).unwrap();
+        let mut unit_c = Unit::new(3, Team::Red, UnitType::Mage, 0, loc_c).unwrap();
+
+        // B is adjacent to both A and C, but A is not adjacent to C.
+        assert!(unit_a.is_adjacent_to(unit_b.location()));
+        assert!(unit_b.is_adjacent_to(unit_a.location()));
+        assert!(unit_c.is_adjacent_to(unit_b.location()));
+        assert!(unit_b.is_adjacent_to(unit_c.location()));
+        assert!(!unit_a.is_adjacent_to(unit_c.location()));
+        assert!(!unit_c.is_adjacent_to(unit_a.location()));
+
+        // Nothing is adjacent to None.
+        unit_b.move_to(None).unwrap();
+        unit_c.move_to(None).unwrap();
+        assert!(!unit_a.is_adjacent_to(unit_b.location()));
+        assert!(!unit_b.is_adjacent_to(unit_a.location()));
+        assert!(!unit_b.is_adjacent_to(unit_c.location()));
+    }
+
+    #[test]
+    fn test_movement_error() {
         let loc = MapLocation::new(Planet::Earth, 0, 0);
-        let unit_a = Unit::new(1, Team::Red, UnitType::Worker, 0, loc).unwrap();
-        assert_eq!(unit_a.id, 1);
-        assert_eq!(unit_a.team, Team::Red);
+        let adjacent_loc = MapLocation::new(Planet::Earth, 1, 0);
+
+        let mut factory = Unit::new(1, Team::Red, UnitType::Factory, 0, loc).unwrap();
+        assert!(factory.movement_heat().is_err());
+        assert!(factory.movement_cooldown().is_err());
+        assert!(factory.is_move_ready().is_err());
+        assert!(factory.move_to(Some(adjacent_loc)).is_err());
+
+        let mut rocket = Unit::new(1, Team::Red, UnitType::Rocket, 0, loc).unwrap();
+        assert!(rocket.movement_heat().is_err());
+        assert!(rocket.movement_cooldown().is_err());
+        assert!(rocket.is_move_ready().is_err());
+        assert!(rocket.move_to(Some(adjacent_loc)).is_err());
+    }
+
+    #[test]
+    fn test_combat() {
+
+    }
+
+    #[test]
+    fn test_research() {
+        // Create a unit and check that its basic fields are correct.
+        let loc = MapLocation::new(Planet::Earth, 0, 0);
+        let mut unit_a = Unit::new(1, Team::Red, UnitType::Worker, 0, loc).unwrap();
+        assert_eq!(unit_a.id(), 1);
+        assert_eq!(unit_a.team(), Team::Red);
         assert_eq!(unit_a.unit_type(), UnitType::Worker);
 
-        let mut c = match unit_a.controller {
-            Worker(worker_c) => worker_c,
-            _ => panic!("expected Worker"),
-        };
+        // Upgrade it twice and check its stats have been updated.
+        assert_eq!(unit_a.research_level(), 0);
+        assert_eq!(unit_a.harvest_amount().unwrap(), 3);
+        assert_eq!(unit_a.build_repair_health().unwrap(), 5);
 
-        assert_eq!(c.level(), 0);
-        assert_eq!(c.harvest_amount(), 3);
-        assert_eq!(c.build_repair_health(), 5);
+        unit_a.research().unwrap();
+        assert_eq!(unit_a.research_level(), 1);
+        assert_eq!(unit_a.harvest_amount().unwrap(), 4);
+        assert_eq!(unit_a.build_repair_health().unwrap(), 5);
 
-        c.research().unwrap();
-        assert_eq!(c.level(), 1);
-        assert_eq!(c.harvest_amount(), 4);
-        assert_eq!(c.build_repair_health(), 5);
+        unit_a.research().unwrap();
+        assert_eq!(unit_a.research_level(), 2);
+        assert_eq!(unit_a.harvest_amount().unwrap(), 4);
+        assert_eq!(unit_a.build_repair_health().unwrap(), 6);
 
-        c.research().unwrap();
-        assert_eq!(c.level(), 2);
-        assert_eq!(c.harvest_amount(), 4);
-        assert_eq!(c.build_repair_health(), 6);
-
+        // Create a unit with a default level above 0, and check its stats.
         let unit_b = Unit::new(2, Team::Red, UnitType::Worker, 2, loc).unwrap();
-        let c = match unit_b.controller {
-            Worker(worker_c) => worker_c,
-            _ => panic!("expected Worker"),
-        };
-
-        assert_eq!(c.level(), 2);
-        assert_eq!(c.harvest_amount(), 4);
-        assert_eq!(c.build_repair_health(), 6);
+        assert_eq!(unit_b.research_level(), 2);
+        assert_eq!(unit_b.harvest_amount().unwrap(), 4);
+        assert_eq!(unit_b.build_repair_health().unwrap(), 6);
     }
+
 }
