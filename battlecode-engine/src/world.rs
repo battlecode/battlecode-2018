@@ -1,7 +1,6 @@
 //! The core battlecode engine.
 
 use fnv::FnvHashMap;
-use std::cmp;
 
 use super::constants::*;
 use super::schema::Delta;
@@ -264,11 +263,11 @@ impl GameWorld {
         if self.is_occupiable(location)? {
             {
                 let unit = self.get_unit_mut(id)?;
-                if unit.location.is_some() {
+                if unit.location().is_some() {
                     // The unit has already been placed.
                     Err(GameError::InternalEngineError)?;
                 }
-                unit.location = Some(location);
+                unit.move_to(Some(location));
             }
             self.units_by_loc.insert(location, id);
             Ok(())
@@ -285,7 +284,7 @@ impl GameWorld {
         let level = self.get_team_info(team).get_level(&unit_type);
         let unit = Unit::new(id, team, unit_type, level)?;
 
-        self.units.insert(unit.id, unit);
+        self.units.insert(unit.id(), unit);
         self.place_unit(id, location)?;
         Ok(id)
     }
@@ -294,8 +293,8 @@ impl GameWorld {
     pub fn remove_unit(&mut self, id: UnitID) -> Result<(), Error> {
         let location = {
             let unit = self.get_unit_mut(id)?;
-            let location = unit.location;
-            unit.location = None;
+            let location = unit.location();
+            unit.move_to(None);
             // If location is None, then the unit was already removed.
             location.ok_or(GameError::InternalEngineError)?
         };
@@ -310,16 +309,16 @@ impl GameWorld {
 
     /// Destroys a unit.
     pub fn destroy_unit(&mut self, id: UnitID) -> Result<(), Error> {
-        if self.get_unit(id)?.location.is_some() {
+        if self.get_unit(id)?.location().is_some() {
             self.remove_unit(id)?;
         }
-        let units_to_destroy = if let Some(units) = self.get_unit(id)?.get_garrisoned_units() {
+        let units_to_destroy = if let Some(units) = self.get_unit(id)?.garrisoned_units() {
             units
         } else {
             vec![]
         };
         for unit in units_to_destroy.iter() {
-            self.destroy_unit(unit.id)?;
+            self.destroy_unit(unit.id())?;
         }
         self.delete_unit(id);
         Ok(())
@@ -339,7 +338,7 @@ impl GameWorld {
     /// Tests whether the given unit can move.
     pub fn can_move(&self, id: UnitID, direction: Direction) -> Result<bool, Error> {
         let unit = self.get_unit(id)?;
-        if let Some(location) = unit.location {
+        if let Some(location) = unit.location() {
             Ok(unit.is_move_ready() && self.is_occupiable(location.add(direction))?)
         } else {
             Ok(false)
@@ -348,7 +347,7 @@ impl GameWorld {
 
     // Given that moving an unit comprises many edits to the GameWorld, it makes sense to define this here.
     pub fn move_unit(&mut self, id: UnitID, direction: Direction) -> Result<(), Error> {
-        let dest = self.get_unit(id)?.location.ok_or(GameError::InvalidAction)?.add(direction);
+        let dest = self.get_unit(id)?.location().ok_or(GameError::InvalidAction)?.add(direction);
         if self.can_move(id, direction)? {
             self.remove_unit(id)?;
             self.place_unit(id, dest)?;
@@ -370,13 +369,7 @@ impl GameWorld {
             return Ok(());
         };
 
-        let should_destroy_unit = {
-            let unit = self.get_unit_mut(id)?;
-            // TODO: Knight damage resistance??
-            unit.health -= cmp::min(damage, unit.health);
-            unit.health == 0
-        };
-
+        let should_destroy_unit = self.get_unit_mut(id)?.take_damage(damage);
         if should_destroy_unit {
             self.destroy_unit(id)?;
         }
@@ -456,8 +449,8 @@ impl GameWorld {
             // store it in the Unit at all, we'd have to reference the
             // constants through ResearchInfo when applying updates.
             for (_, unit) in self.units.iter_mut() {
-                if unit.unit_type == branch {
-                    unit.unit_info.research()?;
+                if unit.unit_type() == branch {
+                    unit.research()?;
                 }
             }
             Ok(())
@@ -491,9 +484,9 @@ impl GameWorld {
     pub fn land_rocket(&mut self, id: UnitID, destination: MapLocation) -> Result<(), Error> {
         if self.units_by_loc.contains_key(&destination) {
             let victim_id = *self.units_by_loc.get(&destination).unwrap();
-            let should_destroy_rocket = match self.get_unit(victim_id)?.unit_info {
-                UnitInfo::Rocket(_) => true,
-                UnitInfo::Factory(_) => true,
+            let should_destroy_rocket = match self.get_unit(victim_id)?.unit_type() {
+                UnitType::Rocket => true,
+                UnitType::Factory => true,
                 _ => false,
             };
             if should_destroy_rocket {
@@ -536,8 +529,7 @@ impl GameWorld {
 
         // Update unit cooldowns.
         for unit in &mut self.units.values_mut() {
-            unit.movement_heat -= cmp::min(HEAT_LOSS_PER_ROUND, unit.movement_heat);
-            unit.attack_heat -= cmp::min(HEAT_LOSS_PER_ROUND, unit.attack_heat);
+            unit.next_round();
         }
 
         // Land rockets.
@@ -599,8 +591,8 @@ mod tests {
         // Both robots exist and are at the right locations.
         let unit_a = world.get_unit(id_a).unwrap();
         let unit_b = world.get_unit(id_b).unwrap();
-        assert_eq!(unit_a.location.unwrap(), loc_a);
-        assert_eq!(unit_b.location.unwrap(), loc_b);
+        assert_eq!(unit_a.location().unwrap(), loc_a);
+        assert_eq!(unit_b.location().unwrap(), loc_b);
     }
 
     #[test]
@@ -651,10 +643,10 @@ mod tests {
         // Launch the rocket, and force land it.
         world.launch_rocket(rocket, mars_loc).unwrap();
         world.land_rocket(rocket, mars_loc).unwrap();
-        assert_eq![world.get_unit(rocket).unwrap().location.unwrap(), mars_loc];
+        assert_eq![world.get_unit(rocket).unwrap().location().unwrap(), mars_loc];
         let damaged_knight_health = 200;
         for id in bystanders.iter() {
-            assert_eq![world.get_unit(*id).unwrap().health, damaged_knight_health];
+            assert_eq![world.get_unit(*id).unwrap().health(), damaged_knight_health];
         }
     }
 
