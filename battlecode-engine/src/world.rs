@@ -438,7 +438,7 @@ impl GameWorld {
     /// account the unit's movement heat. Takes into account only the map
     /// terrain, positions of other robots, and the edge of the game map.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a robot.
     pub fn can_move(&self, id: UnitID, direction: Direction) -> Result<bool, Error> {
@@ -454,7 +454,7 @@ impl GameWorld {
     /// Whether the robot is ready to move. Tests whether the robot's attack
     /// heat is sufficiently low.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a robot.
     pub fn is_move_ready(&self, _id: UnitID) -> Result<bool, Error> {
@@ -463,7 +463,7 @@ impl GameWorld {
 
     /// Moves the robot in the given direction.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a robot.
     /// * GameError::InvalidAction - the robot cannot move in that direction.
@@ -502,7 +502,7 @@ impl GameWorld {
     /// account the unit's attack heat. Takes into account only the unit's
     /// attack range, and the location of the unit.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is a healer, or not a robot.
     pub fn can_attack(&self, _id: UnitID, _target_id: UnitID) -> Result<bool, Error> {
@@ -512,7 +512,7 @@ impl GameWorld {
     /// Whether the robot is ready to attack. Tests whether the robot's attack
     /// heat is sufficiently low.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is a healer, or not a robot.
     pub fn is_attack_ready(&self, _id: UnitID) -> Result<bool, Error> {
@@ -521,7 +521,7 @@ impl GameWorld {
 
     /// Attacks the robot, dealing the unit's standard amount of damage.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is a healer, or not a robot.
     /// * GameError::InvalidAction - the robot cannot attack that location.
@@ -615,7 +615,7 @@ impl GameWorld {
     /// Whether the worker is ready to harvest. The worker cannot already have
     /// performed an action this round.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a worker.
     pub fn can_harvest(&self, _worker_id: UnitID) -> Result<bool, Error> {
@@ -625,7 +625,7 @@ impl GameWorld {
     /// Harvests up to the worker's harvest amount of karbonite from the given
     /// location, adding it to the team's resource pool.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a worker.
     /// * GameError::InvalidLocation - the location is off the map.
@@ -640,7 +640,7 @@ impl GameWorld {
     /// researched. The team must have sufficient karbonite in its resource
     /// pool. The worker cannot already have performed an action this round.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a worker, or the
     ///   unit type is not a factory or rocket.
@@ -652,7 +652,7 @@ impl GameWorld {
     /// Blueprints a unit of the given type in the given direction. Subtract
     /// cost of that unit from the team's resource pool.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a worker, or the
     ///   unit type is not a factory or rocket.
@@ -692,7 +692,7 @@ impl GameWorld {
     /// ability heat is sufficiently low, and that the team has sufficient
     /// karbonite in its resource pool.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a worker.
     pub fn can_replicate(&self, _id: UnitID) -> Result<bool, Error> {
@@ -702,7 +702,7 @@ impl GameWorld {
     /// Replicates a worker in the given direction. Subtracts the cost of the
     /// worker from the team's resource pool.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a worker.
     /// * GameError::InvalidLocation - the location is off the map.
@@ -721,7 +721,7 @@ impl GameWorld {
     /// ability range, and the edge of the game map.
     ///
     /// * GameError::InvalidResearchLevel - the ability has not been researched.
-    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a knight.
     /// * GameError::InvalidLocation - the location is outside the vision range.
@@ -733,7 +733,7 @@ impl GameWorld {
     /// ability heat is sufficiently low.
     ///
     /// * GameError::InvalidResearchLevel - the ability has not been researched.
-    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a knight.
     pub fn is_javelin_ready(&self, _id: UnitID) -> Result<bool, Error> {
@@ -744,7 +744,7 @@ impl GameWorld {
     /// the unit at that location if it exists.
     ///
     /// * GameError::InvalidResearchLevel - the ability has not been researched.
-    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a knight.
     /// * GameError::InvalidLocation - the location is outside the vision range.
@@ -767,7 +767,7 @@ impl GameWorld {
     /// of the game map.
     ///
     /// * GameError::InvalidResearchLevel - the ability has not been researched.
-    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a mage.
     /// * GameError::InvalidLocation - the location is outside the vision range.
@@ -779,7 +779,7 @@ impl GameWorld {
     /// heat is sufficiently low.
     ///
     /// * GameError::InvalidResearchLevel - the ability has not been researched.
-    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a mage.
     pub fn is_blink_ready(&self, _id: UnitID) -> Result<bool, Error> {
@@ -789,7 +789,7 @@ impl GameWorld {
     /// Blinks the mage to the given location.
     ///
     /// * GameError::InvalidResearchLevel - the ability has not been researched.
-    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a mage.
     /// * GameError::InvalidAction - the mage cannot blink to that location.
@@ -815,7 +815,7 @@ impl GameWorld {
     /// Whether the healer is ready to heal. Tests whether the healer's attack
     /// heat is sufficiently low.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a healer.
     pub fn is_heal_ready(&self, _id: UnitID) -> Result<bool, Error> {
@@ -849,7 +849,7 @@ impl GameWorld {
     /// ability heat is sufficiently low.
     ///
     /// * GameError::InvalidResearchLevel - the ability has not been researched.
-    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a healer.
     pub fn is_overcharge_ready(&self, _id: UnitID) -> Result<bool, Error> {
@@ -912,7 +912,7 @@ impl GameWorld {
     /// given direction. There must be space in that direction, and the unit
     /// must be ready to move.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a rocket.
     /// * GameError::InvalidLocation - the location is off the map.
@@ -931,7 +931,7 @@ impl GameWorld {
     /// Degarrisons a robot from the garrison of the specified rocket. Robots
     /// are degarrisoned in the order they garrisoned.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a rocket.
     /// * GameError::InvalidLocation - the location is off the map.
@@ -954,7 +954,7 @@ impl GameWorld {
     /// Whether the rocket can launch into space. The rocket can launch if the
     /// it has never been used before.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a rocket.
     pub fn can_launch_rocket(&mut self, id: UnitID, destination: MapLocation)
@@ -970,7 +970,7 @@ impl GameWorld {
     /// Launches the rocket into space. If the destination is not on the map of
     /// the other planet, the rocket flies off, never to be seen again.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a rocket.
     /// * GameError::InvalidAction - the rocket cannot launch.
