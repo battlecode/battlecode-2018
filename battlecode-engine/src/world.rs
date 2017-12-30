@@ -498,15 +498,14 @@ impl GameWorld {
         Ok(())
     }
 
-    /// Whether the robot can attack the given location, without taking into
+    /// Whether the robot can attack the given unit, without taking into
     /// account the unit's attack heat. Takes into account only the unit's
-    /// attack range, and the edge of the game map.
+    /// attack range, and the location of the unit.
     ///
     /// * GameError::NoSuchUnit - the unit does not exist.
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a robot.
-    /// * GameError::InvalidLocation - the location is outside the vision range.
-    pub fn can_attack(&self, _id: UnitID, _location: MapLocation) -> Result<bool, Error> {
+    /// * GameError::InappropriateUnitType - the unit is a healer, or not a robot.
+    pub fn can_attack(&self, _id: UnitID, _target_id: UnitID) -> Result<bool, Error> {
         unimplemented!();
     }
 
@@ -515,20 +514,18 @@ impl GameWorld {
     ///
     /// * GameError::NoSuchUnit - the unit does not exist.
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a robot.
+    /// * GameError::InappropriateUnitType - the unit is a healer, or not a robot.
     pub fn is_attack_ready(&self, _id: UnitID) -> Result<bool, Error> {
         unimplemented!();
     }
 
-    /// Attacks the location, dealing the unit's standard amount of damage to
-    /// the unit at that location if it exists.
+    /// Attacks the robot, dealing the unit's standard amount of damage.
     ///
     /// * GameError::NoSuchUnit - the unit does not exist.
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a robot.
-    /// * GameError::InvalidLocation - the location is outside the vision range.
+    /// * GameError::InappropriateUnitType - the unit is a healer, or not a robot.
     /// * GameError::InvalidAction - the robot cannot attack that location.
-    pub fn attack(&mut self, _id: UnitID, _location: MapLocation) -> Result<(), Error> {
+    pub fn attack(&mut self, _id: UnitID, _target_id: UnitID) -> Result<(), Error> {
         unimplemented!();
     }
 
@@ -710,7 +707,7 @@ impl GameWorld {
     /// * GameError::InappropriateUnitType - the unit is not a worker.
     /// * GameError::InvalidLocation - the location is off the map.
     /// * GameError::InvalidAction - the worker is not ready to replicate.
-    pub fn replicate(&mut self, _id: UnitID, direction: Direction)
+    pub fn replicate(&mut self, _id: UnitID, _direction: Direction)
                      -> Result<(), Error> {
         unimplemented!();
     }
@@ -718,18 +715,158 @@ impl GameWorld {
     // ************************************************************************
     // *************************** KNIGHT METHODS *****************************
     // ************************************************************************
-    
+
+    /// Whether the knight can javelin the given location, without taking into
+    /// account the knight's ability heat. Takes into account only the knight's
+    /// ability range, and the edge of the game map.
+    ///
+    /// * GameError::InvalidResearchLevel - the ability has not been researched.
+    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a knight.
+    /// * GameError::InvalidLocation - the location is outside the vision range.
+    pub fn can_javelin(&self, _id: UnitID, _location: MapLocation) -> Result<bool, Error> {
+        unimplemented!();
+    }
+
+    /// Whether the knight is ready to javelin. Tests whether the knight's
+    /// ability heat is sufficiently low.
+    ///
+    /// * GameError::InvalidResearchLevel - the ability has not been researched.
+    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a knight.
+    pub fn is_javelin_ready(&self, _id: UnitID) -> Result<bool, Error> {
+        unimplemented!();
+    }
+
+    /// Attacks the location, dealing the unit's standard amount of damage to
+    /// the unit at that location if it exists.
+    ///
+    /// * GameError::InvalidResearchLevel - the ability has not been researched.
+    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a knight.
+    /// * GameError::InvalidLocation - the location is outside the vision range.
+    /// * GameError::InvalidAction - the knight cannot javelin that location.
+    pub fn javelin(&mut self, _id: UnitID, _location: MapLocation) -> Result<(), Error> {
+        unimplemented!();
+    }
+
     // ************************************************************************
     // *************************** RANGER METHODS *****************************
     // ************************************************************************
-    
+
     // ************************************************************************
     // **************************** MAGE METHODS ******************************
     // ************************************************************************
     
+    /// Whether the mage can blink to the given location, without taking into
+    /// account the mage's ability heat. Takes into account only the mage's
+    /// ability range, the map terrain, positions of other units, and the edge
+    /// of the game map.
+    ///
+    /// * GameError::InvalidResearchLevel - the ability has not been researched.
+    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a mage.
+    /// * GameError::InvalidLocation - the location is outside the vision range.
+    pub fn can_blink(&self, _id: UnitID, _location: MapLocation) -> Result<bool, Error> {
+        unimplemented!();
+    }
+
+    /// Whether the mage is ready to blink. Tests whether the mage's ability
+    /// heat is sufficiently low.
+    ///
+    /// * GameError::InvalidResearchLevel - the ability has not been researched.
+    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a mage.
+    pub fn is_blink_ready(&self, _id: UnitID) -> Result<bool, Error> {
+        unimplemented!();
+    }
+
+    /// Blinks the mage to the given location.
+    ///
+    /// * GameError::InvalidResearchLevel - the ability has not been researched.
+    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a mage.
+    /// * GameError::InvalidAction - the mage cannot blink to that location.
+    pub fn blink(&mut self, _id: UnitID, _location: MapLocation) -> Result<(), Error> {
+        unimplemented!();
+    }
+
     // ************************************************************************
     // *************************** HEALER METHODS *****************************
     // ************************************************************************
+
+    /// Whether the healer can heal the given robot, without taking into
+    /// account the healer's attack heat. Takes into account only the healer's
+    /// attack range, and the location of the robot.
+    ///
+    /// * GameError::NoSuchUnit - a unit does not exist.
+    /// * GameError::TeamNotAllowed - the first unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the healer or robot is not the right type.
+    pub fn can_heal(&self, _healer_id: UnitID, _robot_id: UnitID) -> Result<bool, Error> {
+        unimplemented!();
+    }
+
+    /// Whether the healer is ready to heal. Tests whether the healer's attack
+    /// heat is sufficiently low.
+    ///
+    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a healer.
+    pub fn is_heal_ready(&self, _id: UnitID) -> Result<bool, Error> {
+        unimplemented!();
+    }
+
+    /// Heals the robot, dealing the healer's standard amount of "damage".
+    ///
+    /// * GameError::NoSuchUnit - a unit does not exist.
+    /// * GameError::TeamNotAllowed - the first unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the healer or robot is not the right type.
+    /// * GameError::InvalidAction - the healer cannot heal that unit.
+    pub fn heal(&mut self, _healer_id: UnitID, _robot_id: UnitID) -> Result<(), Error> {
+        unimplemented!();
+    }
+
+    /// Whether the healer can overcharge the given robot, without taking into
+    /// account the healer's ability heat. Takes into account only the healer's
+    /// ability range, and the location of the robot.
+    ///
+    /// * GameError::InvalidResearchLevel - the ability has not been researched.
+    /// * GameError::NoSuchUnit - a unit does not exist.
+    /// * GameError::TeamNotAllowed - the first unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the healer or robot is not the right type.
+    pub fn can_oevrcharge(&self, _healer_id: UnitID, _robot_id: UnitID)
+                          -> Result<bool, Error> {
+        unimplemented!();
+    }
+
+    /// Whether the healer is ready to overcharge. Tests whether the healer's
+    /// ability heat is sufficiently low.
+    ///
+    /// * GameError::InvalidResearchLevel - the ability has not been researched.
+    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a healer.
+    pub fn is_overcharge_ready(&self, _id: UnitID) -> Result<bool, Error> {
+        unimplemented!();
+    }
+
+    /// Overcharges the robot, resetting the robot's cooldowns.
+    ///
+    /// * GameError::InvalidResearchLevel - the ability has not been researched.
+    /// * GameError::NoSuchUnit - a unit does not exist.
+    /// * GameError::TeamNotAllowed - the first unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the healer or robot is not the right type.
+    /// * GameError::InvalidAction - the healer cannot overcharge that unit.
+    pub fn overcharge(&mut self, _healer_id: UnitID, _robot_id: UnitID)
+                      -> Result<(), Error> {
+        unimplemented!();
+    }
 
     // ************************************************************************
     // ************************** FACTORY METHODS *****************************
