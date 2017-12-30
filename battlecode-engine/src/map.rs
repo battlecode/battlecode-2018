@@ -22,8 +22,10 @@ pub struct GameMap {
     pub earth_map: PlanetMap,
     /// Mars map.
     pub mars_map: PlanetMap,
-    /// Weather pattern.
-    pub weather: WeatherPattern,
+    /// The asteroid strike pattern on Mars.
+    pub asteroids: AsteroidPattern,
+    /// The orbit pattern that determines a rocket's flight duration.
+    pub orbit: OrbitPattern,
 }
 
 impl GameMap {
@@ -31,7 +33,8 @@ impl GameMap {
     pub fn validate(&self) -> Result<(), Error> {
         self.earth_map.validate()?;
         self.mars_map.validate()?;
-        self.weather.validate()?;
+        self.asteroids.validate()?;
+        self.orbit.validate()?;
         Ok(())
     }
 
@@ -350,32 +353,6 @@ impl OrbitPattern {
     }
 }
 
-/// The weather patterns defined in the game world.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WeatherPattern {
-    /// The asteroid strike pattern on Mars.
-    pub asteroids: AsteroidPattern,
-    /// The orbit pattern that determines a rocket's flight duration.
-    pub orbit: OrbitPattern,
-}
-
-impl WeatherPattern {
-    /// Construct a new weather pattern.
-    pub fn new(asteroids: AsteroidPattern, orbit: OrbitPattern) -> WeatherPattern {
-        WeatherPattern {
-            asteroids: asteroids,
-            orbit: orbit,
-        }
-    }
-
-    /// Validate the weather pattern.
-    pub fn validate(&self) -> Result<(), Error> {
-        self.asteroids.validate()?;
-        self.orbit.validate()?;
-        Ok(())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use fnv::FnvHashMap;
@@ -445,7 +422,7 @@ mod tests {
     }
 
     #[test]
-    fn get_asteroid() {
+    fn test_asteroid() {
         let asteroid_map = gen_asteroid_map(ASTEROID_ROUND_MAX, ASTEROID_ROUND_MAX);
         let asteroids = AsteroidPattern::new(&asteroid_map);
         for round in 1..ROUND_LIMIT {
@@ -458,7 +435,7 @@ mod tests {
     }
 
     #[test]
-    fn get_duration() {
+    fn test_duration() {
         let period = 200;
         let orbit = OrbitPattern::new(150, period, 250);
         for i in 0..5 {

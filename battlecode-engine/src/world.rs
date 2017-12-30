@@ -142,8 +142,11 @@ pub struct GameWorld {
     /// landing on the given round.
     rocket_landings: FnvHashMap<Rounds, Vec<(UnitID, MapLocation)>>,
 
-    /// The weather patterns.
-    weather: WeatherPattern,
+    /// The asteroid strike pattern on Mars.
+    asteroids: AsteroidPattern,
+
+    /// The orbit pattern that determines a rocket's flight duration.
+    orbit: OrbitPattern,
 
     /// The state of each planet.
     planet_states: FnvHashMap<Planet, PlanetInfo>,
@@ -173,7 +176,8 @@ impl GameWorld {
             units: FnvHashMap::default(),
             units_by_loc: FnvHashMap::default(),
             rocket_landings: FnvHashMap::default(),
-            weather: map.weather,
+            asteroids: map.asteroids,
+            orbit: map.orbit,
             planet_states: planet_states,
             team_states: team_states,
         })
@@ -189,8 +193,8 @@ impl GameWorld {
         team_states.insert(Team::Red, TeamInfo::new(Team::Red, 6147));
         team_states.insert(Team::Blue, TeamInfo::new(Team::Blue, 6147));
 
-        let weather = WeatherPattern::new(AsteroidPattern::new(&FnvHashMap::default()),
-                                          OrbitPattern::new(100, 100, 400));
+        let asteroids = AsteroidPattern::new(&FnvHashMap::default());
+        let orbit = OrbitPattern::new(100, 100, 400);
 
         GameWorld {
             round: 1,
@@ -198,11 +202,101 @@ impl GameWorld {
             units: FnvHashMap::default(),
             units_by_loc: FnvHashMap::default(),
             rocket_landings: FnvHashMap::default(),
-            weather: weather,
+            asteroids: asteroids,
+            orbit: orbit,
             planet_states: planet_states,
             team_states: team_states,
         }
     }
+
+    // ************************************************************************
+    // ************************** GENERAL METHODS *****************************
+    // ************************************************************************
+
+    /// The current round, starting at round 1 and up to `ROUND_LIMIT` rounds.
+    /// A round consists of a turn from each team on each planet.
+    pub fn round(&self) -> Rounds {
+        unimplemented!();
+    }
+
+    /// The current planet.
+    pub fn planet(&self) -> Planet {
+        unimplemented!();
+    }
+
+    /// The team whose turn it is.
+    pub fn team(&self) -> Team {
+        unimplemented!();
+    }
+
+    /// All the units within the current team's vision range.
+    pub fn units(&self) -> Vec<Unit> {
+        unimplemented!();
+    }
+
+    /// All the units within the current team's vision range, by ID.
+    pub fn units_by_id(&self) -> FnvHashMap<UnitID, Unit> {
+        unimplemented!();
+    }
+
+    /// All the units within the current team's vision range, by location.
+    pub fn units_by_loc(&self) -> FnvHashMap<MapLocation, UnitID> {
+        unimplemented!();
+    }
+
+    /// The rockets in space that belong to the current team, including
+    /// their landing rounds and locations, by landing round.
+    pub fn rockets_in_space(&self) -> FnvHashMap<Rounds, Vec<Unit>> {
+        unimplemented!();
+    }
+
+    /// The starting map of the given planet. Includes the map's planet,
+    /// dimensions, impassable terrain, and initial units and karbonite.
+    pub fn starting_map(&self, _planet: Planet) -> PlanetMap {
+        unimplemented!();
+    }
+
+    /// The karbonite at the given location.
+    ///
+    /// * GameError::InvalidLocation - the location is outside the vision range.
+    pub fn karbonite_at(&self, _location: MapLocation) -> Result<u32, Error> {
+        unimplemented!();
+    }
+
+    // ************************************************************************
+    // ************************** WEATHER METHODS *****************************
+    // ************************************************************************
+
+    /// The asteroid strike pattern on Mars.
+    pub fn asteroid_pattern(&self) -> AsteroidPattern {
+        unimplemented!();
+    }
+
+    /// The orbit pattern that determines a rocket's flight duration.
+    pub fn orbit_pattern(&self) -> OrbitPattern {
+        unimplemented!();
+    }
+
+    /// The current flight time if a rocket were to be launched this round.
+    /// Does not take into account any research done on rockets.
+    pub fn current_flight_time(&self) -> Rounds {
+        unimplemented!();
+    }
+
+    fn process_asteroids(&mut self) {
+        if self.asteroids.get_asteroid(self.round).is_some() {
+            let (location, karbonite) = {
+                let asteroid = self.asteroids.get_asteroid(self.round).unwrap();
+                (asteroid.location, asteroid.karbonite)
+            };
+            let planet_info = self.get_planet_info_mut(location.planet);
+            planet_info.karbonite[location.y as usize][location.x as usize] += karbonite;
+        }
+    }
+
+    // ************************************************************************
+    // *********************** COMMUNICATION METHODS **************************
+    // ************************************************************************
 
     // ************************************************************************
     // ****************************** ACCESSORS *******************************
@@ -430,25 +524,6 @@ impl GameWorld {
     }
 
     // ************************************************************************
-    // *********************** COMMUNICATION METHODS **************************
-    // ************************************************************************
-
-    // ************************************************************************
-    // ************************** WEATHER METHODS *****************************
-    // ************************************************************************
-
-    fn process_asteroids(&mut self) {
-        if self.weather.asteroids.get_asteroid(self.round).is_some() {
-            let (location, karbonite) = {
-                let asteroid = self.weather.asteroids.get_asteroid(self.round).unwrap();
-                (asteroid.location, asteroid.karbonite)
-            };
-            let planet_info = self.get_planet_info_mut(location.planet);
-            planet_info.karbonite[location.y as usize][location.x as usize] += karbonite;
-        }
-    }
-
-    // ************************************************************************
     // ************************* RESEARCH METHODS *****************************
     // ************************************************************************
 
@@ -659,7 +734,7 @@ impl GameWorld {
             let takeoff_loc = self.get_unit(id)?.location().unwrap();
             self.remove_unit(id)?;
             self.get_unit_mut(id)?.launch_rocket()?;
-            let landing_round = self.round + self.weather.orbit.get_duration(self.round as i32) as u32;
+            let landing_round = self.round + self.orbit.get_duration(self.round as i32) as u32;
             if self.rocket_landings.contains_key(&landing_round) {
                 self.rocket_landings.get_mut(&landing_round).unwrap().push((id, destination));
             } else {
