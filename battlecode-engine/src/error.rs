@@ -20,6 +20,10 @@ pub enum GameError {
     #[fail(display = "The location is off the map or otherwise invalid.")]
     InvalidLocation,
 
+    /// You are not allowed to control units on the other team.
+    #[fail(display = "You are not allowed to control units on the other team.")]
+    TeamNotAllowed,
+
     /// The level of research is invalid.
     #[fail(display = "The level of research is invalid.")]
     InvalidResearchLevel,

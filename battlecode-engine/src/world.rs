@@ -127,10 +127,10 @@ impl Player {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GameWorld {
     /// The current round, starting at 1.
-    pub round: Rounds,
+    round: Rounds,
 
     /// The player whose turn it is.
-    pub player_to_move: Player,
+    player_to_move: Player,
 
     /// All the units on the map.
     units: FnvHashMap<UnitID, Unit>,
@@ -143,17 +143,20 @@ pub struct GameWorld {
     rocket_landings: FnvHashMap<Rounds, Vec<(UnitID, MapLocation)>>,
 
     /// The weather patterns.
-    pub weather: WeatherPattern,
+    weather: WeatherPattern,
 
     /// The state of each planet.
-    pub planet_states: FnvHashMap<Planet, PlanetInfo>,
+    planet_states: FnvHashMap<Planet, PlanetInfo>,
 
     /// The state of each team.
-    pub team_states: FnvHashMap<Team, TeamInfo>,
+    team_states: FnvHashMap<Team, TeamInfo>,
 }
 
 impl GameWorld {
     /// Initialize a new game world with maps from both planets.
+    ///
+    /// Possible errors:
+    /// * InvalidMapObject - the map is invalid, check the specs.
     pub fn new(map: GameMap) -> Result<GameWorld, Error> {
         map.validate()?;
 
@@ -178,7 +181,7 @@ impl GameWorld {
     }
 
     /// Creates a GameWorld for testing purposes.
-    pub fn test_world() -> GameWorld {
+    fn test_world() -> GameWorld {
         let mut planet_states = FnvHashMap::default();
         planet_states.insert(Planet::Earth, PlanetInfo::test_planet_info(Planet::Earth));
         planet_states.insert(Planet::Mars, PlanetInfo::test_planet_info(Planet::Mars));
@@ -214,7 +217,7 @@ impl GameWorld {
         }
     }
     
-    pub fn get_planet_info_mut(&mut self, planet: Planet) -> &mut PlanetInfo {
+    fn get_planet_info_mut(&mut self, planet: Planet) -> &mut PlanetInfo {
         if let Some(planet_info) = self.planet_states.get_mut(&planet) {
             planet_info
         } else {
@@ -238,7 +241,7 @@ impl GameWorld {
         }
     }
 
-    pub fn get_unit(&self, id: UnitID) -> Result<&Unit, Error> {
+    fn get_unit(&self, id: UnitID) -> Result<&Unit, Error> {
         if let Some(unit) = self.units.get(&id) {
             Ok(unit)
         } else {
@@ -259,7 +262,7 @@ impl GameWorld {
     // ************************************************************************
 
     /// Places a unit onto the map at the given location. Assumes the given square is occupiable.
-    pub fn place_unit(&mut self, id: UnitID) -> Result<(), Error> {
+    fn place_unit(&mut self, id: UnitID) -> Result<(), Error> {
         let location = self.get_unit(id)?.location().unwrap();
         if self.is_occupiable(location)? {
             self.units_by_loc.insert(location, id);
@@ -271,7 +274,7 @@ impl GameWorld {
 
     /// Creates and inserts a new unit into the game world, so that it can be
     /// referenced by ID.
-    pub fn create_unit(&mut self, team: Team, location: MapLocation,
+    fn create_unit(&mut self, team: Team, location: MapLocation,
                        unit_type: UnitType) -> Result<UnitID, Error> {
         let id = self.get_team_info_mut(team).id_generator.next_id();
         let level = self.get_team_info(team).get_level(&unit_type);
@@ -283,7 +286,7 @@ impl GameWorld {
     }
 
     /// Removes a unit from the map. Assumes the unit is on the map.
-    pub fn remove_unit(&mut self, id: UnitID) -> Result<(), Error> {
+    fn remove_unit(&mut self, id: UnitID) -> Result<(), Error> {
         let location = {
             let unit = self.get_unit_mut(id)?;
             let location = unit.location();
@@ -295,12 +298,12 @@ impl GameWorld {
     }
 
     /// Deletes a unit. Unit should be removed from map first.
-    pub fn delete_unit(&mut self, id: UnitID) {
+    fn delete_unit(&mut self, id: UnitID) {
         self.units.remove(&id);
     }
 
     /// Destroys a unit.
-    pub fn destroy_unit(&mut self, id: UnitID) -> Result<(), Error> {
+    fn destroy_unit(&mut self, id: UnitID) -> Result<(), Error> {
         if self.get_unit(id)?.location().is_some() {
             self.remove_unit(id)?;
             self.get_unit_mut(id)?.destroy();
@@ -319,15 +322,27 @@ impl GameWorld {
     // ************************* LOCATION METHODS *****************************
     // ************************************************************************
 
-    /// Returns whether the square is clear for a new unit to occupy, either by movement or by construction.
-    pub fn is_occupiable(&self, location: MapLocation) -> Result<bool, Error> {
+    /// Whether the location is clear for a unit to occupy, either by movement
+    /// or by construction.
+    ///
+    /// Possible errors:
+    /// * InvalidLocation - the location is off the map.
+    fn is_occupiable(&self, location: MapLocation) -> Result<bool, Error> {
         let planet_info = &self.get_planet_info(location.planet);
         Ok(planet_info.map.is_passable_terrain_at(location)? &&
             !self.units_by_loc.contains_key(&location))
     }
 
-    /// Tests whether the given unit can move.
+    /// Whether the robot can move in the given direction. To move, the
+    /// robots' movement heat must be sufficiently low, and the location must
+    /// be occupiable and on the map.
+    ///
+    /// Possible errors:
+    /// * NoSuchUnit - the unit does not exist.
+    /// * TeamNotAllowed - the unit is not on the current player's team.
+    /// * InappropriateUnitType - the unit is not a robot.
     pub fn can_move(&self, id: UnitID, direction: Direction) -> Result<bool, Error> {
+        // TODO: should return false if off the map
         let unit = self.get_unit(id)?;
         if let Some(location) = unit.location() {
             Ok(unit.is_move_ready()? && self.is_occupiable(location.add(direction))?)
@@ -336,8 +351,14 @@ impl GameWorld {
         }
     }
 
-    // Given that moving an unit comprises many edits to the GameWorld, it makes sense to define this here.
-    pub fn move_unit(&mut self, id: UnitID, direction: Direction) -> Result<(), Error> {
+    /// Moves the robot in the given direction.
+    ///
+    /// Possible errors:
+    /// * NoSuchUnit - the unit does not exist.
+    /// * TeamNotAllowed - the unit is not on the current player's team.
+    /// * InappropriateUnitType - the unit is not a robot.
+    /// * InvalidAction - the robot cannot move.
+    pub fn move_robot(&mut self, id: UnitID, direction: Direction) -> Result<(), Error> {
         let dest = self.get_unit(id)?.location().ok_or(GameError::InvalidAction)?.add(direction);
         if self.can_move(id, direction)? {
             self.remove_unit(id)?;
@@ -354,7 +375,7 @@ impl GameWorld {
     // ************************************************************************
 
     /// Deals damage to any unit in the target square, potentially destroying it.
-    pub fn damage_location(&mut self, location: MapLocation, damage: i32) -> Result<(), Error> {
+    fn damage_location(&mut self, location: MapLocation, damage: i32) -> Result<(), Error> {
         let id = if let Some(id) = self.units_by_loc.get(&location) {
             *id
         } else {
@@ -369,7 +390,26 @@ impl GameWorld {
     }
 
     // ************************************************************************
-    // ************************** RESEARCH METHODS ****************************
+    // *********************** COMMUNICATION METHODS **************************
+    // ************************************************************************
+
+    // ************************************************************************
+    // ************************** WEATHER METHODS *****************************
+    // ************************************************************************
+
+    fn process_asteroids(&mut self) {
+        if self.weather.asteroids.get_asteroid(self.round).is_some() {
+            let (location, karbonite) = {
+                let asteroid = self.weather.asteroids.get_asteroid(self.round).unwrap();
+                (asteroid.location, asteroid.karbonite)
+            };
+            let planet_info = self.get_planet_info_mut(location.planet);
+            planet_info.karbonite[location.y as usize][location.x as usize] += karbonite;
+        }
+    }
+
+    // ************************************************************************
+    // ************************* RESEARCH METHODS *****************************
     // ************************************************************************
 
     /// Returns research info of the current player.
@@ -391,6 +431,9 @@ impl GameWorld {
 
     /// Returns the cost of a level, in rounds, of a research branch. Errors if the
     /// level can't be researched i.e. not in the range [0, get_max_level(branch)].
+    ///
+    /// Possible errors:
+    /// * InvalidResearchLevel - the research level for this branch is invalid.
     pub fn get_research_cost(branch: &Branch, level: Level) -> Result<Rounds, Error> {
         research::get_cost(branch, level)
     }
@@ -447,10 +490,41 @@ impl GameWorld {
     }
 
     // ************************************************************************
+    // *************************** WORKER METHODS *****************************
+    // ************************************************************************
+
+    // ************************************************************************
+    // *************************** KNIGHT METHODS *****************************
+    // ************************************************************************
+    
+    // ************************************************************************
+    // *************************** RANGER METHODS *****************************
+    // ************************************************************************
+    
+    // ************************************************************************
+    // **************************** MAGE METHODS ******************************
+    // ************************************************************************
+    
+    // ************************************************************************
+    // *************************** HEALER METHODS *****************************
+    // ************************************************************************
+
+    // ************************************************************************
+    // ************************** FACTORY METHODS *****************************
+    // ************************************************************************
+
+    // ************************************************************************
     // *************************** ROCKET METHODS *****************************
     // ************************************************************************
 
-    // Tests whether the given robot can garrison inside the given rocket.
+    /// Whether the robot can garrison inside the rocket. The robot must be
+    /// ready to move and adjacent to the rocket. The rocket must be on the
+    /// same team and have enough space.
+    ///
+    /// Possible errors:
+    /// * NoSuchUnit - a unit does not exist.
+    /// * TeamNotAllowed - the rocket is not on the current player's team.
+    /// * InappropriateUnitType - the robot or rocket are the wrong type.
     pub fn can_garrison(&self, robot_id: UnitID, rocket_id: UnitID)
                         -> Result<bool, Error> {
         let robot = self.get_unit(robot_id)?;
@@ -458,7 +532,13 @@ impl GameWorld {
         rocket.can_garrison(robot)
     }
 
-    /// Moves a robot into the garrison of the specified rocket.
+    /// Moves the robot into the garrison of the rocket.
+    ///
+    /// Possible errors:
+    /// * NoSuchUnit - a unit does not exist.
+    /// * TeamNotAllowed - the robot or rocket is not on the current player's team.
+    /// * InappropriateUnitType - the robot or rocket are the wrong type.
+    /// * InvalidAction - the robot cannot garrison inside the rocket.
     pub fn garrison(&mut self, robot_id: UnitID, rocket_id: UnitID)
                     -> Result<(), Error> {
         if self.can_garrison(robot_id, rocket_id)? {
@@ -474,6 +554,12 @@ impl GameWorld {
     /// Tests whether the given rocket is able to degarrison a unit in the
     /// given direction. There must be space in that direction, and the unit
     /// must be ready to move.
+    ///
+    /// Possible errors:
+    /// * NoSuchUnit - the unit does not exist.
+    /// * TeamNotAllowed - the unit is not on the current player's team.
+    /// * InappropriateUnitType - the unit is not a rocket.
+    /// * InvalidLocation - the location is off the map.
     pub fn can_degarrison(&self, rocket_id: UnitID, direction: Direction)
                           -> Result<bool, Error> {
         let rocket = self.get_unit(rocket_id)?;
@@ -488,6 +574,13 @@ impl GameWorld {
 
     /// Degarrisons a robot from the garrison of the specified rocket. Robots
     /// are degarrisoned in the order they garrisoned.
+    ///
+    /// Possible errors:
+    /// * NoSuchUnit - the unit does not exist.
+    /// * TeamNotAllowed - the unit is not on the current player's team.
+    /// * InappropriateUnitType - the unit is not a rocket.
+    /// * InvalidLocation - the location is off the map.
+    /// * InvalidAction - the rocket cannot degarrison a unit.
     pub fn degarrison(&mut self, rocket_id: UnitID, direction: Direction)
                       -> Result<(), Error> {
         if self.can_degarrison(rocket_id, direction)? {
@@ -503,6 +596,13 @@ impl GameWorld {
         }
     }
 
+    /// Whether the rocket can launch into space. The rocket can launch if the
+    /// it has never been used before.
+    ///
+    /// Possible errors:
+    /// * NoSuchUnit - the unit does not exist.
+    /// * TeamNotAllowed - the unit is not on the current player's team.
+    /// * InappropriateUnitType - the unit is not a rocket.
     pub fn can_launch_rocket(&mut self, id: UnitID, destination: MapLocation)
                              -> Result<bool, Error> {
         let rocket = self.get_unit(id)?;
@@ -513,6 +613,14 @@ impl GameWorld {
         Ok(map.on_map(destination) && map.is_passable_terrain_at(destination)?)
     }
 
+    /// Launches the rocket into space. If the destination is not on the map of
+    /// the other planet, the rocket flies off, never to be seen again.
+    ///
+    /// Possible errors:
+    /// * NoSuchUnit - the unit does not exist.
+    /// * TeamNotAllowed - the unit is not on the current player's team.
+    /// * InappropriateUnitType - the unit is not a rocket.
+    /// * InvalidAction - the rocket cannot launch.
     pub fn launch_rocket(&mut self, id: UnitID, destination: MapLocation)
                          -> Result<(), Error> {
         if self.can_launch_rocket(id, destination)? {
@@ -534,6 +642,8 @@ impl GameWorld {
         }
     }
 
+    /// Lands the rocket, damaging the units in adjacent squares. The rocket
+    /// is destroyed if it lands on a factory, rocket, or impassable terrain.
     fn land_rocket(&mut self, id: UnitID, destination: MapLocation)
                    -> Result<(), Error> {
         if self.units_by_loc.contains_key(&destination) {
@@ -563,6 +673,12 @@ impl GameWorld {
     // ****************************** GAME LOOP *******************************
     // ************************************************************************
 
+    /// Updates the current player in the game. If a round of four turns has
+    /// finished, also processes the end of the round. This includes updating
+    /// unit cooldowns, rocket landings, asteroid strikes, research, etc.
+    ///
+    /// Possible errors:
+    /// * InternalEngineError - something happened here...
     pub fn next_turn(&mut self) -> Result<(), Error> {
         self.player_to_move = match self.player_to_move {
             Player { team: Team::Red, planet: Planet::Earth } => Player { team: Team::Blue, planet: Planet::Earth},
@@ -577,7 +693,7 @@ impl GameWorld {
         Ok(())
     }
 
-    pub fn next_round(&mut self) -> Result<(), Error> {
+    fn next_round(&mut self) -> Result<(), Error> {
         self.round += 1;
 
         // Update unit cooldowns.
@@ -596,14 +712,7 @@ impl GameWorld {
         }
 
         // Process any potential asteroid impacts.
-        if self.weather.asteroids.get_asteroid(self.round).is_some() {
-            let (location, karbonite) = {
-                let asteroid = self.weather.asteroids.get_asteroid(self.round).unwrap();
-                (asteroid.location, asteroid.karbonite)
-            };
-            let planet_info = self.get_planet_info_mut(location.planet);
-            planet_info.karbonite[location.y as usize][location.x as usize] += karbonite;
-        }
+        self.process_asteroids();
 
         // Update the current research and process any completed upgrades.
         self.process_research(Team::Red)?;
@@ -615,7 +724,7 @@ impl GameWorld {
     pub fn apply(&mut self, delta: Delta) -> Result<(), Error> {
         match delta {
             Delta::EndTurn => self.next_turn(),
-            Delta::Move{id, direction} => self.move_unit(id, direction),
+            Delta::Move{id, direction} => self.move_robot(id, direction),
             _ => Ok(()),
         }
     }
@@ -663,23 +772,23 @@ mod tests {
         // it can move northeast.
         assert![!world.can_move(a, Direction::East).unwrap()];
         assert![world.can_move(a, Direction::Northeast).unwrap()];
-        world.move_unit(a, Direction::Northeast).unwrap();
+        world.move_robot(a, Direction::Northeast).unwrap();
 
         // A is now one square north of B. B cannot move north to
         // A's new location, but can move west to A's old location.
         assert![!world.can_move(b, Direction::North).unwrap()];
         assert![world.can_move(b, Direction::West).unwrap()];
-        world.move_unit(b, Direction::West).unwrap();
+        world.move_robot(b, Direction::West).unwrap();
 
         // A cannot move again until its cooldowns are reset.
         assert![!world.can_move(a, Direction::South).unwrap()];
-        assert![world.move_unit(a, Direction::South).is_err()];
+        assert![world.move_robot(a, Direction::South).is_err()];
         assert![world.next_round().is_ok()];
 
         // Finally, let's test that A cannot move back to its old square.
         assert![!world.can_move(a, Direction::Southwest).unwrap()];
         assert![world.can_move(a, Direction::South).unwrap()];
-        world.move_unit(a, Direction::South).unwrap();
+        world.move_robot(a, Direction::South).unwrap();
     }
 
     #[test]
@@ -761,7 +870,7 @@ mod tests {
 
         // Boarding fails when the robot has already moved.
         // uncomment when movement cooldown is implemented
-        //assert![world.move_unit(invalid_boarder_too_far, Direction::South).is_ok()];
+        //assert![world.move_robot(invalid_boarder_too_far, Direction::South).is_ok()];
         //let invalid_boarder_already_moved = invalid_boarder_too_far;
         //assert![!world.get_unit(invalid_boarder_already_moved).unwrap().is_move_ready()];
         //assert![world.garrison(invalid_boarder_already_moved, rocket).is_err()];
