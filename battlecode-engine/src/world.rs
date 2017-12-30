@@ -80,6 +80,9 @@ pub struct TeamInfo {
 
     /// The current state of research.
     research: ResearchInfo,
+
+    /// The karbonite in the team's resource pool.
+    karbonite: u32,
 }
 
 impl TeamInfo {
@@ -90,6 +93,7 @@ impl TeamInfo {
             id_generator: IDGenerator::new(team, seed),
             team_arrays: FnvHashMap::default(),
             research: ResearchInfo::new(),
+            karbonite: KARBONITE_STARTING,
         }
     }
 
@@ -260,6 +264,11 @@ impl GameWorld {
     ///
     /// * GameError::InvalidLocation - the location is outside the vision range.
     pub fn karbonite_at(&self, _location: MapLocation) -> Result<u32, Error> {
+        unimplemented!();
+    }
+
+    /// The karbonite in the team's resource pool.
+    pub fn karbonite(&self) -> u32 {
         unimplemented!();
     }
 
@@ -605,6 +614,106 @@ impl GameWorld {
     // ************************************************************************
     // *************************** WORKER METHODS *****************************
     // ************************************************************************
+
+    /// Whether the worker is ready to harvest. The worker cannot already have
+    /// performed an action this round.
+    ///
+    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a worker.
+    pub fn can_harvest(&self, _worker_id: UnitID) -> Result<bool, Error> {
+        unimplemented!();
+    }
+
+    /// Harvests up to the worker's harvest amount of karbonite from the given
+    /// location, adding it to the team's resource pool.
+    ///
+    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a worker.
+    /// * GameError::InvalidLocation - the location is off the map.
+    /// * GameError::InvalidAction - the worker is not ready to harvest.
+    pub fn harvest(&mut self, _worker_id: UnitID, _direction: Direction)
+                   -> Result<(), Error> {
+        unimplemented!();
+    }
+
+    /// Whether the worker can blueprint a unit of the given type. The worker
+    /// can only blueprint factories, and rockets if Rocketry has been
+    /// researched. The team must have sufficient karbonite in its resource
+    /// pool. The worker cannot already have performed an action this round.
+    ///
+    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a worker, or the
+    ///   unit type is not a factory or rocket.
+    pub fn can_blueprint(&self, _worker_id: UnitID, _unit_type: UnitType)
+                         -> Result<bool, Error> {
+        unimplemented!();
+    }
+
+    /// Blueprints a unit of the given type in the given direction. Subtract
+    /// cost of that unit from the team's resource pool.
+    ///
+    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a worker, or the
+    ///   unit type is not a factory or rocket.
+    /// * GameError::InvalidLocation - the location is off the map.
+    /// * GameError::InvalidAction - the worker is not ready to blueprint.
+    pub fn blueprint(&mut self, _worker_id: UnitID, _unit_type: UnitType,
+                     direction: Direction) -> Result<(), Error> {
+        unimplemented!();
+    }
+
+    /// Whether the worker can build a blueprint with the given ID. The worker
+    /// and the blueprint must be adjacent to each other. The worker cannot
+    /// already have performed an action this round.
+    ///
+    /// * GameError::NoSuchUnit - a unit does not exist.
+    /// * GameError::TeamNotAllowed - a unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the worker or blueprint is the wrong
+    ///   type. A unit that has already been built is no longer a blueprint.
+    pub fn can_build(&self, _worker_id: UnitID, _blueprint_id: UnitID)
+                     -> Result<bool, Error> {
+        unimplemented!();
+    }
+
+    /// Blueprints a unit of the given type in the given direction. Subtract
+    /// cost of that unit from the team's resource pool.
+    ///
+    /// * GameError::NoSuchUnit - a unit does not exist.
+    /// * GameError::TeamNotAllowed - a unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit or blueprint is the wrong type.
+    /// * GameError::InvalidAction - the worker cannot build the blueprint.
+    pub fn build(&mut self, _worker_id: UnitID, _blueprint_id: UnitID)
+                 -> Result<(), Error> {
+        unimplemented!();
+    }
+
+    /// Whether the worker is ready to replicate. Tests that the worker's
+    /// ability heat is sufficiently low, and that the team has sufficient
+    /// karbonite in its resource pool.
+    ///
+    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a worker.
+    pub fn can_replicate(&self, _id: UnitID) -> Result<bool, Error> {
+        unimplemented!();
+    }
+
+    /// Replicates a worker in the given direction. Subtracts the cost of the
+    /// worker from the team's resource pool.
+    ///
+    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a worker.
+    /// * GameError::InvalidLocation - the location is off the map.
+    /// * GameError::InvalidAction - the worker is not ready to replicate.
+    pub fn replicate(&mut self, _id: UnitID, direction: Direction)
+                     -> Result<(), Error> {
+        unimplemented!();
+    }
 
     // ************************************************************************
     // *************************** KNIGHT METHODS *****************************

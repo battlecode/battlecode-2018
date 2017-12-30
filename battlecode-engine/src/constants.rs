@@ -47,6 +47,18 @@ pub const ORBIT_FLIGHT_MIN: i32 = 100;
 pub const ORBIT_FLIGHT_MAX: i32 = 400;
 
 // *********************************
+// ***** KARBONITE CONSTANTS *******
+// *********************************
+
+/// The starting amount of karbonite per team.
+pub const KARBONITE_STARTING: u32 = 100;
+/// The base amount of karbonite gained per turn.
+pub const KARBONITE_PER_ROUND: u32 = 10;
+/// The karbonite per round is decreased by 1 karbonite for every
+/// KARBONITE_DECREASE_RATIO karbonite in the stockpile.
+pub const KARBONITE_DECREASE_RATIO: u32 = 1500;
+
+// *********************************
 // ****** RESEARCH CONSTANTS *******
 // *********************************
 
