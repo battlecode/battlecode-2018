@@ -27,6 +27,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
 
     def __init__(self, num_players: int, state: bytes,
                  logging_level=logging.DEBUG, logging_file="server.log"):
+        # TODO handle loading state
         logging.basicConfig(filename=logging_file, level=logging_level)
         '''
         Initialize Game object
@@ -48,10 +49,10 @@ class Game(object): # pylint: disable=too-many-instance-attributes
 
         self.state = state
         self.started = False
+        self.game_over = False
 
         # Lock thread running player should hold
         self.running_lock = threading.RLock()
-
         self.this_turn_pid = 0 # The id of the player whose turn it is
 
     @property
@@ -116,7 +117,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
             client_id: The int of the client that this thread is related to
         '''
 
-        # sleep docker instance
+        # TODO sleep docker instance
 
         # Increment to the next player
         index = self.player_ids.index(self.this_turn_pid)
@@ -136,14 +137,16 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         This also handles waking the docker instances to start computing
         '''
 
-        while True:
+        logging.debug("Client %s: entered start turn", client_id)
+        while not self.game_over:
             time.sleep(0.05)
-            self.running_lock.acquire()
-            if  self.this_turn_pid == client_id:
-                break
-            self.running_lock.release()
+            if self.running_lock.acquire(timeout=0.1):
+                if  self.this_turn_pid == client_id:
+                    break
+                self.running_lock.release()
 
-        # Start Docker instance
+        logging.debug("Client %s: exit start turn", client_id)
+        # TODO Start Docker instance
         return
 
 
@@ -163,69 +166,28 @@ class Game(object): # pylint: disable=too-many-instance-attributes
 
         return data
 
-
-def get_next_message(recv_socket: socket.socket) -> object:
+class MessageSchema(object):
     '''
-    Returns the json loaded object of the next string that is sent over the
-    socket
-
-    Args:
-        socket: The socket that is trying to be read from
-
-    Returns:
-        An object, for our purposes this will be a dictionary, of the json
-        loaded string
+    This creates a message to send to the client.
+    The point of this class is to ensure that all the fields are there, so there
+    is no wierd parsing errors down the line
     '''
 
-    wrapped_socket = recv_socket.makefile('rb', 2)
-    try:
-        data = next(wrapped_socket)
-    except (StopIteration, IOError):
-        wrapped_socket.close()
-        recv_socket.close()
-        sys.exit(0)
-    except KeyboardInterrupt:
-        wrapped_socket.close()
-        recv_socket.close()
-        print("Cleaning up")
-        raise KeyboardInterrupt
-    finally:
-        wrapped_socket.close()
-
-    data = data.decode("utf-8").strip()
-    unpacked_data = json.loads(data)
-    return unpacked_data
-
-def send_message(send_socket: socket.socket, obj: object) -> None:
-    '''
-    Sends newline delimited message to socket
-    The object desired to be sent will be converted to a json and then encoded
-    and sent.
-
-    Args:
-        socket: socket to send it on must be wrapped in a fd
-        message: any object that wishes to be sent.
-
-    Returns:
-        None
-    '''
-
-    message = json.dumps(obj) + "\n"
-    encoded_message = message.encode()
-
-    wrapped_socket = send_socket.makefile('wb', 2)
-    try:
-        wrapped_socket.write(encoded_message)
-    except IOError:
-        wrapped_socket.close()
-        send_socket.close()
-        sys.exit(0)
-    except KeyboardInterrupt:
-        wrapped_socket.close()
-        raise KeyboardInterrupt
-    finally:
-        wrapped_socket.close()
-    return
+    def __init__(self, logged_in: bool, client_id: int, error: str, # pylint: disable=too-many-arguments
+                 game_started: bool, state_diff: bytes):# pylint: disable=too-many-arguments
+        '''
+        This function intializes the dictionary
+        '''
+        self.message = {}
+        assert isinstance(logged_in, bool), "logged_in wrong type"
+        assert isinstance(client_id, int), "client_id wrong type"
+        assert isinstance(error, str), "error wrong type"
+        assert isinstance(game_started, bool), "game_started wrong type"
+        self.message['logged_in'] = logged_in
+        self.message['client_id'] = client_id
+        self.message['error'] = error
+        self.message['game_started'] = game_started
+        self.message['state_diff'] = state_diff
 
 
 # TODO Maybe change this factory function to a class method?
@@ -252,7 +214,86 @@ def create_receive_handler(game: Game, dockers) -> socketserver.BaseRequestHandl
             '''
             self.game = game
             self.dockers = dockers
+            self.client_id = 0
+            self.error = ""
+            self.logged_in = False
             super(ReceiveHandler, self).__init__(*args, **kwargs)
+
+        def get_next_message(self) -> object:
+            '''
+            Returns the json loaded object of the next string that is sent over the
+            socket
+
+            Returns:
+                An object, for our purposes this will be a dictionary, of the json
+                loaded string
+            '''
+
+            recv_socket = self.request
+            game = self.game
+
+            wrapped_socket = recv_socket.makefile('rwb', 1)
+            logging.debug("Client %s: Waiting for next message", self.client_id)
+            try:
+                data = next(wrapped_socket)
+            except (StopIteration, IOError):
+                wrapped_socket.close()
+                recv_socket.close()
+                logging.warning("Client %s: Game Over", self.client_id)
+                game.game_over = True
+                sys.exit(0)
+            except KeyboardInterrupt:
+                wrapped_socket.close()
+                recv_socket.close()
+                game.game_over = True
+                logging.warning("Client %s: Game Over", self.client_id)
+                print("Cleaning up")
+                raise KeyboardInterrupt
+            finally:
+                wrapped_socket.close()
+
+            data = data.decode("utf-8").strip()
+            unpacked_data = json.loads(data)
+            return unpacked_data
+
+        def send_message(self, obj: object) -> None:
+            '''
+            Sends newline delimited message to socket
+            The object desired to be sent will be converted to a json and then encoded
+            and sent.
+
+            Args:
+                Obj: The object that wants to be serialized and sent over
+
+            Returns:
+                None
+            '''
+
+
+            send_socket = self.request
+
+            message = json.dumps(obj) + "\n"
+            encoded_message = message.encode()
+            logging.debug("Client %s: Sending message %s", self.client_id,
+                          encoded_message)
+
+            wrapped_socket = send_socket.makefile('rwb', 1)
+            try:
+                wrapped_socket.write(encoded_message)
+            except IOError:
+                self.game.game_over = True
+                wrapped_socket.close()
+                send_socket.close()
+                sys.exit(0)
+            except KeyboardInterrupt:
+                self.game.game_over = True
+                wrapped_socket.close()
+                send_socket.close()
+                sys.exit(0)
+            finally:
+                wrapped_socket.close()
+            return
+
 
         def handle(self):
             '''
@@ -260,73 +301,79 @@ def create_receive_handler(game: Game, dockers) -> socketserver.BaseRequestHandl
             time in this function.
             '''
 
-            logged_in = False
+            self.logged_in = False
             logging.debug("Client connected to server")
 
             # Handle Login phase
-            while not logged_in:
-                unpacked_data = get_next_message(self.request)
+            while not self.logged_in:
+                unpacked_data = self.get_next_message()
 
                 logging.debug("Received %s when trying to login", unpacked_data)
 
-                client_id = self.game.verify_login(unpacked_data)
+                verify_out = self.game.verify_login(unpacked_data)
 
-                error = ""
-                if not isinstance(client_id, int):
-                    # TODO Here we send the error message back
-                    # TODO Need to figure out what to do here
-                    error = client_id
+                self.error = ""
+                if not isinstance(verify_out, int):
+                    self.error = verify_out
                     logging.warning("Client failed to log in error: %s",
-                                    client_id)
+                                    self.client_id)
                 else:
-                    logging.info("Client %d logged in succesfully", client_id)
-                    logged_in = True
-                log_success = {}
-                log_success['logged_in'] = logged_in
-                log_success['error'] = error
-                log_success['client_id'] = client_id
+                    logging.info("Client %s: logged in succesfully", self.client_id)
+                    self.logged_in = True
+                    self.client_id = verify_out
 
-                send_message(self.request, log_success)
+                log_success = MessageSchema(self.logged_in, self.client_id,
+                                            self.error, False, 0)
+
+                self.send_message(log_success.message)
 
 
-            logging.debug("Spinning waiting for game to start")
-            while not self.game.started:
+            logging.debug("Client %s: Spinning waiting for game to start",
+                          self.client_id)
+            while not self.game.started and not self.game.game_over:
                 # Spin while waiting for game to start
-                # TODO Get this to close properly if the conn closes
+                # TODO probe the socket close
                 time.sleep(0.5)
 
-            game_start_dict = {}
-            game_start_dict['game_started'] = True
-            send_message(self.request, game_start_dict)
+            game_start_dict = MessageSchema(self.logged_in, self.client_id,
+                                            self.error, self.game.started,
+                                            self.game.state)
+            self.send_message(game_start_dict.message)
 
-            # sleep docker instance
+            # TODO sleep docker instance
 
-            logging.info("Game started")
+            logging.info("Client %s: Game started", self.client_id)
 
-            # TODO Change the while true to a more meaningful statement
-            while self.game.started:
+            while self.game.started and not self.game.game_over:
                 # This is the loop that the code will always remain in
 
                 # Blocks until it this clients turn
-                self.game.start_turn(client_id)
+                self.game.start_turn(self.client_id)
 
-                print("Started Turn")
+                if self.game.game_over:
+                    # Cleanup
+                    self.request.close()
+                    return
 
-                unpacked_data = get_next_message(self.request)
+                logging.debug("Client %s: Started turn", self.client_id)
+
+                # Send state diff over
+
+                unpacked_data = self.get_next_message()
 
                 # Check client is who they claim they are
-                if unpacked_data['client_id'] != client_id:
+                if unpacked_data['client_id'] != self.client_id:
                     assert False, "Wrong Client id"
 
                 # Get the moves to pass to the game
                 moves = unpacked_data['moves']
 
                 # Process action that the client is doing
-                game.make_action(moves, client_id)
+                game.make_action(moves, self.client_id)
 
                 # Send information back to client
 
-                self.game.end_turn(client_id)
+                self.game.end_turn(self.client_id)
 
     return ReceiveHandler
 
@@ -355,26 +402,3 @@ def start_server(sock_file: str, game: Game, dockers) -> socketserver.BaseServer
     server_thread.start()
 
     return server
-
-if __name__ == "__main__":
-    PARSER = argparse.ArgumentParser(description="Starts and runs a battlecode"+
-                                     "game")
-
-    PARSER.add_argument('--socket-file', help='file used as socket connection'+ \
-            ' for players', dest='sock_file', default='/tmp/battlecode-1')
-
-    ARGS = PARSER.parse_args()
-
-    print(ARGS.sock_file)
-    NUM_PLAYERS = 2
-    GAME = Game(NUM_PLAYERS, "NULL")
-    DOCKERS = {}
-    SERVER_CONN = start_server(ARGS.sock_file, GAME, DOCKERS)
-    try:
-        while not GAME.started:
-            time.sleep(1)
-            print("Waiting for game to start")
-    except KeyboardInterrupt:
-        print("Exiting gracefully")
-        SERVER_CONN.shutdown()
-        SERVER_CONN.socket.close()
