@@ -36,7 +36,7 @@ impl GameMap {
     }
 
     /// Whether a location is on the map.
-    pub fn on_map(&self, location: &MapLocation) -> bool {
+    pub fn on_map(&self, location: MapLocation) -> bool {
         self.earth_map.on_map(location) || self.mars_map.on_map(location)
     }
 }
@@ -56,11 +56,9 @@ pub struct PlanetMap {
     /// [constants::MAP_WIDTH_MIN, constants::MAP_WIDTH_MAX], inclusive.
     pub width: usize,
 
-    /// The coordinates of the bottom-left corner. Essentially, the
-    /// minimum x and y coordinates for this map. Each lies within
-    /// [constants::MAP_COORDINATE_MIN, constants::MAP_COORDINATE_MAX],
-    /// inclusive.
-    pub origin: MapLocation,
+    /// The initial units on the map. Each team starts with 1 to 3 Workers
+    /// on Earth.
+    pub initial_units: Vec<Unit>,
 
     /// Whether the specified square contains passable terrain. Is only
     /// false when the square contains impassable terrain (distinct from
@@ -68,7 +66,7 @@ pub struct PlanetMap {
     ///
     /// Stored as a two-dimensional array, where the first index 
     /// represents a square's y-coordinate, and the second index its 
-    /// x-coordinate. These coordinates are *relative to the origin*.
+    /// x-coordinate.
     ///
     /// Earth is always symmetric by either a rotation or a reflection.
     pub is_passable_terrain: Vec<Vec<bool>>,
@@ -77,13 +75,8 @@ pub struct PlanetMap {
     ///
     /// Stored as a two-dimensional array, where the first index 
     /// represents a square's y-coordinate, and the second index its 
-    /// x-coordinate. These coordinates are *relative to the origin*.
+    /// x-coordinate.
     pub initial_karbonite: Vec<Vec<u32>>,
-
-    /// The initial units on the map. Each team starts with 1 to 3 Workers
-    /// on Earth. The coordinates of the units are absolute (NOT relative to
-    /// the origin).
-    pub initial_units: Vec<Unit>,
 }
 
 impl PlanetMap {
@@ -92,15 +85,6 @@ impl PlanetMap {
         // The width and height are of valid dimensions.
         if !(self.height >= MAP_HEIGHT_MIN && self.height <= MAP_HEIGHT_MAX &&
              self.width >= MAP_WIDTH_MIN && self.width <= MAP_WIDTH_MAX) {
-            Err(GameError::InvalidMapObject)?
-        }
-
-        // The origin is valid.
-        if !(self.origin.x >= MAP_COORDINATE_MIN &&
-             self.origin.x <= MAP_COORDINATE_MAX &&
-             self.origin.y >= MAP_COORDINATE_MIN &&
-             self.origin.y <= MAP_COORDINATE_MAX &&
-             self.origin.planet == self.planet) {
             Err(GameError::InvalidMapObject)?
         }
 
@@ -149,8 +133,8 @@ impl PlanetMap {
         }
         for ref unit in &self.initial_units {
             let location = unit.location().ok_or(GameError::InvalidMapObject)?;
-            let x = (location.x - self.origin.x) as usize;
-            let y = (location.y - self.origin.y) as usize;
+            let x = location.x as usize;
+            let y = location.y as usize;
             if location.planet != self.planet {
                 Err(GameError::InvalidMapObject)?
             }
@@ -167,12 +151,33 @@ impl PlanetMap {
     }
 
     /// Whether a location is on the map.
-    pub fn on_map(&self, location: &MapLocation) -> bool {
+    pub fn on_map(&self, location: MapLocation) -> bool {
         self.planet == location.planet
-            && location.x >= self.origin.x
-            && location.y >= self.origin.y
-            && location.x < self.origin.x + self.width as i32
-            && location.y < self.origin.y + self.height as i32
+            && location.x < self.width as i32
+            && location.y < self.height as i32
+    }
+
+    /// Whether the location on the map contains passable terrain. Is only
+    /// false when the square contains impassable terrain (distinct from
+    /// containing a building, for instance).
+    ///
+    /// Errors if the location is off the map.
+    pub fn is_passable_terrain_at(&self, location: MapLocation) -> Result<bool, Error> {
+        if self.on_map(location) {
+            Ok(self.is_passable_terrain[location.y as usize][location.x as usize])
+        } else {
+            Err(GameError::InvalidLocation)?
+        }
+    }
+
+    /// The amount of Karbonite initially deposited at the given location.
+    /// Errors if the location is off the map.
+    pub fn initial_karbonite_at(&self, location: MapLocation) -> Result<u32, Error> {
+        if self.on_map(location) {
+            Ok(self.initial_karbonite[location.y as usize][location.x as usize])
+        } else {
+            Err(GameError::InvalidLocation)?
+        }
     }
 
     pub fn test_map(planet: Planet) -> PlanetMap {
@@ -180,7 +185,6 @@ impl PlanetMap {
             planet: planet,
             height: MAP_HEIGHT_MIN,
             width: MAP_WIDTH_MIN,
-            origin: MapLocation::new(planet, 0, 0),
             is_passable_terrain: vec![vec![true; MAP_WIDTH_MIN]; MAP_HEIGHT_MIN],
             initial_karbonite: vec![vec![0; MAP_WIDTH_MIN]; MAP_HEIGHT_MIN],
             initial_units: vec![],
@@ -239,8 +243,8 @@ impl AsteroidPattern {
 
         let karbonite_gen = Range::new(ASTEROID_KARB_MIN, ASTEROID_KARB_MAX);
         let round_gen = Range::new(ASTEROID_ROUND_MIN, ASTEROID_ROUND_MAX);
-        let x_gen = Range::new(mars_map.origin.x, mars_map.origin.x + mars_map.width as i32);
-        let y_gen = Range::new(mars_map.origin.y, mars_map.origin.y + mars_map.height as i32);
+        let x_gen = Range::new(0, mars_map.width as i32);
+        let y_gen = Range::new(0, mars_map.height as i32);
 
         let seed: &[_] = &[seed as usize];
         let mut rng: StdRng = SeedableRng::from_seed(seed);

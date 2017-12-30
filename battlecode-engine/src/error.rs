@@ -16,6 +16,10 @@ pub enum GameError {
     #[fail(display = "The map-related object is invalid.")]
     InvalidMapObject,
 
+    /// The location is off the map or otherwise invalid.
+    #[fail(display = "The location is off the map or otherwise invalid.")]
+    InvalidLocation,
+
     /// The level of research is invalid.
     #[fail(display = "The level of research is invalid.")]
     InvalidResearchLevel,

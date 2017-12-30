@@ -57,14 +57,14 @@ impl Direction {
     /// Returns the (x, y) displacement of this direction.
     pub fn delta(&self) -> (i32, i32) {
         match *self {
-            North => (0, -1),
-            Northeast => (1, -1),
+            North => (0, 1),
+            Northeast => (1, 1),
             East => (1, 0),
-            Southeast => (1, 1),
-            South => (0, 1),
-            Southwest => (-1, 1),
+            Southeast => (1, -1),
+            South => (0, -1),
+            Southwest => (-1, -1),
             West => (-1, 0),
-            Northwest => (-1, -1),
+            Northwest => (-1, 1),
             Center => (0, 0),
         }
     }
@@ -195,14 +195,14 @@ mod tests {
     #[test]
     fn map_location_add() {
         let loc = MapLocation { planet: Planet::Earth, x: 0, y: 0 };
-        assert_eq!(loc.add(North),      MapLocation { planet: Planet::Earth, x: 0, y: -1 });
-        assert_eq!(loc.add(Northeast),  MapLocation { planet: Planet::Earth, x: 1, y: -1 });
+        assert_eq!(loc.add(North),      MapLocation { planet: Planet::Earth, x: 0, y: 1 });
+        assert_eq!(loc.add(Northeast),  MapLocation { planet: Planet::Earth, x: 1, y: 1 });
         assert_eq!(loc.add(East),       MapLocation { planet: Planet::Earth, x: 1, y: 0 });
-        assert_eq!(loc.add(Southeast),  MapLocation { planet: Planet::Earth, x: 1, y: 1 });
-        assert_eq!(loc.add(South),      MapLocation { planet: Planet::Earth, x: 0, y: 1 });
-        assert_eq!(loc.add(Southwest),  MapLocation { planet: Planet::Earth, x: -1, y: 1 });
+        assert_eq!(loc.add(Southeast),  MapLocation { planet: Planet::Earth, x: 1, y: -1 });
+        assert_eq!(loc.add(South),      MapLocation { planet: Planet::Earth, x: 0, y: -1 });
+        assert_eq!(loc.add(Southwest),  MapLocation { planet: Planet::Earth, x: -1, y: -1 });
         assert_eq!(loc.add(West),       MapLocation { planet: Planet::Earth, x: -1, y: 0 });
-        assert_eq!(loc.add(Northwest),  MapLocation { planet: Planet::Earth, x: -1, y: -1 });
+        assert_eq!(loc.add(Northwest),  MapLocation { planet: Planet::Earth, x: -1, y: 1 });
         assert_eq!(loc.add(Center),     MapLocation { planet: Planet::Earth, x: 0, y: 0 });
     }
 
