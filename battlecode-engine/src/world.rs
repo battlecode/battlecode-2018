@@ -155,8 +155,7 @@ pub struct GameWorld {
 impl GameWorld {
     /// Initialize a new game world with maps from both planets.
     ///
-    /// Possible errors:
-    /// * InvalidMapObject - the map is invalid, check the specs.
+    /// * GameError::InvalidMapObject - the map is invalid, check the specs.
     pub fn new(map: GameMap) -> Result<GameWorld, Error> {
         map.validate()?;
 
@@ -325,8 +324,7 @@ impl GameWorld {
     /// Whether the location is clear for a unit to occupy, either by movement
     /// or by construction.
     ///
-    /// Possible errors:
-    /// * InvalidLocation - the location is off the map.
+    /// * GameError::InvalidLocation - the location is off the map.
     fn is_occupiable(&self, location: MapLocation) -> Result<bool, Error> {
         let planet_info = &self.get_planet_info(location.planet);
         Ok(planet_info.map.is_passable_terrain_at(location)? &&
@@ -337,10 +335,9 @@ impl GameWorld {
     /// robots' movement heat must be sufficiently low, and the location must
     /// be occupiable and on the map.
     ///
-    /// Possible errors:
-    /// * NoSuchUnit - the unit does not exist.
-    /// * TeamNotAllowed - the unit is not on the current player's team.
-    /// * InappropriateUnitType - the unit is not a robot.
+    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a robot.
     pub fn can_move(&self, id: UnitID, direction: Direction) -> Result<bool, Error> {
         // TODO: should return false if off the map
         let unit = self.get_unit(id)?;
@@ -353,11 +350,10 @@ impl GameWorld {
 
     /// Moves the robot in the given direction.
     ///
-    /// Possible errors:
-    /// * NoSuchUnit - the unit does not exist.
-    /// * TeamNotAllowed - the unit is not on the current player's team.
-    /// * InappropriateUnitType - the unit is not a robot.
-    /// * InvalidAction - the robot cannot move.
+    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a robot.
+    /// * GameError::InvalidAction - the robot cannot move.
     pub fn move_robot(&mut self, id: UnitID, direction: Direction) -> Result<(), Error> {
         let dest = self.get_unit(id)?.location().ok_or(GameError::InvalidAction)?.add(direction);
         if self.can_move(id, direction)? {
@@ -429,11 +425,9 @@ impl GameWorld {
         research::get_max_level(branch)
     }
 
-    /// Returns the cost of a level, in rounds, of a research branch. Errors if the
-    /// level can't be researched i.e. not in the range [0, get_max_level(branch)].
+    /// Returns: the cost of a level, in rounds, of a research branch.
     ///
-    /// Possible errors:
-    /// * InvalidResearchLevel - the research level for this branch is invalid.
+    /// * GameError::InvalidResearchLevel - the research level for this branch is invalid.
     pub fn get_research_cost(branch: &Branch, level: Level) -> Result<Rounds, Error> {
         research::get_cost(branch, level)
     }
@@ -521,10 +515,9 @@ impl GameWorld {
     /// ready to move and adjacent to the rocket. The rocket must be on the
     /// same team and have enough space.
     ///
-    /// Possible errors:
-    /// * NoSuchUnit - a unit does not exist.
-    /// * TeamNotAllowed - the rocket is not on the current player's team.
-    /// * InappropriateUnitType - the robot or rocket are the wrong type.
+    /// * GameError::NoSuchUnit - a unit does not exist.
+    /// * GameError::TeamNotAllowed - the rocket is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the robot or rocket are the wrong type.
     pub fn can_garrison(&self, robot_id: UnitID, rocket_id: UnitID)
                         -> Result<bool, Error> {
         let robot = self.get_unit(robot_id)?;
@@ -534,11 +527,10 @@ impl GameWorld {
 
     /// Moves the robot into the garrison of the rocket.
     ///
-    /// Possible errors:
-    /// * NoSuchUnit - a unit does not exist.
-    /// * TeamNotAllowed - the robot or rocket is not on the current player's team.
-    /// * InappropriateUnitType - the robot or rocket are the wrong type.
-    /// * InvalidAction - the robot cannot garrison inside the rocket.
+    /// * GameError::NoSuchUnit - a unit does not exist.
+    /// * GameError::TeamNotAllowed - the robot or rocket is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the robot or rocket are the wrong type.
+    /// * GameError::InvalidAction - the robot cannot garrison inside the rocket.
     pub fn garrison(&mut self, robot_id: UnitID, rocket_id: UnitID)
                     -> Result<(), Error> {
         if self.can_garrison(robot_id, rocket_id)? {
@@ -555,11 +547,10 @@ impl GameWorld {
     /// given direction. There must be space in that direction, and the unit
     /// must be ready to move.
     ///
-    /// Possible errors:
-    /// * NoSuchUnit - the unit does not exist.
-    /// * TeamNotAllowed - the unit is not on the current player's team.
-    /// * InappropriateUnitType - the unit is not a rocket.
-    /// * InvalidLocation - the location is off the map.
+    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a rocket.
+    /// * GameError::InvalidLocation - the location is off the map.
     pub fn can_degarrison(&self, rocket_id: UnitID, direction: Direction)
                           -> Result<bool, Error> {
         let rocket = self.get_unit(rocket_id)?;
@@ -575,12 +566,11 @@ impl GameWorld {
     /// Degarrisons a robot from the garrison of the specified rocket. Robots
     /// are degarrisoned in the order they garrisoned.
     ///
-    /// Possible errors:
-    /// * NoSuchUnit - the unit does not exist.
-    /// * TeamNotAllowed - the unit is not on the current player's team.
-    /// * InappropriateUnitType - the unit is not a rocket.
-    /// * InvalidLocation - the location is off the map.
-    /// * InvalidAction - the rocket cannot degarrison a unit.
+    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a rocket.
+    /// * GameError::InvalidLocation - the location is off the map.
+    /// * GameError::InvalidAction - the rocket cannot degarrison a unit.
     pub fn degarrison(&mut self, rocket_id: UnitID, direction: Direction)
                       -> Result<(), Error> {
         if self.can_degarrison(rocket_id, direction)? {
@@ -599,10 +589,9 @@ impl GameWorld {
     /// Whether the rocket can launch into space. The rocket can launch if the
     /// it has never been used before.
     ///
-    /// Possible errors:
-    /// * NoSuchUnit - the unit does not exist.
-    /// * TeamNotAllowed - the unit is not on the current player's team.
-    /// * InappropriateUnitType - the unit is not a rocket.
+    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a rocket.
     pub fn can_launch_rocket(&mut self, id: UnitID, destination: MapLocation)
                              -> Result<bool, Error> {
         let rocket = self.get_unit(id)?;
@@ -616,11 +605,10 @@ impl GameWorld {
     /// Launches the rocket into space. If the destination is not on the map of
     /// the other planet, the rocket flies off, never to be seen again.
     ///
-    /// Possible errors:
-    /// * NoSuchUnit - the unit does not exist.
-    /// * TeamNotAllowed - the unit is not on the current player's team.
-    /// * InappropriateUnitType - the unit is not a rocket.
-    /// * InvalidAction - the rocket cannot launch.
+    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a rocket.
+    /// * GameError::InvalidAction - the rocket cannot launch.
     pub fn launch_rocket(&mut self, id: UnitID, destination: MapLocation)
                          -> Result<(), Error> {
         if self.can_launch_rocket(id, destination)? {
@@ -677,8 +665,7 @@ impl GameWorld {
     /// finished, also processes the end of the round. This includes updating
     /// unit cooldowns, rocket landings, asteroid strikes, research, etc.
     ///
-    /// Possible errors:
-    /// * InternalEngineError - something happened here...
+    /// * GameError::InternalEngineError - something happened here...
     pub fn next_turn(&mut self) -> Result<(), Error> {
         self.player_to_move = match self.player_to_move {
             Player { team: Team::Red, planet: Planet::Earth } => Player { team: Team::Blue, planet: Planet::Earth},
