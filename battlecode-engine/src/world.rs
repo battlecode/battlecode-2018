@@ -188,7 +188,7 @@ impl GameWorld {
     }
 
     /// Creates a GameWorld for testing purposes.
-    fn test_world() -> GameWorld {
+    pub fn test_world() -> GameWorld {
         let mut planet_states = FnvHashMap::default();
         planet_states.insert(Planet::Earth, PlanetInfo::test_planet_info(Planet::Earth));
         planet_states.insert(Planet::Mars, PlanetInfo::test_planet_info(Planet::Mars));
@@ -659,7 +659,7 @@ impl GameWorld {
     /// * GameError::InvalidLocation - the location is off the map.
     /// * GameError::InvalidAction - the worker is not ready to blueprint.
     pub fn blueprint(&mut self, _worker_id: UnitID, _unit_type: UnitType,
-                     direction: Direction) -> Result<(), Error> {
+                     _direction: Direction) -> Result<(), Error> {
         unimplemented!();
     }
 
@@ -716,16 +716,15 @@ impl GameWorld {
     // *************************** KNIGHT METHODS *****************************
     // ************************************************************************
 
-    /// Whether the knight can javelin the given location, without taking into
+    /// Whether the knight can javelin the given robot, without taking into
     /// account the knight's ability heat. Takes into account only the knight's
-    /// ability range, and the edge of the game map.
+    /// ability range, and the location of the robot.
     ///
     /// * GameError::InvalidResearchLevel - the ability has not been researched.
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a knight.
-    /// * GameError::InvalidLocation - the location is outside the vision range.
-    pub fn can_javelin(&self, _id: UnitID, _location: MapLocation) -> Result<bool, Error> {
+    pub fn can_javelin(&self, _id: UnitID, _target_id: UnitID) -> Result<bool, Error> {
         unimplemented!();
     }
 
@@ -740,16 +739,14 @@ impl GameWorld {
         unimplemented!();
     }
 
-    /// Attacks the location, dealing the unit's standard amount of damage to
-    /// the unit at that location if it exists.
+    /// Javelins the robot, dealing the amount of ability damage.
     ///
     /// * GameError::InvalidResearchLevel - the ability has not been researched.
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a knight.
-    /// * GameError::InvalidLocation - the location is outside the vision range.
-    /// * GameError::InvalidAction - the knight cannot javelin that location.
-    pub fn javelin(&mut self, _id: UnitID, _location: MapLocation) -> Result<(), Error> {
+    /// * GameError::InvalidAction - the knight cannot javelin that unit.
+    pub fn javelin(&mut self, _id: UnitID, _target_id: UnitID) -> Result<(), Error> {
         unimplemented!();
     }
 
