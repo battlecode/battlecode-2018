@@ -17,14 +17,19 @@ pub type Percent = u32;
 /// The ID of an unit is assigned when the unit is spawned.
 pub type UnitID = u32;
 
-/// Workers are the foundation of the civilization.
-pub struct WorkerInfo {
-}
-
 /// The public version of the unit. Contains all the unit's stats but none of
 /// the action. The other team can see everything in the unit info.
-pub enum UnitInfo {
-    Worker(WorkerInfo),
+pub struct UnitInfo {
+    /// The unique ID of the unit.
+    pub id: UnitID,
+    /// The team the unit is on.
+    pub team: Team,
+    /// The type of the unit.
+    pub unit_type: UnitType,
+    /// The current location of the unit.
+    pub location: Option<MapLocation>,
+    /// The current health of the unit.
+    pub health: u32,
 }
 
 /// The different unit types, which include factories, rockets, and the robots.
@@ -263,8 +268,15 @@ impl Unit {
         Ok(unit)
     }
 
-    pub fn public(&self) -> UnitInfo {
-        unimplemented!();
+    /// The public version of the unit.
+    pub fn info(&self) -> UnitInfo {
+        UnitInfo {
+            id: self.id,
+            team: self.team,
+            unit_type: self.unit_type,
+            location: self.location,
+            health: self.health,
+        }
     }
 
     // ************************************************************************

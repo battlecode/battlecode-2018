@@ -213,6 +213,18 @@ impl GameWorld {
         }
     }
 
+    /// Filters the game world from the perspective of the current player. All
+    /// units are within the player's vision range. Information on the opposing
+    /// player's units are all stored in `UnitInfo` structs, not `Unit`. Private
+    /// player information like communication arrays and rockets in space should
+    /// only be stored for the current player.
+    ///
+    /// As an invariant, the game world filtered once should be the same as the
+    /// game world filtered multiple times.
+    pub fn filter(&self) -> GameWorld {
+        unimplemented!();
+    }
+
     // ************************************************************************
     // ************************** GENERAL METHODS *****************************
     // ************************************************************************
@@ -260,7 +272,7 @@ impl GameWorld {
     }
 
     /// All the units within the vision range, by ID.
-    pub fn units_by_id(&self) -> FnvHashMap<UnitID, Unit> {
+    pub fn units_by_id(&self) -> FnvHashMap<UnitID, UnitInfo> {
         unimplemented!();
     }
 
@@ -289,7 +301,7 @@ impl GameWorld {
     /// Sense units near the location within the given radius, inclusive, in
     /// distance squared. The units are within the vision range.
     pub fn sense_nearby_units(&self, _location: MapLocation, _radius: u32)
-                              -> Vec<Unit> {
+                              -> Vec<UnitInfo> {
         unimplemented!();
     }
 
@@ -297,7 +309,7 @@ impl GameWorld {
     /// distance squared. The units are within the vision range. Additionally
     /// filters the units by team.
     pub fn sense_nearby_units_by_team(&self, _location: MapLocation,
-                                      _radius: u32, _team: Team) -> Vec<Unit> {
+                                      _radius: u32, _team: Team) -> Vec<UnitInfo> {
         unimplemented!();
     }
 
@@ -305,7 +317,7 @@ impl GameWorld {
     /// distance squared. The units are within the vision range. Additionally
     /// filters the units by unit type.
     pub fn sense_nearby_units_by_type(&self, _location: MapLocation,
-                                      _radius: u32, _type: UnitType) -> Vec<Unit> {
+                                      _radius: u32, _type: UnitType) -> Vec<UnitInfo> {
         unimplemented!();
     }
 
@@ -313,7 +325,7 @@ impl GameWorld {
     ///
     /// * GameError::InvalidLocation - the location is outside the vision range.
     pub fn sense_unit_at_location(&self, _location: MapLocation)
-                                  -> Result<Option<Unit>, Error> {
+                                  -> Result<Option<UnitInfo>, Error> {
         unimplemented!();
     }
 
