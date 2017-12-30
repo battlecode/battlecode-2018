@@ -324,16 +324,16 @@ impl GameWorld {
     /// Whether the location is clear for a unit to occupy, either by movement
     /// or by construction.
     ///
-    /// * GameError::InvalidLocation - the location is off the map.
-    fn is_occupiable(&self, location: MapLocation) -> Result<bool, Error> {
+    /// * GameError::InvalidLocation - the location is outside the vision range.
+    pub fn is_occupiable(&self, location: MapLocation) -> Result<bool, Error> {
         let planet_info = &self.get_planet_info(location.planet);
         Ok(planet_info.map.is_passable_terrain_at(location)? &&
             !self.units_by_loc.contains_key(&location))
     }
 
-    /// Whether the robot can move in the given direction. To move, the
-    /// robots' movement heat must be sufficiently low, and the location must
-    /// be occupiable and on the map.
+    /// Whether the robot can move in the given direction, without taking into
+    /// account the unit's movement heat. Takes into account only the map
+    /// terrain, positions of other robots, and the edge of the game map.
     ///
     /// * GameError::NoSuchUnit - the unit does not exist.
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
@@ -348,12 +348,22 @@ impl GameWorld {
         }
     }
 
+    /// Whether the robot is ready to move. Tests whether the robot's attack
+    /// heat is sufficiently low.
+    ///
+    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a robot.
+    pub fn is_move_ready(&self, _id: UnitID) -> Result<bool, Error> {
+        unimplemented!();
+    }
+
     /// Moves the robot in the given direction.
     ///
     /// * GameError::NoSuchUnit - the unit does not exist.
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a robot.
-    /// * GameError::InvalidAction - the robot cannot move.
+    /// * GameError::InvalidAction - the robot cannot move in that direction.
     pub fn move_robot(&mut self, id: UnitID, direction: Direction) -> Result<(), Error> {
         let dest = self.get_unit(id)?.location().ok_or(GameError::InvalidAction)?.add(direction);
         if self.can_move(id, direction)? {
@@ -383,6 +393,40 @@ impl GameWorld {
             self.destroy_unit(id)?;
         }
         Ok(())
+    }
+
+    /// Whether the robot can attack the given location, without taking into
+    /// account the unit's attack heat. Takes into account only the unit's
+    /// attack range, and the edge of the game map.
+    ///
+    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a robot.
+    /// * GameError::InvalidLocation - the location is outside the vision range.
+    pub fn can_attack(&self, _id: UnitID, _location: MapLocation) -> Result<bool, Error> {
+        unimplemented!();
+    }
+
+    /// Whether the robot is ready to attack. Tests whether the robot's attack
+    /// heat is sufficiently low.
+    ///
+    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a robot.
+    pub fn is_attack_ready(&self, _id: UnitID) -> Result<bool, Error> {
+        unimplemented!();
+    }
+
+    /// Attacks the location, dealing the unit's standard amount of damage to
+    /// the unit at that location if it exists.
+    ///
+    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a robot.
+    /// * GameError::InvalidLocation - the location is outside the vision range.
+    /// * GameError::InvalidAction - the robot cannot attack that location.
+    pub fn attack(&mut self, _id: UnitID, _location: MapLocation) -> Result<(), Error> {
+        unimplemented!();
     }
 
     // ************************************************************************
