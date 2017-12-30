@@ -233,21 +233,6 @@ impl GameWorld {
         unimplemented!();
     }
 
-    /// All the units within the current team's vision range.
-    pub fn units(&self) -> Vec<Unit> {
-        unimplemented!();
-    }
-
-    /// All the units within the current team's vision range, by ID.
-    pub fn units_by_id(&self) -> FnvHashMap<UnitID, Unit> {
-        unimplemented!();
-    }
-
-    /// All the units within the current team's vision range, by location.
-    pub fn units_by_loc(&self) -> FnvHashMap<MapLocation, UnitID> {
-        unimplemented!();
-    }
-
     /// The rockets in space that belong to the current team, including
     /// their landing rounds and locations, by landing round.
     pub fn rockets_in_space(&self) -> FnvHashMap<Rounds, Vec<Unit>> {
@@ -260,6 +245,30 @@ impl GameWorld {
         unimplemented!();
     }
 
+    /// The karbonite in the team's resource pool.
+    pub fn karbonite(&self) -> u32 {
+        unimplemented!();
+    }
+
+    // ************************************************************************
+    // ************************** SENSING METHODS *****************************
+    // ************************************************************************
+
+    /// All the units within the vision range.
+    pub fn units(&self) -> Vec<Unit> {
+        unimplemented!();
+    }
+
+    /// All the units within the vision range, by ID.
+    pub fn units_by_id(&self) -> FnvHashMap<UnitID, Unit> {
+        unimplemented!();
+    }
+
+    /// All the units within the vision range, by location.
+    pub fn units_by_loc(&self) -> FnvHashMap<MapLocation, UnitID> {
+        unimplemented!();
+    }
+
     /// The karbonite at the given location.
     ///
     /// * GameError::InvalidLocation - the location is outside the vision range.
@@ -267,8 +276,44 @@ impl GameWorld {
         unimplemented!();
     }
 
-    /// The karbonite in the team's resource pool.
-    pub fn karbonite(&self) -> u32 {
+    /// Whether the location is within the vision range.
+    pub fn can_sense_location(&self, _location: MapLocation) -> bool {
+        unimplemented!();
+    }
+
+    /// Whether there is a unit with this ID within the vision range.
+    pub fn can_sense_unit(&self, _id: UnitID) -> bool {
+        unimplemented!();
+    }
+
+    /// Sense units near the location within the given radius, inclusive, in
+    /// distance squared. The units are within the vision range.
+    pub fn sense_nearby_units(&self, _location: MapLocation, _radius: u32)
+                              -> Vec<Unit> {
+        unimplemented!();
+    }
+
+    /// Sense units near the location within the given radius, inclusive, in
+    /// distance squared. The units are within the vision range. Additionally
+    /// filters the units by team.
+    pub fn sense_nearby_units_by_team(&self, _location: MapLocation,
+                                      _radius: u32, _team: Team) -> Vec<Unit> {
+        unimplemented!();
+    }
+
+    /// Sense units near the location within the given radius, inclusive, in
+    /// distance squared. The units are within the vision range. Additionally
+    /// filters the units by unit type.
+    pub fn sense_nearby_units_by_type(&self, _location: MapLocation,
+                                      _radius: u32, _type: UnitType) -> Vec<Unit> {
+        unimplemented!();
+    }
+
+    /// The unit at the location, if it exists.
+    ///
+    /// * GameError::InvalidLocation - the location is outside the vision range.
+    pub fn sense_unit_at_location(&self, _location: MapLocation)
+                                  -> Result<Option<Unit>, Error> {
         unimplemented!();
     }
 
@@ -420,12 +465,12 @@ impl GameWorld {
         Ok(())
     }
 
-    /// Self destructs the unit and removes it from the map. If the unit is a
-    /// factory or a rocket, also destroys any units garrisoned inside it.
+    /// Disintegrates the unit and removes it from the map. If the unit is a
+    /// factory or a rocket, also disintegrates any units garrisoned inside it.
     ///
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    pub fn self_destruct_unit(&mut self, _id: UnitID) -> Result<(), Error> {
+    pub fn disintegrate_unit(&mut self, _id: UnitID) -> Result<(), Error> {
         unimplemented!();
     }
 
@@ -591,7 +636,7 @@ impl GameWorld {
 
     /// Resets the research queue to be empty. Returns true if the queue was
     /// not empty before, and false otherwise.
-    pub fn reset_research_queue(&mut self) -> bool {
+    pub fn reset_research(&mut self) -> bool {
         self.get_research_mut().reset_queue()
     }
 
@@ -599,7 +644,7 @@ impl GameWorld {
     /// starts research if it is the first in the queue.
     ///
     /// Returns whether the branch was successfully added.
-    pub fn add_to_research_queue(&mut self, branch: &Branch) -> bool {
+    pub fn queue_research(&mut self, branch: &Branch) -> bool {
         self.get_research_mut().add_to_queue(branch)
     }
 
