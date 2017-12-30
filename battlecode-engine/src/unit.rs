@@ -328,12 +328,9 @@ impl Unit {
     /// 
     /// Errors if the unit is not a robot. 
     fn reset_abliity_cooldown(&mut self) -> Result<(), Error> {
-        if self.ok_if_robot()? {
-            self.ability_heat = DEFAULT_ABILITY_HEAT;
-            Ok(())
-        } else {
-            Err::GameError(InappropriateUnitType)
-        }   
+        self.ok_if_robot()?; 
+        self.ability_heat = DEFAULT_ABILITY_HEAT;
+        Ok(())   
     }
 
     // ************************************************************************
@@ -464,6 +461,13 @@ impl Unit {
         self.health == 0
     }
 
+    /// The ability heat.
+    /// 
+    /// Errors if the unit is not a robot.
+    pub fn ability_heat(&self) -> Result<u32, Error>{
+        self.ok_if_robot()?;
+        Ok(self.ability_heat)
+    }
     /// Destroys the unit. Equivalent to removing it from the game.
     pub fn destroy(&mut self) {
         self.location = None;
@@ -601,8 +605,8 @@ impl Unit {
     /// 
     /// Errors if the unit is not a healer, or not ready to overcharge.
     pub fn overcharge(&mut self) -> Result<(), Error> {
-        if can_overcharge()? {
-            self.abliity_heat += self.ability_cooldown;
+        if self.can_overcharge()? {
+            self.ability_heat += self.ability_cooldown;
             Ok(())
         } else {
             Err(GameError::InvalidAction)?
@@ -783,7 +787,7 @@ impl Unit {
     pub fn next_round(&mut self) {
         self.movement_heat -= cmp::min(HEAT_LOSS_PER_ROUND, self.movement_heat);
         self.attack_heat -= cmp::min(HEAT_LOSS_PER_ROUND, self.attack_heat);
-        self.ability_heat -= cmp:min(HEAT_LOSS_PER_ROUND, self.ability_heat);
+        self.ability_heat -= cmp::min(HEAT_LOSS_PER_ROUND, self.ability_heat);
     }
 }
 
