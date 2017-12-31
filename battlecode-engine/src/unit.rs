@@ -17,6 +17,21 @@ pub type Percent = u32;
 /// The ID of an unit is assigned when the unit is spawned.
 pub type UnitID = u32;
 
+/// The public version of the unit. Contains all the unit's stats but none of
+/// the action. The other team can see everything in the unit info.
+pub struct UnitInfo {
+    /// The unique ID of the unit.
+    pub id: UnitID,
+    /// The team the unit is on.
+    pub team: Team,
+    /// The type of the unit.
+    pub unit_type: UnitType,
+    /// The current location of the unit.
+    pub location: Option<MapLocation>,
+    /// The current health of the unit.
+    pub health: u32,
+}
+
 /// The different unit types, which include factories, rockets, and the robots.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum UnitType {
@@ -132,7 +147,8 @@ impl UnitType {
     }
 }
 
-/// A single unit in the game.
+/// A single unit in the game and its controller. Actions can be performed on
+/// this unit.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Unit {
     // All units.
@@ -253,6 +269,17 @@ impl Unit {
         Ok(unit)
     }
 
+    /// The public version of the unit.
+    pub fn info(&self) -> UnitInfo {
+        UnitInfo {
+            id: self.id,
+            team: self.team,
+            unit_type: self.unit_type,
+            location: self.location,
+            health: self.health,
+        }
+    }
+
     // ************************************************************************
     // ***************************** GENERAL METHODS **************************
     // ************************************************************************
@@ -355,7 +382,7 @@ impl Unit {
             Some(loc) => loc,
             None => { return false; },
         };
-        loc_a.adjacent_to(loc_b)
+        loc_a.is_adjacent_to(loc_b)
     }
 
     // ************************************************************************
