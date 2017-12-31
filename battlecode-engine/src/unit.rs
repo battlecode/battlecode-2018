@@ -147,7 +147,8 @@ impl UnitType {
     }
 }
 
-/// A single unit in the game.
+/// A single unit in the game and its controller. Actions can be performed on
+/// this unit.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Unit {
     // All units.
@@ -381,7 +382,7 @@ impl Unit {
             Some(loc) => loc,
             None => { return false; },
         };
-        loc_a.adjacent_to(loc_b)
+        loc_a.is_adjacent_to(loc_b)
     }
 
     // ************************************************************************

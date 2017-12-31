@@ -9,12 +9,11 @@ use super::location::*;
 use super::map::*;
 use super::unit::*;
 use super::unit::UnitType as Branch;
-use super::research;
 use super::research::*;
 use super::error::GameError;
 use failure::Error;
 
-// A round consists of a turn from each player.
+/// A round consists of a turn from each player.
 pub type Rounds = u32;
 
 /// There are two teams in Battlecode: Red and Blue.
@@ -27,7 +26,7 @@ pub enum Team {
 /// The state for one of the planets in a game. Stores neutral info like the
 /// planet's original map and the current karbonite deposits.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct PlanetInfo {
+struct PlanetInfo {
     /// The map of the planet.
     map: PlanetMap,
 
@@ -63,14 +62,14 @@ pub type TeamArray = Vec<u8>;
 
 /// A history of communication arrays. Read from the back of the queue on the
 /// current planet, and the front of the queue on the other planet.
-pub type TeamArrayHistory = Vec<TeamArray>;
+type TeamArrayHistory = Vec<TeamArray>;
 
 /// Persistent info specific to a single team. Teams are only able to access
 /// the team info of their own team.
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct TeamInfo {
+struct TeamInfo {
     /// Team identification.
-    pub team: Team,
+    team: Team,
 
     /// Unit ID generator.
     id_generator: IDGenerator,
@@ -87,7 +86,7 @@ pub struct TeamInfo {
 
 impl TeamInfo {
     /// Construct a team with the default properties.
-    pub fn new(team: Team, seed: u32) -> TeamInfo {
+    fn new(team: Team, seed: u32) -> TeamInfo {
         TeamInfo {
             team: team,
             id_generator: IDGenerator::new(team, seed),
@@ -95,18 +94,6 @@ impl TeamInfo {
             research: ResearchInfo::new(),
             karbonite: KARBONITE_STARTING,
         }
-    }
-
-    pub fn get_level(&self, unit_type: &UnitType) -> Level {
-        self.get_research().get_level(&unit_type)
-    }
-
-    pub fn get_research(&self) -> &ResearchInfo {
-        &self.research
-    }
-
-    pub fn get_research_mut(&mut self) -> &mut ResearchInfo {
-        &mut self.research
     }
 }
 
@@ -232,17 +219,17 @@ impl GameWorld {
     /// The current round, starting at round 1 and up to `ROUND_LIMIT` rounds.
     /// A round consists of a turn from each team on each planet.
     pub fn round(&self) -> Rounds {
-        unimplemented!();
+        self.round
     }
 
     /// The current planet.
     pub fn planet(&self) -> Planet {
-        unimplemented!();
+        self.player_to_move.planet
     }
 
     /// The team whose turn it is.
     pub fn team(&self) -> Team {
-        unimplemented!();
+        self.player_to_move.team
     }
 
     /// The rockets in space that belong to the current team, including
@@ -343,16 +330,16 @@ impl GameWorld {
         unimplemented!();
     }
 
-    /// The current flight time if a rocket were to be launched this round.
-    /// Does not take into account any research done on rockets.
-    pub fn current_flight_time(&self) -> Rounds {
+    /// The current duration of flight if a rocket were to be launched this
+    /// round. Does not take into account any research done on rockets.
+    pub fn current_duration_of_flight(&self) -> Rounds {
         unimplemented!();
     }
 
     fn process_asteroids(&mut self) {
-        if self.asteroids.get_asteroid(self.round).is_some() {
+        if self.asteroids.asteroid(self.round).is_some() {
             let (location, karbonite) = {
-                let asteroid = self.asteroids.get_asteroid(self.round).unwrap();
+                let asteroid = self.asteroids.asteroid(self.round).unwrap();
                 (asteroid.location, asteroid.karbonite)
             };
             let planet_info = self.get_planet_info_mut(location.planet);
@@ -436,7 +423,7 @@ impl GameWorld {
     fn create_unit(&mut self, team: Team, location: MapLocation,
                        unit_type: UnitType) -> Result<UnitID, Error> {
         let id = self.get_team_info_mut(team).id_generator.next_id();
-        let level = self.get_team_info(team).get_level(&unit_type);
+        let level = self.get_team_info(team).research.get_level(&unit_type);
         let unit = Unit::new(id, team, unit_type, level, location)?;
 
         self.units.insert(unit.id(), unit);
@@ -507,9 +494,9 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a robot.
-    pub fn can_move(&self, id: UnitID, direction: Direction) -> Result<bool, Error> {
+    pub fn can_move(&self, robot_id: UnitID, direction: Direction) -> Result<bool, Error> {
         // TODO: should return false if off the map
-        let unit = self.get_unit(id)?;
+        let unit = self.get_unit(robot_id)?;
         if let Some(location) = unit.location() {
             Ok(unit.is_move_ready()? && self.is_occupiable(location.add(direction))?)
         } else {
@@ -523,7 +510,7 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a robot.
-    pub fn is_move_ready(&self, _id: UnitID) -> Result<bool, Error> {
+    pub fn is_move_ready(&self, _robot_id: UnitID) -> Result<bool, Error> {
         unimplemented!();
     }
 
@@ -533,12 +520,14 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a robot.
     /// * GameError::InvalidAction - the robot cannot move in that direction.
-    pub fn move_robot(&mut self, id: UnitID, direction: Direction) -> Result<(), Error> {
-        let dest = self.get_unit(id)?.location().ok_or(GameError::InvalidAction)?.add(direction);
-        if self.can_move(id, direction)? {
-            self.remove_unit(id)?;
-            self.get_unit_mut(id)?.move_to(Some(dest))?;
-            self.place_unit(id)?;
+    pub fn move_robot(&mut self, robot_id: UnitID, direction: Direction) -> Result<(), Error> {
+        let dest = self.get_unit(robot_id)?
+                       .location().ok_or(GameError::InvalidAction)?
+                       .add(direction);
+        if self.can_move(robot_id, direction)? {
+            self.remove_unit(robot_id)?;
+            self.get_unit_mut(robot_id)?.move_to(Some(dest))?;
+            self.place_unit(robot_id)?;
             Ok(())
         } else {
             Err(GameError::InvalidAction)?
@@ -571,7 +560,7 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is a healer, or not a robot.
-    pub fn can_attack(&self, _id: UnitID, _target_id: UnitID) -> Result<bool, Error> {
+    pub fn can_attack(&self, _robot_id: UnitID, _target_id: UnitID) -> Result<bool, Error> {
         unimplemented!();
     }
 
@@ -581,7 +570,7 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is a healer, or not a robot.
-    pub fn is_attack_ready(&self, _id: UnitID) -> Result<bool, Error> {
+    pub fn is_attack_ready(&self, _robot_id: UnitID) -> Result<bool, Error> {
         unimplemented!();
     }
 
@@ -591,7 +580,7 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is a healer, or not a robot.
     /// * GameError::InvalidAction - the robot cannot attack that location.
-    pub fn attack(&mut self, _id: UnitID, _target_id: UnitID) -> Result<(), Error> {
+    pub fn attack(&mut self, _robot_id: UnitID, _target_id: UnitID) -> Result<(), Error> {
         unimplemented!();
     }
 
@@ -601,49 +590,23 @@ impl GameWorld {
 
     /// Returns research info of the current player.
     fn get_research(&self) -> ResearchInfo {
-        let team = self.player_to_move.team;
-        self.get_team_info(team).get_research().clone()
+        let team = self.team();
+        self.get_team_info(team).research.clone()
     }
 
     /// Returns mutable research info of the current player.
     fn get_research_mut(&mut self) -> &mut ResearchInfo {
-        let team = self.player_to_move.team;
-        self.get_team_info_mut(team).get_research_mut()
+        let team = self.team();
+        &mut self.get_team_info_mut(team).research
     }
 
-    /// Returns the maximum level of the research branch.
-    pub fn get_research_max_level(branch: &Branch) -> Level {
-        research::get_max_level(branch)
-    }
-
-    /// Returns: the cost of a level, in rounds, of a research branch.
+    /// The research info of the current team, including what branch is
+    /// currently being researched, the number of rounds left.
     ///
-    /// * GameError::InvalidResearchLevel - the research level for this branch is invalid.
-    pub fn get_research_cost(branch: &Branch, level: Level) -> Result<Rounds, Error> {
-        research::get_cost(branch, level)
-    }
-
-    /// Returns the current level of the research branch.
-    pub fn get_research_level(&self, branch: &Branch) -> Level {
-        self.get_research().get_level(branch)
-    }
-
-    /// Returns the research queue, where the front of the queue is at the
-    /// beginning of the list.
-    pub fn get_research_queue(&self) -> Vec<Branch> {
-        self.get_research().get_queue()
-    }
-
-    /// Returns the next branch to be researched, which is the branch at the
-    /// front of the research queue. Returns None if the queue is empty.
-    pub fn get_next_in_research_queue(&self) -> Option<Branch> {
-        self.get_research().get_next_in_queue()
-    }
-
-    /// Returns the number of rounds left until the upgrade at the front of the
-    /// research queue is applied, or None if the queue is empty.
-    pub fn get_research_rounds_left(&self) -> Option<Rounds> {
-        self.get_research().get_rounds_left()
+    /// Note that mutating this object by resetting or queueing research
+    /// does not have any effect. You must call the mutators on world.
+    pub fn research_info(&self) -> ResearchInfo {
+        self.get_research()
     }
 
     /// Resets the research queue to be empty. Returns true if the queue was
@@ -662,7 +625,7 @@ impl GameWorld {
 
     /// Update the current research and process any completed upgrades.
     fn process_research(&mut self, team: Team) -> Result<(), Error> {
-        if let Some(branch) = self.get_team_info_mut(team).get_research_mut().update()? {
+        if let Some(branch) = self.get_team_info_mut(team).research.next_round()? {
             for (_, unit) in self.units.iter_mut() {
                 if unit.unit_type() == branch {
                     unit.research()?;
@@ -761,7 +724,7 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a worker.
-    pub fn can_replicate(&self, _id: UnitID) -> Result<bool, Error> {
+    pub fn can_replicate(&self, _worker_id: UnitID) -> Result<bool, Error> {
         unimplemented!();
     }
 
@@ -773,7 +736,7 @@ impl GameWorld {
     /// * GameError::InappropriateUnitType - the unit is not a worker.
     /// * GameError::InvalidLocation - the location is off the map.
     /// * GameError::InvalidAction - the worker is not ready to replicate.
-    pub fn replicate(&mut self, _id: UnitID, _direction: Direction)
+    pub fn replicate(&mut self, _worker_id: UnitID, _direction: Direction)
                      -> Result<(), Error> {
         unimplemented!();
     }
@@ -790,7 +753,7 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a knight.
-    pub fn can_javelin(&self, _id: UnitID, _target_id: UnitID) -> Result<bool, Error> {
+    pub fn can_javelin(&self, _knight_id: UnitID, _target_id: UnitID) -> Result<bool, Error> {
         unimplemented!();
     }
 
@@ -801,7 +764,7 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a knight.
-    pub fn is_javelin_ready(&self, _id: UnitID) -> Result<bool, Error> {
+    pub fn is_javelin_ready(&self, _knight_id: UnitID) -> Result<bool, Error> {
         unimplemented!();
     }
 
@@ -812,7 +775,7 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a knight.
     /// * GameError::InvalidAction - the knight cannot javelin that unit.
-    pub fn javelin(&mut self, _id: UnitID, _target_id: UnitID) -> Result<(), Error> {
+    pub fn javelin(&mut self, _knight_id: UnitID, _target_id: UnitID) -> Result<(), Error> {
         unimplemented!();
     }
 
@@ -855,7 +818,7 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a mage.
     /// * GameError::InvalidLocation - the location is outside the vision range.
-    pub fn can_blink(&self, _id: UnitID, _location: MapLocation) -> Result<bool, Error> {
+    pub fn can_blink(&self, _mage_id: UnitID, _location: MapLocation) -> Result<bool, Error> {
         unimplemented!();
     }
 
@@ -866,7 +829,7 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a mage.
-    pub fn is_blink_ready(&self, _id: UnitID) -> Result<bool, Error> {
+    pub fn is_blink_ready(&self, _mage_id: UnitID) -> Result<bool, Error> {
         unimplemented!();
     }
 
@@ -877,7 +840,7 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a mage.
     /// * GameError::InvalidAction - the mage cannot blink to that location.
-    pub fn blink(&mut self, _id: UnitID, _location: MapLocation) -> Result<(), Error> {
+    pub fn blink(&mut self, _mage_id: UnitID, _location: MapLocation) -> Result<(), Error> {
         unimplemented!();
     }
 
@@ -902,7 +865,7 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a healer.
-    pub fn is_heal_ready(&self, _id: UnitID) -> Result<bool, Error> {
+    pub fn is_heal_ready(&self, _healer_id: UnitID) -> Result<bool, Error> {
         unimplemented!();
     }
 
@@ -924,7 +887,7 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - a unit does not exist.
     /// * GameError::TeamNotAllowed - the first unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the healer or robot is not the right type.
-    pub fn can_oevrcharge(&self, _healer_id: UnitID, _robot_id: UnitID)
+    pub fn can_overcharge(&self, _healer_id: UnitID, _robot_id: UnitID)
                           -> Result<bool, Error> {
         unimplemented!();
     }
@@ -936,7 +899,7 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a healer.
-    pub fn is_overcharge_ready(&self, _id: UnitID) -> Result<bool, Error> {
+    pub fn is_overcharge_ready(&self, _healer_id: UnitID) -> Result<bool, Error> {
         unimplemented!();
     }
 
@@ -1010,7 +973,7 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - a unit does not exist.
     /// * GameError::TeamNotAllowed - the rocket is not on the current player's team.
     /// * GameError::InappropriateUnitType - the robot or rocket are the wrong type.
-    pub fn can_garrison_rocket(&self, robot_id: UnitID, rocket_id: UnitID)
+    pub fn can_garrison_rocket(&self, rocket_id: UnitID, robot_id: UnitID)
                         -> Result<bool, Error> {
         let robot = self.get_unit(robot_id)?;
         let rocket = self.get_unit(rocket_id)?;
@@ -1023,9 +986,9 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the robot or rocket is not on the current player's team.
     /// * GameError::InappropriateUnitType - the robot or rocket are the wrong type.
     /// * GameError::InvalidAction - the robot cannot garrison inside the rocket.
-    pub fn garrison_rocket(&mut self, robot_id: UnitID, rocket_id: UnitID)
+    pub fn garrison_rocket(&mut self, rocket_id: UnitID, robot_id: UnitID)
                     -> Result<(), Error> {
-        if self.can_garrison_rocket(robot_id, rocket_id)? {
+        if self.can_garrison_rocket(rocket_id, robot_id)? {
             self.get_unit_mut(rocket_id)?.garrison(robot_id)?;
             self.remove_unit(robot_id)?;
             self.get_unit_mut(robot_id)?.move_to(None)?;
@@ -1084,9 +1047,9 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a rocket.
-    pub fn can_launch_rocket(&mut self, id: UnitID, destination: MapLocation)
+    pub fn can_launch_rocket(&mut self, rocket_id: UnitID, destination: MapLocation)
                              -> Result<bool, Error> {
-        let rocket = self.get_unit(id)?;
+        let rocket = self.get_unit(rocket_id)?;
         if rocket.is_rocket_used()? {
             return Ok(false);
         }
@@ -1101,17 +1064,17 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a rocket.
     /// * GameError::InvalidAction - the rocket cannot launch.
-    pub fn launch_rocket(&mut self, id: UnitID, destination: MapLocation)
+    pub fn launch_rocket(&mut self, rocket_id: UnitID, destination: MapLocation)
                          -> Result<(), Error> {
-        if self.can_launch_rocket(id, destination)? {
-            let takeoff_loc = self.get_unit(id)?.location().unwrap();
-            self.remove_unit(id)?;
-            self.get_unit_mut(id)?.launch_rocket()?;
-            let landing_round = self.round + self.orbit.get_duration(self.round as i32) as u32;
+        if self.can_launch_rocket(rocket_id, destination)? {
+            let takeoff_loc = self.get_unit(rocket_id)?.location().unwrap();
+            self.remove_unit(rocket_id)?;
+            self.get_unit_mut(rocket_id)?.launch_rocket()?;
+            let landing_round = self.round + self.orbit.duration(self.round);
             if self.rocket_landings.contains_key(&landing_round) {
-                self.rocket_landings.get_mut(&landing_round).unwrap().push((id, destination));
+                self.rocket_landings.get_mut(&landing_round).unwrap().push((rocket_id, destination));
             } else {
-                self.rocket_landings.insert(landing_round, vec![(id, destination)]);
+                self.rocket_landings.insert(landing_round, vec![(rocket_id, destination)]);
             }
             for dir in Direction::all() {
                 self.damage_location(takeoff_loc.add(dir), ROCKET_BLAST_DAMAGE)?;
@@ -1340,12 +1303,12 @@ mod tests {
 
         // Correct garrisoning.
         let valid_boarder = world.create_unit(Team::Red, takeoff_loc.add(Direction::North), UnitType::Knight).unwrap();
-        assert![world.garrison_rocket(valid_boarder, rocket).is_ok()];
+        assert![world.garrison_rocket(rocket, valid_boarder).is_ok()];
         assert_eq![world.get_unit(valid_boarder).unwrap().location(), None];
 
         // Boarding fails when too far from the rocket.
         let invalid_boarder_too_far = world.create_unit(Team::Red, takeoff_loc.add(Direction::North).add(Direction::North), UnitType::Knight).unwrap();
-        assert![world.garrison_rocket(invalid_boarder_too_far, rocket).is_err()];
+        assert![world.garrison_rocket(rocket, invalid_boarder_too_far).is_err()];
 
         // Boarding fails when the robot has already moved.
         // uncomment when movement cooldown is implemented
@@ -1356,25 +1319,25 @@ mod tests {
 
         // Factories and rockets cannot board rockets.
         let invalid_boarder_factory = world.create_unit(Team::Red, takeoff_loc.add(Direction::Southeast), UnitType::Factory).unwrap();
-        assert![world.garrison_rocket(invalid_boarder_factory, rocket).is_err()];
+        assert![world.garrison_rocket(rocket, invalid_boarder_factory).is_err()];
         let invalid_boarder_rocket = world.create_unit(Team::Red, takeoff_loc.add(Direction::South), UnitType::Rocket).unwrap();
-        assert![world.garrison_rocket(invalid_boarder_rocket, rocket).is_err()];
+        assert![world.garrison_rocket(rocket, invalid_boarder_rocket).is_err()];
 
         // Rockets can be loaded up to their capacity...
         for _ in 1..8 {
             let valid_extra_boarder = world.create_unit(Team::Red, takeoff_loc.add(Direction::East), UnitType::Knight).unwrap();
-            assert![world.garrison_rocket(valid_extra_boarder, rocket).is_ok()];
+            assert![world.garrison_rocket(rocket, valid_extra_boarder).is_ok()];
         }
 
         // ... but not beyond their capacity.
         let invalid_boarder_rocket_full = world.create_unit(Team::Red, takeoff_loc.add(Direction::East), UnitType::Knight).unwrap();
-        assert![world.garrison_rocket(invalid_boarder_rocket_full, rocket).is_err()];
+        assert![world.garrison_rocket(rocket, invalid_boarder_rocket_full).is_err()];
 
         // A unit should not be able to board another team's rocket.
         let blue_takeoff_loc = MapLocation::new(Planet::Earth, 5, 5);
         let blue_rocket = world.create_unit(Team::Blue, blue_takeoff_loc, UnitType::Rocket).unwrap();
         let invalid_boarder_wrong_team = world.create_unit(Team::Red, blue_takeoff_loc.add(Direction::North), UnitType::Knight).unwrap();
-        assert![world.garrison_rocket(invalid_boarder_wrong_team, blue_rocket).is_err()];
+        assert![world.garrison_rocket(blue_rocket, invalid_boarder_wrong_team).is_err()];
     }
 
     #[test]
@@ -1387,7 +1350,7 @@ mod tests {
         // Load the rocket with robots.
         for _ in 0..2 {
             let robot = world.create_unit(Team::Red, takeoff_loc.add(Direction::North), UnitType::Knight).unwrap();
-            assert![world.garrison_rocket(robot, rocket).is_ok()];
+            assert![world.garrison_rocket(rocket, robot).is_ok()];
         }
 
         // Fly the rocket to Mars.

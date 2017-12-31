@@ -1,8 +1,9 @@
 //! Simple data structures to represent locations, directions, and planets.
 
+use std::u32;
 use location::Direction::*;
 
-/// Represents a direction from one MapLocation to another.
+/// A direction from one MapLocation to another.
 ///
 /// Directions for each of the cardinals (north, south, east, west), and each
 /// of the diagonals (northwest, southwest, northeast, southeast). There is
@@ -69,6 +70,11 @@ impl Direction {
         }
     }
 
+    /// Whether this direction is a diagonal one.
+    pub fn is_diagonal(&self) -> bool {
+        unimplemented!();
+    }
+
     /// Returns the direction opposite this one, or Center if it's Center.
     pub fn opposite(&self) -> Direction {
         if *self == Center {
@@ -106,8 +112,7 @@ pub enum Planet {
     Mars,
 }
 
-/// Represents two-dimensional coordinates in the Battlecode world. Naive
-/// of which planet it is on.
+/// Two-dimensional coordinates in the Battlecode world.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct MapLocation {
     pub planet: Planet,
@@ -117,12 +122,12 @@ pub struct MapLocation {
 
 impl MapLocation {
     /// Returns a new MapLocation representing the location with the given
-    /// coordinates.
+    /// coordinates on a planet.
     pub fn new(planet: Planet, x: i32, y: i32) -> MapLocation {
         MapLocation { planet: planet, x: x, y: y }
     }
 
-    /// Returns the MapLocation one square from this one in the given direciton.
+    /// Returns the location one square from this one in the given direction.
     pub fn add(&self, direction: Direction) -> MapLocation {
         MapLocation { 
             planet: self.planet,
@@ -131,24 +136,56 @@ impl MapLocation {
         }
     }
 
-    /// Returns the distance between two locations. If on different
-    /// planets, arbitrarily returns 1_000_000.
+    /// Returns the location one square from this one in the opposite direction.
+    pub fn subtract(&self, _direction: Direction) -> MapLocation {
+        unimplemented!();
+    }
+
+    /// Returns the location `multiple` squares from this one in the given
+    /// direction.
+    pub fn add_multiple(&self, _direction: Direction,
+                        _multiple: i32) -> MapLocation {
+        unimplemented!();
+    }
+
+    /// Returns the location translated from this location by `dx` in the x
+    /// direction and `dy` in the y direction.
+    pub fn translate(&self, _dx: i32, _dy: i32) -> MapLocation {
+        unimplemented!();
+    }
+
+    /// Computes the square of the distance from this location to the specified
+    /// location. If on different planets, returns the maximum integer.
     pub fn distance_squared_to(&self, o: MapLocation) -> u32 {
         if self.planet == o.planet {
             ((self.x - o.x) * (self.x - o.x) + (self.y - o.y) * (self.y - o.y)) as u32
         } else {
-            1_000_000
+            u32::max_value()
         }
     }
 
-    /// Tests if the given MapLocation is adjacent to this one (including diagonally).
-    pub fn adjacent_to(&self, o: MapLocation) -> bool {
+    /// Returns the Direction from this location to the specified location.
+    /// If the locations are equal this method returns Center.
+    pub fn direction_to(&self, _o: MapLocation) -> Direction {
+        unimplemented!();
+    }
+
+    /// Determines whether this location is adjacent to the specified location,
+    /// including diagonally. Note that squares are not adjacent to themselves.
+    pub fn is_adjacent_to(&self, o: MapLocation) -> bool {
         self.distance_squared_to(o) <= 2
+    }
+
+    /// Returns an array of all locations within a certain radius squared of
+    /// this location. (Cannot be called with a radius of greater than 100.)
+    pub fn all_locations_within(&self, _radius_squared: u32) -> Vec<MapLocation> {
+        unimplemented!();
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::u32;
     use super::Direction::*;
     use super::MapLocation;
     use super::Planet;
@@ -217,21 +254,21 @@ mod tests {
         assert_eq!(b.distance_squared_to(a), 4);
         assert_eq!(a.distance_squared_to(c), 9);
         assert_eq!(b.distance_squared_to(c), 13);
-        assert!(a.distance_squared_to(d) == 1_000_000);
+        assert!(a.distance_squared_to(d) == u32::max_value());
     }
 
     #[test]
-    fn map_location_adjacent_to() {
+    fn map_location_is_adjacent_to() {
         let a = MapLocation::new(Planet::Earth, 4, 4);
         let b = MapLocation::new(Planet::Earth, 4, 5);
         let c = MapLocation::new(Planet::Earth, 5, 5);
         let d = MapLocation::new(Planet::Earth, 6, 5);
         let e = MapLocation::new(Planet::Mars, 4, 5);
-        assert!(a.adjacent_to(b));
-        assert!(a.adjacent_to(c));
-        assert!(b.adjacent_to(c));
-        assert!(d.adjacent_to(c));
-        assert!(!a.adjacent_to(d));
-        assert!(!a.adjacent_to(e));
+        assert!(a.is_adjacent_to(b));
+        assert!(a.is_adjacent_to(c));
+        assert!(b.is_adjacent_to(c));
+        assert!(d.is_adjacent_to(c));
+        assert!(!a.is_adjacent_to(d));
+        assert!(!a.is_adjacent_to(e));
     }
 }

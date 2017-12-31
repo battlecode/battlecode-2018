@@ -41,10 +41,10 @@ pub const ASTEROID_KARB_MIN: u32 = 20;
 pub const ASTEROID_KARB_MAX: u32 = 200;
 
 /// The minimum flight time due to the orbit.
-pub const ORBIT_FLIGHT_MIN: i32 = 100;
+pub const ORBIT_FLIGHT_MIN: u32 = 100;
 
 /// The maximum flight time due to the orbit.
-pub const ORBIT_FLIGHT_MAX: i32 = 400;
+pub const ORBIT_FLIGHT_MAX: u32 = 400;
 
 // *********************************
 // ***** KARBONITE CONSTANTS *******
@@ -63,25 +63,25 @@ pub const KARBONITE_DECREASE_RATIO: u32 = 1500;
 // *********************************
 
 /// The cost of each level of research on the Worker branch.
-pub const WORKER_COST: [Rounds; 5] = [0, 60, 80, 100, 200];
+pub const RESEARCH_WORKER_COST: [Rounds; 5] = [0, 60, 80, 100, 200];
 
 /// The cost of each level of research on the Knight branch.
-pub const KNIGHT_COST: [Rounds; 4] = [0, 80, 100, 200];
+pub const RESEARCH_KNIGHT_COST: [Rounds; 4] = [0, 80, 100, 200];
 
 /// The cost of each level of research on the Ranger branch.
-pub const RANGER_COST: [Rounds; 4] = [0, 80, 100, 200];
+pub const RESEARCH_RANGER_COST: [Rounds; 4] = [0, 80, 100, 200];
 
 /// The cost of each level of research on the Mage branch.
-pub const MAGE_COST: [Rounds; 5] = [0, 60, 80, 100, 200];
+pub const RESEARCH_MAGE_COST: [Rounds; 5] = [0, 60, 80, 100, 200];
 
 /// The cost of each level of research on the Healer branch.
-pub const HEALER_COST: [Rounds; 4] = [0, 80, 100, 200];
+pub const RESEARCH_HEALER_COST: [Rounds; 4] = [0, 80, 100, 200];
 
 /// The cost of each level of research on the Factory branch.
-pub const FACTORY_COST: [Rounds; 1] = [0];
+pub const RESEARCH_FACTORY_COST: [Rounds; 1] = [0];
 
 /// The cost of each level of research on the Rocket branch.
-pub const ROCKET_COST: [Rounds; 4] = [0, 300, 200, 200];
+pub const RESEARCH_ROCKET_COST: [Rounds; 4] = [0, 300, 200, 200];
 
 // *********************************
 // ****** UNIT CONSTANTS ***********

@@ -1,3 +1,6 @@
+//! Detailed game errors.
+
+/// Detailed game errors.
 #[derive(Debug, Fail, PartialEq, Eq)]
 pub enum GameError {
     /// The given unit does not have a type appropriate for the given action.
@@ -8,39 +11,27 @@ pub enum GameError {
     #[fail(display = "The engine encountered a problem. Report this to the devs.")]
     InternalEngineError,
 
-    /// The action you attempted to perform is not allowed.
-    #[fail(display = "The action you attempted to perform is not allowed.")]
+    /// The action you attempted to perform is not allowed. Did you check `can_action()` before performing `action()`?
+    #[fail(display = "The action you attempted to perform is not allowed. Did you check can_action() before performing action()?")]
     InvalidAction,
 
     /// The map-related object is invalid.
     #[fail(display = "The map-related object is invalid.")]
     InvalidMapObject,
 
-    /// The location is off the map or otherwise invalid.
-    #[fail(display = "The location is off the map or otherwise invalid.")]
+    /// The location is off the map or otherwise outside your vision range.
+    #[fail(display = "The location is off the map or otherwise outside your vision range.")]
     InvalidLocation,
 
     /// You are not allowed to control units on the other team.
     #[fail(display = "You are not allowed to control units on the other team.")]
     TeamNotAllowed,
 
-    /// The level of research is invalid.
-    #[fail(display = "The level of research is invalid.")]
+    /// The level of research may not exist, or has not been unlocked by your team.
+    #[fail(display = "The level of research may not exist, or has not been unlocked by your team.")]
     InvalidResearchLevel,
 
-    /// The specified planet does not exist. This is probably the devs' fault.
-    #[fail(display = "The specified planet does not exist. This is probably the devs' fault.")]
-    NoSuchPlanet,
-
-    /// The specified team does not exist.
-    #[fail(display = "The specified team does not exist. This is probably the devs' fault.")]
-    NoSuchTeam,
-
-    /// The specified unit type does not exist.
-    #[fail(display = "The specified unit type does not exist. This is probably the devs' fault.")]
-    NoSuchUnitType,
-
-    /// The specified unit does not exist.
-    #[fail(display = "The specified unit does not exist.")]
+    /// The specified unit does not exist, at least within your vision range.
+    #[fail(display = "The specified unit does not exist, at least within your vision range.")]
     NoSuchUnit,
 }
