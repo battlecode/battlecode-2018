@@ -329,6 +329,7 @@ impl Unit {
     /// Errors if the unit is not a robot. 
     fn reset_abliity_cooldown(&mut self) -> Result<(), Error> {
 <<<<<<< HEAD
+<<<<<<< HEAD
         if self.ok_if_robot()? {
             self.ability_heat = DEFAULT_ABILITY_HEAT;
             Ok(())
@@ -340,6 +341,11 @@ impl Unit {
         self.ability_heat = DEFAULT_ABILITY_HEAT;
         Ok(())   
 >>>>>>> refs/remotes/origin/special_abilities
+=======
+        self.ok_if_robot()?; 
+        self.ability_heat = DEFAULT_ABILITY_HEAT;
+        Ok(())   
+>>>>>>> b9b0eeb8ac93ad4e3110472beb0b55e9cfe363e4
     }
 
     // ************************************************************************
@@ -545,6 +551,7 @@ impl Unit {
     // ************************************************************************
     
 <<<<<<< HEAD
+<<<<<<< HEAD
     /// Whether the unit can throw javelin.
     /// 
     /// Errors if the unit is not a knight.
@@ -559,6 +566,8 @@ impl Unit {
     pub fn throw_javalin(&mut self) -> Result<(i32), Error> {
         if self.can_throw()? {
 =======
+=======
+>>>>>>> b9b0eeb8ac93ad4e3110472beb0b55e9cfe363e4
     /// Whether the unit can javelin. 
     /// 
     /// Errors if the unit is not a knight, or ability not unlocked.
@@ -572,7 +581,10 @@ impl Unit {
     /// Errors if the unit is not a knight, or not ready to javelin.
     pub fn javelin(&mut self) -> Result<(i32), Error> {
         if self.can_javelin()? {
+<<<<<<< HEAD
 >>>>>>> refs/remotes/origin/special_abilities
+=======
+>>>>>>> b9b0eeb8ac93ad4e3110472beb0b55e9cfe363e4
             self.ability_heat += self.ability_cooldown;
             Ok(self.damage)
         } else { 
@@ -590,10 +602,14 @@ impl Unit {
     pub fn can_snipe(&self) -> Result<bool, Error> {
         self.ok_if_unit_type(Ranger)?;
 <<<<<<< HEAD
+<<<<<<< HEAD
         Ok(self.ability_heat()? < MAX_HEAT_TO_ACT)
 =======
         Ok(self.can_use_ability()?)
 >>>>>>> refs/remotes/origin/special_abilities
+=======
+        Ok(self.can_use_ability()?)
+>>>>>>> b9b0eeb8ac93ad4e3110472beb0b55e9cfe363e4
     }
 
     /// Updates the unit as if it has sniped.
@@ -603,12 +619,17 @@ impl Unit {
         if self.can_snipe()? {
             self.ability_heat += self.ability_cooldown;
 <<<<<<< HEAD
+<<<<<<< HEAD
             self.movement_heat += self.ability_cooldown;
             self.attack_heat += self.ability_cooldown;
 =======
             self.movement_heat += self.countdown;
             self.attack_heat += self.countdown; 
 >>>>>>> refs/remotes/origin/special_abilities
+=======
+            self.movement_heat += self.countdown;
+            self.attack_heat += self.countdown; 
+>>>>>>> b9b0eeb8ac93ad4e3110472beb0b55e9cfe363e4
             Ok(self.damage)
         } else {
             Err(GameError::InvalidAction)?
@@ -625,20 +646,28 @@ impl Unit {
     pub fn can_blink(&self) -> Result<bool, Error> {
         self.ok_if_unit_type(Mage)?;
 <<<<<<< HEAD
+<<<<<<< HEAD
         Ok(self.ability_heat()? < MAX_HEAT_TO_ACT)
 =======
         Ok(self.can_use_ability()?)
 >>>>>>> refs/remotes/origin/special_abilities
+=======
+        Ok(self.can_use_ability()?)
+>>>>>>> b9b0eeb8ac93ad4e3110472beb0b55e9cfe363e4
     }
 
     /// Updates the unit as if it has blinked.
     /// 
     /// Errors if the unit is not a mage, or not ready to blink.
 <<<<<<< HEAD
+<<<<<<< HEAD
     pub fn blink_to(&mut self, location: Option<MapLocation>) 
 =======
     pub fn blink(&mut self, location: Option<MapLocation>) 
 >>>>>>> refs/remotes/origin/special_abilities
+=======
+    pub fn blink(&mut self, location: Option<MapLocation>) 
+>>>>>>> b9b0eeb8ac93ad4e3110472beb0b55e9cfe363e4
                  -> Result<(), Error> {
         if self.can_blink()? {
             self.ability_heat += self.ability_cooldown;
@@ -659,10 +688,14 @@ impl Unit {
     pub fn can_overcharge(&self) -> Result<bool, Error> {
         self.ok_if_unit_type(Healer)?;
 <<<<<<< HEAD
+<<<<<<< HEAD
         Ok(self.ability_heat()? < MAX_HEAT_TO_ACT)
 =======
         Ok(self.can_use_ability()?)
 >>>>>>> refs/remotes/origin/special_abilities
+=======
+        Ok(self.can_use_ability()?)
+>>>>>>> b9b0eeb8ac93ad4e3110472beb0b55e9cfe363e4
     }
 
     /// Updates the unit as if it has overcharged.
@@ -670,12 +703,17 @@ impl Unit {
     /// Errors if the unit is not a healer, or not ready to overcharge.
     pub fn overcharge(&mut self) -> Result<(), Error> {
 <<<<<<< HEAD
+<<<<<<< HEAD
         if can_overcharge()? {
             self.abliity_heat += self.ability_cooldown;
 =======
         if self.can_overcharge()? {
             self.ability_heat += self.ability_cooldown;
 >>>>>>> refs/remotes/origin/special_abilities
+=======
+        if self.can_overcharge()? {
+            self.ability_heat += self.ability_cooldown;
+>>>>>>> b9b0eeb8ac93ad4e3110472beb0b55e9cfe363e4
             Ok(())
         } else {
             Err(GameError::InvalidAction)?
@@ -857,10 +895,14 @@ impl Unit {
         self.movement_heat -= cmp::min(HEAT_LOSS_PER_ROUND, self.movement_heat);
         self.attack_heat -= cmp::min(HEAT_LOSS_PER_ROUND, self.attack_heat);
 <<<<<<< HEAD
+<<<<<<< HEAD
         self.ability_heat -= cmp:min(HEAT_LOSS_PER_ROUND, self.ability_heat);
 =======
         self.ability_heat -= cmp::min(HEAT_LOSS_PER_ROUND, self.ability_heat);
 >>>>>>> refs/remotes/origin/special_abilities
+=======
+        self.ability_heat -= cmp::min(HEAT_LOSS_PER_ROUND, self.ability_heat);
+>>>>>>> b9b0eeb8ac93ad4e3110472beb0b55e9cfe363e4
     }
 }
 
@@ -968,11 +1010,19 @@ mod tests {
         ranger.ability_heat = MAX_HEAT_TO_ACT + 10;
         assert!(!ranger.can_use_ability().unwrap());
     }
+<<<<<<< HEAD
 
     #[test]
     fn test_knight() {
         let loc = MapLocation::new(Planet::Earth, 0, 0);
 
+=======
+
+    #[test]
+    fn test_knight() {
+        let loc = MapLocation::new(Planet::Earth, 0, 0);
+
+>>>>>>> b9b0eeb8ac93ad4e3110472beb0b55e9cfe363e4
         // Javelin should fail if unit is not a knight
         let mut worker = Unit::new(1, Team::Red, Worker, 0, loc).unwrap();
         assert!(worker.can_javelin().is_err());
@@ -981,6 +1031,7 @@ mod tests {
 
     #[test]
     fn test_ranger() {
+<<<<<<< HEAD
         let loc = MapLocation::new(Planet::Earth, 0, 0);
 
         // Sniping should fail if unit is not a ranger
@@ -1010,6 +1061,37 @@ mod tests {
     fn test_healer() {
         let loc = MapLocation::new(Planet::Earth, 0, 0);
 
+=======
+        let loc = MapLocation::new(Planet::Earth, 0, 0);
+
+        // Sniping should fail if unit is not a ranger
+        let mut worker = Unit::new(1, Team::Red, Worker, 0, loc).unwrap();
+        assert!(worker.can_snipe().is_err());
+        assert!(worker.snipe().is_err());
+    }
+
+    #[test]
+    fn test_mage() {
+        let loc_a = MapLocation::new(Planet::Earth, 0, 0);
+        let loc_b = MapLocation::new(Planet::Earth, 0, 1);
+
+        // Blinking moves mage to new location 
+        let mut mage = Unit::new(1, Team::Red, Mage, 4, loc_a).unwrap();
+        assert!(mage.can_blink().unwrap());
+        assert!(mage.blink(Some(loc_b)).is_ok());
+        assert_eq!(mage.location(), Some(loc_b));
+    
+        // Blinking should fail if unit is not a mage
+        let mut worker = Unit::new(1, Team::Red, Worker, 0, loc_a).unwrap();
+        assert!(worker.can_blink().is_err());
+        assert!(worker.blink(Some(loc_b)).is_err());
+    }
+
+    #[test]
+    fn test_healer() {
+        let loc = MapLocation::new(Planet::Earth, 0, 0);
+
+>>>>>>> b9b0eeb8ac93ad4e3110472beb0b55e9cfe363e4
         // Overcharging should fail if unit is not a healer
         let mut worker = Unit::new(1, Team::Red, Worker, 0, loc).unwrap();
         assert!(worker.can_overcharge().is_err());
