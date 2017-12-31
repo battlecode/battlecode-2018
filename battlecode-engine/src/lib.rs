@@ -31,6 +31,7 @@ pub mod schema;
 pub mod world;
 
 // see error.rs
+#[macro_use]
 pub mod error;
 
 // see location.rs

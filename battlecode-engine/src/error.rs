@@ -34,4 +34,52 @@ pub enum GameError {
     /// The specified unit does not exist, at least within your vision range.
     #[fail(display = "The specified unit does not exist, at least within your vision range.")]
     NoSuchUnit,
+
+    /// The argument to this function does not conform to the specs.
+    #[fail(display = "The argument to this function does not conform to the specs.")]
+    IllegalArgument,
+}
+
+#[cfg(test)]
+macro_rules! assert_err {
+    ($left:expr, $right:expr) => ({
+        assert_eq!(
+            $left.unwrap_err().downcast::<GameError>().expect("wrong error type"),
+            $right
+        )
+    });
+    ($left:expr, $right:expr, $($arg:tt)+) => ({
+        assert_eq!(
+            $left.unwrap_err().downcast::<GameError>().expect("wrong error type"),
+            $right,
+            format_args!($($arg)+)
+        )
+    });
+}
+
+#[cfg(test)]
+macro_rules! assert_lte {
+    ($left:expr, $right:expr) => ({
+        match (&$left, &$right) {
+            (left_val, right_val) => {
+                if !(*left_val <= *right_val) {
+                    panic!(r#"assertion failed: `(left <= right)`
+  left: `{:?}`,
+ right: `{:?}`"#, left_val, right_val)
+                }
+            }
+        }
+    });
+    ($left:expr, $right:expr, $($arg:tt)+) => ({
+        match (&($left), &($right)) {
+            (left_val, right_val) => {
+                if !(*left_val <= *right_val) {
+                    panic!(r#"assertion failed: `(left <= right)`
+  left: `{:?}`,
+ right: `{:?}`: {}"#, left_val, right_val,
+                           format_args!($($arg)+))
+                }
+            }
+        }
+    });
 }
