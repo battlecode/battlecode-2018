@@ -1256,7 +1256,7 @@ mod tests {
         // A cannot move again until its cooldowns are reset.
         assert![!world.can_move(a, Direction::South).unwrap()];
         assert![world.move_robot(a, Direction::South).is_err()];
-        assert![world.next_round().is_ok()];
+        assert![world.end_round().is_ok()];
 
         // Finally, let's test that A cannot move back to its old square.
         assert![!world.can_move(a, Direction::Southwest).unwrap()];
@@ -1393,7 +1393,7 @@ mod tests {
         assert![world.degarrison_rocket(rocket, Direction::North).is_err()];
 
         // Correct degarrisoning.
-        world.next_round().unwrap();
+        world.end_round().unwrap();
         assert![world.degarrison_rocket(rocket, Direction::North).is_ok()];
 
         // Cannot degarrison into an occupied square.
