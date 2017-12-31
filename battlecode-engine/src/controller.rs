@@ -19,7 +19,11 @@ struct GameController {
 impl GameController {
 
     // ************************************************************************
+    // ************************************************************************
+    // ************************************************************************
     // **************************** PLAYER API ********************************
+    // ************************************************************************
+    // ************************************************************************
     // ************************************************************************
 
     /// Initializes the game world and creates a new controller
@@ -49,11 +53,19 @@ impl GameController {
         Ok(turn)
     }
 
+    // *****************************************************************************
+    // **************************** TESTING METHODS ********************************
+    // *****************************************************************************
+
     /// Tests whether the given robot can move in the specified direction.
     /// Returns an error if the id does not correspond to a known robot, etc...
     pub fn can_move_robot(&self, robot_id: UnitID, direction: Direction) -> Result<bool, Error> {
         Ok(self.world.can_move(robot_id, direction)?)
     }
+
+    // *********************************************************************
+    // **************************** ACTIONS ********************************
+    // *********************************************************************
 
     /// Commands the given robot to move one square in the specified
     /// direction. Returns an error if the move is unsuccessful, etc...
@@ -68,7 +80,11 @@ impl GameController {
     // TODO: wrappers for all of the other functions.
 
     // ************************************************************************
+    // ************************************************************************
+    // ************************************************************************
     // **************************** RUNNER API ********************************
+    // ************************************************************************
+    // ************************************************************************
     // ************************************************************************
 
     /// Initializes the game world and creates a new controller
@@ -85,7 +101,8 @@ impl GameController {
     /// Given a TurnMessage from a player, apply those changes.
     pub fn apply_turn(&mut self, turn: TurnMessage) -> Result<(StartTurnMessage, ViewerMessage), Error> {
         self.world.apply_turn(&turn)?;
-        // Serialize the game state to send to the player
+        // Serialize the filtered game state to send to the player
+        // TODO: filter the world somehow
         let start_turn_message = StartTurnMessage { world: self.world.clone() };
         // Serialize the game state to send to the viewer
         let viewer_message = ViewerMessage { world: self.world.clone() };
