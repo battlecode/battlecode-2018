@@ -330,7 +330,7 @@ impl Unit {
     fn reset_abliity_cooldown(&mut self) -> Result<(), Error> {
         self.ok_if_robot()?; 
         self.ability_heat = DEFAULT_ABILITY_HEAT;
-        Ok(())   
+        Ok(())
     }
 
     // ************************************************************************
@@ -574,7 +574,7 @@ impl Unit {
         if self.can_snipe()? {
             self.ability_heat += self.ability_cooldown;
             self.movement_heat += self.countdown;
-            self.attack_heat += self.countdown; 
+            self.attack_heat += self.countdown;
             Ok(self.damage)
         } else {
             Err(GameError::InvalidAction)?
@@ -596,7 +596,7 @@ impl Unit {
     /// Updates the unit as if it has blinked.
     /// 
     /// Errors if the unit is not a mage, or not ready to blink.
-    pub fn blink(&mut self, location: Option<MapLocation>) 
+    pub fn blink(&mut self, location: Option<MapLocation>)
                  -> Result<(), Error> {
         if self.can_blink()? {
             self.ability_heat += self.ability_cooldown;
