@@ -45,9 +45,6 @@ pub mod location;
 // see map.rs
 pub mod map;
 
-// see id_generator.rs
-pub mod id_generator;
-
 // see unit.rs
 pub mod unit;
 
@@ -56,6 +53,9 @@ pub mod research;
 
 // see constants.rs
 pub mod constants;
+
+// see id_generator.rs
+mod id_generator;
 
 #[cfg(test)]
 mod tests {

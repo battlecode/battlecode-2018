@@ -147,7 +147,7 @@ pub unsafe extern "C" fn bc_clone_game_world(bc: *mut bc_t,
 #[no_mangle]
 pub unsafe extern "C" fn bc_get_round(bc: *mut bc_t, game_world: *mut bc_game_world_t) -> u32 {
     handle_errors!{bc (game_world) -> u32 [0] {
-        Ok((*game_world).0.round)
+        Ok((*game_world).0.round())
     }}
 }
 
