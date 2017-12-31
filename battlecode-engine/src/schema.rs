@@ -20,12 +20,8 @@ pub enum Delta {
     Blink { mage_id: UnitID, location: MapLocation },
     /// Commands the given worker to build a blueprint.
     Build { worker_id: UnitID, blueprint_id: UnitID },
-    /// Commands the given structure to degarrison a unit in the given direction.
-    Degarrison { structure_id: UnitID, direction: Direction },
     /// Commands the given unit to disintegrate.
     Disintegrate { unit_id: UnitID },
-    /// Commands the given structure to pull the specified robot into its garrison.
-    Garrison { structure_id: UnitID, robot_id: UnitID },
     /// Commands the given worker to mine karbonite from an adjacent square.
     Harvest { worker_id: UnitID, direction: Direction },
     /// Commands the given healer to heal the given robot.
@@ -34,6 +30,8 @@ pub enum Delta {
     Javelin { knight_id: UnitID, target_unit_id: UnitID },
     /// Commands the given rocket to launch, ultimately landing in the specified location.
     LaunchRocket { rocket_id: UnitID, location: MapLocation },
+    /// Commands the given structure to load the specified robot into its garrison.
+    Load { structure_id: UnitID, robot_id: UnitID },
     /// Commands the given robot to move in the given direction.
     Move { robot_id: UnitID, direction: Direction },
     /// Commands the given healer to overcharge the specified robot.
@@ -48,6 +46,8 @@ pub enum Delta {
     Replicate { worker_id: UnitID, direction: Direction },
     /// Resets the current research queue, for the specified team.
     ResetResearchQueue { team: Team },
+    /// Commands the given structure to unload a unit in the given direction.
+    Unload { structure_id: UnitID, direction: Direction },
     /// Nothing happens.
     Nothing,
 }
