@@ -364,7 +364,7 @@ impl Unit {
             Some(loc) => loc,
             None => { return false; },
         };
-        loc_a.adjacent_to(loc_b)
+        loc_a.is_adjacent_to(loc_b)
     }
 
     // ************************************************************************
@@ -508,19 +508,19 @@ impl Unit {
     // *************************** KNIGHT METHODS *****************************
     // ************************************************************************
     
-    /// Whether the unit can throw javelin. 
+    /// Whether the unit can javelin. 
     /// 
     /// Errors if the unit is not a knight, or ability not unlocked.
-    pub fn can_throw(&self) -> Result<bool, Error> {
+    pub fn can_javelin(&self) -> Result<bool, Error> {
         self.ok_if_unit_type(Knight)?;
         Ok(self.can_use_ability()?)
     }
 
-    /// Updates the unit as if it has thrown a javelin.
+    /// Updates the unit as if it has javelined.
     /// 
-    /// Errors if the unit is not a knight, or not ready to throw javelin.
-    pub fn throw_javelin(&mut self) -> Result<(i32), Error> {
-        if self.can_throw()? {
+    /// Errors if the unit is not a knight, or not ready to javelin.
+    pub fn javelin(&mut self) -> Result<(i32), Error> {
+        if self.can_javelin()? {
             self.ability_heat += self.ability_cooldown;
             Ok(self.damage)
         } else { 
@@ -569,7 +569,7 @@ impl Unit {
     /// Updates the unit as if it has blinked.
     /// 
     /// Errors if the unit is not a mage, or not ready to blink.
-    pub fn blink_to(&mut self, location: Option<MapLocation>) 
+    pub fn blink(&mut self, location: Option<MapLocation>) 
                  -> Result<(), Error> {
         if self.can_blink()? {
             self.ability_heat += self.ability_cooldown;
@@ -891,10 +891,10 @@ mod tests {
     fn test_knight() {
         let loc = MapLocation::new(Planet::Earth, 0, 0);
 
-        // Throwing javelin should fail if unit is not a knight
+        // Javelin should fail if unit is not a knight
         let mut worker = Unit::new(1, Team::Red, Worker, 0, loc).unwrap();
-        assert!(worker.can_throw().is_err());
-        assert!(worker.throw_javelin().is_err());
+        assert!(worker.can_javelin().is_err());
+        assert!(worker.javelin().is_err());
     }
 
     #[test]
@@ -915,13 +915,13 @@ mod tests {
         // Blinking moves mage to new location 
         let mut mage = Unit::new(1, Team::Red, Mage, 4, loc_a).unwrap();
         assert!(mage.can_blink().unwrap());
-        assert!(mage.blink_to(Some(loc_b)).is_ok());
+        assert!(mage.blink(Some(loc_b)).is_ok());
         assert_eq!(mage.location(), Some(loc_b));
     
         // Blinking should fail if unit is not a mage
         let mut worker = Unit::new(1, Team::Red, Worker, 0, loc_a).unwrap();
         assert!(worker.can_blink().is_err());
-        assert!(worker.blink_to(Some(loc_b)).is_err());
+        assert!(worker.blink(Some(loc_b)).is_err());
     }
 
     #[test]
