@@ -4,6 +4,7 @@ use fnv::FnvHashMap;
 
 use super::constants::*;
 use super::schema::Delta;
+use super::schema::TurnMessage;
 use super::id_generator::IDGenerator;
 use super::location::*;
 use super::map::*;
@@ -66,7 +67,7 @@ type TeamArrayHistory = Vec<TeamArray>;
 
 /// Persistent info specific to a single team. Teams are only able to access
 /// the team info of their own team.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 struct TeamInfo {
     /// Team identification.
     team: Team,
@@ -98,7 +99,7 @@ impl TeamInfo {
 }
 
 /// A player represents a program controlling some group of units.
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
 pub struct Player {
     /// The team of this player.
     pub team: Team,
@@ -115,7 +116,7 @@ impl Player {
 }
 
 /// The full world of the Battlecode game.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct GameWorld {
     /// The current round, starting at 1.
     round: Rounds,
@@ -304,7 +305,7 @@ impl GameWorld {
     /// distance squared. The units are within the vision range. Additionally
     /// filters the units by unit type.
     pub fn sense_nearby_units_by_type(&self, _location: MapLocation,
-                                      _radius: u32, _type: UnitType) -> Vec<UnitInfo> {
+                                      _radius: u32, _unit_type: UnitType) -> Vec<UnitInfo> {
         unimplemented!();
     }
 
@@ -420,7 +421,7 @@ impl GameWorld {
 
     /// Creates and inserts a new unit into the game world, so that it can be
     /// referenced by ID.
-    fn create_unit(&mut self, team: Team, location: MapLocation,
+    pub fn create_unit(&mut self, team: Team, location: MapLocation,
                        unit_type: UnitType) -> Result<UnitID, Error> {
         let id = self.get_team_info_mut(team).id_generator.next_id();
         let level = self.get_team_info(team).research.get_level(&unit_type);
@@ -1047,7 +1048,7 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a rocket.
-    pub fn can_launch_rocket(&mut self, rocket_id: UnitID, destination: MapLocation)
+    pub fn can_launch_rocket(&self, rocket_id: UnitID, destination: MapLocation)
                              -> Result<bool, Error> {
         let rocket = self.get_unit(rocket_id)?;
         if rocket.is_rocket_used()? {
@@ -1118,24 +1119,27 @@ impl GameWorld {
 
     /// Updates the current player in the game. If a round of four turns has
     /// finished, also processes the end of the round. This includes updating
-    /// unit cooldowns, rocket landings, asteroid strikes, research, etc.
+    /// unit cooldowns, rocket landings, asteroid strikes, research, etc. Returns 
+    /// the next player to move, and whether the round was also ended.
     ///
     /// * GameError::InternalEngineError - something happened here...
-    pub fn next_turn(&mut self) -> Result<(), Error> {
+    pub fn end_turn(&mut self) -> Result<(Player, bool), Error> {
+        let mut next_round = false;
         self.player_to_move = match self.player_to_move {
             Player { team: Team::Red, planet: Planet::Earth } => Player { team: Team::Blue, planet: Planet::Earth},
             Player { team: Team::Blue, planet: Planet::Earth } => Player { team: Team::Red, planet: Planet::Mars},
             Player { team: Team::Red, planet: Planet::Mars } => Player { team: Team::Blue, planet: Planet::Mars},
             Player { team: Team::Blue, planet: Planet::Mars } => {
                 // This is the last player to move, so we can advance to the next round.
-                self.next_round()?;
+                self.end_round()?;
+                next_round = true;
                 Player { team: Team::Red, planet: Planet::Earth}
             },
         };
-        Ok(())
+        Ok((self.player_to_move, next_round))
     }
 
-    fn next_round(&mut self) -> Result<(), Error> {
+    pub fn end_round(&mut self) -> Result<(), Error> {
         self.round += 1;
 
         // Update unit cooldowns.
@@ -1163,12 +1167,39 @@ impl GameWorld {
         Ok(())
     }
 
-    pub fn apply(&mut self, delta: Delta) -> Result<(), Error> {
-        match delta {
-            Delta::EndTurn => self.next_turn(),
-            Delta::Move{id, direction} => self.move_robot(id, direction),
-            _ => Ok(()),
+    /// Applies a single delta to this GameWorld.
+    pub fn apply(&mut self, delta: &Delta) -> Result<(), Error> {
+        match *delta {
+            Delta::Attack {robot_id, target_unit_id} => self.attack(robot_id, target_unit_id),
+            Delta::BeginSnipe {ranger_id, location} => self.begin_snipe(ranger_id, location),
+            Delta::Blueprint {worker_id, structure_type, direction} => self.blueprint(worker_id, structure_type, direction),
+            Delta::Blink {mage_id, location} => self.blink(mage_id, location),
+            Delta::Build {worker_id, blueprint_id} => self.build(worker_id, blueprint_id),
+            Delta::Degarrison {structure_id, direction} => unimplemented!(),
+            Delta::Disintegrate {unit_id} => self.destroy_unit(unit_id),
+            Delta::Garrison {structure_id, robot_id} => unimplemented!(),
+            Delta::Harvest {worker_id, direction} => self.harvest(worker_id, direction),
+            Delta::Heal {healer_id, target_robot_id} => self.heal(healer_id, target_robot_id),
+            Delta::Javelin {knight_id, target_unit_id} => self.javelin(knight_id, target_unit_id),
+            Delta::LaunchRocket {rocket_id, location} => self.launch_rocket(rocket_id, location),
+            Delta::Move {robot_id, direction} => self.move_robot(robot_id, direction),
+            Delta::Overcharge {healer_id, target_robot_id} => self.overcharge(healer_id, target_robot_id),
+            Delta::QueueResearch {team, branch} => unimplemented!(),
+            Delta::QueueRobotProduction {factory_id, robot_type} => unimplemented!(),
+            Delta::Repair {worker_id, structure_id} => unimplemented!(),
+            Delta::Replicate {worker_id, direction} => self.replicate(worker_id, direction),
+            Delta::ResetResearchQueue {team} => unimplemented!(),
+            Delta::Nothing => Ok(()),
         }
+    }
+
+    /// Applies a turn message to this GameWorld, and ends the current turn. Returns
+    /// the next player to move, and whether the current round was also ended.
+    pub fn apply_turn(&mut self, turn: &TurnMessage) -> Result<(Player, bool), Error> {
+        for delta in turn.changes.iter() {
+            self.apply(delta)?;
+        }
+        Ok(self.end_turn()?)
     }
 }
 
@@ -1225,7 +1256,7 @@ mod tests {
         // A cannot move again until its cooldowns are reset.
         assert![!world.can_move(a, Direction::South).unwrap()];
         assert![world.move_robot(a, Direction::South).is_err()];
-        assert![world.next_round().is_ok()];
+        assert![world.end_round().is_ok()];
 
         // Finally, let's test that A cannot move back to its old square.
         assert![!world.can_move(a, Direction::Southwest).unwrap()];
@@ -1362,7 +1393,7 @@ mod tests {
         assert![world.degarrison_rocket(rocket, Direction::North).is_err()];
 
         // Correct degarrisoning.
-        world.next_round().unwrap();
+        world.end_round().unwrap();
         assert![world.degarrison_rocket(rocket, Direction::North).is_ok()];
 
         // Cannot degarrison into an occupied square.
