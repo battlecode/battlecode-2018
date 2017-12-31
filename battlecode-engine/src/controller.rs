@@ -43,16 +43,14 @@ impl GameController {
     /// made since the last time the player had a turn.
     pub fn start_turn(&mut self, turn: StartTurnMessage) -> Result<(), Error> {
         self.world = turn.world;
+        self.turn = TurnMessage { changes: vec![] };
         Ok(())
     }
 
     /// Ends the current turn. Returns the list of changes made in this turn.
     pub fn end_turn(&mut self) -> Result<TurnMessage, Error> {
         self.world.end_turn()?;
-        // v Does this deep copy? v
-        let turn = self.turn.clone();
-        self.turn = TurnMessage { changes: vec![] };
-        Ok(turn)
+        Ok(self.turn.clone())
     }
 
     // ************************************************************************
@@ -810,14 +808,14 @@ impl GameController {
     // ************************************************************************
     // ************************************************************************
     // ************************************************************************
-    // **************************** RUNNER API ********************************
+    // *************************** MANAGER API ********************************
     // ************************************************************************
     // ************************************************************************
     // ************************************************************************
 
     /// Initializes the game world and creates a new controller
-    /// for the runner to interact with it.
-    pub fn new_runner() -> GameController {
+    /// for the manager to interact with it.
+    pub fn new_manager() -> GameController {
         GameController {
             // TODO: load an actual map.
             world: GameWorld::test_world(),
@@ -835,5 +833,55 @@ impl GameController {
         // Serialize the game state to send to the viewer
         let viewer_message = ViewerMessage { world: self.world.clone() };
         Ok((start_turn_message, viewer_message))
+    }
+}
+
+mod tests {
+    use super::GameController;
+    use location::*;
+    use schema::*;
+    use unit::*;
+    use world::*;
+
+    #[test]
+    fn test_turn() {
+        // NOTE: This test depends on movement working properly.
+        
+        // Create controllers for the manager and two Earth players.
+        let mut manager_controller = GameController::new_manager();
+        let mut player_controller_red = GameController::new();
+        let mut player_controller_blue = GameController::new();
+        
+        // Place some robots manually, for sake of testing.
+        let red_robot = manager_controller.world.create_unit(
+                                                        Team::Red, 
+                                                        MapLocation::new(Planet::Earth, 0, 0), 
+                                                        UnitType::Knight).unwrap();
+        let blue_robot = manager_controller.world.create_unit(
+                                                        Team::Blue, 
+                                                        MapLocation::new(Planet::Earth, 1, 0), 
+                                                        UnitType::Knight).unwrap();
+        
+        // Manually create the first start turn message, so the first
+        // player can see the new robots, then start red's turn.
+        let red_start_turn_msg = StartTurnMessage { world: manager_controller.world.clone() };
+        assert![player_controller_red.start_turn(red_start_turn_msg).is_ok()];
+
+        // Test that red can move as expected.
+        assert![!player_controller_red.can_move(red_robot, Direction::East).unwrap()];
+        assert![player_controller_red.can_move(red_robot, Direction::Northeast).unwrap()];
+        assert![player_controller_red.move_robot(red_robot, Direction::Northeast).is_ok()];
+
+        // End red's turn, and pass the message to the manager, which
+        // generates blue's start turn message and starts blue's turn.
+        let red_turn_msg = player_controller_red.end_turn().unwrap();
+        let (blue_start_turn_msg, _) = manager_controller.apply_turn(red_turn_msg).unwrap();
+        assert![player_controller_blue.start_turn(blue_start_turn_msg).is_ok()];
+
+        // Test that blue can move as expected. This demonstrates
+        // it has received red's actions in its own state.
+        assert![!player_controller_blue.can_move(blue_robot, Direction::North).unwrap()];
+        assert![player_controller_blue.can_move(blue_robot, Direction::West).unwrap()];
+        assert![player_controller_blue.move_robot(blue_robot, Direction::West).is_ok()];
     }
 }

@@ -421,7 +421,7 @@ impl GameWorld {
 
     /// Creates and inserts a new unit into the game world, so that it can be
     /// referenced by ID.
-    fn create_unit(&mut self, team: Team, location: MapLocation,
+    pub fn create_unit(&mut self, team: Team, location: MapLocation,
                        unit_type: UnitType) -> Result<UnitID, Error> {
         let id = self.get_team_info_mut(team).id_generator.next_id();
         let level = self.get_team_info(team).research.get_level(&unit_type);
