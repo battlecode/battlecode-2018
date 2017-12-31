@@ -1,5 +1,6 @@
 //! The core battlecode engine.
 
+use std::collections::HashSet;
 use fnv::FnvHashMap;
 
 use super::constants::*;
@@ -21,6 +22,16 @@ pub type Rounds = u32;
 pub enum Team {
     Red,
     Blue,
+}
+
+impl Team {
+    /// The other team.
+    pub fn other(&self) -> Team {
+        match *self {
+            Team::Red => Team::Blue,
+            Team::Blue => Team::Red,
+        }
+    }
 }
 
 /// The state for one of the planets in a game. Stores neutral info like the
@@ -46,13 +57,6 @@ impl PlanetInfo {
         PlanetInfo {
             map: map,
             karbonite: karbonite,
-        }
-    }
-
-    pub fn test_planet_info(planet: Planet) -> PlanetInfo {
-        PlanetInfo {
-            map: PlanetMap::test_map(planet),
-            karbonite: vec![vec![0; MAP_WIDTH_MAX]; MAP_HEIGHT_MAX],
         }
     }
 }
@@ -127,6 +131,9 @@ pub struct GameWorld {
     /// The player whose turn it is.
     player_to_move: Player,
 
+    /// Locations visible to the team.
+    visible_locs: HashSet<MapLocation>,
+
     /// The unit controllers in the vision range. Every unit has a unit info.
     units: FnvHashMap<UnitID, Unit>,
 
@@ -171,6 +178,7 @@ impl GameWorld {
         Ok(GameWorld {
             round: 1,
             player_to_move: Player { team: Team::Red, planet: Planet::Earth },
+            visible_locs: HashSet::default(),
             units: FnvHashMap::default(),
             unit_infos: FnvHashMap::default(),
             units_by_loc: FnvHashMap::default(),
@@ -180,33 +188,6 @@ impl GameWorld {
             planet_states: planet_states,
             team_states: team_states,
         })
-    }
-
-    /// Creates a GameWorld for testing purposes.
-    pub fn test_world() -> GameWorld {
-        let mut planet_states = FnvHashMap::default();
-        planet_states.insert(Planet::Earth, PlanetInfo::test_planet_info(Planet::Earth));
-        planet_states.insert(Planet::Mars, PlanetInfo::test_planet_info(Planet::Mars));
-
-        let mut team_states = FnvHashMap::default();
-        team_states.insert(Team::Red, TeamInfo::new(Team::Red, 6147));
-        team_states.insert(Team::Blue, TeamInfo::new(Team::Blue, 6147));
-
-        let asteroids = AsteroidPattern::new(&FnvHashMap::default());
-        let orbit = OrbitPattern::new(100, 100, 400);
-
-        GameWorld {
-            round: 1,
-            player_to_move: Player { team: Team::Red, planet: Planet::Earth },
-            units: FnvHashMap::default(),
-            unit_infos: FnvHashMap::default(),
-            units_by_loc: FnvHashMap::default(),
-            rocket_landings: FnvHashMap::default(),
-            asteroids: asteroids,
-            orbit: orbit,
-            planet_states: planet_states,
-            team_states: team_states,
-        }
     }
 
     /// Filters the game world from the perspective of the current player. All
@@ -349,18 +330,18 @@ impl GameWorld {
 
     /// The asteroid strike pattern on Mars.
     pub fn asteroid_pattern(&self) -> AsteroidPattern {
-        unimplemented!();
+        self.asteroids.clone()
     }
 
     /// The orbit pattern that determines a rocket's flight duration.
     pub fn orbit_pattern(&self) -> OrbitPattern {
-        unimplemented!();
+        self.orbit.clone()
     }
 
     /// The current duration of flight if a rocket were to be launched this
     /// round. Does not take into account any research done on rockets.
     pub fn current_duration_of_flight(&self) -> Rounds {
-        unimplemented!();
+        self.orbit.duration(self.round)
     }
 
     fn process_asteroids(&mut self) {
@@ -1139,6 +1120,18 @@ impl GameWorld {
         Ok(())
     }
 
+    fn process_rockets(&mut self) -> Result<(), Error> {
+        let landings = if let Some(landings) = self.rocket_landings.get(&self.round) {
+            landings.clone()
+        } else {
+            vec![]
+        };
+        for &(id, location) in landings.iter() {
+            self.land_rocket(id, location)?;
+        }
+        Ok(())
+    }
+
     // ************************************************************************
     // ****************************** GAME LOOP *******************************
     // ************************************************************************
@@ -1171,14 +1164,7 @@ impl GameWorld {
         }
 
         // Land rockets.
-        let landings = if let Some(landings) = self.rocket_landings.get(&self.round) {
-            landings.clone()
-        } else {
-            vec![]
-        };
-        for &(id, location) in landings.iter() {
-            self.land_rocket(id, location)?;
-        }
+        self.process_rockets()?;
 
         // Process any potential asteroid impacts.
         self.process_asteroids();
@@ -1203,6 +1189,7 @@ impl GameWorld {
 mod tests {
     use super::GameWorld;
     use super::Team;
+    use super::super::map::GameMap;
     use super::super::unit::UnitID;
     use super::super::unit::UnitType;
     use super::super::location::*;
@@ -1210,7 +1197,7 @@ mod tests {
     #[test]
     fn test_unit_create() {
         // Create the game world, and create and add some robots.
-        let mut world = GameWorld::test_world();
+        let mut world = GameWorld::new(GameMap::test_map()).expect("invalid test map");
         let loc_a = MapLocation::new(Planet::Earth, 0, 1);
         let loc_b = MapLocation::new(Planet::Earth, 0, 2);
         let id_a = world.create_unit(Team::Red, loc_a, UnitType::Knight).unwrap();
@@ -1229,7 +1216,7 @@ mod tests {
     #[test]
     fn test_unit_move() {
         // Create the game world.
-        let mut world = GameWorld::test_world();
+        let mut world = GameWorld::new(GameMap::test_map()).expect("invalid test map");
         let loc_a = MapLocation::new(Planet::Earth, 5, 5);
         let loc_b = MapLocation::new(Planet::Earth, 6, 5);
 
@@ -1263,7 +1250,7 @@ mod tests {
     #[test]
     fn test_rocket_success() {
         // Create the game world.
-        let mut world = GameWorld::test_world();
+        let mut world = GameWorld::new(GameMap::test_map()).expect("invalid test map");
         let earth_loc = MapLocation::new(Planet::Earth, 5, 5);
         let mars_loc = MapLocation::new(Planet::Mars, 5, 5);
         let rocket = world.create_unit(Team::Red, earth_loc, UnitType::Rocket).unwrap();
@@ -1291,7 +1278,7 @@ mod tests {
     #[test]
     fn test_rocket_failure() {
         // Create the game world.
-        let mut world = GameWorld::test_world();
+        let mut world = GameWorld::new(GameMap::test_map()).expect("invalid test map");
         let earth_loc_a = MapLocation::new(Planet::Earth, 0, 0);
         let earth_loc_b = MapLocation::new(Planet::Earth, 0, 2);
         let mars_loc_off_map = MapLocation::new(Planet::Mars, 10000, 10000);
@@ -1324,7 +1311,7 @@ mod tests {
     #[test]
     fn test_rocket_garrison() {
         // Create the game world and the rocket for this test.
-        let mut world = GameWorld::test_world();
+        let mut world = GameWorld::new(GameMap::test_map()).expect("invalid test map");
         let takeoff_loc = MapLocation::new(Planet::Earth, 10, 10);        
         let rocket = world.create_unit(Team::Red, takeoff_loc, UnitType::Rocket).unwrap();
 
@@ -1370,7 +1357,7 @@ mod tests {
     #[test]
     fn test_rocket_degarrison() {
         // Create the game world and the rocket for this test.
-        let mut world = GameWorld::test_world();
+        let mut world = GameWorld::new(GameMap::test_map()).expect("invalid test map");
         let takeoff_loc = MapLocation::new(Planet::Earth, 10, 10);        
         let rocket = world.create_unit(Team::Red, takeoff_loc, UnitType::Rocket).unwrap();
         

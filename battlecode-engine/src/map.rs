@@ -10,8 +10,8 @@ use rand::distributions::range::Range;
 use constants::*;
 use error::GameError;
 use location::*;
-use unit::Unit;
-use super::world::Rounds;
+use unit::*;
+use world::*;
 
 /// The map defining the starting state for an entire game.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -41,6 +41,18 @@ impl GameMap {
     /// Whether a location is on the map of either planet.
     pub fn on_map(&self, location: MapLocation) -> bool {
         self.earth_map.on_map(location) || self.mars_map.on_map(location)
+    }
+
+    pub fn test_map() -> GameMap {
+        let seed = 1;
+        let mars_map = PlanetMap::test_map(Planet::Mars);
+        GameMap {
+            seed: seed,
+            earth_map: PlanetMap::test_map(Planet::Earth),
+            mars_map: mars_map.clone(),
+            asteroids: AsteroidPattern::random(seed, &mars_map),
+            orbit: OrbitPattern::new(100, 100, 300),
+        }
     }
 }
 
@@ -190,14 +202,27 @@ impl PlanetMap {
     }
 
     pub fn test_map(planet: Planet) -> PlanetMap {
-        PlanetMap {
+        let mut map = PlanetMap {
             planet: planet,
             height: MAP_HEIGHT_MIN,
             width: MAP_WIDTH_MIN,
             is_passable_terrain: vec![vec![true; MAP_WIDTH_MIN]; MAP_HEIGHT_MIN],
             initial_karbonite: vec![vec![0; MAP_WIDTH_MIN]; MAP_HEIGHT_MIN],
             initial_units: vec![],
-        }
+        };
+
+        if planet == Planet::Earth {
+            map.initial_units.push(Unit::new(
+                1, Team::Red, UnitType::Worker, 0,
+                MapLocation::new(planet, 1, 1)
+            ).expect("invalid test unit"));
+            map.initial_units.push(Unit::new(
+                2, Team::Blue, UnitType::Worker, 0,
+                MapLocation::new(planet, MAP_WIDTH_MIN as i32 - 1, MAP_HEIGHT_MIN as i32 - 1)
+            ).expect("invalid test unit"));
+        };
+
+        map
     }
 }
 

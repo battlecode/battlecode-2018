@@ -440,6 +440,7 @@ mod tests {
         for new_loc in locs {
             assert_lte!(loc.distance_squared_to(new_loc), 16);
         }
+        assert_eq!(loc.all_locations_within(0).unwrap(), vec![loc]);
         assert_err!(loc.all_locations_within(101), GameError::IllegalArgument);
     }
 }
