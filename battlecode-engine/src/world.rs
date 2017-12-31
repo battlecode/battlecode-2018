@@ -305,7 +305,7 @@ impl GameWorld {
     /// distance squared. The units are within the vision range. Additionally
     /// filters the units by unit type.
     pub fn sense_nearby_units_by_type(&self, _location: MapLocation,
-                                      _radius: u32, _type: UnitType) -> Vec<UnitInfo> {
+                                      _radius: u32, _unit_type: UnitType) -> Vec<UnitInfo> {
         unimplemented!();
     }
 
@@ -1048,7 +1048,7 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a rocket.
-    pub fn can_launch_rocket(&mut self, rocket_id: UnitID, destination: MapLocation)
+    pub fn can_launch_rocket(&self, rocket_id: UnitID, destination: MapLocation)
                              -> Result<bool, Error> {
         let rocket = self.get_unit(rocket_id)?;
         if rocket.is_rocket_used()? {
@@ -1123,7 +1123,8 @@ impl GameWorld {
     /// the next player to move, and whether the round was also ended.
     ///
     /// * GameError::InternalEngineError - something happened here...
-    pub fn end_turn(&mut self) -> Result<(), Error> {
+    pub fn end_turn(&mut self) -> Result<(Player, bool), Error> {
+        let mut next_round = false;
         self.player_to_move = match self.player_to_move {
             Player { team: Team::Red, planet: Planet::Earth } => Player { team: Team::Blue, planet: Planet::Earth},
             Player { team: Team::Blue, planet: Planet::Earth } => Player { team: Team::Red, planet: Planet::Mars},
@@ -1169,7 +1170,7 @@ impl GameWorld {
     /// Applies a single delta to this GameWorld.
     pub fn apply(&mut self, delta: &Delta) -> Result<(), Error> {
         match *delta {
-            Delta::Move{robot_id, direction} => self.move_unit(robot_id, direction),
+            Delta::Move{robot_id, direction} => self.move_robot(robot_id, direction),
             Delta::Nothing => Ok(()),
             _ => unimplemented!(),
         }
