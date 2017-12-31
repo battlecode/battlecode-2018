@@ -11,7 +11,7 @@ use super::world::Team;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Delta {
     /// Commands the given robot to attack a location.
-    Attack { robot_id: UnitID, target_id: UnitID },
+    Attack { robot_id: UnitID, target_unit_id: UnitID },
     /// Commands the given ranger to begin sniping the given location.
     BeginSnipe { ranger_id: UnitID, location: MapLocation },
     /// Commands the given worker to blueprint a structure.
@@ -31,7 +31,7 @@ pub enum Delta {
     /// Commands the given healer to heal the given robot.
     Heal { healer_id: UnitID, target_robot_id: UnitID },
     /// Commands the given knight to throw a javelin at the given location.
-    Javelin { knight_id: UnitID, target_id: UnitID },
+    Javelin { knight_id: UnitID, target_unit_id: UnitID },
     /// Commands the given rocket to launch, ultimately landing in the specified location.
     LaunchRocket { rocket_id: UnitID, location: MapLocation },
     /// Commands the given robot to move in the given direction.
@@ -43,7 +43,7 @@ pub enum Delta {
     /// Commands the given factory to enqueue production a robot.
     QueueRobotProduction { factory_id: UnitID, robot_type: UnitType },
     /// Commands the given worker to repair the specified strucutre.
-    Repair { worker_id: UnitID, strucutre_id: UnitID },
+    Repair { worker_id: UnitID, structure_id: UnitID },
     /// Commands the given worker to replicate in the given direction.
     Replicate { worker_id: UnitID, direction: Direction },
     /// Resets the current research queue, for the specified team.

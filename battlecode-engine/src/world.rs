@@ -1170,9 +1170,26 @@ impl GameWorld {
     /// Applies a single delta to this GameWorld.
     pub fn apply(&mut self, delta: &Delta) -> Result<(), Error> {
         match *delta {
-            Delta::Move{robot_id, direction} => self.move_robot(robot_id, direction),
+            Delta::Attack {robot_id, target_unit_id} => self.attack(robot_id, target_unit_id),
+            Delta::BeginSnipe {ranger_id, location} => self.begin_snipe(ranger_id, location),
+            Delta::Blueprint {worker_id, structure_type, direction} => self.blueprint(worker_id, structure_type, direction),
+            Delta::Blink {mage_id, location} => self.blink(mage_id, location),
+            Delta::Build {worker_id, blueprint_id} => self.build(worker_id, blueprint_id),
+            Delta::Degarrison {structure_id, direction} => unimplemented!(),
+            Delta::Disintegrate {unit_id} => self.destroy_unit(unit_id),
+            Delta::Garrison {structure_id, robot_id} => unimplemented!(),
+            Delta::Harvest {worker_id, direction} => self.harvest(worker_id, direction),
+            Delta::Heal {healer_id, target_robot_id} => self.heal(healer_id, target_robot_id),
+            Delta::Javelin {knight_id, target_unit_id} => self.javelin(knight_id, target_unit_id),
+            Delta::LaunchRocket {rocket_id, location} => self.launch_rocket(rocket_id, location),
+            Delta::Move {robot_id, direction} => self.move_robot(robot_id, direction),
+            Delta::Overcharge {healer_id, target_robot_id} => self.overcharge(healer_id, target_robot_id),
+            Delta::QueueResearch {team, branch} => unimplemented!(),
+            Delta::QueueRobotProduction {factory_id, robot_type} => unimplemented!(),
+            Delta::Repair {worker_id, structure_id} => unimplemented!(),
+            Delta::Replicate {worker_id, direction} => self.replicate(worker_id, direction),
+            Delta::ResetResearchQueue {team} => unimplemented!(),
             Delta::Nothing => Ok(()),
-            _ => unimplemented!(),
         }
     }
 

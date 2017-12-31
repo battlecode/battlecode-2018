@@ -259,8 +259,8 @@ impl GameController {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is a healer, or not a robot.
-    pub fn can_attack(&self, robot_id: UnitID, target_id: UnitID) -> Result<bool, Error> {
-        Ok(self.world.can_attack(robot_id, target_id)?)
+    pub fn can_attack(&self, robot_id: UnitID, target_unit_id: UnitID) -> Result<bool, Error> {
+        Ok(self.world.can_attack(robot_id, target_unit_id)?)
     }
 
     /// Whether the robot is ready to attack. Tests whether the robot's attack
@@ -279,8 +279,8 @@ impl GameController {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is a healer, or not a robot.
     /// * GameError::InvalidAction - the robot cannot attack that location.
-    pub fn attack(&mut self, robot_id: UnitID, target_id: UnitID) -> Result<(), Error> {
-        let delta = Delta::Attack { robot_id, target_id };
+    pub fn attack(&mut self, robot_id: UnitID, target_unit_id: UnitID) -> Result<(), Error> {
+        let delta = Delta::Attack { robot_id, target_unit_id };
         if self.config.generate_turn_messages {
             self.turn.changes.push(delta.clone());
         }
@@ -474,8 +474,8 @@ impl GameController {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a knight.
-    pub fn can_javelin(&self, knight_id: UnitID, target_id: UnitID) -> Result<bool, Error> {
-        Ok(self.world.can_javelin(knight_id, target_id)?)
+    pub fn can_javelin(&self, knight_id: UnitID, target_unit_id: UnitID) -> Result<bool, Error> {
+        Ok(self.world.can_javelin(knight_id, target_unit_id)?)
     }
 
     /// Whether the knight is ready to javelin. Tests whether the knight's
@@ -496,8 +496,8 @@ impl GameController {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a knight.
     /// * GameError::InvalidAction - the knight cannot javelin that unit.
-    pub fn javelin(&mut self, knight_id: UnitID, target_id: UnitID) -> Result<(), Error> {
-        let delta = Delta::Javelin { knight_id, target_id };
+    pub fn javelin(&mut self, knight_id: UnitID, target_unit_id: UnitID) -> Result<(), Error> {
+        let delta = Delta::Javelin { knight_id, target_unit_id };
         if self.config.generate_turn_messages {
             self.turn.changes.push(delta.clone());
         }
