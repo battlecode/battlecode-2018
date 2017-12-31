@@ -68,7 +68,7 @@ pub type TeamArrayHistory = Vec<TeamArray>;
 
 /// Persistent info specific to a single team. Teams are only able to access
 /// the team info of their own team.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct TeamInfo {
     /// Team identification.
     pub team: Team,
@@ -108,7 +108,7 @@ impl TeamInfo {
 }
 
 /// A player represents a program controlling some group of units.
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
 pub struct Player {
     /// The team of this player.
     pub team: Team,
@@ -125,7 +125,7 @@ impl Player {
 }
 
 /// The full world of the Battlecode game.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct GameWorld {
     /// The current round, starting at 1.
     pub round: Rounds,

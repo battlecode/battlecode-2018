@@ -4,6 +4,7 @@
 
 use super::location::*;
 use super::unit::*;
+use super::world::GameWorld;
 use super::world::Team;
 
 /// A single, atomic "change" in the game world.
@@ -59,13 +60,15 @@ pub struct TurnMessage {
 /// A list of updates since the player's last turn.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct StartTurnMessage {
-    // TODO
+    /// The current status of the GameWorld.
+    pub world: GameWorld
 }
 
 /// A description of the current game state, for the viewer.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ViewerMessage {
-    // TODO
+    /// The current status of the GameWorld.
+    pub world: GameWorld
 }
 
 /// An error message in response to some error.

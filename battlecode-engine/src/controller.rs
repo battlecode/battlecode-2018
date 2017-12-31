@@ -11,7 +11,7 @@ use world::GameWorld;
 use failure::Error;
 
 struct GameController {
-    game_world: GameWorld,
+    world: GameWorld,
     config: Config,
     turn: TurnMessage,
 }
@@ -27,15 +27,22 @@ impl GameController {
     pub fn new() -> GameController {
         GameController {
             // TODO: load an actual map.
-            game_world: GameWorld::test_world(),
+            world: GameWorld::test_world(),
             config: Config::player_config(),
             turn: TurnMessage { changes: vec![] }
         }
     }
 
+    /// Starts the current turn, by updating the player's GameWorld with changes
+    /// made since the last time the player had a turn.
+    pub fn start_turn(&mut self, turn: StartTurnMessage) -> Result<(), Error> {
+        self.world = turn.world;
+        Ok(())
+    }
+
     /// Ends the current turn. Returns the list of changes made in this turn.
     pub fn end_turn(&mut self) -> Result<TurnMessage, Error> {
-        self.game_world.end_turn()?;
+        self.world.end_turn()?;
         // v Does this deep copy? v
         let turn = self.turn.clone();
         self.turn = TurnMessage { changes: vec![] };
@@ -45,7 +52,7 @@ impl GameController {
     /// Tests whether the given robot can move in the specified direction.
     /// Returns an error if the id does not correspond to a known robot, etc...
     pub fn can_move_robot(&self, robot_id: UnitID, direction: Direction) -> Result<bool, Error> {
-        Ok(self.game_world.can_move(robot_id, direction)?)
+        Ok(self.world.can_move(robot_id, direction)?)
     }
 
     /// Commands the given robot to move one square in the specified
@@ -55,7 +62,7 @@ impl GameController {
         if self.config.generate_turn_messages {
             self.turn.changes.push(delta.clone());
         }
-        Ok(self.game_world.apply(&delta)?)
+        Ok(self.world.apply(&delta)?)
     }
 
     // TODO: wrappers for all of the other functions.
@@ -69,7 +76,7 @@ impl GameController {
     pub fn new_runner() -> GameController {
         GameController {
             // TODO: load an actual map.
-            game_world: GameWorld::test_world(),
+            world: GameWorld::test_world(),
             config: Config::runner_config(),
             turn: TurnMessage { changes: vec![] }
         }
@@ -77,11 +84,11 @@ impl GameController {
 
     /// Given a TurnMessage from a player, apply those changes.
     pub fn apply_turn(&mut self, turn: TurnMessage) -> Result<(StartTurnMessage, ViewerMessage), Error> {
-        self.game_world.apply_turn(&turn)?;
-        // TODO: send updates to the players.
-        let start_turn_message = StartTurnMessage {};
-        // TODO: serialize the game state and other juicy info to send to viewer.
-        let viewer_message = ViewerMessage {};
+        self.world.apply_turn(&turn)?;
+        // Serialize the game state to send to the player
+        let start_turn_message = StartTurnMessage { world: self.world.clone() };
+        // Serialize the game state to send to the viewer
+        let viewer_message = ViewerMessage { world: self.world.clone() };
         Ok((start_turn_message, viewer_message))
     }
 }
