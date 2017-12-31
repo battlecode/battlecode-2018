@@ -83,3 +83,30 @@ macro_rules! assert_lte {
         }
     });
 }
+
+#[cfg(test)]
+macro_rules! assert_gt {
+    ($left:expr, $right:expr) => ({
+        match (&$left, &$right) {
+            (left_val, right_val) => {
+                if !(*left_val > *right_val) {
+                    panic!(r#"assertion failed: `(left > right)`
+  left: `{:?}`,
+ right: `{:?}`"#, left_val, right_val)
+                }
+            }
+        }
+    });
+    ($left:expr, $right:expr, $($arg:tt)+) => ({
+        match (&($left), &($right)) {
+            (left_val, right_val) => {
+                if !(*left_val > *right_val) {
+                    panic!(r#"assertion failed: `(left > right)`
+  left: `{:?}`,
+ right: `{:?}`: {}"#, left_val, right_val,
+                           format_args!($($arg)+))
+                }
+            }
+        }
+    });
+}
