@@ -34,7 +34,7 @@ struct PlanetInfo {
     ///
     /// Stored as a two-dimensional array, where the first index 
     /// represents a square's y-coordinate, and the second index its 
-    /// x-coordinate. These coordinates are *relative to the origin*.
+    /// x-coordinate.
     karbonite: Vec<Vec<u32>>,
 }
 
@@ -115,6 +115,10 @@ impl Player {
 }
 
 /// The full world of the Battlecode game.
+///
+/// The contents of the game world differ depending on whether it exists in the
+/// Teh Devs engine or the Player engine. Do not be concerned - this ensures
+/// that your player the visibility it's supposed to have!
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GameWorld {
     /// The current round, starting at 1.
@@ -123,10 +127,13 @@ pub struct GameWorld {
     /// The player whose turn it is.
     player_to_move: Player,
 
-    /// All the units on the map.
+    /// The unit controllers in the vision range. Every unit has a unit info.
     units: FnvHashMap<UnitID, Unit>,
 
-    /// All the units on the map, by location.
+    /// The units in the vision range. Not every unit info may have a unit.
+    unit_infos: FnvHashMap<UnitID, UnitInfo>,
+
+    /// All the units on the map, by location. Cached for performance.
     units_by_loc: FnvHashMap<MapLocation, UnitID>,
 
     /// Rocket landings. Maps round numbers to a list of rockets
@@ -165,6 +172,7 @@ impl GameWorld {
             round: 1,
             player_to_move: Player { team: Team::Red, planet: Planet::Earth },
             units: FnvHashMap::default(),
+            unit_infos: FnvHashMap::default(),
             units_by_loc: FnvHashMap::default(),
             rocket_landings: FnvHashMap::default(),
             asteroids: map.asteroids,
@@ -191,6 +199,7 @@ impl GameWorld {
             round: 1,
             player_to_move: Player { team: Team::Red, planet: Planet::Earth },
             units: FnvHashMap::default(),
+            unit_infos: FnvHashMap::default(),
             units_by_loc: FnvHashMap::default(),
             rocket_landings: FnvHashMap::default(),
             asteroids: asteroids,
@@ -209,6 +218,10 @@ impl GameWorld {
     /// As an invariant, the game world filtered once should be the same as the
     /// game world filtered multiple times.
     pub fn filter(&self) -> GameWorld {
+        // TODO: filter units
+        // TODO: filter unit infos
+        // TODO: filter rocket landings
+        // TODO: remove the other team's team state
         unimplemented!();
     }
 
@@ -240,21 +253,35 @@ impl GameWorld {
 
     /// The starting map of the given planet. Includes the map's planet,
     /// dimensions, impassable terrain, and initial units and karbonite.
-    pub fn starting_map(&self, _planet: Planet) -> PlanetMap {
-        unimplemented!();
+    pub fn starting_map(&self, planet: Planet) -> &PlanetMap {
+        &self.get_planet_info(planet).map
     }
 
     /// The karbonite in the team's resource pool.
     pub fn karbonite(&self) -> u32 {
-        unimplemented!();
+        let team = self.team();
+        self.get_team_info(team).karbonite
     }
 
     // ************************************************************************
     // ************************** SENSING METHODS *****************************
     // ************************************************************************
 
+    /// The unit controller for the unit of this ID. Use this method to get
+    /// detailed statistics on a unit in your team: heat, cooldowns, and
+    /// properties of special abilities like units garrisoned in a rocket.
+    ///
+    /// Note that mutating this object does NOT have any effect on the actual
+    /// game. You MUST call the mutators in world!!
+    ///
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    pub fn unit(&self, _id: UnitID) -> Result<&Unit, Error> {
+        unimplemented!();
+    }
+
     /// All the units within the vision range.
-    pub fn units(&self) -> Vec<Unit> {
+    pub fn units(&self) -> Vec<UnitInfo> {
         unimplemented!();
     }
 

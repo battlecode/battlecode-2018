@@ -19,6 +19,7 @@ pub type UnitID = u32;
 
 /// The public version of the unit. Contains all the unit's stats but none of
 /// the action. The other team can see everything in the unit info.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct UnitInfo {
     /// The unique ID of the unit.
     pub id: UnitID,
