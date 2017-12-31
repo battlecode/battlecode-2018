@@ -408,6 +408,24 @@ impl Unit {
         self.max_health
     }
 
+    /// Whether a unit's ability is unlocked.
+    pub fn is_ability_unlocked(&self) -> bool {
+        self.is_ability_unlocked
+    }
+
+    /// Whether the unit can use its ability. The unit's ability heat must
+    /// be lower than the maximum heat to act.
+    ///
+    /// Errors if the unit is not a robot, or if unit is a worker.
+    pub fn can_use_ability(&self) -> Result<bool, Error> {
+        self.ok_if_robot()?;
+        if self.unit_type != Worker {
+            Ok(self.is_ability_unlocked() && self.ability_heat()? < MAX_HEAT_TO_ACT)
+        } else { 
+            Err(GameError::InappropriateUnitType)?
+        }
+    }
+    
     /// The attack heat.
     ///
     /// Errors if the unit is not a robot.
@@ -517,18 +535,18 @@ impl Unit {
     // *************************** KNIGHT METHODS *****************************
     // ************************************************************************
     
-    /// Whether the unit can throw javelin.
+    /// Whether the unit can throw javelin. 
     /// 
-    /// Errors if the unit is not a knight.
+    /// Errors if the unit is not a knight, or ability not unlocked.
     pub fn can_throw(&self) -> Result<bool, Error> {
         self.ok_if_unit_type(Knight)?;
-        Ok(self.ability_heat()? < MAX_HEAT_TO_ACT)
+        Ok(self.can_use_ability()?)
     }
 
-    /// Updates the unit as if it has thrown a javalin.
+    /// Updates the unit as if it has thrown a javelin.
     /// 
-    /// Errors if the unit is not a knight, or not ready to throw javalin.
-    pub fn throw_javalin(&mut self) -> Result<(i32), Error> {
+    /// Errors if the unit is not a knight, or not ready to throw javelin.
+    pub fn throw_javelin(&mut self) -> Result<(i32), Error> {
         if self.can_throw()? {
             self.ability_heat += self.ability_cooldown;
             Ok(self.damage)
@@ -546,7 +564,7 @@ impl Unit {
     /// Errors if the unit is not a ranger.
     pub fn can_snipe(&self) -> Result<bool, Error> {
         self.ok_if_unit_type(Ranger)?;
-        Ok(self.ability_heat()? < MAX_HEAT_TO_ACT)
+        Ok(self.can_use_ability()?)
     }
 
     /// Updates the unit as if it has sniped.
@@ -555,8 +573,8 @@ impl Unit {
     pub fn snipe(&mut self) -> Result<i32, Error> {
         if self.can_snipe()? {
             self.ability_heat += self.ability_cooldown;
-            self.movement_heat += self.ability_cooldown;
-            self.attack_heat += self.ability_cooldown;
+            self.movement_heat += self.countdown;
+            self.attack_heat += self.countdown; 
             Ok(self.damage)
         } else {
             Err(GameError::InvalidAction)?
@@ -572,7 +590,7 @@ impl Unit {
     /// Errors if the unit is not a mage. 
     pub fn can_blink(&self) -> Result<bool, Error> {
         self.ok_if_unit_type(Mage)?;
-        Ok(self.ability_heat()? < MAX_HEAT_TO_ACT)
+        Ok(self.can_use_ability()?)
     }
 
     /// Updates the unit as if it has blinked.
@@ -598,7 +616,7 @@ impl Unit {
     /// Errors if the unit is not a healer.
     pub fn can_overcharge(&self) -> Result<bool, Error> {
         self.ok_if_unit_type(Healer)?;
-        Ok(self.ability_heat()? < MAX_HEAT_TO_ACT)
+        Ok(self.can_use_ability()?)
     }
 
     /// Updates the unit as if it has overcharged.
@@ -873,12 +891,79 @@ mod tests {
 
     #[test]
     fn test_combat() {
+        let loc = MapLocation::new(Planet::Earth, 0, 0); 
+        let worker = Unit::new(1, Team::Red, Worker, 0, loc).unwrap();
 
+        // Worker cannot use or unlock ability.
+        assert!(!worker.is_ability_unlocked());
+        assert!(worker.can_use_ability().is_err());
+
+        // Other units can unlock and use ability.
+        let knight = Unit::new(1, Team::Red, Knight, 3, loc).unwrap();
+        assert!(knight.is_ability_unlocked());
+        assert!(knight.can_use_ability().unwrap());
+        let ranger = Unit::new(1, Team::Red, Knight, 3, loc).unwrap();
+        assert!(ranger.is_ability_unlocked());
+        assert!(ranger.can_use_ability().unwrap());
+
+        // Unit cannot use ability when ability heat >= max heat to act 
+        let mut ranger = Unit::new(1, Team::Red, Ranger, 3, loc).unwrap();
+        ranger.ability_heat = MAX_HEAT_TO_ACT;
+        assert!(!ranger.can_use_ability().unwrap());
+        ranger.ability_heat = MAX_HEAT_TO_ACT + 10;
+        assert!(!ranger.can_use_ability().unwrap());
+    }
+
+    #[test]
+    fn test_knight() {
+        let loc = MapLocation::new(Planet::Earth, 0, 0);
+
+        // Throwing javelin should fail if unit is not a knight
+        let mut worker = Unit::new(1, Team::Red, Worker, 0, loc).unwrap();
+        assert!(worker.can_throw().is_err());
+        assert!(worker.throw_javelin().is_err());
+    }
+
+    #[test]
+    fn test_ranger() {
+        let loc = MapLocation::new(Planet::Earth, 0, 0);
+
+        // Sniping should fail if unit is not a ranger
+        let mut worker = Unit::new(1, Team::Red, Worker, 0, loc).unwrap();
+        assert!(worker.can_snipe().is_err());
+        assert!(worker.snipe().is_err());
+    }
+
+    #[test]
+    fn test_mage() {
+        let loc_a = MapLocation::new(Planet::Earth, 0, 0);
+        let loc_b = MapLocation::new(Planet::Earth, 0, 1);
+
+        // Blinking moves mage to new location 
+        let mut mage = Unit::new(1, Team::Red, Mage, 4, loc_a).unwrap();
+        assert!(mage.can_blink().unwrap());
+        assert!(mage.blink_to(Some(loc_b)).is_ok());
+        assert_eq!(mage.location(), Some(loc_b));
+    
+        // Blinking should fail if unit is not a mage
+        let mut worker = Unit::new(1, Team::Red, Worker, 0, loc_a).unwrap();
+        assert!(worker.can_blink().is_err());
+        assert!(worker.blink_to(Some(loc_b)).is_err());
+    }
+
+    #[test]
+    fn test_healer() {
+        let loc = MapLocation::new(Planet::Earth, 0, 0);
+
+        // Overcharging should fail if unit is not a healer
+        let mut worker = Unit::new(1, Team::Red, Worker, 0, loc).unwrap();
+        assert!(worker.can_overcharge().is_err());
+        assert!(worker.overcharge().is_err());
     }
 
     #[test]
     fn test_rockets() {
-        let loc = MapLocation::new(Planet::Earth, 0, 0);
+        let loc = MapLocation::new(Planet::Earth, 0, 0); 
         let adjacent_loc = loc.add(Direction::North);
         let mars_loc = MapLocation::new(Planet::Mars, 0, 0);
         let adjacent_mars_loc = mars_loc.add(Direction::North);
