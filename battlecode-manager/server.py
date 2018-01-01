@@ -7,7 +7,6 @@ import socketserver
 import socket # pylint: disable=unused-import
 import threading
 import time
-import argparse
 import random
 import sys
 # import engine
@@ -47,7 +46,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
             self.player_ids.append(new_id)
             self.player_logged[new_id] = False
 
-        self.state = state
+        self.state = state # This is the overall state of the game
         self.started = False
         self.game_over = False
 
@@ -117,7 +116,6 @@ class Game(object): # pylint: disable=too-many-instance-attributes
             client_id: The int of the client that this thread is related to
         '''
 
-        # TODO sleep docker instance
 
         # Increment to the next player
         index = self.player_ids.index(self.this_turn_pid)
@@ -146,7 +144,6 @@ class Game(object): # pylint: disable=too-many-instance-attributes
                 self.running_lock.release()
 
         logging.debug("Client %s: exit start turn", client_id)
-        # TODO Start Docker instance
         return
 
 
@@ -166,39 +163,16 @@ class Game(object): # pylint: disable=too-many-instance-attributes
 
         return data
 
-class MessageSchema(object):
-    '''
-    This creates a message to send to the client.
-    The point of this class is to ensure that all the fields are there, so there
-    is no wierd parsing errors down the line
-    '''
-
-    def __init__(self, logged_in: bool, client_id: int, error: str, # pylint: disable=too-many-arguments
-                 game_started: bool, state_diff: bytes):# pylint: disable=too-many-arguments
-        '''
-        This function intializes the dictionary
-        '''
-        self.message = {}
-        assert isinstance(logged_in, bool), "logged_in wrong type"
-        assert isinstance(client_id, int), "client_id wrong type"
-        assert isinstance(error, str), "error wrong type"
-        assert isinstance(game_started, bool), "game_started wrong type"
-        self.message['logged_in'] = logged_in
-        self.message['client_id'] = client_id
-        self.message['error'] = error
-        self.message['game_started'] = game_started
-        self.message['state_diff'] = state_diff
-
-
-# TODO Maybe change this factory function to a class method?
-def create_receive_handler(game: Game, dockers) -> socketserver.BaseRequestHandler:
+def create_receive_handler(game: Game, dockers, use_docker: bool)  \
+                                    -> socketserver.BaseRequestHandler:
     '''
     Create a Class that will be used a receive handler
 
     Args:
         game: The game the receive handler should operate on
         dockers: A map of the docker files with the key being
-
+        use_docker: if True sleep and wake with docker otherwise don't use
+                    docker. Useful for testing the socket server
     Return:
         A ReceiveHandler class
     '''
@@ -295,6 +269,19 @@ def create_receive_handler(game: Game, dockers) -> socketserver.BaseRequestHandl
             return
 
 
+        def message(self, state_diff):
+            '''
+            Compress the current state into a message that will be sent to the
+            client
+            '''
+            message = {}
+            message['logged_in'] = self.logged_in
+            message['client_id'] = self.client_id
+            message['error'] = self.error
+            message['state_diff'] = state_diff
+            return message
+
+
         def handle(self):
             '''
             This does all the processing of the data we receive and we spend our
@@ -322,25 +309,22 @@ def create_receive_handler(game: Game, dockers) -> socketserver.BaseRequestHandl
                     self.logged_in = True
                     self.client_id = verify_out
 
-                log_success = MessageSchema(self.logged_in, self.client_id,
-                                            self.error, False, 0)
+                log_success = self.message("")
 
-                self.send_message(log_success.message)
+                self.send_message(log_success)
+
+            if use_docker:
+                self.docker = self.dockers[self.client_id]
+                self.docker.pause()
 
 
             logging.debug("Client %s: Spinning waiting for game to start",
                           self.client_id)
+
             while not self.game.started and not self.game.game_over:
                 # Spin while waiting for game to start
-                # TODO probe the socket close
                 time.sleep(0.5)
 
-            game_start_dict = MessageSchema(self.logged_in, self.client_id,
-                                            self.error, self.game.started,
-                                            self.game.state)
-            self.send_message(game_start_dict.message)
-
-            # TODO sleep docker instance
 
             logging.info("Client %s: Game started", self.client_id)
 
@@ -349,15 +333,23 @@ def create_receive_handler(game: Game, dockers) -> socketserver.BaseRequestHandl
 
                 # Blocks until it this clients turn
                 self.game.start_turn(self.client_id)
-
                 if self.game.game_over:
                     # Cleanup
                     self.request.close()
+                    self.docker.destroy()
                     return
+
+                if use_docker:
+                    self.docker.unpause()
+
 
                 logging.debug("Client %s: Started turn", self.client_id)
 
-                # Send state diff over
+                # TODO get state diff
+                state_diff = ""
+                start_turn_msg = self.message(state_diff)
+                self.send_message(start_turn_msg)
+
 
                 unpacked_data = self.get_next_message()
 
@@ -368,17 +360,17 @@ def create_receive_handler(game: Game, dockers) -> socketserver.BaseRequestHandl
                 # Get the moves to pass to the game
                 moves = unpacked_data['moves']
 
-                # Process action that the client is doing
-                game.make_action(moves, self.client_id)
+                # TODO add engine processing here
 
-                # Send information back to client
 
-                self.game.end_turn(self.client_id)
+                if use_docker:
+                    self.docker.pause()
+                self.game.end_turn()
 
     return ReceiveHandler
 
 
-def start_server(sock_file: str, game: Game, dockers) -> socketserver.BaseServer:
+def start_server(sock_file: str, game: Game, dockers, use_docker=True) -> socketserver.BaseServer:
     '''
     Start a socket server for the players to connect to
     Args:
@@ -387,13 +379,15 @@ def start_server(sock_file: str, game: Game, dockers) -> socketserver.BaseServer
 
         game: The game information that is being run
 
+        use_docker bool: whether to use docker or not
+
     Return:
         server_thread: The connection so it can be closed by parent functions at
                         the appropriate time
     '''
 
     # Create handler for mangaing each connections to server
-    receive_handler = create_receive_handler(game, dockers)
+    receive_handler = create_receive_handler(game, dockers, use_docker)
 
     # Start server
     server = socketserver.ThreadingUnixStreamServer(sock_file, receive_handler)
@@ -402,3 +396,8 @@ def start_server(sock_file: str, game: Game, dockers) -> socketserver.BaseServer
     server_thread.start()
 
     return server
+
+
+if __name__ == "__main__":
+    print("Do not run this fuction call battlecode cli to start a game")
+    sys.exit(1)
