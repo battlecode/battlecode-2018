@@ -35,8 +35,7 @@ impl Team {
     }
 }
 
-/// The state for one of the planets in a game. Stores neutral info like the
-/// planet's original map and the current karbonite deposits.
+/// The state for one of the planets in a game.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 struct PlanetInfo {
     /// Visible locations. True if and only if visible.
@@ -718,10 +717,14 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a robot.
     pub fn can_move(&self, robot_id: UnitID, direction: Direction) -> Result<bool, Error> {
-        // TODO: should return false if off the map
         let unit = self.get_unit(robot_id)?;
         if let OnMap(location) = unit.location() {
-            Ok(unit.is_move_ready()? && self.is_occupiable(location.add(direction))?)
+            let new_location = location.add(direction);
+            if self.starting_map(new_location.planet).on_map(new_location) {
+                Ok(self.is_occupiable(new_location)?)
+            } else {
+                Ok(false)
+            }
         } else {
             Ok(false)
         }
@@ -733,8 +736,9 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a robot.
-    pub fn is_move_ready(&self, _robot_id: UnitID) -> Result<bool, Error> {
-        unimplemented!();
+    pub fn is_move_ready(&self, robot_id: UnitID) -> Result<bool, Error> {
+        let unit = self.get_unit(robot_id)?;
+        Ok(unit.is_move_ready()?)
     }
 
     /// Moves the robot in the given direction.
@@ -1226,8 +1230,8 @@ impl GameWorld {
     }
 
     /// Tests whether the given rocket is able to degarrison a unit in the
-    /// given direction. There must be space in that direction, and the unit
-    /// must be ready to move.
+    /// given direction. There must be space in that direction, the rocket
+    /// must have a unit to unload, and the unit must be ready to move.
     ///
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
@@ -1269,26 +1273,30 @@ impl GameWorld {
         }
     }
 
-    /// Whether the rocket can launch into space. The rocket can launch if the
-    /// it has never been used before.
+    /// Whether the rocket can launch into space to the given destination. The
+    /// rocket can launch if the it has never been used before. The destination
+    /// is valid if it contains passable terrain on the other planet.
     ///
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a rocket.
     pub fn can_launch_rocket(&mut self, rocket_id: UnitID, destination: MapLocation)
                              -> Result<bool, Error> {
+        if destination.planet == self.planet() {
+            return Ok(false);
+        }
+
         let rocket = self.get_unit(rocket_id)?;
         if rocket.is_rocket_used()? {
             return Ok(false);
         }
+
         let map = &self.starting_map(destination.planet);
         Ok(map.on_map(destination) && map.is_passable_terrain_at(destination)?)
     }
 
-    /// Launches the rocket into space. If the destination is not on the map of
-    /// the other planet, the rocket flies off, never to be seen again.
-    ///
-    /// Launching a rocket damages the units adjacent to it.
+    /// Launches the rocket into space, damaging the units adjacent to the
+    /// takeoff location.
     ///
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
@@ -1460,22 +1468,26 @@ mod tests {
 
         // Robot A cannot move east, as this is where B is. However,
         // it can move northeast.
+        assert![world.is_move_ready(a).unwrap()];
         assert![!world.can_move(a, Direction::East).unwrap()];
         assert![world.can_move(a, Direction::Northeast).unwrap()];
         world.move_robot(a, Direction::Northeast).unwrap();
 
         // A is now one square north of B. B cannot move north to
         // A's new location, but can move west to A's old location.
+        assert![world.is_move_ready(b).unwrap()];
         assert![!world.can_move(b, Direction::North).unwrap()];
         assert![world.can_move(b, Direction::West).unwrap()];
         world.move_robot(b, Direction::West).unwrap();
 
         // A cannot move again until its cooldowns are reset.
-        assert![!world.can_move(a, Direction::South).unwrap()];
+        assert![!world.is_move_ready(a).unwrap()];
+        assert![world.can_move(a, Direction::South).unwrap()];
         assert![world.move_robot(a, Direction::South).is_err()];
         assert![world.next_round().is_ok()];
 
         // Finally, let's test that A cannot move back to its old square.
+        assert![world.is_move_ready(a).unwrap()];
         assert![!world.can_move(a, Direction::Southwest).unwrap()];
         assert![world.can_move(a, Direction::South).unwrap()];
         world.move_robot(a, Direction::South).unwrap();
@@ -1498,6 +1510,7 @@ mod tests {
         }
 
         // Launch the rocket.
+        assert![world.can_launch_rocket(rocket, mars_loc).unwrap()];
         world.launch_rocket(rocket, mars_loc).unwrap();
         assert_eq![world.get_unit(rocket).unwrap().location(), InSpace];
         let damaged_knight_health = 200;
@@ -1534,24 +1547,34 @@ mod tests {
         let factory = world.create_unit(Team::Blue, mars_loc_factory, UnitType::Factory).unwrap();
 
         // Failed launches.
-        assert![world.launch_rocket(rocket_a, mars_loc_off_map).is_err()];
-        assert![world.launch_rocket(rocket_a, mars_loc_impassable).is_err()];
+        assert![!world.can_launch_rocket(rocket_a, earth_loc_b).unwrap()];
+        assert_err![world.launch_rocket(rocket_a, earth_loc_b), GameError::InvalidAction];
+        assert![!world.can_launch_rocket(rocket_a, mars_loc_off_map).unwrap()];
+        assert_err![world.launch_rocket(rocket_a, mars_loc_off_map), GameError::InvalidAction];
+        assert![!world.can_launch_rocket(rocket_a, mars_loc_impassable).unwrap()];
+        assert_err![world.launch_rocket(rocket_a, mars_loc_impassable), GameError::InvalidAction];
 
         // Rocket landing on a robot should destroy the robot.
-        world.launch_rocket(rocket_a, mars_loc_knight).unwrap();
-        world.land_rocket(rocket_a, mars_loc_knight).unwrap();
+        assert![world.can_launch_rocket(rocket_a, mars_loc_knight).unwrap()];
+        assert![world.launch_rocket(rocket_a, mars_loc_knight).is_ok()];
+        assert![world.next_turn().is_ok()];
+        assert![world.next_turn().is_ok()];
+        assert![world.land_rocket(rocket_a, mars_loc_knight).is_ok()];
         assert![world.get_unit(rocket_a).is_ok()];
+        assert![world.next_turn().is_ok()];
         assert_err![world.get_unit(knight), GameError::NoSuchUnit];
 
-        // Launch the rocket.
-        world.launch_rocket(rocket_b, mars_loc_factory).unwrap();
+        // Launch the rocket on Earth.
+        assert![world.next_turn().is_ok()];
+        assert![world.can_launch_rocket(rocket_b, mars_loc_factory).unwrap()];
+        assert![world.launch_rocket(rocket_b, mars_loc_factory).is_ok()];
 
         // Go forward two turns so that we're on Mars.
         assert![world.next_turn().is_ok()];
         assert![world.next_turn().is_ok()];
 
         // Rocket landing on a factory should destroy both units.
-        world.land_rocket(rocket_b, mars_loc_factory).unwrap();
+        assert![world.land_rocket(rocket_b, mars_loc_factory).is_ok()];
         assert_err![world.get_unit(rocket_b), GameError::NoSuchUnit];
         assert_err![world.get_unit(factory), GameError::NoSuchUnit];
     }
@@ -1565,41 +1588,48 @@ mod tests {
 
         // Correct garrisoning.
         let valid_boarder = world.create_unit(Team::Red, takeoff_loc.add(Direction::North), UnitType::Knight).unwrap();
+        assert![world.can_garrison_rocket(rocket, valid_boarder).unwrap()];
         assert![world.garrison_rocket(rocket, valid_boarder).is_ok()];
         assert_eq![world.get_unit(valid_boarder).unwrap().location(), InRocket(rocket)];
 
         // Boarding fails when too far from the rocket.
         let invalid_boarder_too_far = world.create_unit(Team::Red, takeoff_loc.add(Direction::North).add(Direction::North), UnitType::Knight).unwrap();
-        assert![world.garrison_rocket(rocket, invalid_boarder_too_far).is_err()];
+        assert![!world.can_garrison_rocket(rocket, valid_boarder).unwrap()];
+        assert_err![world.garrison_rocket(rocket, invalid_boarder_too_far), GameError::InvalidAction];
 
         // Boarding fails when the robot has already moved.
-        // uncomment when movement cooldown is implemented
-        //assert![world.move_robot(invalid_boarder_too_far, Direction::South).is_ok()];
-        //let invalid_boarder_already_moved = invalid_boarder_too_far;
-        //assert![!world.get_unit(invalid_boarder_already_moved).unwrap().is_move_ready()];
-        //assert![world.garrison_rocket(invalid_boarder_already_moved, rocket).is_err()];
+        assert![world.move_robot(invalid_boarder_too_far, Direction::South).is_ok()];
+        let invalid_boarder_already_moved = invalid_boarder_too_far;
+        assert![!world.is_move_ready(invalid_boarder_already_moved).unwrap()];
+        assert![!world.can_garrison_rocket(rocket, invalid_boarder_already_moved).unwrap()];
+        assert_err![world.garrison_rocket(rocket, invalid_boarder_already_moved), GameError::InvalidAction];
 
         // Factories and rockets cannot board rockets.
         let invalid_boarder_factory = world.create_unit(Team::Red, takeoff_loc.add(Direction::Southeast), UnitType::Factory).unwrap();
-        assert![world.garrison_rocket(rocket, invalid_boarder_factory).is_err()];
+        assert_err![world.can_garrison_rocket(rocket, invalid_boarder_factory), GameError::InappropriateUnitType];
+        assert_err![world.garrison_rocket(rocket, invalid_boarder_factory), GameError::InappropriateUnitType];
         let invalid_boarder_rocket = world.create_unit(Team::Red, takeoff_loc.add(Direction::South), UnitType::Rocket).unwrap();
-        assert![world.garrison_rocket(rocket, invalid_boarder_rocket).is_err()];
+        assert_err![world.can_garrison_rocket(rocket, invalid_boarder_rocket), GameError::InappropriateUnitType];
+        assert_err![world.garrison_rocket(rocket, invalid_boarder_rocket), GameError::InappropriateUnitType];
 
         // Rockets can be loaded up to their capacity...
         for _ in 1..8 {
             let valid_extra_boarder = world.create_unit(Team::Red, takeoff_loc.add(Direction::East), UnitType::Knight).unwrap();
+            assert![world.can_garrison_rocket(rocket, valid_extra_boarder).unwrap()];
             assert![world.garrison_rocket(rocket, valid_extra_boarder).is_ok()];
         }
 
         // ... but not beyond their capacity.
         let invalid_boarder_rocket_full = world.create_unit(Team::Red, takeoff_loc.add(Direction::East), UnitType::Knight).unwrap();
-        assert![world.garrison_rocket(rocket, invalid_boarder_rocket_full).is_err()];
+        assert![!world.can_garrison_rocket(rocket, invalid_boarder_rocket_full).unwrap()];
+        assert_err![world.garrison_rocket(rocket, invalid_boarder_rocket_full), GameError::InvalidAction];
 
         // A unit should not be able to board another team's rocket.
         let blue_takeoff_loc = MapLocation::new(Planet::Earth, 5, 5);
         let blue_rocket = world.create_unit(Team::Blue, blue_takeoff_loc, UnitType::Rocket).unwrap();
         let invalid_boarder_wrong_team = world.create_unit(Team::Red, blue_takeoff_loc.add(Direction::North), UnitType::Knight).unwrap();
-        assert![world.garrison_rocket(blue_rocket, invalid_boarder_wrong_team).is_err()];
+        assert_err![world.can_garrison_rocket(blue_rocket, invalid_boarder_wrong_team), GameError::TeamNotAllowed];
+        assert_err![world.garrison_rocket(blue_rocket, invalid_boarder_wrong_team), GameError::TeamNotAllowed];
     }
 
     #[test]
@@ -1612,11 +1642,12 @@ mod tests {
         // Load the rocket with robots.
         for _ in 0..2 {
             let robot = world.create_unit(Team::Red, takeoff_loc.add(Direction::North), UnitType::Knight).unwrap();
+            assert![world.can_garrison_rocket(rocket, robot).unwrap()];
             assert![world.garrison_rocket(rocket, robot).is_ok()];
         }
 
         // Fly the rocket to Mars.
-        let landing_loc = MapLocation::new(Planet::Mars, 10, 10);
+        let landing_loc = MapLocation::new(Planet::Mars, 0, 0);
         assert![world.launch_rocket(rocket, landing_loc).is_ok()];
 
         // Go forward two turns so that we're on Mars.
@@ -1625,26 +1656,40 @@ mod tests {
         assert![world.land_rocket(rocket, landing_loc).is_ok()];
 
         // Cannot degarrison in the same round. But can after one turn.
-        assert![world.degarrison_rocket(rocket, Direction::North).is_err()];
-        assert![world.next_turn().is_ok()];
-        assert![world.next_turn().is_ok()];
-        assert![world.next_turn().is_ok()];
-        assert![world.next_turn().is_ok()];
+        assert![!world.can_degarrison_rocket(rocket, Direction::North).unwrap()];
+        assert_err![world.degarrison_rocket(rocket, Direction::North), GameError::InvalidAction];
+        assert![world.next_round().is_ok()];
 
         // Correct degarrisoning.
+        assert![world.can_degarrison_rocket(rocket, Direction::North).unwrap()];
         assert![world.degarrison_rocket(rocket, Direction::North).is_ok()];
 
         // Cannot degarrison into an occupied square.
+        assert![!world.can_degarrison_rocket(rocket, Direction::North).unwrap()];
         assert![world.degarrison_rocket(rocket, Direction::North).is_err()];
 
         // Cannot degarrison into an impassable square.
-        world.planet_maps.get_mut(&Planet::Mars).unwrap().is_passable_terrain[10][11] = false;
-        assert![world.degarrison_rocket(rocket, Direction::East).is_err()];
+        world.planet_maps.get_mut(&Planet::Mars).unwrap().is_passable_terrain[0][1] = false;
+        assert![!world.can_degarrison_rocket(rocket, Direction::East).unwrap()];
+        assert_err![world.degarrison_rocket(rocket, Direction::East), GameError::InvalidAction];
+
+        // Error degarrisoning off the map.
+        assert_err![world.can_degarrison_rocket(rocket, Direction::South), GameError::InvalidLocation];
+        assert_err![world.degarrison_rocket(rocket, Direction::South), GameError::InvalidLocation];
+
+        // Error degarrisoning not a rocket.
+        let robot_loc = MapLocation::new(Planet::Mars, 10, 10);
+        let robot = world.create_unit(Team::Red, robot_loc, UnitType::Mage).unwrap();
+        assert_err![world.can_degarrison_rocket(robot, Direction::East), GameError::InappropriateUnitType];
+        assert_err![world.degarrison_rocket(robot, Direction::East), GameError::InappropriateUnitType];
 
         // Correct degarrisoning, again.
-        assert![world.degarrison_rocket(rocket, Direction::South).is_ok()];
+        world.planet_maps.get_mut(&Planet::Mars).unwrap().is_passable_terrain[0][1] = true;
+        assert![world.can_degarrison_rocket(rocket, Direction::East).unwrap()];
+        assert![world.degarrison_rocket(rocket, Direction::East).is_ok()];
 
         // Cannot degarrison an empty rocket.
-        assert![world.degarrison_rocket(rocket, Direction::West).is_err()];
+        assert![!world.can_degarrison_rocket(rocket, Direction::East).unwrap()];
+        assert_err![world.degarrison_rocket(rocket, Direction::East), GameError::InvalidAction];
     }
 }
