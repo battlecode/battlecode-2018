@@ -40,9 +40,6 @@ impl Team {
 /// planet's original map and the current karbonite deposits.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 struct PlanetInfo {
-    /// The map of the planet.
-    map: PlanetMap,
-
     /// The amount of Karbonite deposited on the specified square.
     ///
     /// Stored as a two-dimensional array, where the first index 
@@ -54,11 +51,9 @@ struct PlanetInfo {
 impl PlanetInfo {
     /// Construct a planet with the given map, where the current karbonite
     /// deposits are initialized with the map's initial deposits.
-    pub fn new(map: PlanetMap) -> PlanetInfo {
-        let karbonite = map.initial_karbonite.clone();
+    pub fn new(map: &PlanetMap) -> PlanetInfo {
         PlanetInfo {
-            map: map,
-            karbonite: karbonite,
+            karbonite: map.initial_karbonite.clone(),
         }
     }
 }
@@ -155,6 +150,9 @@ pub struct GameWorld {
     /// The orbit pattern that determines a rocket's flight duration.
     orbit: OrbitPattern,
 
+    /// The map of each planet.
+    planet_maps: FnvHashMap<Planet, PlanetMap>,
+
     /// The state of each planet.
     planet_states: FnvHashMap<Planet, PlanetInfo>,
 
@@ -170,12 +168,16 @@ impl GameWorld {
         map.validate()?;
 
         let mut planet_states = FnvHashMap::default();
-        planet_states.insert(Planet::Earth, PlanetInfo::new(map.earth_map));
-        planet_states.insert(Planet::Mars, PlanetInfo::new(map.mars_map));
+        planet_states.insert(Planet::Earth, PlanetInfo::new(&map.earth_map));
+        planet_states.insert(Planet::Mars, PlanetInfo::new(&map.mars_map));
 
         let mut team_states = FnvHashMap::default();
         team_states.insert(Team::Red, TeamInfo::new(Team::Red, map.seed));
         team_states.insert(Team::Blue, TeamInfo::new(Team::Blue, map.seed));
+
+        let mut planet_maps = FnvHashMap::default();
+        planet_maps.insert(Planet::Earth, map.earth_map);
+        planet_maps.insert(Planet::Mars, map.mars_map);
 
         Ok(GameWorld {
             round: 1,
@@ -186,6 +188,7 @@ impl GameWorld {
             units_by_loc: FnvHashMap::default(),
             asteroids: map.asteroids,
             orbit: map.orbit,
+            planet_maps: planet_maps,
             planet_states: planet_states,
             team_states: team_states,
         })
@@ -258,7 +261,7 @@ impl GameWorld {
 
         // Filter the team states.
         let mut team_states: FnvHashMap<Team, TeamInfo> = FnvHashMap::default();
-        team_states.insert(team, self.get_team_info(team).clone());
+        team_states.insert(team, self.my_team_info().clone());
 
         Ok(GameWorld {
             round: self.round,
@@ -269,6 +272,7 @@ impl GameWorld {
             units_by_loc: units_by_loc,
             asteroids: self.asteroids.clone(),
             orbit: self.orbit.clone(),
+            planet_maps: self.planet_maps.clone(),
             planet_states: self.planet_states.clone(),
             team_states: team_states,
         })
@@ -303,13 +307,16 @@ impl GameWorld {
     /// The starting map of the given planet. Includes the map's planet,
     /// dimensions, impassable terrain, and initial units and karbonite.
     pub fn starting_map(&self, planet: Planet) -> &PlanetMap {
-        &self.get_planet_info(planet).map
+        if let Some(map) = self.planet_maps.get(&planet) {
+            map
+        } else {
+            unreachable!();
+        }
     }
 
     /// The karbonite in the team's resource pool.
     pub fn karbonite(&self) -> u32 {
-        let team = self.team();
-        self.get_team_info(team).karbonite
+        self.my_team_info().karbonite
     }
 
     // ************************************************************************
@@ -430,6 +437,42 @@ impl GameWorld {
     // ************************************************************************
     // ****************************** ACCESSORS *******************************
     // ************************************************************************
+
+    fn my_planet_info(&self) -> &PlanetInfo {
+        let planet = self.planet();
+        if let Some(planet_info) = self.planet_states.get(&planet) {
+            planet_info
+        } else {
+            unreachable!();
+        }
+    }
+
+    fn my_planet_info_mut(&mut self) -> &mut PlanetInfo {
+        let planet = self.planet();
+        if let Some(planet_info) = self.planet_states.get_mut(&planet) {
+            planet_info
+        } else {
+            unreachable!();
+        }
+    }
+
+    fn my_team_info(&self) -> &TeamInfo {
+        let team = self.team();
+        if let Some(team_info) = self.team_states.get(&team) {
+            team_info
+        } else {
+            unreachable!();
+        }
+    }
+
+    fn my_team_info_mut(&mut self) -> &mut TeamInfo {
+        let team = self.team();
+        if let Some(team_info) = self.team_states.get_mut(&team) {
+            team_info
+        } else {
+            unreachable!();
+        }
+    }
 
     fn get_planet_info(&self, planet: Planet) -> &PlanetInfo {
         if let Some(planet_info) = self.planet_states.get(&planet) {
@@ -561,8 +604,8 @@ impl GameWorld {
     ///
     /// * GameError::InvalidLocation - the location is outside the vision range.
     pub fn is_occupiable(&self, location: MapLocation) -> Result<bool, Error> {
-        let planet_info = &self.get_planet_info(location.planet);
-        Ok(planet_info.map.is_passable_terrain_at(location)? &&
+        let planet_map = &self.starting_map(location.planet);
+        Ok(planet_map.is_passable_terrain_at(location)? &&
             !self.units_by_loc.contains_key(&location))
     }
 
@@ -669,15 +712,13 @@ impl GameWorld {
     // ************************************************************************
 
     /// Returns research info of the current player.
-    fn get_research(&self) -> ResearchInfo {
-        let team = self.team();
-        self.get_team_info(team).research.clone()
+    fn my_research(&self) -> ResearchInfo {
+        self.my_team_info().research.clone()
     }
 
     /// Returns mutable research info of the current player.
-    fn get_research_mut(&mut self) -> &mut ResearchInfo {
-        let team = self.team();
-        &mut self.get_team_info_mut(team).research
+    fn my_research_mut(&mut self) -> &mut ResearchInfo {
+        &mut self.my_team_info_mut().research
     }
 
     /// The research info of the current team, including what branch is
@@ -686,13 +727,13 @@ impl GameWorld {
     /// Note that mutating this object by resetting or queueing research
     /// does not have any effect. You must call the mutators on world.
     pub fn research_info(&self) -> ResearchInfo {
-        self.get_research()
+        self.my_research()
     }
 
     /// Resets the research queue to be empty. Returns true if the queue was
     /// not empty before, and false otherwise.
     pub fn reset_research(&mut self) -> bool {
-        self.get_research_mut().reset_queue()
+        self.my_research_mut().reset_queue()
     }
 
     /// Adds a branch to the back of the queue, if it is a valid upgrade, and
@@ -700,7 +741,7 @@ impl GameWorld {
     ///
     /// Returns whether the branch was successfully added.
     pub fn queue_research(&mut self, branch: &Branch) -> bool {
-        self.get_research_mut().add_to_queue(branch)
+        self.my_research_mut().add_to_queue(branch)
     }
 
     /// Update the current research and process any completed upgrades.
@@ -1134,7 +1175,7 @@ impl GameWorld {
         if rocket.is_rocket_used()? {
             return Ok(false);
         }
-        let map = &self.get_planet_info(destination.planet).map;
+        let map = &self.starting_map(destination.planet);
         Ok(map.on_map(destination) && map.is_passable_terrain_at(destination)?)
     }
 
@@ -1157,9 +1198,8 @@ impl GameWorld {
 
             self.get_unit_mut(rocket_id)?.launch_rocket()?;
 
-            let team = self.get_unit(rocket_id)?.team();
             let landing_round = self.round + self.orbit.duration(self.round);
-            self.get_team_info_mut(team).rocket_landings.add_landing(
+            self.my_team_info_mut().rocket_landings.add_landing(
                 landing_round, RocketLanding::new(rocket_id, destination)
             );
             Ok(())
@@ -1350,7 +1390,7 @@ mod tests {
         let earth_loc_b = MapLocation::new(Planet::Earth, 0, 2);
         let mars_loc_off_map = MapLocation::new(Planet::Mars, 10000, 10000);
         let mars_loc_impassable = MapLocation::new(Planet::Mars, 0, 0);
-        world.get_planet_info_mut(Planet::Mars).map.is_passable_terrain[0][0] = false;
+        world.planet_maps.get_mut(&Planet::Mars).unwrap().is_passable_terrain[0][0] = false;
         let mars_loc_knight = MapLocation::new(Planet::Mars, 0, 1);
         let mars_loc_factory = MapLocation::new(Planet::Mars, 0, 2);
         let rocket_a = world.create_unit(Team::Red, earth_loc_a, UnitType::Rocket).unwrap();
@@ -1450,7 +1490,7 @@ mod tests {
         assert![world.degarrison_rocket(rocket, Direction::North).is_err()];
 
         // Cannot degarrison into an impassable square.
-        world.get_planet_info_mut(Planet::Mars).map.is_passable_terrain[10][11] = false;
+        world.planet_maps.get_mut(&Planet::Mars).unwrap().is_passable_terrain[10][11] = false;
         assert![world.degarrison_rocket(rocket, Direction::East).is_err()];
 
         // Correct degarrisoning, again.
