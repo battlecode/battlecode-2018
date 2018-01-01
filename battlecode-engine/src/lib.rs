@@ -46,6 +46,9 @@ pub mod unit;
 // see research.rs
 pub mod research;
 
+// see rockets.rs
+pub mod rockets;
+
 // see constants.rs
 pub mod constants;
 

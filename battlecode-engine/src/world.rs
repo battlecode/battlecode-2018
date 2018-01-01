@@ -12,17 +12,12 @@ use super::map::*;
 use super::unit::*;
 use super::unit::UnitType as Branch;
 use super::research::*;
+use super::rockets::*;
 use super::error::GameError;
 use failure::Error;
 
 /// A round consists of a turn from each player.
 pub type Rounds = u32;
-
-/// A rocket landing.
-type RocketLanding = (UnitID, MapLocation);
-
-/// All rocket landings.
-type RocketLandingInfo = FnvHashMap<Rounds, Vec<RocketLanding>>;
 
 /// There are two teams in Battlecode: Red and Blue.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Hash, PartialEq, Eq)]
@@ -88,6 +83,9 @@ struct TeamInfo {
     /// Communication array histories for each planet.
     team_arrays: FnvHashMap<Planet, TeamArrayHistory>,
 
+    /// Rocket landings for this team.
+    rocket_landings: RocketLandingInfo,
+
     /// The current state of research.
     research: ResearchInfo,
 
@@ -102,6 +100,7 @@ impl TeamInfo {
             team: team,
             id_generator: IDGenerator::new(team, seed),
             team_arrays: FnvHashMap::default(),
+            rocket_landings: RocketLandingInfo::new(),
             research: ResearchInfo::new(),
             karbonite: KARBONITE_STARTING,
         }
@@ -150,10 +149,6 @@ pub struct GameWorld {
     /// All the units on the map, by map location. Cached for performance.
     units_by_loc: FnvHashMap<MapLocation, UnitID>,
 
-    /// Rocket landings. Maps round numbers to a list of rockets
-    /// landing on the given round.
-    rocket_landings: RocketLandingInfo,
-
     /// The asteroid strike pattern on Mars.
     asteroids: AsteroidPattern,
 
@@ -189,7 +184,6 @@ impl GameWorld {
             units: FnvHashMap::default(),
             unit_infos: FnvHashMap::default(),
             units_by_loc: FnvHashMap::default(),
-            rocket_landings: FnvHashMap::default(),
             asteroids: map.asteroids,
             orbit: map.orbit,
             planet_states: planet_states,
@@ -262,17 +256,6 @@ impl GameWorld {
             .map(|unit| (unit.id(), unit.clone()))
             .collect::<FnvHashMap<UnitID, Unit>>();
 
-        // Filter the rocket landings.
-        let mut rocket_landings: RocketLandingInfo = FnvHashMap::default();
-        for (round, landings) in self.rocket_landings.clone().into_iter() {
-            let my_landings = landings.into_iter()
-                .filter(|&(id, _)| self.get_unit(id).expect("unit must exist").team() == team)
-                .collect::<Vec<RocketLanding>>();
-            if my_landings.len() > 0 {
-                rocket_landings.insert(round, my_landings);
-            }
-        }
-
         // Filter the team states.
         let mut team_states: FnvHashMap<Team, TeamInfo> = FnvHashMap::default();
         team_states.insert(team, self.get_team_info(team).clone());
@@ -284,7 +267,6 @@ impl GameWorld {
             units: units,
             unit_infos: unit_infos,
             units_by_loc: units_by_loc,
-            rocket_landings: rocket_landings,
             asteroids: self.asteroids.clone(),
             orbit: self.orbit.clone(),
             planet_states: self.planet_states.clone(),
@@ -1159,6 +1141,8 @@ impl GameWorld {
     /// Launches the rocket into space. If the destination is not on the map of
     /// the other planet, the rocket flies off, never to be seen again.
     ///
+    /// Launching a rocket damages the units adjacent to it.
+    ///
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a rocket.
@@ -1167,16 +1151,17 @@ impl GameWorld {
                          -> Result<(), Error> {
         if self.can_launch_rocket(rocket_id, destination)? {
             let takeoff_loc = self.get_unit(rocket_id)?.location().map_location()?;
-            self.get_unit_mut(rocket_id)?.launch_rocket()?;
-            let landing_round = self.round + self.orbit.duration(self.round);
-            if self.rocket_landings.contains_key(&landing_round) {
-                self.rocket_landings.get_mut(&landing_round).unwrap().push((rocket_id, destination));
-            } else {
-                self.rocket_landings.insert(landing_round, vec![(rocket_id, destination)]);
-            }
             for dir in Direction::all() {
                 self.damage_location(takeoff_loc.add(dir), ROCKET_BLAST_DAMAGE)?;
             }
+
+            self.get_unit_mut(rocket_id)?.launch_rocket()?;
+
+            let team = self.get_unit(rocket_id)?.team();
+            let landing_round = self.round + self.orbit.duration(self.round);
+            self.get_team_info_mut(team).rocket_landings.add_landing(
+                landing_round, RocketLanding::new(rocket_id, destination)
+            );
             Ok(())
         } else {
             Err(GameError::InvalidAction)?
@@ -1210,14 +1195,10 @@ impl GameWorld {
         Ok(())
     }
 
-    fn process_rockets(&mut self) -> Result<(), Error> {
-        let landings = if let Some(landings) = self.rocket_landings.get(&self.round) {
-            landings.clone()
-        } else {
-            vec![]
-        };
-        for &(id, location) in landings.iter() {
-            self.land_rocket(id, location)?;
+    fn process_rockets(&mut self, team: Team) -> Result<(), Error> {
+        let landings = self.get_team_info(team).rocket_landings.landings_on(self.round);
+        for landing in landings.iter() {
+            self.land_rocket(landing.rocket_id, landing.destination)?;
         }
         Ok(())
     }
@@ -1254,7 +1235,8 @@ impl GameWorld {
         }
 
         // Land rockets.
-        self.process_rockets()?;
+        self.process_rockets(Team::Red)?;
+        self.process_rockets(Team::Blue)?;
 
         // Process any potential asteroid impacts.
         self.process_asteroids();
