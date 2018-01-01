@@ -555,7 +555,7 @@ impl Unit {
     /// Whether the rocket can garrison a unit. The unit must be ready to move
     /// and adjacent to the rocket. The rocket must have enough space.
     ///
-    /// Errors if the unit is not a rocket.
+    /// Errors if the unit is not a rocket or robot is not a robot.
     pub fn can_garrison(&self, robot: &Unit) -> Result<bool, Error> {
         Ok(robot.is_move_ready()?
             && self.garrisoned_units()?.len() < self.max_capacity()?

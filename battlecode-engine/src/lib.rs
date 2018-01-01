@@ -24,15 +24,15 @@ extern crate rand;
 // significantly faster for integer keys.
 extern crate fnv;
 
+// see error.rs
+#[macro_use]
+pub mod error;
+
 // see schema.rs
 pub mod schema;
 
 // see world.rs
 pub mod world;
-
-// see error.rs
-#[macro_use]
-pub mod error;
 
 // see location.rs
 pub mod location;
