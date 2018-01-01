@@ -18,6 +18,12 @@ use failure::Error;
 /// A round consists of a turn from each player.
 pub type Rounds = u32;
 
+/// A rocket landing.
+type RocketLanding = (UnitID, MapLocation);
+
+/// All rocket landings.
+type RocketLandingInfo = FnvHashMap<Rounds, Vec<RocketLanding>>;
+
 /// There are two teams in Battlecode: Red and Blue.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub enum Team {
@@ -146,7 +152,7 @@ pub struct GameWorld {
 
     /// Rocket landings. Maps round numbers to a list of rockets
     /// landing on the given round.
-    rocket_landings: FnvHashMap<Rounds, Vec<(UnitID, MapLocation)>>,
+    rocket_landings: RocketLandingInfo,
 
     /// The asteroid strike pattern on Mars.
     asteroids: AsteroidPattern,
@@ -199,12 +205,91 @@ impl GameWorld {
     ///
     /// As an invariant, the game world filtered once should be the same as the
     /// game world filtered multiple times.
-    pub fn filter(&self) -> GameWorld {
-        // TODO: filter units
-        // TODO: filter unit infos
-        // TODO: filter rocket landings
-        // TODO: remove the other team's team state
-        unimplemented!();
+    pub fn filter(&self) -> Result<GameWorld, Error> {
+        let team = self.team();
+        let planet = self.planet();
+        let map = self.starting_map(planet);
+
+        // Filter the unit controllers, excluding the units in rockets.
+        let mut units = self.units.values().clone().into_iter()
+           .filter(|unit| unit.team() == team
+            && (unit.on_planet(planet) || unit.location() == InSpace))
+           .collect::<Vec<&Unit>>();
+
+        // Calculate the visible locations on this team that are on the map.
+        let mut visible_locs: HashSet<MapLocation> = HashSet::default();
+        for ref unit in units.clone() {
+            if unit.location() == InSpace {
+                continue;
+            }
+
+            for loc in unit.map_location().expect("unit is not on the map")
+                           .all_locations_within(unit.vision_range())
+                           .expect("vision range is too large")
+                           .into_iter()
+                           .filter(|loc| map.on_map(*loc)) {
+                visible_locs.insert(loc);
+            }
+        }
+
+        // Filter the unit infos.
+        let unit_infos = self.unit_infos.clone().into_iter()
+            .filter(|&(_, unit)| unit.on_map() && visible_locs.contains(
+                &unit.map_location().expect("unit must be on map"))
+            )
+            .collect::<FnvHashMap<UnitID, UnitInfo>>();
+
+        // Add the units in rockets to the list of unit controllers.
+        let units_in_rockets = units.clone().into_iter()
+            .filter(|unit| unit.unit_type() == UnitType::Rocket)
+            .map(|rocket| rocket.garrisoned_units()
+                .expect("unit must be a rocket").into_iter()
+                .map(|id| self.get_unit(id).expect("unit does not exist"))
+                .collect::<Vec<&Unit>>()
+            );
+        for rocket_units in units_in_rockets {
+            units.extend(rocket_units);
+        }
+
+        // Create units by location.
+        let units_by_loc = units.clone().into_iter()
+            .filter(|unit| unit.on_map())
+            .map(|unit| (unit.map_location().expect("unit must be on the map"), unit.id()))
+            .collect::<FnvHashMap<MapLocation, UnitID>>();
+
+        // Turn the units back into a hash map.
+        let units = units.into_iter()
+            .map(|unit| (unit.id(), unit.clone()))
+            .collect::<FnvHashMap<UnitID, Unit>>();
+
+        // Filter the rocket landings.
+        let mut rocket_landings: RocketLandingInfo = FnvHashMap::default();
+        for (round, landings) in self.rocket_landings.clone().into_iter() {
+            let my_landings = landings.into_iter()
+                .filter(|&(id, _)| self.get_unit(id).expect("unit must exist").team() == team)
+                .collect::<Vec<RocketLanding>>();
+            if my_landings.len() > 0 {
+                rocket_landings.insert(round, my_landings);
+            }
+        }
+
+        // Filter the team states.
+        let mut team_states: FnvHashMap<Team, TeamInfo> = FnvHashMap::default();
+        team_states.insert(team, self.get_team_info(team).clone());
+
+        Ok(GameWorld {
+            round: self.round,
+            player_to_move: self.player_to_move,
+            visible_locs: visible_locs,
+            units: units,
+            unit_infos: unit_infos,
+            units_by_loc: units_by_loc,
+            rocket_landings: rocket_landings,
+            asteroids: self.asteroids.clone(),
+            orbit: self.orbit.clone(),
+            planet_states: self.planet_states.clone(),
+            team_states: team_states,
+        })
     }
 
     // ************************************************************************
