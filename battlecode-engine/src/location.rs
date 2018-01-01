@@ -283,6 +283,32 @@ pub enum Location {
     Unknown,
 }
 
+impl Location {
+    /// True if and only if the location is on the map and on this planet.
+    pub fn on_planet(&self, planet: Planet) -> bool {
+        match *self {
+            Location::OnMap(map_loc) => map_loc.planet == planet,
+            _ => false,
+        }
+    }
+
+    /// Whether the unit is on a map.
+    pub fn on_map(&self) -> bool {
+        match *self {
+            Location::OnMap(_) => true,
+            _ => false,
+        }
+    }
+
+    /// The map location of the unit. Errors if the unit is not on a map.
+    pub fn map_location(&self) -> Result<MapLocation, Error> {
+        match *self {
+            Location::OnMap(map_loc) => Ok(map_loc),
+            _ => Err(GameError::InvalidLocation)?,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

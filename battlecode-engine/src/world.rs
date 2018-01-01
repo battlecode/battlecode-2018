@@ -213,7 +213,7 @@ impl GameWorld {
         // Filter the unit controllers, excluding the units in rockets.
         let mut units = self.units.values().clone().into_iter()
            .filter(|unit| unit.team() == team
-            && (unit.on_planet(planet) || unit.location() == InSpace))
+            && (unit.location().on_planet(planet) || unit.location() == InSpace))
            .collect::<Vec<&Unit>>();
 
         // Calculate the visible locations on this team that are on the map.
@@ -223,7 +223,7 @@ impl GameWorld {
                 continue;
             }
 
-            for loc in unit.map_location().expect("unit is not on the map")
+            for loc in unit.location().map_location().expect("unit is not on the map")
                            .all_locations_within(unit.vision_range())
                            .expect("vision range is too large")
                            .into_iter()
@@ -234,8 +234,8 @@ impl GameWorld {
 
         // Filter the unit infos.
         let unit_infos = self.unit_infos.clone().into_iter()
-            .filter(|&(_, unit)| unit.on_map() && visible_locs.contains(
-                &unit.map_location().expect("unit must be on map"))
+            .filter(|&(_, unit)| unit.location.on_map() && visible_locs.contains(
+                &unit.location.map_location().expect("unit must be on map"))
             )
             .collect::<FnvHashMap<UnitID, UnitInfo>>();
 
@@ -253,8 +253,8 @@ impl GameWorld {
 
         // Create units by location.
         let units_by_loc = units.clone().into_iter()
-            .filter(|unit| unit.on_map())
-            .map(|unit| (unit.map_location().expect("unit must be on the map"), unit.id()))
+            .filter(|unit| unit.location().on_map())
+            .map(|unit| (unit.location().map_location().expect("unit must be on the map"), unit.id()))
             .collect::<FnvHashMap<MapLocation, UnitID>>();
 
         // Turn the units back into a hash map.
@@ -1109,7 +1109,7 @@ impl GameWorld {
         let rocket = self.get_unit(rocket_id)?;
         if rocket.can_degarrison_unit()? {
             let robot = self.get_unit(rocket.garrisoned_units()?[0])?;
-            let loc = rocket.map_location()?.add(direction);
+            let loc = rocket.location().map_location()?.add(direction);
             Ok(self.is_occupiable(loc)? && robot.is_move_ready()?)
         } else {
             Ok(false)
@@ -1129,7 +1129,7 @@ impl GameWorld {
         if self.can_degarrison_rocket(rocket_id, direction)? {
             let (robot_id, rocket_loc) = {
                 let rocket = self.get_unit_mut(rocket_id)?;
-                (rocket.degarrison_unit()?, rocket.map_location()?)
+                (rocket.degarrison_unit()?, rocket.location().map_location()?)
             };
             let robot_loc = rocket_loc.add(direction);
             self.get_unit_mut(robot_id)?.move_to(robot_loc)?;
@@ -1166,7 +1166,7 @@ impl GameWorld {
     pub fn launch_rocket(&mut self, rocket_id: UnitID, destination: MapLocation)
                          -> Result<(), Error> {
         if self.can_launch_rocket(rocket_id, destination)? {
-            let takeoff_loc = self.get_unit(rocket_id)?.map_location()?;
+            let takeoff_loc = self.get_unit(rocket_id)?.location().map_location()?;
             self.get_unit_mut(rocket_id)?.launch_rocket()?;
             let landing_round = self.round + self.orbit.duration(self.round);
             if self.rocket_landings.contains_key(&landing_round) {

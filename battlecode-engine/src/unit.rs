@@ -34,24 +34,6 @@ pub struct UnitInfo {
     pub health: u32,
 }
 
-impl UnitInfo {
-    /// Whether the unit is on a map.
-    pub fn on_map(&self) -> bool {
-        match self.location {
-            OnMap(_) => true,
-            _ => false,
-        }
-    }
-
-    /// The map location of the unit. Errors if the unit is not on a map.
-    pub fn map_location(&self) -> Result<MapLocation, Error> {
-        match self.location {
-            OnMap(map_loc) => Ok(map_loc),
-            _ => Err(GameError::InvalidLocation)?,
-        }
-    }
-}
-
 /// The different unit types, which include factories, rockets, and the robots.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum UnitType {
@@ -356,30 +338,6 @@ impl Unit {
     /// The location of the unit.
     pub fn location(&self) -> Location {
         self.location
-    }
-
-    /// Whether the unit is on a map.
-    pub fn on_map(&self) -> bool {
-        match self.location {
-            OnMap(_) => true,
-            _ => false,
-        }
-    }
-
-    /// The map location of the unit. Errors if the unit is not on a map.
-    pub fn map_location(&self) -> Result<MapLocation, Error> {
-        match self.location {
-            OnMap(map_loc) => Ok(map_loc),
-            _ => Err(GameError::InvalidLocation)?,
-        }
-    }
-
-    /// True if and only if the unit is on this planet.
-    pub fn on_planet(&self, planet: Planet) -> bool {
-        match self.location {
-            OnMap(map_loc) => map_loc.planet == planet,
-            _ => false,
-        }
     }
 
     /// The movement heat.
