@@ -397,6 +397,31 @@ def start_server(sock_file: str, game: Game, dockers, use_docker=True) -> socket
 
     return server
 
+def start_viewer_server(port: int, game: Game) -> socketserver.BaseServer:
+    '''
+    Start a socket server for the players to connect to
+    Args:
+        port: port to connect to viewer on
+
+        game: The game information that is being run
+
+        use_docker bool: whether to use docker or not
+
+    Return:
+        server_thread: The connection so it can be closed by parent functions at
+                        the appropriate time
+    '''
+
+    # Create handler for mangaing each connections to server
+    receive_handler = create_receive_handler(game, dockers, use_docker)
+
+    # Start server
+    server = socketserver.ThreadingUnixStreamServer(sock_file, receive_handler)
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    logging.info("Server Started at %s", sock_file)
+    server_thread.start()
+
+    return server
 
 if __name__ == "__main__":
     print("Do not run this fuction call battlecode cli to start a game")
