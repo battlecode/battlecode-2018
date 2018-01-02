@@ -251,6 +251,21 @@ impl GameWorld {
     }
 
     // ************************************************************************
+    // ************************** HELPER METHODS ******************************
+    // ************************************************************************
+
+    /// Ok if the unit is on the current player's team.
+    ///
+    /// Errors if not. 
+    pub fn ok_if_current_team(&self, unit_id: UnitID) -> Result<(), Error> {
+        if self.team() == self.get_unit(unit_id)?.team() {
+            Ok(())
+        } else {
+            Err(GameError::TeamNotAllowed)?
+        }
+    }
+
+    // ************************************************************************
     // ************************** SENSING METHODS *****************************
     // ************************************************************************
 
@@ -539,6 +554,14 @@ impl GameWorld {
     // *************************** ATTACK METHODS *****************************
     // ************************************************************************
 
+    fn damage_unit(&mut self, _unit_id: UnitID, damage: i32) -> Result<(), Error> {
+        let should_destroy_unit = self.get_unit_mut(_unit_id)?.take_damage(damage);
+        if should_destroy_unit {
+            self.destroy_unit(_unit_id)?;
+        }
+        Ok(())
+    }
+
     /// Deals damage to any unit in the target square, potentially destroying it.
     fn damage_location(&mut self, location: MapLocation, damage: i32) -> Result<(), Error> {
         let id = if let Some(id) = self.units_by_loc.get(&location) {
@@ -547,12 +570,9 @@ impl GameWorld {
             return Ok(());
         };
 
-        let should_destroy_unit = self.get_unit_mut(id)?.take_damage(damage);
-        if should_destroy_unit {
-            self.destroy_unit(id)?;
-        }
-        Ok(())
+        self.damage_unit(id, damage)
     }
+    
 
     /// Whether the robot can attack the given unit, without taking into
     /// account the unit's attack heat. Takes into account only the unit's
@@ -755,7 +775,12 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a knight.
     pub fn can_javelin(&self, _knight_id: UnitID, _target_id: UnitID) -> Result<bool, Error> {
-        unimplemented!();
+        self.ok_if_current_team(_knight_id)?;
+        let knight = self.get_unit(_knight_id)?;
+        let target = self.get_unit(_target_id)?;
+        knight.ok_if_javelin()?;
+        
+        Ok(knight.is_within_range(knight.ability_range(), target.location()))
     }
 
     /// Whether the knight is ready to javelin. Tests whether the knight's
@@ -766,7 +791,11 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a knight.
     pub fn is_javelin_ready(&self, _knight_id: UnitID) -> Result<bool, Error> {
-        unimplemented!();
+       self.ok_if_current_team(_knight_id)?;
+       let knight = self.get_unit(_knight_id)?;
+       knight.ok_if_javelin()?;
+
+       Ok(knight.is_ability_ready()?)
     }
 
     /// Javelins the robot, dealing the amount of ability damage.
@@ -777,12 +806,33 @@ impl GameWorld {
     /// * GameError::InappropriateUnitType - the unit is not a knight.
     /// * GameError::InvalidAction - the knight cannot javelin that unit.
     pub fn javelin(&mut self, _knight_id: UnitID, _target_id: UnitID) -> Result<(), Error> {
-        unimplemented!();
+        if self.can_javelin(_knight_id, _target_id)? && self.is_javelin_ready(_knight_id)? {
+            let damage = self.get_unit_mut(_knight_id)?.javelin()?;
+            self.damage_unit(_target_id, damage)?;
+            Ok(())
+        } else {
+            Err(GameError::InvalidAction)?
+        }
     }
 
     // ************************************************************************
     // *************************** RANGER METHODS *****************************
     // ************************************************************************
+
+    /// Whther the ranger is ready to javelin. Tests whether the ranger's
+    /// ability heat is sufficiently low.
+    ///
+    /// * GameError::InvalidResearchLevel - the ability has not been researched.
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a ranger.
+    pub fn is_snipe_ready(&self, _ranger_id: UnitID) -> Result<bool, Error> {
+        self.ok_if_current_team(_ranger_id)?;
+        let ranger = self.get_unit(_ranger_id)?;
+        ranger.ok_if_snipe()?;
+
+        Ok(ranger.is_ability_ready()?)
+    }
 
     /// Begins the countdown to snipe a given location. Maximizes the units
     /// attack and movement heats until the ranger has sniped. The ranger may
@@ -820,7 +870,12 @@ impl GameWorld {
     /// * GameError::InappropriateUnitType - the unit is not a mage.
     /// * GameError::InvalidLocation - the location is outside the vision range.
     pub fn can_blink(&self, _mage_id: UnitID, _location: MapLocation) -> Result<bool, Error> {
-        unimplemented!();
+        self.ok_if_current_team(_mage_id)?;
+        let mage = self.get_unit(_mage_id)?;
+        mage.ok_if_blink()?;
+        
+        Ok(mage.is_within_range(mage.ability_range(), Some(_location))
+                && self.is_occupiable(_location)?)   
     }
 
     /// Whether the mage is ready to blink. Tests whether the mage's ability
@@ -831,7 +886,11 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a mage.
     pub fn is_blink_ready(&self, _mage_id: UnitID) -> Result<bool, Error> {
-        unimplemented!();
+        self.ok_if_current_team(_mage_id)?;
+        let mage = self.get_unit(_mage_id)?;
+        mage.ok_if_blink()?;
+
+        Ok(mage.is_ability_ready()?)
     }
 
     /// Blinks the mage to the given location.
@@ -842,7 +901,14 @@ impl GameWorld {
     /// * GameError::InappropriateUnitType - the unit is not a mage.
     /// * GameError::InvalidAction - the mage cannot blink to that location.
     pub fn blink(&mut self, _mage_id: UnitID, _location: MapLocation) -> Result<(), Error> {
-        unimplemented!();
+        if self.can_blink(_mage_id, _location)? && self.is_blink_ready(_mage_id)? {
+            self.remove_unit(_mage_id)?;
+            self.get_unit_mut(_mage_id)?.move_to(Some(_location))?;
+            self.place_unit(_mage_id)?;
+            Ok(())
+        } else {
+            Err(GameError::InvalidAction)?
+        }
     }
 
     // ************************************************************************
@@ -867,7 +933,7 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a healer.
     pub fn is_heal_ready(&self, _healer_id: UnitID) -> Result<bool, Error> {
-        unimplemented!();
+        unimplemented!()
     }
 
     /// Heals the robot, dealing the healer's standard amount of "damage".
@@ -901,7 +967,11 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a healer.
     pub fn is_overcharge_ready(&self, _healer_id: UnitID) -> Result<bool, Error> {
-        unimplemented!();
+        self.ok_if_current_team(_healer_id)?;
+        let healer = self.get_unit(_healer_id)?;
+        healer.ok_if_overcharge()?;
+
+        Ok(healer.is_ability_ready()?)
     }
 
     /// Overcharges the robot, resetting the robot's cooldowns.
