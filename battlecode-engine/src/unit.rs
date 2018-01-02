@@ -324,6 +324,19 @@ impl Unit {
         }
     }
 
+    /// Whether the unit has the location within range.
+    pub fn is_within_range(&self, range: u32, location: Option<MapLocation>) -> bool {
+        let loc_a = match self.location() {
+            Some(loc) => loc,
+            None => { return false; },
+        };
+        let loc_b = match location {
+            Some(loc) => loc,
+            None => { return false; },
+        };
+        range >= loc_a.distance_squared_to(loc_b)
+    }
+
     /// Resets a unit's ability cooldown.
     /// 
     /// Errors if the unit is not a robot. 
@@ -473,6 +486,11 @@ impl Unit {
     /// Whether a unit's ability is unlocked.
     pub fn is_ability_unlocked(&self) -> bool {
         self.is_ability_unlocked
+    }
+
+    /// The unit's ability range.
+    pub fn ability_range(&self) -> u32 {
+        self.ability_range
     }
 
     /// The ability heat.
