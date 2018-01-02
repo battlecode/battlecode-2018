@@ -34,7 +34,7 @@ impl GameController {
     pub fn new() -> GameController {
         GameController {
             // TODO: load an actual map.
-            world: GameWorld::new(GameMap::test_map()).unwrap(),
+            world: GameWorld::test_world(),
             config: Config::player_config(),
             turn: TurnMessage { changes: vec![] }
         }
@@ -111,7 +111,7 @@ impl GameController {
     /// The single unit with this ID.
     ///
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    pub fn unit(&self, id: UnitID) -> UnitInfo {
+    pub fn unit(&self, id: UnitID) -> Result<&UnitInfo, Error> {
         self.world.unit(id)
     }
 
@@ -819,7 +819,7 @@ impl GameController {
     pub fn new_manager() -> GameController {
         GameController {
             // TODO: load an actual map.
-            world: GameWorld::new(GameMap::test_map()).unwrap(),
+            world: GameWorld::test_world(),
             config: Config::runner_config(),
             turn: TurnMessage { changes: vec![] }
         }

@@ -175,6 +175,8 @@ impl PlanetMap {
     /// Whether a location is on the map.
     pub fn on_map(&self, location: MapLocation) -> bool {
         self.planet == location.planet
+            && location.x >= 0
+            && location.y >= 0
             && location.x < self.width as i32
             && location.y < self.height as i32
     }
