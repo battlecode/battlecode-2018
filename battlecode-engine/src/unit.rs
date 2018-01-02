@@ -534,7 +534,7 @@ impl Unit {
     // ************************************************************************
     // *************************** KNIGHT METHODS *****************************
     // ************************************************************************
-    
+
     /// Whether the unit can javelin. 
     /// 
     /// Errors if the unit is not a knight, or ability not unlocked.
@@ -596,7 +596,7 @@ impl Unit {
     /// Updates the unit as if it has blinked.
     /// 
     /// Errors if the unit is not a mage, or not ready to blink.
-    pub fn blink(&mut self, location: Option<MapLocation>)
+    pub fn blink(&mut self, location: Option<MapLocation>) 
                  -> Result<(), Error> {
         if self.can_blink()? {
             self.ability_heat += self.ability_cooldown;
