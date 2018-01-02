@@ -487,7 +487,7 @@ impl Unit {
     ///
     /// Errors if the unit is not a robot, has insufficient research level
     /// or if unit is a worker.
-    pub fn ok_if_ability(&self) -> Result<(()), Error> {
+    pub fn ok_if_ability(&self) -> Result<(), Error> {
         self.ok_if_robot()?;
         if !self.is_ability_unlocked() {
             Err(GameError::InvalidResearchLevel)?
@@ -503,12 +503,8 @@ impl Unit {
     /// Whether the unit can use its ability. The unit's ability heat must 
     /// be lower than the maximum heat to act. 
     ///
-    /// Errors if the unit is not a robot, has insufficient research level
-    /// or if unit is a worker
+    /// Errors if the unit is not a robot
     pub fn is_ability_ready(&self) -> Result<bool, Error> {
-        self.ok_if_robot()?;
-        self.ok_if_ability()?;
-
         Ok(self.ability_heat()? < MAX_HEAT_TO_ACT)
     }
 
@@ -556,22 +552,23 @@ impl Unit {
     // *************************** KNIGHT METHODS *****************************
     // ************************************************************************
 
-    /// Whether the unit can javelin. 
+    /// Ok if the unit can javelin. 
     /// 
-    /// Errors if the unit is not a knight.v
-    pub fn can_javelin(&self) -> Result<bool, Error> {
+    /// Errors if the unit is not a knight, or has insufficient research level
+    pub fn ok_if_javelin(&self) -> Result<(), Error> {
         self.ok_if_unit_type(Knight)?;
-        Ok(self.is_ability_unlocked())
+        Ok(self.ok_if_ability()?)
     }
 
     /// Updates the unit as if it has javelined.
     /// 
     /// Errors if the unit is not a knight, or not ready to javelin.
     pub fn javelin(&mut self) -> Result<(i32), Error> {
-        if self.can_javelin()? && self.is_ability_ready()? {
+        self.ok_if_javelin()?;
+        if self.is_ability_ready()? {
             self.ability_heat += self.ability_cooldown;
             Ok(self.damage)
-        } else { 
+        } else {
             Err(GameError::InvalidAction)?
         }
     }
@@ -580,19 +577,20 @@ impl Unit {
     // *************************** RANGER METHODS *****************************
     // ************************************************************************
     
-    /// Whether the unit can snipe. 
+    /// Ok if the unit can snipe
     /// 
-    /// Errors if the unit is not a ranger.
-    pub fn can_snipe(&self) -> Result<bool, Error> {
+    /// Errors if the unit is not a ranger, or has insufficient research level
+    pub fn ok_if_snipe(&self) -> Result<(), Error> {
         self.ok_if_unit_type(Ranger)?;
-        Ok(self.is_ability_unlocked())
+        Ok(self.ok_if_ability()?)
     }
 
     /// Updates the unit as if it has sniped.
     /// 
     /// Errors if the unit is not a ranger, or not ready to snipe. 
     pub fn snipe(&mut self) -> Result<i32, Error> {
-        if self.can_snipe()? && self.is_ability_ready()? {
+        self.ok_if_snipe()?;
+        if self.is_ability_ready()? {
             self.ability_heat += self.ability_cooldown;
             self.movement_heat += self.countdown;
             self.attack_heat += self.countdown;
@@ -606,12 +604,12 @@ impl Unit {
     // **************************** MAGE METHODS ******************************
     // ************************************************************************
 
-    /// Whether the unit can blink.
+    /// Ok if the unit can blink.
     /// 
-    /// Errors if the unit is not a mage. 
-    pub fn can_blink(&self) -> Result<bool, Error> {
+    /// Errors if the unit is not a mage, or insufficient research level. 
+    pub fn ok_if_blink(&self) -> Result<(), Error> {
         self.ok_if_unit_type(Mage)?;
-        Ok(self.is_ability_ready()?)
+        Ok(self.ok_if_ability()?)
     }
 
     /// Updates the unit as if it has blinked.
@@ -619,7 +617,8 @@ impl Unit {
     /// Errors if the unit is not a mage, or not ready to blink.
     pub fn blink(&mut self, location: Option<MapLocation>) 
                  -> Result<(), Error> {
-        if self.can_blink()? && self.is_ability_ready()? {
+        self.ok_if_blink()?;
+        if self.is_ability_ready()? {
             self.ability_heat += self.ability_cooldown;
             self.location = location;
             Ok(())
@@ -632,19 +631,20 @@ impl Unit {
     // *************************** HEALER METHODS *****************************
     // ************************************************************************
 
-    /// Whether the unit can overcharge.
+    /// Ok if the unit can overcharge
     /// 
     /// Errors if the unit is not a healer.
-    pub fn can_overcharge(&self) -> Result<bool, Error> {
+    pub fn ok_if_overcharge(&self) -> Result<(), Error> {
         self.ok_if_unit_type(Healer)?;
-        Ok(self.is_ability_ready()?)
+        Ok(self.ok_if_ability()?)
     }
 
     /// Updates the unit as if it has overcharged.
     /// 
     /// Errors if the unit is not a healer, or not ready to overcharge.
     pub fn overcharge(&mut self) -> Result<(), Error> {
-        if self.can_overcharge()? && self.is_ability_ready()? {
+        self.ok_if_overcharge()?;
+        if  self.is_ability_ready()? {
             self.ability_heat += self.ability_cooldown;
             Ok(())
         } else {
@@ -915,14 +915,14 @@ mod tests {
         let loc = MapLocation::new(Planet::Earth, 0, 0); 
         let worker = Unit::new(1, Team::Red, Worker, 0, loc).unwrap();
 
-        // Worker cannot use or unlock ability.
-        assert!(worker.is_ability_ready().is_err());
+        // Worker cannot use ability
+        assert!(worker.ok_if_ability().is_err());
 
-        // Other units can unlock and use ability.
+        // Other units use ability.
         let knight = Unit::new(1, Team::Red, Knight, 3, loc).unwrap();
-        assert!(knight.is_ability_ready().unwrap());
+        assert!(knight.ok_if_ability().is_ok());
         let ranger = Unit::new(1, Team::Red, Knight, 3, loc).unwrap();
-        assert!(ranger.is_ability_ready().unwrap());
+        assert!(ranger.ok_if_ability().is_ok());
 
         // Unit cannot use ability when ability heat >= max heat to act 
         let mut ranger = Unit::new(1, Team::Red, Ranger, 3, loc).unwrap();
@@ -938,7 +938,7 @@ mod tests {
 
         // Javelin should fail if unit is not a knight
         let mut worker = Unit::new(1, Team::Red, Worker, 0, loc).unwrap();
-        assert!(worker.can_javelin().is_err());
+        assert!(worker.ok_if_javelin().is_err());
         assert!(worker.javelin().is_err());
     }
 
@@ -948,7 +948,7 @@ mod tests {
 
         // Sniping should fail if unit is not a ranger
         let mut worker = Unit::new(1, Team::Red, Worker, 0, loc).unwrap();
-        assert!(worker.can_snipe().is_err());
+        assert!(worker.ok_if_snipe().is_err());
         assert!(worker.snipe().is_err());
     }
 
@@ -959,13 +959,12 @@ mod tests {
 
         // Blinking moves mage to new location 
         let mut mage = Unit::new(1, Team::Red, Mage, 4, loc_a).unwrap();
-        assert!(mage.can_blink().unwrap());
         assert!(mage.blink(Some(loc_b)).is_ok());
         assert_eq!(mage.location(), Some(loc_b));
     
         // Blinking should fail if unit is not a mage
         let mut worker = Unit::new(1, Team::Red, Worker, 0, loc_a).unwrap();
-        assert!(worker.can_blink().is_err());
+        assert!(worker.ok_if_blink().is_err());
         assert!(worker.blink(Some(loc_b)).is_err());
     }
 
@@ -975,7 +974,7 @@ mod tests {
 
         // Overcharging should fail if unit is not a healer
         let mut worker = Unit::new(1, Team::Red, Worker, 0, loc).unwrap();
-        assert!(worker.can_overcharge().is_err());
+        assert!(worker.ok_if_overcharge().is_err());
         assert!(worker.overcharge().is_err());
     }
 
