@@ -619,7 +619,7 @@ impl Unit {
     pub fn board_rocket(&mut self, rocket_id: UnitID) -> Result<(), Error> {
         if self.is_move_ready()? {
             self.movement_heat += self.movement_cooldown;
-            self.location = InRocket(rocket_id);
+            self.location = InGarrison(rocket_id);
             Ok(())
         } else {
             Err(GameError::InvalidAction)?

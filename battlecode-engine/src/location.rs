@@ -271,11 +271,9 @@ impl MapLocation {
 pub enum Location {
     /// Directly on a square of a planet.
     OnMap(MapLocation),
-    /// Inside of a rocket, which is either on the map or in space.
-    /// The rocket has the given ID.
-    InRocket(UnitID),
-    /// Inside of a factory, ready to step onto the map.
-    InFactory(UnitID),
+    /// Inside of the garrison of a rocket or factory, which is either on the
+    /// map or in space. The rocket/factory has the given ID.
+    InGarrison(UnitID),
     /// Traveling from one planet to another. Only rockets can be in space.
     InSpace,
     /// Somewhere in the great unknown. The location of a unit after it has
