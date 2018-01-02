@@ -4,14 +4,50 @@
 
 use super::location::*;
 use super::unit::*;
+use super::world::GameWorld;
+use super::world::Team;
 
 /// A single, atomic "change" in the game world.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Delta {
-    /// Ends the current turn, and begins the next.
-    EndTurn,
-    /// Moves a robot with the given ID.
-    Move { id: UnitID, direction: Direction },
+    /// Commands the given robot to attack a location.
+    Attack { robot_id: UnitID, target_unit_id: UnitID },
+    /// Commands the given ranger to begin sniping the given location.
+    BeginSnipe { ranger_id: UnitID, location: MapLocation },
+    /// Commands the given worker to blueprint a structure.
+    Blueprint { worker_id: UnitID, structure_type: UnitType, direction: Direction },
+    /// Commands the given mage to blink to the given location.
+    Blink { mage_id: UnitID, location: MapLocation },
+    /// Commands the given worker to build a blueprint.
+    Build { worker_id: UnitID, blueprint_id: UnitID },
+    /// Commands the given structure to degarrison a unit in the given direction.
+    Degarrison { structure_id: UnitID, direction: Direction },
+    /// Commands the given unit to disintegrate.
+    Disintegrate { unit_id: UnitID },
+    /// Commands the given structure to pull the specified robot into its garrison.
+    Garrison { structure_id: UnitID, robot_id: UnitID },
+    /// Commands the given worker to mine karbonite from an adjacent square.
+    Harvest { worker_id: UnitID, direction: Direction },
+    /// Commands the given healer to heal the given robot.
+    Heal { healer_id: UnitID, target_robot_id: UnitID },
+    /// Commands the given knight to throw a javelin at the given location.
+    Javelin { knight_id: UnitID, target_unit_id: UnitID },
+    /// Commands the given rocket to launch, ultimately landing in the specified location.
+    LaunchRocket { rocket_id: UnitID, location: MapLocation },
+    /// Commands the given robot to move in the given direction.
+    Move { robot_id: UnitID, direction: Direction },
+    /// Commands the given healer to overcharge the specified robot.
+    Overcharge { healer_id: UnitID, target_robot_id: UnitID },
+    /// Queues the next level of the given research branch.
+    QueueResearch { branch: UnitType },
+    /// Commands the given factory to enqueue production a robot.
+    QueueRobotProduction { factory_id: UnitID, robot_type: UnitType },
+    /// Commands the given worker to repair the specified strucutre.
+    Repair { worker_id: UnitID, structure_id: UnitID },
+    /// Commands the given worker to replicate in the given direction.
+    Replicate { worker_id: UnitID, direction: Direction },
+    /// Resets the current research queue, for the specified team.
+    ResetResearchQueue,
     /// Nothing happens.
     Nothing,
 }
@@ -20,7 +56,21 @@ pub enum Delta {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TurnMessage {
     /// The changes to the game world.
-    changes: Vec<Delta>
+    pub changes: Vec<Delta>
+}
+
+/// A list of updates since the player's last turn.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct StartTurnMessage {
+    /// The current status of the GameWorld.
+    pub world: GameWorld
+}
+
+/// A description of the current game state, for the viewer.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ViewerMessage {
+    /// The current status of the GameWorld.
+    pub world: GameWorld
 }
 
 /// An error message in response to some error.

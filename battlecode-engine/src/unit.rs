@@ -708,7 +708,7 @@ impl Unit {
     }
 
     /// Process the end of the round.
-    pub fn next_round(&mut self) {
+    pub fn end_round(&mut self) {
         self.movement_heat -= cmp::min(HEAT_LOSS_PER_ROUND, self.movement_heat);
         self.attack_heat -= cmp::min(HEAT_LOSS_PER_ROUND, self.attack_heat);
     }
@@ -736,14 +736,14 @@ mod tests {
         assert_eq!(unit.location(), OnMap(loc_b));
 
         // Wait one round, and fail to move again.
-        unit.next_round();
+        unit.end_round();
         assert!(unit.movement_heat().unwrap() > MAX_HEAT_TO_ACT);
         assert!(!unit.is_move_ready().unwrap());
         assert!(unit.move_to(loc_a).is_err());
         assert_eq!(unit.location(), OnMap(loc_b));
 
         // Wait one more round, and succesfully move.
-        unit.next_round();
+        unit.end_round();
         assert!(unit.movement_heat().unwrap() < MAX_HEAT_TO_ACT);
         assert!(unit.is_move_ready().unwrap());
         assert!(unit.move_to(loc_a).is_ok());
@@ -833,8 +833,8 @@ mod tests {
         assert!(rocket.is_rocket_used().unwrap());
 
         // Proceed a round, then land the rocket.
-        robot.next_round();
-        rocket.next_round();
+        robot.end_round();
+        rocket.end_round();
         assert_eq!(rocket.land_rocket(mars_loc).unwrap(), ());
         assert_eq!(rocket.location(), OnMap(mars_loc));
 

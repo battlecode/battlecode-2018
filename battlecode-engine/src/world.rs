@@ -4,6 +4,7 @@ use fnv::FnvHashMap;
 
 use super::constants::*;
 use super::schema::Delta;
+use super::schema::TurnMessage;
 use super::id_generator::IDGenerator;
 use super::location::*;
 use super::location::Location::*;
@@ -97,7 +98,7 @@ type TeamArrayHistory = Vec<TeamArray>;
 
 /// Persistent info specific to a single team. Teams are only able to access
 /// the team info of their own team.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 struct TeamInfo {
     /// Team identification.
     team: Team,
@@ -137,7 +138,7 @@ impl TeamInfo {
 }
 
 /// A player represents a program controlling some group of units.
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
 pub struct Player {
     /// The team of this player.
     pub team: Team,
@@ -158,7 +159,7 @@ impl Player {
 /// The contents of the game world differ depending on whether it exists in the
 /// Teh Devs engine or the Player engine. Do not be concerned - this ensures
 /// that your player the visibility it's supposed to have!
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct GameWorld {
     /// The current round, starting at 1.
     round: Rounds,
@@ -376,7 +377,7 @@ impl GameWorld {
     }
 
     /// Whether the location is within the vision range.
-    pub fn is_visible(&self, location: MapLocation) -> bool {
+    pub fn can_sense_location(&self, location: MapLocation) -> bool {
         if self.planet() != location.planet {
             return false;
         }
@@ -419,7 +420,7 @@ impl GameWorld {
     /// distance squared. The units are within the vision range. Additionally
     /// filters the units by unit type.
     pub fn sense_nearby_units_by_type(&self, _location: MapLocation,
-                                      _radius: u32, _type: UnitType) -> Vec<UnitInfo> {
+                                      _radius: u32, _unit_type: UnitType) -> Vec<UnitInfo> {
         unimplemented!();
     }
 
@@ -682,7 +683,7 @@ impl GameWorld {
 
     /// Creates and inserts a new unit into the game world, so that it can be
     /// referenced by ID. Used for testing only!!!
-    fn create_unit(&mut self, team: Team, location: MapLocation,
+    pub fn create_unit(&mut self, team: Team, location: MapLocation,
                        unit_type: UnitType) -> Result<UnitID, Error> {
         let id = self.get_team_mut(team).id_generator.next_id();
         let level = self.get_team(team).research.get_level(&unit_type);
@@ -749,7 +750,7 @@ impl GameWorld {
     ///
     /// * GameError::InvalidLocation - the location is outside the vision range.
     pub fn is_occupiable(&self, location: MapLocation) -> Result<bool, Error> {
-        if !self.is_visible(location) {
+        if !self.can_sense_location(location) {
             return Err(GameError::InvalidLocation)?;
         }
 
@@ -898,13 +899,13 @@ impl GameWorld {
     /// starts research if it is the first in the queue.
     ///
     /// Returns whether the branch was successfully added.
-    pub fn queue_research(&mut self, branch: &Branch) -> bool {
-        self.my_research_mut().add_to_queue(branch)
+    pub fn queue_research(&mut self, branch: Branch) -> bool {
+        self.my_research_mut().add_to_queue(&branch)
     }
 
     /// Update the current research and process any completed upgrades.
     fn process_research(&mut self, team: Team) -> Result<(), Error> {
-        if let Some(branch) = self.get_team_mut(team).research.next_round()? {
+        if let Some(branch) = self.get_team_mut(team).research.end_round()? {
             for (_, unit) in self.get_planet_mut(Planet::Earth).units.iter_mut() {
                 if unit.unit_type() == branch {
                     unit.research()?;
@@ -1334,7 +1335,7 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a rocket.
-    pub fn can_launch_rocket(&mut self, rocket_id: UnitID, destination: MapLocation)
+    pub fn can_launch_rocket(&self, rocket_id: UnitID, destination: MapLocation)
                              -> Result<bool, Error> {
         if destination.planet == self.planet() {
             return Ok(false);
@@ -1419,32 +1420,35 @@ impl GameWorld {
 
     /// Updates the current player in the game. If a round of four turns has
     /// finished, also processes the end of the round. This includes updating
-    /// unit cooldowns, rocket landings, asteroid strikes, research, etc.
+    /// unit cooldowns, rocket landings, asteroid strikes, research, etc. Returns 
+    /// the next player to move, and whether the round was also ended.
     ///
     /// * GameError::InternalEngineError - something happened here...
-    pub fn next_turn(&mut self) -> Result<(), Error> {
+    pub fn end_turn(&mut self) -> Result<(Player, bool), Error> {
+        let mut end_round = false;
         self.player_to_move = match self.player_to_move {
             Player { team: Team::Red, planet: Planet::Earth } => Player { team: Team::Blue, planet: Planet::Earth},
             Player { team: Team::Blue, planet: Planet::Earth } => Player { team: Team::Red, planet: Planet::Mars},
             Player { team: Team::Red, planet: Planet::Mars } => Player { team: Team::Blue, planet: Planet::Mars},
             Player { team: Team::Blue, planet: Planet::Mars } => {
                 // This is the last player to move, so we can advance to the next round.
-                self.next_round()?;
+                self.end_round()?;
+                end_round = true;
                 Player { team: Team::Red, planet: Planet::Earth}
             },
         };
-        Ok(())
+        Ok((self.player_to_move, end_round))
     }
 
-    fn next_round(&mut self) -> Result<(), Error> {
+    pub fn end_round(&mut self) -> Result<(), Error> {
         self.round += 1;
 
         // Update unit cooldowns.
         for unit in &mut self.get_planet_mut(Planet::Earth).units.values_mut() {
-            unit.next_round();
+            unit.end_round();
         }
         for unit in &mut self.get_planet_mut(Planet::Mars).units.values_mut() {
-            unit.next_round();
+            unit.end_round();
         }
 
         // Land rockets.
@@ -1461,12 +1465,39 @@ impl GameWorld {
         Ok(())
     }
 
-    pub fn apply(&mut self, delta: Delta) -> Result<(), Error> {
-        match delta {
-            Delta::EndTurn => self.next_turn(),
-            Delta::Move{id, direction} => self.move_robot(id, direction),
-            _ => Ok(()),
+    /// Applies a single delta to this GameWorld.
+    pub fn apply(&mut self, delta: &Delta) -> Result<(), Error> {
+        match *delta {
+            Delta::Attack {robot_id, target_unit_id} => self.attack(robot_id, target_unit_id),
+            Delta::BeginSnipe {ranger_id, location} => self.begin_snipe(ranger_id, location),
+            Delta::Blueprint {worker_id, structure_type, direction} => self.blueprint(worker_id, structure_type, direction),
+            Delta::Blink {mage_id, location} => self.blink(mage_id, location),
+            Delta::Build {worker_id, blueprint_id} => self.build(worker_id, blueprint_id),
+            Delta::Degarrison {structure_id, direction} => unimplemented!(),
+            Delta::Disintegrate {unit_id} => self.disintegrate_unit(unit_id),
+            Delta::Garrison {structure_id, robot_id} => unimplemented!(),
+            Delta::Harvest {worker_id, direction} => self.harvest(worker_id, direction),
+            Delta::Heal {healer_id, target_robot_id} => self.heal(healer_id, target_robot_id),
+            Delta::Javelin {knight_id, target_unit_id} => self.javelin(knight_id, target_unit_id),
+            Delta::LaunchRocket {rocket_id, location} => self.launch_rocket(rocket_id, location),
+            Delta::Move {robot_id, direction} => self.move_robot(robot_id, direction),
+            Delta::Overcharge {healer_id, target_robot_id} => self.overcharge(healer_id, target_robot_id),
+            Delta::QueueResearch {branch} => { self.queue_research(branch); Ok(()) },
+            Delta::QueueRobotProduction {factory_id, robot_type} => unimplemented!(),
+            Delta::Repair {worker_id, structure_id} => unimplemented!(),
+            Delta::Replicate {worker_id, direction} => self.replicate(worker_id, direction),
+            Delta::ResetResearchQueue => { self.reset_research(); Ok(()) },
+            Delta::Nothing => Ok(()),
         }
+    }
+
+    /// Applies a turn message to this GameWorld, and ends the current turn. Returns
+    /// the next player to move, and whether the current round was also ended.
+    pub fn apply_turn(&mut self, turn: &TurnMessage) -> Result<(Player, bool), Error> {
+        for delta in turn.changes.iter() {
+            self.apply(delta)?;
+        }
+        Ok(self.end_turn()?)
     }
 }
 
@@ -1522,7 +1553,7 @@ mod tests {
         assert![!world.is_move_ready(a).unwrap()];
         assert![world.can_move(a, Direction::South).unwrap()];
         assert![world.move_robot(a, Direction::South).is_err()];
-        assert![world.next_round().is_ok()];
+        assert![world.end_round().is_ok()];
 
         // Finally, let's test that A cannot move back to its old square.
         assert![world.is_move_ready(a).unwrap()];
@@ -1557,8 +1588,8 @@ mod tests {
         }
 
         // Go forward two turns so that we're on Mars.
-        assert![world.next_turn().is_ok()];
-        assert![world.next_turn().is_ok()];
+        assert![world.end_turn().is_ok()];
+        assert![world.end_turn().is_ok()];
 
         // Force land the rocket.
         world.land_rocket(rocket, mars_loc).unwrap();
@@ -1595,21 +1626,21 @@ mod tests {
         // Rocket landing on a robot should destroy the robot.
         assert![world.can_launch_rocket(rocket_a, mars_loc_knight).unwrap()];
         assert![world.launch_rocket(rocket_a, mars_loc_knight).is_ok()];
-        assert![world.next_turn().is_ok()];
-        assert![world.next_turn().is_ok()];
+        assert![world.end_turn().is_ok()];
+        assert![world.end_turn().is_ok()];
         assert![world.land_rocket(rocket_a, mars_loc_knight).is_ok()];
         assert![world.my_unit(rocket_a).is_ok()];
-        assert![world.next_turn().is_ok()];
+        assert![world.end_turn().is_ok()];
         assert_err![world.my_unit(knight), GameError::NoSuchUnit];
 
         // Launch the rocket on Earth.
-        assert![world.next_turn().is_ok()];
+        assert![world.end_turn().is_ok()];
         assert![world.can_launch_rocket(rocket_b, mars_loc_factory).unwrap()];
         assert![world.launch_rocket(rocket_b, mars_loc_factory).is_ok()];
 
         // Go forward two turns so that we're on Mars.
-        assert![world.next_turn().is_ok()];
-        assert![world.next_turn().is_ok()];
+        assert![world.end_turn().is_ok()];
+        assert![world.end_turn().is_ok()];
 
         // Rocket landing on a factory should destroy both units.
         assert![world.land_rocket(rocket_b, mars_loc_factory).is_ok()];
@@ -1689,14 +1720,14 @@ mod tests {
         assert![world.launch_rocket(rocket, landing_loc).is_ok()];
 
         // Go forward two turns so that we're on Mars.
-        assert![world.next_turn().is_ok()];
-        assert![world.next_turn().is_ok()];
+        assert![world.end_turn().is_ok()];
+        assert![world.end_turn().is_ok()];
         assert![world.land_rocket(rocket, landing_loc).is_ok()];
 
         // Cannot degarrison in the same round. But can after one turn.
         assert![!world.can_degarrison_rocket(rocket, Direction::North).unwrap()];
         assert_err![world.degarrison_rocket(rocket, Direction::North), GameError::InvalidAction];
-        assert![world.next_round().is_ok()];
+        assert![world.end_round().is_ok()];
 
         // Correct degarrisoning.
         assert![world.can_degarrison_rocket(rocket, Direction::North).unwrap()];

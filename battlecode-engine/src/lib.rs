@@ -28,6 +28,12 @@ extern crate fnv;
 #[macro_use]
 pub mod error;
 
+// see controller.rs
+pub mod controller;
+
+// see config.rs
+pub mod config;
+
 // see schema.rs
 pub mod schema;
 
