@@ -407,24 +407,6 @@ impl Unit {
     pub fn max_health(&self) -> u32 {
         self.max_health
     }
-
-    /// Whether a unit's ability is unlocked.
-    pub fn is_ability_unlocked(&self) -> bool {
-        self.is_ability_unlocked
-    }
-
-    /// Whether the unit can use its ability. The unit's ability heat must
-    /// be lower than the maximum heat to act.
-    ///
-    /// Errors if the unit is not a robot, or if unit is a worker.
-    pub fn can_use_ability(&self) -> Result<bool, Error> {
-        self.ok_if_robot()?;
-        if self.unit_type != Worker {
-            Ok(self.is_ability_unlocked() && self.ability_heat()? < MAX_HEAT_TO_ACT)
-        } else { 
-            Err(GameError::InappropriateUnitType)?
-        }
-    }
     
     /// The attack heat.
     ///
@@ -479,6 +461,20 @@ impl Unit {
         self.health == 0
     }
 
+    /// Destroys the unit. Equivalent to removing it from the game.
+    pub fn destroy(&mut self) {
+        self.location = None;
+    }
+
+    // ************************************************************************
+    // *************************** ABILITY METHODS *****************************
+    // ************************************************************************
+    
+    /// Whether a unit's ability is unlocked.
+    pub fn is_ability_unlocked(&self) -> bool {
+        self.is_ability_unlocked
+    }
+
     /// The ability heat.
     /// 
     /// Errors if the unit is not a robot.
@@ -486,9 +482,34 @@ impl Unit {
         self.ok_if_robot()?;
         Ok(self.ability_heat)
     }
-    /// Destroys the unit. Equivalent to removing it from the game.
-    pub fn destroy(&mut self) {
-        self.location = None;
+
+    /// Ok if unit can use ability.
+    ///
+    /// Errors if the unit is not a robot, has insufficient research level
+    /// or if unit is a worker.
+    pub fn ok_if_ability(&self) -> Result<(()), Error> {
+        self.ok_if_robot()?;
+        if !self.is_ability_unlocked() {
+            Err(GameError::InvalidResearchLevel)?
+        }
+
+        if self.unit_type == Worker {
+            Err(GameError::InappropriateUnitType)?
+        }
+
+        Ok(())
+    }
+
+    /// Whether the unit can use its ability. The unit's ability heat must 
+    /// be lower than the maximum heat to act. 
+    ///
+    /// Errors if the unit is not a robot, has insufficient research level
+    /// or if unit is a worker
+    pub fn is_ability_ready(&self) -> Result<bool, Error> {
+        self.ok_if_robot()?;
+        self.ok_if_ability()?;
+
+        Ok(self.ability_heat()? < MAX_HEAT_TO_ACT)
     }
 
     // ************************************************************************
@@ -537,17 +558,17 @@ impl Unit {
 
     /// Whether the unit can javelin. 
     /// 
-    /// Errors if the unit is not a knight, or ability not unlocked.
+    /// Errors if the unit is not a knight.v
     pub fn can_javelin(&self) -> Result<bool, Error> {
         self.ok_if_unit_type(Knight)?;
-        Ok(self.can_use_ability()?)
+        Ok(self.is_ability_unlocked())
     }
 
     /// Updates the unit as if it has javelined.
     /// 
     /// Errors if the unit is not a knight, or not ready to javelin.
     pub fn javelin(&mut self) -> Result<(i32), Error> {
-        if self.can_javelin()? {
+        if self.can_javelin()? && self.is_ability_ready()? {
             self.ability_heat += self.ability_cooldown;
             Ok(self.damage)
         } else { 
@@ -564,14 +585,14 @@ impl Unit {
     /// Errors if the unit is not a ranger.
     pub fn can_snipe(&self) -> Result<bool, Error> {
         self.ok_if_unit_type(Ranger)?;
-        Ok(self.can_use_ability()?)
+        Ok(self.is_ability_unlocked())
     }
 
     /// Updates the unit as if it has sniped.
     /// 
     /// Errors if the unit is not a ranger, or not ready to snipe. 
     pub fn snipe(&mut self) -> Result<i32, Error> {
-        if self.can_snipe()? {
+        if self.can_snipe()? && self.is_ability_ready()? {
             self.ability_heat += self.ability_cooldown;
             self.movement_heat += self.countdown;
             self.attack_heat += self.countdown;
@@ -590,7 +611,7 @@ impl Unit {
     /// Errors if the unit is not a mage. 
     pub fn can_blink(&self) -> Result<bool, Error> {
         self.ok_if_unit_type(Mage)?;
-        Ok(self.can_use_ability()?)
+        Ok(self.is_ability_ready()?)
     }
 
     /// Updates the unit as if it has blinked.
@@ -598,7 +619,7 @@ impl Unit {
     /// Errors if the unit is not a mage, or not ready to blink.
     pub fn blink(&mut self, location: Option<MapLocation>) 
                  -> Result<(), Error> {
-        if self.can_blink()? {
+        if self.can_blink()? && self.is_ability_ready()? {
             self.ability_heat += self.ability_cooldown;
             self.location = location;
             Ok(())
@@ -616,14 +637,14 @@ impl Unit {
     /// Errors if the unit is not a healer.
     pub fn can_overcharge(&self) -> Result<bool, Error> {
         self.ok_if_unit_type(Healer)?;
-        Ok(self.can_use_ability()?)
+        Ok(self.is_ability_ready()?)
     }
 
     /// Updates the unit as if it has overcharged.
     /// 
     /// Errors if the unit is not a healer, or not ready to overcharge.
     pub fn overcharge(&mut self) -> Result<(), Error> {
-        if self.can_overcharge()? {
+        if self.can_overcharge()? && self.is_ability_ready()? {
             self.ability_heat += self.ability_cooldown;
             Ok(())
         } else {
@@ -895,23 +916,20 @@ mod tests {
         let worker = Unit::new(1, Team::Red, Worker, 0, loc).unwrap();
 
         // Worker cannot use or unlock ability.
-        assert!(!worker.is_ability_unlocked());
-        assert!(worker.can_use_ability().is_err());
+        assert!(worker.is_ability_ready().is_err());
 
         // Other units can unlock and use ability.
         let knight = Unit::new(1, Team::Red, Knight, 3, loc).unwrap();
-        assert!(knight.is_ability_unlocked());
-        assert!(knight.can_use_ability().unwrap());
+        assert!(knight.is_ability_ready().unwrap());
         let ranger = Unit::new(1, Team::Red, Knight, 3, loc).unwrap();
-        assert!(ranger.is_ability_unlocked());
-        assert!(ranger.can_use_ability().unwrap());
+        assert!(ranger.is_ability_ready().unwrap());
 
         // Unit cannot use ability when ability heat >= max heat to act 
         let mut ranger = Unit::new(1, Team::Red, Ranger, 3, loc).unwrap();
         ranger.ability_heat = MAX_HEAT_TO_ACT;
-        assert!(!ranger.can_use_ability().unwrap());
+        assert!(!ranger.is_ability_ready().unwrap());
         ranger.ability_heat = MAX_HEAT_TO_ACT + 10;
-        assert!(!ranger.can_use_ability().unwrap());
+        assert!(!ranger.is_ability_ready().unwrap());
     }
 
     #[test]
