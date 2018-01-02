@@ -328,9 +328,18 @@ impl Unit {
     /// 
     /// Errors if the unit is not a robot. 
     fn reset_abliity_cooldown(&mut self) -> Result<(), Error> {
+<<<<<<< d4e108a8b6f7d29651053b763ac3753d39d8e500
         self.ok_if_robot()?; 
         self.ability_heat = DEFAULT_ABILITY_HEAT;
         Ok(())   
+=======
+        if self.ok_if_robot()? {
+            self.ability_heat = DEFAULT_ABILITY_HEAT;
+            Ok(())
+        } else {
+            Err::GameError(InappropriateUnitType)
+        }   
+>>>>>>> Special abilities for units
     }
 
     // ************************************************************************
@@ -535,6 +544,7 @@ impl Unit {
     // *************************** KNIGHT METHODS *****************************
     // ************************************************************************
     
+<<<<<<< d4e108a8b6f7d29651053b763ac3753d39d8e500
     /// Whether the unit can javelin. 
     /// 
     /// Errors if the unit is not a knight, or ability not unlocked.
@@ -548,6 +558,21 @@ impl Unit {
     /// Errors if the unit is not a knight, or not ready to javelin.
     pub fn javelin(&mut self) -> Result<(i32), Error> {
         if self.can_javelin()? {
+=======
+    /// Whether the unit can throw javelin.
+    /// 
+    /// Errors if the unit is not a knight.
+    pub fn can_throw(&self) -> Result<bool, Error> {
+        self.ok_if_unit_type(Knight)?;
+        Ok(self.ability_heat()? < MAX_HEAT_TO_ACT)
+    }
+
+    /// Updates the unit as if it has thrown a javalin.
+    /// 
+    /// Errors if the unit is not a knight, or not ready to throw javalin.
+    pub fn throw_javalin(&mut self) -> Result<(i32), Error> {
+        if self.can_throw()? {
+>>>>>>> Special abilities for units
             self.ability_heat += self.ability_cooldown;
             Ok(self.damage)
         } else { 
@@ -564,7 +589,11 @@ impl Unit {
     /// Errors if the unit is not a ranger.
     pub fn can_snipe(&self) -> Result<bool, Error> {
         self.ok_if_unit_type(Ranger)?;
+<<<<<<< d4e108a8b6f7d29651053b763ac3753d39d8e500
         Ok(self.can_use_ability()?)
+=======
+        Ok(self.ability_heat()? < MAX_HEAT_TO_ACT)
+>>>>>>> Special abilities for units
     }
 
     /// Updates the unit as if it has sniped.
@@ -573,8 +602,13 @@ impl Unit {
     pub fn snipe(&mut self) -> Result<i32, Error> {
         if self.can_snipe()? {
             self.ability_heat += self.ability_cooldown;
+<<<<<<< d4e108a8b6f7d29651053b763ac3753d39d8e500
             self.movement_heat += self.countdown;
             self.attack_heat += self.countdown; 
+=======
+            self.movement_heat += self.ability_cooldown;
+            self.attack_heat += self.ability_cooldown;
+>>>>>>> Special abilities for units
             Ok(self.damage)
         } else {
             Err(GameError::InvalidAction)?
@@ -590,13 +624,21 @@ impl Unit {
     /// Errors if the unit is not a mage. 
     pub fn can_blink(&self) -> Result<bool, Error> {
         self.ok_if_unit_type(Mage)?;
+<<<<<<< d4e108a8b6f7d29651053b763ac3753d39d8e500
         Ok(self.can_use_ability()?)
+=======
+        Ok(self.ability_heat()? < MAX_HEAT_TO_ACT)
+>>>>>>> Special abilities for units
     }
 
     /// Updates the unit as if it has blinked.
     /// 
     /// Errors if the unit is not a mage, or not ready to blink.
+<<<<<<< d4e108a8b6f7d29651053b763ac3753d39d8e500
     pub fn blink(&mut self, location: Option<MapLocation>) 
+=======
+    pub fn blink_to(&mut self, location: Option<MapLocation>) 
+>>>>>>> Special abilities for units
                  -> Result<(), Error> {
         if self.can_blink()? {
             self.ability_heat += self.ability_cooldown;
@@ -616,15 +658,24 @@ impl Unit {
     /// Errors if the unit is not a healer.
     pub fn can_overcharge(&self) -> Result<bool, Error> {
         self.ok_if_unit_type(Healer)?;
+<<<<<<< d4e108a8b6f7d29651053b763ac3753d39d8e500
         Ok(self.can_use_ability()?)
+=======
+        Ok(self.ability_heat()? < MAX_HEAT_TO_ACT)
+>>>>>>> Special abilities for units
     }
 
     /// Updates the unit as if it has overcharged.
     /// 
     /// Errors if the unit is not a healer, or not ready to overcharge.
     pub fn overcharge(&mut self) -> Result<(), Error> {
+<<<<<<< d4e108a8b6f7d29651053b763ac3753d39d8e500
         if self.can_overcharge()? {
             self.ability_heat += self.ability_cooldown;
+=======
+        if can_overcharge()? {
+            self.abliity_heat += self.ability_cooldown;
+>>>>>>> Special abilities for units
             Ok(())
         } else {
             Err(GameError::InvalidAction)?
@@ -805,7 +856,11 @@ impl Unit {
     pub fn next_round(&mut self) {
         self.movement_heat -= cmp::min(HEAT_LOSS_PER_ROUND, self.movement_heat);
         self.attack_heat -= cmp::min(HEAT_LOSS_PER_ROUND, self.attack_heat);
+<<<<<<< d4e108a8b6f7d29651053b763ac3753d39d8e500
         self.ability_heat -= cmp::min(HEAT_LOSS_PER_ROUND, self.ability_heat);
+=======
+        self.ability_heat -= cmp:min(HEAT_LOSS_PER_ROUND, self.ability_heat);
+>>>>>>> Special abilities for units
     }
 }
 
