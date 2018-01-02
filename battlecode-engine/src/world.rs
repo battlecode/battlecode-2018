@@ -634,6 +634,30 @@ impl GameWorld {
         }
     }
 
+    /// Moves this rocket and any location-based indexing to space. Must be
+    /// on the current planet and team. Also moves all the units inside it.
+    fn move_to_space(&mut self, rocket_id: UnitID) {
+        self.remove_unit(rocket_id);
+        let rocket = self.my_planet_mut().units.remove(&rocket_id).expect("unit exists");
+        for id in rocket.garrisoned_units().expect("unit is a rocket") {
+            let unit = self.my_planet_mut().units.remove(&id).expect("unit exists");
+            self.my_team_mut().units_in_space.insert(id, unit);
+        }
+        self.my_team_mut().units_in_space.insert(rocket_id, rocket);
+    }
+
+    /// Moves this rocket and any location-based indexing from space to this
+    /// planet. Must currently be in space. Also move all the units inside it.
+    fn move_from_space(&mut self, rocket_id: UnitID) {
+        let rocket = self.my_team_mut().units_in_space.remove(&rocket_id).expect("unit exists");
+        for id in rocket.garrisoned_units().expect("unit is a rocket") {
+            let unit = self.my_team_mut().units_in_space.remove(&id).expect("unit exists");
+            self.my_planet_mut().units.insert(id, unit);
+        }
+        self.my_planet_mut().units.insert(rocket_id, rocket);
+        self.place_unit(rocket_id);
+    }
+
     /// Creates and inserts a new unit into the game world, so that it can be
     /// referenced by ID. Used for testing only!!!
     fn create_unit(&mut self, team: Team, location: MapLocation,
@@ -1310,21 +1334,12 @@ impl GameWorld {
                 self.damage_location(takeoff_loc.add(dir), ROCKET_BLAST_DAMAGE)?;
             }
 
-            self.remove_unit(rocket_id);
+            self.move_to_space(rocket_id);
             self.get_unit_mut(rocket_id)?.launch_rocket()?;
-
             let landing_round = self.round + self.orbit.duration(self.round);
             self.my_team_mut().rocket_landings.add_landing(
                 landing_round, RocketLanding::new(rocket_id, destination)
             );
-
-            // Update locations of the rocket and units inside the rocket.
-            let rocket = self.my_planet_mut().units.remove(&rocket_id).expect("rocket should exist");
-            self.my_team_mut().units_in_space.insert(rocket_id, rocket);
-            for id in self.get_unit(rocket_id)?.garrisoned_units()? {
-                let unit = self.my_planet_mut().units.remove(&id).expect("unit should exist");
-                self.my_team_mut().units_in_space.insert(id, unit);
-            }
 
             Ok(())
         } else {
@@ -1349,15 +1364,7 @@ impl GameWorld {
             self.destroy_unit(victim_id);
         } else {
             self.get_unit_mut(rocket_id)?.land_rocket(destination)?;
-            self.place_unit(rocket_id);
-
-            // Update locations of the rocket and units inside the rocket.
-            let rocket = self.my_team_mut().units_in_space.remove(&rocket_id).expect("rocket should exist");
-            self.my_planet_mut().units.insert(rocket_id, rocket);
-            for id in self.get_unit(rocket_id)?.garrisoned_units()? {
-                let unit = self.my_team_mut().units_in_space.remove(&id).expect("unit should exist");
-                self.my_planet_mut().units.insert(id, unit);
-            }
+            self.move_from_space(rocket_id);
         }
 
         for dir in Direction::all() {
