@@ -114,7 +114,7 @@ pub unsafe extern "C" fn bc_new_game_world(bc: *mut bc_t) -> *mut bc_game_world_
     // This macro is from macros.rs
     handle_errors!{bc () -> *mut bc_game_world_t [0] {
         let result = Box::into_raw(Box::new(
-            bc_game_world_t(eng::world::GameWorld::new())));
+            bc_game_world_t(eng::world::GameWorld::test_world())));
         Ok(result)
     }}
 }
@@ -147,7 +147,7 @@ pub unsafe extern "C" fn bc_clone_game_world(bc: *mut bc_t,
 #[no_mangle]
 pub unsafe extern "C" fn bc_get_round(bc: *mut bc_t, game_world: *mut bc_game_world_t) -> u32 {
     handle_errors!{bc (game_world) -> u32 [0] {
-        Ok((*game_world).0.round)
+        Ok((*game_world).0.round())
     }}
 }
 
