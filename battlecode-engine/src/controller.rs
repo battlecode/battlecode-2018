@@ -111,7 +111,7 @@ impl GameController {
     /// The single unit with this ID.
     ///
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    pub fn unit(&self, id: UnitID) -> Result<&UnitInfo, Error> {
+    pub fn unit(&self, id: UnitID) -> Result<UnitInfo, Error> {
         self.world.unit(id)
     }
 

@@ -391,7 +391,7 @@ impl GameWorld {
     /// The single unit with this ID.
     ///
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    pub fn unit(&self, id: UnitID) -> Result<&UnitInfo, Error> {
+    pub fn unit(&self, id: UnitID) -> Result<UnitInfo, Error> {
         self.unit_info(id)
     }
 
@@ -572,9 +572,11 @@ impl GameWorld {
         }
     }
 
-    fn unit_info(&self, id: UnitID) -> Result<&UnitInfo, Error> {
+    fn unit_info(&self, id: UnitID) -> Result<UnitInfo, Error> {
         if let Some(unit) = self.my_planet().unit_infos.get(&id) {
-            Ok(unit)
+            Ok(unit.clone())
+        } else if let Some(unit) = self.my_team().units_in_space.get(&id) {
+            Ok(unit.info())
         } else {
             Err(GameError::NoSuchUnit)?
         }
@@ -756,14 +758,18 @@ impl GameWorld {
     ///
     /// If the unit is a rocket or factory, also destroys units in its garrison.
     fn destroy_unit(&mut self, id: UnitID) {
-        match self.get_unit(id)
+        // We need to call unit_info() here to ensure that this unit exists in
+        // both the player engine and the dev engine.
+        match self.unit_info(id)
                   .expect("Unit does not exist and cannot be destroyed.")
-                  .location() {
+                  .location {
             OnMap(loc) => {
                 self.my_planet_mut().units_by_loc.remove(&loc);
                 // self.my_unit_mut(id).unwrap().destroy();
             },
             InSpace => {
+                // Units only die in space after a landing on their turn.
+                // Thus we are guaranteed that my_unit() will find the unit.
                 for utd_id in self.my_unit(id).unwrap().garrisoned_units()
                                   .expect("only rockets can die in space") {
                     self.my_team_mut().units_in_space.remove(&utd_id);
@@ -776,7 +782,8 @@ impl GameWorld {
         };
 
         // TODO: units in factories
-        if self.get_unit(id).unwrap().unit_type() == UnitType::Rocket {
+        let info = self.unit_info(id).unwrap().clone();
+        if info.unit_type == UnitType::Rocket && info.team == self.team() {
             let units_to_destroy = self.get_unit_mut(id).unwrap()
                                        .garrisoned_units().unwrap();
             for utd_id in units_to_destroy.iter() {
@@ -881,14 +888,20 @@ impl GameWorld {
             return;
         };
 
-        let should_destroy_unit = self.get_unit_mut(id)
-                                      .expect("unit exists")
-                                      .take_damage(damage);
+        // The unit controller is always in the dev engine, but is only in the
+        // player engine if the unit is on this team.
+        if self.get_unit_mut(id).is_ok() {
+            self.get_unit_mut(id).unwrap().take_damage(damage);
+        }
+
+        let should_destroy_unit = {
+            let unit_info = self.unit_info_mut(id).expect("unit exists");
+            unit_info.health = ((unit_info.health as i32) - damage) as u32;
+            unit_info.health == 0
+        };
+
         if should_destroy_unit {
             self.destroy_unit(id);
-        } else {
-            let unit = self.unit_info_mut(id).expect("unit exists");
-            unit.health = ((unit.health as i32) - damage) as u32;
         }
     }
 
@@ -1442,7 +1455,7 @@ impl GameWorld {
                    -> Result<(), Error> {
         if self.my_planet().units_by_loc.contains_key(&destination) {
             let victim_id = *self.my_planet().units_by_loc.get(&destination).unwrap();
-            let should_destroy_rocket = match self.get_unit(victim_id)?.unit_type() {
+            let should_destroy_rocket = match self.unit_info(victim_id)?.unit_type {
                 UnitType::Rocket => true,
                 UnitType::Factory => true,
                 _ => false,
