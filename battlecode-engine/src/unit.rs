@@ -180,6 +180,8 @@ pub struct Unit {
 
     // Factories and rockets.
     is_built: bool,
+    max_capacity: usize,
+    garrison: Vec<UnitID>,
 
     // Worker special ability.
     build_health: u32,
@@ -205,9 +207,7 @@ pub struct Unit {
 
     // Rocket special ability.
     is_used: bool,
-    max_capacity: usize,
     travel_time_multiplier: Percent,
-    garrisoned_units: Vec<UnitID>,
 }
 
 impl Default for Unit {
@@ -235,6 +235,8 @@ impl Default for Unit {
             ability_range: 0,
 
             is_built: false,
+            max_capacity: 8,
+            garrison: vec![],
             build_health: 5,
             harvest_amount: 3,
             has_harvested: false,
@@ -246,9 +248,7 @@ impl Default for Unit {
             self_heal_amount: 1,
             production_queue: vec![],
             is_used: false,
-            max_capacity: 8,
             travel_time_multiplier: 100,
-            garrisoned_units: vec![],
         }
     }
 }
@@ -318,6 +318,15 @@ impl Unit {
             Ranger => Ok(()),
             Mage   => Ok(()),
             Healer => Ok(()),
+            _ => Err(GameError::InappropriateUnitType)?,
+        }
+    }
+
+    /// Ok if the unit is a structure. Errors otherwise.
+    fn ok_if_structure(&self) -> Result<(), Error> {
+        match self.unit_type {
+            Rocket  => Ok(()),
+            Factory => Ok(()),
             _ => Err(GameError::InappropriateUnitType)?,
         }
     }
@@ -516,6 +525,75 @@ impl Unit {
     // ************************************************************************
 
     // ************************************************************************
+    // ************************* STRUCTURE METHODS ****************************
+    // ************************************************************************
+
+    /// The max capacity of a structure.
+    ///
+    /// Errors if the unit is not a structure.
+    pub fn max_capacity(&self) -> Result<usize, Error> {
+        self.ok_if_structure()?;
+        Ok(self.max_capacity)
+    }
+
+    /// Returns the units in the structure's garrison.
+    ///
+    /// Errors if the unit is not a structure.
+    pub fn garrison(&self) -> Result<Vec<UnitID>, Error> {
+        self.ok_if_structure()?;
+        Ok(self.garrison.clone())
+    }
+
+    /// Whether the structure can load a unit. The unit must be ready to move
+    /// and adjacent to the structure. The structure must have enough space.
+    ///
+    /// Errors if the unit is not a rocket or robot is not a robot.
+    pub fn can_load(&self, robot: &Unit) -> Result<bool, Error> {
+        Ok(robot.is_move_ready()?
+            && self.garrison()?.len() < self.max_capacity()?
+            && self.team == robot.team
+            && self.is_adjacent_to(robot.location()))
+    }
+
+    /// Updates the structure as if it has loaded a unit inside its garrison.
+    /// Adds the unit ID to the garrison.
+    ///
+    /// Errors if this unit is not a structure, or it cannot load.
+    pub fn load(&mut self, id: UnitID) -> Result<(), Error> {
+        if self.garrison()?.len() < self.max_capacity()? {
+            self.ok_if_structure()?;
+            self.garrison.push(id);
+            Ok(())
+        } else {
+            Err(GameError::InvalidAction)?
+        }
+    }
+
+    /// Whether the structure can unload a unit. The structure must be on a
+    /// planet and it must have at least one unit to unload. Does not check
+    /// whether the unit is ready to move.
+    ///
+    /// Errors if the unit is not a structure.
+    pub fn can_unload_unit(&self) -> Result<bool, Error> {
+        match self.location() {
+            OnMap(_) => Ok(self.garrison()?.len() > 0),
+            _ => Ok(false),
+        }
+    }
+
+    /// Updates the structure as if it has unloaded a single unit from the
+    /// structure, returning the unit ID.
+    ///
+    /// Errors if the unit is not a structure, or it cannot unload.
+    pub fn unload_unit(&mut self) -> Result<UnitID, Error> {
+        if self.can_unload_unit()? {
+            Ok(self.garrison.remove(0))
+        } else {
+            Err(GameError::InvalidAction)?
+        }
+    }
+
+    // ************************************************************************
     // ************************** FACTORY METHODS *****************************
     // ************************************************************************
 
@@ -523,53 +601,12 @@ impl Unit {
     // *************************** ROCKET METHODS *****************************
     // ************************************************************************
 
-    /// The max capacity of a rocket.
-    ///
-    /// Errors if the unit is not a rocket.
-    pub fn max_capacity(&self) -> Result<usize, Error> {
-        self.ok_if_unit_type(Rocket)?;
-        Ok(self.max_capacity)
-    }
-
     /// Whether the rocket has already been used.
     ///
     /// Errors if the unit is not a rocket.
     pub fn is_rocket_used(&self) -> Result<bool, Error> {
         self.ok_if_unit_type(Rocket)?;
         Ok(self.is_used)
-    }
-
-    /// Returns the garrisoned units in a rocket.
-    ///
-    /// Errors if the unit is not a rocket.
-    pub fn garrisoned_units(&self) -> Result<Vec<UnitID>, Error> {
-        self.ok_if_unit_type(Rocket)?;
-        Ok(self.garrisoned_units.clone())
-    }
-
-    /// Whether the rocket can garrison a unit. The unit must be ready to move
-    /// and adjacent to the rocket. The rocket must have enough space.
-    ///
-    /// Errors if the unit is not a rocket or robot is not a robot.
-    pub fn can_garrison(&self, robot: &Unit) -> Result<bool, Error> {
-        Ok(robot.is_move_ready()?
-            && self.garrisoned_units()?.len() < self.max_capacity()?
-            && self.team == robot.team
-            && self.is_adjacent_to(robot.location()))
-    }
-
-    /// Updates the rocket as if it has garrisoned a unit inside the rocket.
-    /// Adds the unit ID to the garrison.
-    ///
-    /// Errors if the unit is not a rocket, or it cannot garrison.
-    pub fn garrison(&mut self, id: UnitID) -> Result<(), Error> {
-        if self.garrisoned_units()?.len() < self.max_capacity()? {
-            self.ok_if_unit_type(Rocket)?;
-            self.garrisoned_units.push(id);
-            Ok(())
-        } else {
-            Err(GameError::InvalidAction)?
-        }
     }
 
     /// Whether the rocket can launch. It must not be used and it must
@@ -616,30 +653,6 @@ impl Unit {
             self.movement_heat += self.movement_cooldown;
             self.location = InGarrison(rocket_id);
             Ok(())
-        } else {
-            Err(GameError::InvalidAction)?
-        }
-    }
-
-    /// Whether the rocket can degarrison a unit. The rocket must be on a
-    /// planet and it must have at least one unit to degarrison. Does not check
-    /// whether the unit is ready to move.
-    ///
-    /// Errors if the unit is not a rocket.
-    pub fn can_degarrison_unit(&self) -> Result<bool, Error> {
-        match self.location() {
-            OnMap(_) => Ok(self.garrisoned_units()?.len() > 0),
-            _ => Ok(false),
-        }
-    }
-
-    /// Updates the rocket as if it has degarrisoned a single unit from the
-    /// rocket, returning the unit ID.
-    ///
-    /// Errors if the unit is not a rocket, or it cannot degarrison.
-    pub fn degarrison_unit(&mut self) -> Result<UnitID, Error> {
-        if self.can_degarrison_unit()? {
-            Ok(self.garrisoned_units.remove(0))
         } else {
             Err(GameError::InvalidAction)?
         }
@@ -800,29 +813,30 @@ mod tests {
         // Rocket accessor methods should fail on a robot.
         assert!(robot.max_capacity().is_err());
         assert!(robot.is_rocket_used().is_err());
-        assert!(robot.garrisoned_units().is_err());
-        assert!(robot.garrison(0).is_err());
+        assert!(robot.garrison().is_err());
+        assert!(robot.load(0).is_err());
         assert!(robot.can_launch_rocket().is_err());
         assert!(robot.launch_rocket().is_err());
         assert!(robot.land_rocket(loc).is_err());
-        assert!(robot.can_degarrison_unit().is_err());
-        assert!(robot.degarrison_unit().is_err());
+        assert!(robot.can_unload_unit().is_err());
+        assert!(robot.unload_unit().is_err());
 
         // Check accessor methods on the rocket.
         assert!(rocket.max_capacity().unwrap() > 0);
         assert!(!rocket.is_rocket_used().unwrap());
-        assert_eq!(rocket.garrisoned_units().unwrap().len(), 0);
-        assert!(rocket.can_garrison(&robot).unwrap());
-        assert!(!rocket.can_degarrison_unit().unwrap());
+        assert_eq!(rocket.garrison().unwrap().len(), 0);
+        assert!(rocket.can_load(&robot).unwrap());
+        assert!(!rocket.can_unload_unit().unwrap());
         assert!(rocket.can_launch_rocket().unwrap());
 
         // The rocket cannot land.
         assert!(rocket.land_rocket(mars_loc).is_err());
 
-        // Garrison a unit and launch into space.
-        assert!(rocket.garrison(robot.id()).is_ok());
-        assert_eq!(rocket.garrisoned_units().unwrap(), vec![robot.id()]);
-        assert!(rocket.can_degarrison_unit().unwrap());
+        // Load a unit and launch into space.
+        assert!(rocket.load(robot.id()).is_ok());
+        assert_eq!(rocket.garrison().unwrap(), vec![robot.id()]);
+        assert!(rocket.can_unload_unit().unwrap());
+
         assert_eq!(rocket.launch_rocket().unwrap(), ());
         assert_eq!(rocket.location(), InSpace);
         assert!(rocket.is_rocket_used().unwrap());
@@ -833,19 +847,19 @@ mod tests {
         assert_eq!(rocket.land_rocket(mars_loc).unwrap(), ());
         assert_eq!(rocket.location(), OnMap(mars_loc));
 
-        // Degarrison the unit.
-        assert!(rocket.can_degarrison_unit().unwrap());
-        assert_eq!(rocket.degarrison_unit().unwrap(), robot.id());
-        assert!(!rocket.can_degarrison_unit().unwrap());
+        // Unload the unit.
+        assert!(rocket.can_unload_unit().unwrap());
+        assert_eq!(rocket.unload_unit().unwrap(), robot.id());
+        assert!(!rocket.can_unload_unit().unwrap());
 
-        // Garrison too many units
+        // Load too many units
         let robot = Unit::new(0, Team::Red, Mage, 0, adjacent_mars_loc).unwrap();
         for i in 0..rocket.max_capacity().unwrap() {
-            assert!(rocket.can_garrison(&robot).unwrap(), "failed to garrison unit {}", i);
-            assert!(rocket.garrison(0).is_ok());
+            assert!(rocket.can_load(&robot).unwrap(), "failed to load unit {}", i);
+            assert!(rocket.load(0).is_ok());
         }
-        assert!(!rocket.can_garrison(&robot).unwrap());
-        assert!(rocket.garrison(0).is_err());
+        assert!(!rocket.can_load(&robot).unwrap());
+        assert!(rocket.load(0).is_err());
     }
 
     #[test]

@@ -734,7 +734,7 @@ impl GameWorld {
         let rocket = self.my_planet_mut().units.remove(&rocket_id).expect("unit exists");
         self.my_planet_mut().unit_infos.remove(&rocket_id).expect("unit exists");
 
-        for id in rocket.garrisoned_units().expect("unit is a rocket") {
+        for id in rocket.garrison().expect("unit is a rocket") {
             let unit = self.my_planet_mut().units.remove(&id).expect("unit exists");
             self.my_planet_mut().unit_infos.remove(&id).expect("unit exists");
             self.my_team_mut().units_in_space.insert(id, unit);
@@ -747,7 +747,7 @@ impl GameWorld {
     fn move_from_space(&mut self, rocket_id: UnitID) {
         let rocket = self.my_team_mut().units_in_space.remove(&rocket_id).expect("unit exists");
 
-        for id in rocket.garrisoned_units().expect("unit is a rocket") {
+        for id in rocket.garrison().expect("unit is a rocket") {
             let unit = self.my_team_mut().units_in_space.remove(&id).expect("unit exists");
             self.my_planet_mut().unit_infos.insert(id, unit.info());
             self.my_planet_mut().units.insert(id, unit);
@@ -795,7 +795,7 @@ impl GameWorld {
             InSpace => {
                 // Units only die in space after a landing on their turn.
                 // Thus we are guaranteed that my_unit() will find the unit.
-                for utd_id in self.my_unit(id).unwrap().garrisoned_units()
+                for utd_id in self.my_unit(id).unwrap().garrison()
                                   .expect("only rockets can die in space") {
                     self.my_team_mut().units_in_space.remove(&utd_id);
                 }
@@ -810,7 +810,7 @@ impl GameWorld {
         let info = self.unit_info(id).unwrap().clone();
         if info.unit_type == UnitType::Rocket && info.team == self.team() {
             let units_to_destroy = self.get_unit_mut(id).unwrap()
-                                       .garrisoned_units().unwrap();
+                                       .garrison().unwrap();
             for utd_id in units_to_destroy.iter() {
                 self.my_planet_mut().units.remove(&utd_id);
                 self.my_planet_mut().unit_infos.remove(&utd_id);
@@ -1296,6 +1296,88 @@ impl GameWorld {
     }
 
     // ************************************************************************
+    // ************************* STRUCTURE METHODS ****************************
+    // ************************************************************************
+
+    /// Whether the robot can be loaded into the given structure's garrison. The robot
+    /// must be ready to move and must be adjacent to the structure. The structure
+    /// and the robot must be on the same team, and the structure must have space.
+    ///
+    /// * GameError::NoSuchUnit - a unit does not exist.
+    /// * GameError::TeamNotAllowed - either unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the robot or structure are the wrong type.
+    pub fn can_load(&self, structure_id: UnitID, robot_id: UnitID)
+                        -> Result<bool, Error> {
+        let robot = self.my_unit(robot_id)?;
+        let structure = self.my_unit(structure_id)?;
+        structure.can_load(robot)
+    }
+
+    /// Loads the robot into the garrison of the structure.
+    ///
+    /// * GameError::NoSuchUnit - a unit does not exist.
+    /// * GameError::TeamNotAllowed - either unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the robot or structure are the wrong type.
+    /// * GameError::InvalidAction - the robot cannot be loaded inside the structure.
+    pub fn load(&mut self, structure_id: UnitID, robot_id: UnitID)
+                    -> Result<(), Error> {
+        if self.can_load(structure_id, robot_id)? {
+            self.remove_unit(robot_id);
+            self.my_unit_mut(structure_id)?.load(robot_id)?;
+            self.my_unit_mut(robot_id)?.board_rocket(structure_id)?;
+            self.place_unit(robot_id);
+            Ok(())
+        } else {
+            Err(GameError::InvalidAction)?
+        }
+    }
+
+    /// Tests whether the given structure is able to unload a unit in the
+    /// given direction. There must be space in that direction, and the unit
+    /// must be ready to move.
+    ///
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a structure.
+    /// * GameError::InvalidLocation - the location is off the map.
+    pub fn can_unload(&self, structure_id: UnitID, direction: Direction)
+                                 -> Result<bool, Error> {
+
+        let structure = self.my_unit(structure_id)?;
+        if structure.can_unload_unit()? {
+            let robot = self.my_unit(structure.garrison()?[0])?;
+            let loc = structure.location().map_location()?.add(direction);
+            Ok(self.is_occupiable(loc)? && robot.is_move_ready()?)
+        } else {
+            Ok(false)
+        }
+    }
+
+    /// Unloads a robot from the garrison of the specified structure into an 
+    /// adjacent space. Robots are unloaded in the order they were loaded.
+    ///
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a structure.
+    /// * GameError::InvalidLocation - the location is off the map.
+    /// * GameError::InvalidAction - the rocket cannot degarrison a unit.
+    pub fn unload(&mut self, structure_id: UnitID, direction: Direction)
+                      -> Result<(), Error> {
+        if self.can_unload(structure_id, direction)? {
+            let (robot_id, structure_loc) = {
+                let structure = self.my_unit_mut(structure_id)?;
+                (structure.unload_unit()?, structure.location().map_location()?)
+            };
+            let robot_loc = structure_loc.add(direction);
+            self.my_unit_mut(robot_id)?.move_to(robot_loc)?;
+            self.place_unit(robot_id);
+            Ok(())
+        } else {
+            Err(GameError::InvalidAction)?
+        }
+    }
+
+    // ************************************************************************
     // ************************** FACTORY METHODS *****************************
     // ************************************************************************
 
@@ -1311,31 +1393,6 @@ impl GameWorld {
         unimplemented!();
     }
 
-    /// Tests whether the factory is able to degarrison a unit in the given
-    /// direction. There must be space in that direction.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a factory.
-    /// * GameError::InvalidLocation - the location is off the map.
-    pub fn can_degarrison_factory(&self, _factory_id: UnitID,
-                                  _direction: Direction) -> Result<bool, Error> {
-        unimplemented!();
-    }
-
-    /// Degarrisons a robot from the garrison of the specified factory. Robots
-    /// are degarrisoned in the order they garrisoned.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a factory.
-    /// * GameError::InvalidLocation - the location is off the map.
-    /// * GameError::InvalidAction - the factory cannot degarrison a unit.
-    pub fn degarrison_factory(&mut self, _factory_id: UnitID,
-                              _direction: Direction) -> Result<(), Error> {
-        unimplemented!();
-    }
-
     /// Process the end of the turn for factories. If a factory added a unit
     /// to its garrison, also mark that unit down in the game world.
     fn _process_factory(&self) {
@@ -1345,83 +1402,6 @@ impl GameWorld {
     // ************************************************************************
     // *************************** ROCKET METHODS *****************************
     // ************************************************************************
-
-    /// Whether the robot can garrison inside the rocket. The robot must be
-    /// ready to move and adjacent to the rocket. The rocket must be on the
-    /// same team and have enough space.
-    ///
-    /// * GameError::NoSuchUnit - a unit does not exist.
-    /// * GameError::TeamNotAllowed - a unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the robot or rocket are the wrong type.
-    pub fn can_garrison_rocket(&self, rocket_id: UnitID, robot_id: UnitID)
-                        -> Result<bool, Error> {
-        let robot = self.my_unit(robot_id)?;
-        let rocket = self.my_unit(rocket_id)?;
-        rocket.can_garrison(robot)
-    }
-
-    /// Moves the robot into the garrison of the rocket.
-    ///
-    /// * GameError::NoSuchUnit - a unit does not exist.
-    /// * GameError::TeamNotAllowed - the robot or rocket is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the robot or rocket are the wrong type.
-    /// * GameError::InvalidAction - the robot cannot garrison inside the rocket.
-    pub fn garrison_rocket(&mut self, rocket_id: UnitID, robot_id: UnitID)
-                    -> Result<(), Error> {
-        if self.can_garrison_rocket(rocket_id, robot_id)? {
-            self.remove_unit(robot_id);
-            self.my_unit_mut(rocket_id)?.garrison(robot_id)?;
-            self.my_unit_mut(robot_id)?.board_rocket(rocket_id)?;
-            self.place_unit(robot_id);
-            Ok(())
-        } else {
-            Err(GameError::InvalidAction)?
-        }
-    }
-
-    /// Tests whether the given rocket is able to degarrison a unit in the
-    /// given direction. There must be space in that direction, the rocket
-    /// must have a unit to unload, and the unit must be ready to move.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a rocket.
-    /// * GameError::InvalidLocation - the location is off the map.
-    pub fn can_degarrison_rocket(&self, rocket_id: UnitID, direction: Direction)
-                                 -> Result<bool, Error> {
-        let rocket = self.my_unit(rocket_id)?;
-        if rocket.can_degarrison_unit()? {
-            let robot = self.my_unit(rocket.garrisoned_units()?[0])?;
-            let loc = rocket.location().map_location()?.add(direction);
-            Ok(self.is_occupiable(loc)? && robot.is_move_ready()?)
-        } else {
-            Ok(false)
-        }
-    }
-
-    /// Degarrisons a robot from the garrison of the specified rocket. Robots
-    /// are degarrisoned in the order they garrisoned.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a rocket.
-    /// * GameError::InvalidLocation - the location is off the map.
-    /// * GameError::InvalidAction - the rocket cannot degarrison a unit.
-    pub fn degarrison_rocket(&mut self, rocket_id: UnitID, direction: Direction)
-                      -> Result<(), Error> {
-        if self.can_degarrison_rocket(rocket_id, direction)? {
-            let (robot_id, rocket_loc) = {
-                let rocket = self.my_unit_mut(rocket_id)?;
-                (rocket.degarrison_unit()?, rocket.location().map_location()?)
-            };
-            let robot_loc = rocket_loc.add(direction);
-            self.my_unit_mut(robot_id)?.move_to(robot_loc)?;
-            self.place_unit(robot_id);
-            Ok(())
-        } else {
-            Err(GameError::InvalidAction)?
-        }
-    }
 
     /// Whether the rocket can launch into space to the given destination. The
     /// rocket can launch if the it has never been used before. The destination
@@ -1568,13 +1548,12 @@ impl GameWorld {
             Delta::Blueprint {worker_id, structure_type, direction} => self.blueprint(worker_id, structure_type, direction),
             Delta::Blink {mage_id, location} => self.blink(mage_id, location),
             Delta::Build {worker_id, blueprint_id} => self.build(worker_id, blueprint_id),
-            Delta::Degarrison {structure_id, direction} => unimplemented!(),
             Delta::Disintegrate {unit_id} => self.disintegrate_unit(unit_id),
-            Delta::Garrison {structure_id, robot_id} => unimplemented!(),
             Delta::Harvest {worker_id, direction} => self.harvest(worker_id, direction),
             Delta::Heal {healer_id, target_robot_id} => self.heal(healer_id, target_robot_id),
             Delta::Javelin {knight_id, target_unit_id} => self.javelin(knight_id, target_unit_id),
             Delta::LaunchRocket {rocket_id, location} => self.launch_rocket(rocket_id, location),
+            Delta::Load {structure_id, robot_id} => self.load(structure_id, robot_id),
             Delta::Move {robot_id, direction} => self.move_robot(robot_id, direction),
             Delta::Overcharge {healer_id, target_robot_id} => self.overcharge(healer_id, target_robot_id),
             Delta::QueueResearch {branch} => { self.queue_research(branch); Ok(()) },
@@ -1582,6 +1561,7 @@ impl GameWorld {
             Delta::Repair {worker_id, structure_id} => unimplemented!(),
             Delta::Replicate {worker_id, direction} => self.replicate(worker_id, direction),
             Delta::ResetResearchQueue => { self.reset_research(); Ok(()) },
+            Delta::Unload {structure_id, direction} => self.unload(structure_id, direction),
             Delta::Nothing => Ok(()),
         }
     }
@@ -1804,60 +1784,60 @@ mod tests {
     }
 
     #[test]
-    fn test_rocket_garrison() {
+    fn test_rocket_load() {
         // Create the game world and the rocket for this test.
         let mut world = GameWorld::test_world();
         let takeoff_loc = MapLocation::new(Planet::Earth, 10, 10);        
         let rocket = world.create_unit(Team::Red, takeoff_loc, UnitType::Rocket).unwrap();
 
-        // Correct garrisoning.
+        // Correct loading.
         let valid_boarder = world.create_unit(Team::Red, takeoff_loc.add(Direction::North), UnitType::Knight).unwrap();
-        assert![world.can_garrison_rocket(rocket, valid_boarder).unwrap()];
-        assert![world.garrison_rocket(rocket, valid_boarder).is_ok()];
+        assert![world.can_load(rocket, valid_boarder).unwrap()];
+        assert![world.load(rocket, valid_boarder).is_ok()];
         assert_eq![world.my_unit(valid_boarder).unwrap().location(), InGarrison(rocket)];
 
         // Boarding fails when too far from the rocket.
         let invalid_boarder_too_far = world.create_unit(Team::Red, takeoff_loc.add(Direction::North).add(Direction::North), UnitType::Knight).unwrap();
-        assert![!world.can_garrison_rocket(rocket, valid_boarder).unwrap()];
-        assert_err![world.garrison_rocket(rocket, invalid_boarder_too_far), GameError::InvalidAction];
+        assert![!world.can_load(rocket, valid_boarder).unwrap()];
+        assert_err![world.load(rocket, invalid_boarder_too_far), GameError::InvalidAction];
 
         // Boarding fails when the robot has already moved.
         assert![world.move_robot(invalid_boarder_too_far, Direction::South).is_ok()];
         let invalid_boarder_already_moved = invalid_boarder_too_far;
         assert![!world.is_move_ready(invalid_boarder_already_moved).unwrap()];
-        assert![!world.can_garrison_rocket(rocket, invalid_boarder_already_moved).unwrap()];
-        assert_err![world.garrison_rocket(rocket, invalid_boarder_already_moved), GameError::InvalidAction];
+        assert![!world.can_load(rocket, invalid_boarder_already_moved).unwrap()];
+        assert_err![world.load(rocket, invalid_boarder_already_moved), GameError::InvalidAction];
 
         // Factories and rockets cannot board rockets.
         let invalid_boarder_factory = world.create_unit(Team::Red, takeoff_loc.add(Direction::Southeast), UnitType::Factory).unwrap();
-        assert_err![world.can_garrison_rocket(rocket, invalid_boarder_factory), GameError::InappropriateUnitType];
-        assert_err![world.garrison_rocket(rocket, invalid_boarder_factory), GameError::InappropriateUnitType];
+        assert_err![world.can_load(rocket, invalid_boarder_factory), GameError::InappropriateUnitType];
+        assert_err![world.load(rocket, invalid_boarder_factory), GameError::InappropriateUnitType];
         let invalid_boarder_rocket = world.create_unit(Team::Red, takeoff_loc.add(Direction::South), UnitType::Rocket).unwrap();
-        assert_err![world.can_garrison_rocket(rocket, invalid_boarder_rocket), GameError::InappropriateUnitType];
-        assert_err![world.garrison_rocket(rocket, invalid_boarder_rocket), GameError::InappropriateUnitType];
+        assert_err![world.can_load(rocket, invalid_boarder_rocket), GameError::InappropriateUnitType];
+        assert_err![world.load(rocket, invalid_boarder_rocket), GameError::InappropriateUnitType];
 
         // Rockets can be loaded up to their capacity...
         for _ in 1..8 {
             let valid_extra_boarder = world.create_unit(Team::Red, takeoff_loc.add(Direction::East), UnitType::Knight).unwrap();
-            assert![world.can_garrison_rocket(rocket, valid_extra_boarder).unwrap()];
-            assert![world.garrison_rocket(rocket, valid_extra_boarder).is_ok()];
+            assert![world.can_load(rocket, valid_extra_boarder).unwrap()];
+            assert![world.load(rocket, valid_extra_boarder).is_ok()];
         }
 
         // ... but not beyond their capacity.
         let invalid_boarder_rocket_full = world.create_unit(Team::Red, takeoff_loc.add(Direction::East), UnitType::Knight).unwrap();
-        assert![!world.can_garrison_rocket(rocket, invalid_boarder_rocket_full).unwrap()];
-        assert_err![world.garrison_rocket(rocket, invalid_boarder_rocket_full), GameError::InvalidAction];
+        assert![!world.can_load(rocket, invalid_boarder_rocket_full).unwrap()];
+        assert_err![world.load(rocket, invalid_boarder_rocket_full), GameError::InvalidAction];
 
         // A unit should not be able to board another team's rocket.
         let blue_takeoff_loc = MapLocation::new(Planet::Earth, 5, 5);
         let blue_rocket = world.create_unit(Team::Blue, blue_takeoff_loc, UnitType::Rocket).unwrap();
         let invalid_boarder_wrong_team = world.create_unit(Team::Red, blue_takeoff_loc.add(Direction::North), UnitType::Knight).unwrap();
-        assert_err![world.can_garrison_rocket(blue_rocket, invalid_boarder_wrong_team), GameError::TeamNotAllowed];
-        assert_err![world.garrison_rocket(blue_rocket, invalid_boarder_wrong_team), GameError::TeamNotAllowed];
+        assert_err![world.can_load(blue_rocket, invalid_boarder_wrong_team), GameError::TeamNotAllowed];
+        assert_err![world.load(blue_rocket, invalid_boarder_wrong_team), GameError::TeamNotAllowed];
     }
 
     #[test]
-    fn test_rocket_degarrison() {
+    fn test_rocket_unload() {
         // Create the game world and the rocket for this test.
         let mut world = GameWorld::test_world();
         let takeoff_loc = MapLocation::new(Planet::Earth, 10, 10);        
@@ -1866,8 +1846,8 @@ mod tests {
         // Load the rocket with robots.
         for _ in 0..2 {
             let robot = world.create_unit(Team::Red, takeoff_loc.add(Direction::North), UnitType::Knight).unwrap();
-            assert![world.can_garrison_rocket(rocket, robot).unwrap()];
-            assert![world.garrison_rocket(rocket, robot).is_ok()];
+            assert![world.can_load(rocket, robot).unwrap()];
+            assert![world.load(rocket, robot).is_ok()];
         }
 
         // Fly the rocket to Mars.
@@ -1879,41 +1859,41 @@ mod tests {
         assert![world.end_turn().is_ok()];
         assert![world.land_rocket(rocket, landing_loc).is_ok()];
 
-        // Cannot degarrison in the same round. But can after one turn.
-        assert![!world.can_degarrison_rocket(rocket, Direction::North).unwrap()];
-        assert_err![world.degarrison_rocket(rocket, Direction::North), GameError::InvalidAction];
+        // Cannot unload in the same round. But can after one turn.
+        assert![!world.can_unload(rocket, Direction::North).unwrap()];
+        assert_err![world.unload(rocket, Direction::North), GameError::InvalidAction];
         assert![world.end_round().is_ok()];
 
-        // Correct degarrisoning.
-        assert![world.can_degarrison_rocket(rocket, Direction::North).unwrap()];
-        assert![world.degarrison_rocket(rocket, Direction::North).is_ok()];
+        // Correct unloading.
+        assert![world.can_unload(rocket, Direction::North).unwrap()];
+        assert![world.unload(rocket, Direction::North).is_ok()];
 
-        // Cannot degarrison into an occupied square.
-        assert![!world.can_degarrison_rocket(rocket, Direction::North).unwrap()];
-        assert![world.degarrison_rocket(rocket, Direction::North).is_err()];
+        // Cannot unload into an occupied square.
+        assert![!world.can_unload(rocket, Direction::North).unwrap()];
+        assert![world.unload(rocket, Direction::North).is_err()];
 
-        // Cannot degarrison into an impassable square.
+        // Cannot unload into an impassable square.
         world.planet_maps.get_mut(&Planet::Mars).unwrap().is_passable_terrain[0][1] = false;
-        assert![!world.can_degarrison_rocket(rocket, Direction::East).unwrap()];
-        assert_err![world.degarrison_rocket(rocket, Direction::East), GameError::InvalidAction];
+        assert![!world.can_unload(rocket, Direction::East).unwrap()];
+        assert_err![world.unload(rocket, Direction::East), GameError::InvalidAction];
 
-        // Error degarrisoning off the map.
-        assert_err![world.can_degarrison_rocket(rocket, Direction::South), GameError::InvalidLocation];
-        assert_err![world.degarrison_rocket(rocket, Direction::South), GameError::InvalidLocation];
+        // Error unloading off the map.
+        assert_err![world.can_unload(rocket, Direction::South), GameError::InvalidLocation];
+        assert_err![world.unload(rocket, Direction::South), GameError::InvalidLocation];
 
-        // Error degarrisoning not a rocket.
+        // Error unloading not a rocket.
         let robot_loc = MapLocation::new(Planet::Mars, 10, 10);
         let robot = world.create_unit(Team::Red, robot_loc, UnitType::Mage).unwrap();
-        assert_err![world.can_degarrison_rocket(robot, Direction::East), GameError::InappropriateUnitType];
-        assert_err![world.degarrison_rocket(robot, Direction::East), GameError::InappropriateUnitType];
+        assert_err![world.can_unload(robot, Direction::East), GameError::InappropriateUnitType];
+        assert_err![world.unload(robot, Direction::East), GameError::InappropriateUnitType];
 
-        // Correct degarrisoning, again.
+        // Correct unloading, again.
         world.planet_maps.get_mut(&Planet::Mars).unwrap().is_passable_terrain[0][1] = true;
-        assert![world.can_degarrison_rocket(rocket, Direction::East).unwrap()];
-        assert![world.degarrison_rocket(rocket, Direction::East).is_ok()];
+        assert![world.can_unload(rocket, Direction::East).unwrap()];
+        assert![world.unload(rocket, Direction::East).is_ok()];
 
-        // Cannot degarrison an empty rocket.
-        assert![!world.can_degarrison_rocket(rocket, Direction::East).unwrap()];
-        assert_err![world.degarrison_rocket(rocket, Direction::East), GameError::InvalidAction];
+        // Cannot unload an empty rocket.
+        assert![!world.can_unload(rocket, Direction::East).unwrap()];
+        assert_err![world.unload(rocket, Direction::East), GameError::InvalidAction];
     }
 }

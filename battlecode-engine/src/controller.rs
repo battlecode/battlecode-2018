@@ -650,6 +650,67 @@ impl GameController {
     }
 
     // ************************************************************************
+    // ************************* STRUCTURE METHODS ****************************
+    // ************************************************************************
+
+    /// Whether the robot can be loaded into the given structure's garrison. The robot
+    /// must be ready to move and must be adjacent to the structure. The structure
+    /// and the robot must be on the same team, and the structure must have space.
+    ///
+    /// * GameError::NoSuchUnit - a unit does not exist.
+    /// * GameError::TeamNotAllowed - either unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the robot or structure are the wrong type.
+    pub fn can_load(&self, structure_id: UnitID, robot_id: UnitID)
+                        -> Result<bool, Error> {
+        Ok(self.world.can_load(structure_id, robot_id)?)
+    }
+
+    /// Loads the robot into the garrison of the structure.
+    ///
+    /// * GameError::NoSuchUnit - a unit does not exist.
+    /// * GameError::TeamNotAllowed - either unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the robot or structure are the wrong type.
+    /// * GameError::InvalidAction - the robot cannot be loaded inside the structure.
+    pub fn load(&mut self, structure_id: UnitID, robot_id: UnitID)
+                    -> Result<(), Error> {
+        let delta = Delta::Load { structure_id, robot_id };
+        if self.config.generate_turn_messages {
+            self.turn.changes.push(delta.clone());
+        }
+        Ok(self.world.apply(&delta)?)
+    }
+
+    /// Tests whether the given structure is able to unload a unit in the
+    /// given direction. There must be space in that direction, and the unit
+    /// must be ready to move.
+    ///
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a structure.
+    /// * GameError::InvalidLocation - the location is off the map.
+    pub fn can_unload(&self, structure_id: UnitID, direction: Direction)
+                                 -> Result<bool, Error> {
+        Ok(self.world.can_unload(structure_id, direction)?)
+    }
+
+    /// Unloads a robot from the garrison of the specified structure into an 
+    /// adjacent space. Robots are unloaded in the order they were loaded.
+    ///
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a structure.
+    /// * GameError::InvalidLocation - the location is off the map.
+    /// * GameError::InvalidAction - the rocket cannot degarrison a unit.
+    pub fn unload(&mut self, structure_id: UnitID, direction: Direction)
+                      -> Result<(), Error> {
+        let delta = Delta::Unload { structure_id, direction };
+        if self.config.generate_turn_messages {
+            self.turn.changes.push(delta.clone());
+        }
+        Ok(self.world.apply(&delta)?)
+    }
+
+    // ************************************************************************
     // ************************** FACTORY METHODS *****************************
     // ************************************************************************
 
@@ -666,31 +727,6 @@ impl GameController {
         unimplemented!();
     }
 
-    /// Tests whether the factory is able to degarrison a unit in the given
-    /// direction. There must be space in that direction.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a factory.
-    /// * GameError::InvalidLocation - the location is off the map.
-    pub fn can_degarrison_factory(&self, _factory_id: UnitID,
-                                  _direction: Direction) -> Result<bool, Error> {
-        unimplemented!();
-    }
-
-    /// Degarrisons a robot from the garrison of the specified factory. Robots
-    /// are degarrisoned in the order they garrisoned.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a factory.
-    /// * GameError::InvalidLocation - the location is off the map.
-    /// * GameError::InvalidAction - the factory cannot degarrison a unit.
-    pub fn degarrison_factory(&mut self, _factory_id: UnitID,
-                              _direction: Direction) -> Result<(), Error> {
-        unimplemented!();
-    }
-
     /// Process the end of the turn for factories. If a factory added a unit
     /// to its garrison, also mark that unit down in the game world.
     fn _process_factory(&self) {
@@ -701,83 +737,6 @@ impl GameController {
     // ************************************************************************
     // *************************** ROCKET METHODS *****************************
     // ************************************************************************
-
-    /*
-    /// Whether the robot can garrison inside the rocket. The robot must be
-    /// ready to move and adjacent to the rocket. The rocket must be on the
-    /// same team and have enough space.
-    ///
-    /// * GameError::NoSuchUnit - a unit does not exist.
-    /// * GameError::TeamNotAllowed - the rocket is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the robot or rocket are the wrong type.
-    pub fn can_garrison_rocket(&self, rocket_id: UnitID, robot_id: UnitID)
-                        -> Result<bool, Error> {
-        let robot = self.get_unit(robot_id)?;
-        let rocket = self.get_unit(rocket_id)?;
-        rocket.can_garrison(robot)
-    }
-
-    /// Moves the robot into the garrison of the rocket.
-    ///
-    /// * GameError::NoSuchUnit - a unit does not exist.
-    /// * GameError::TeamNotAllowed - the robot or rocket is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the robot or rocket are the wrong type.
-    /// * GameError::InvalidAction - the robot cannot garrison inside the rocket.
-    pub fn garrison_rocket(&mut self, rocket_id: UnitID, robot_id: UnitID)
-                    -> Result<(), Error> {
-        if self.can_garrison_rocket(rocket_id, robot_id)? {
-            self.get_unit_mut(rocket_id)?.garrison(robot_id)?;
-            self.remove_unit(robot_id)?;
-            self.get_unit_mut(robot_id)?.move_to(None)?;
-            Ok(())
-        } else {
-            Err(GameError::InvalidAction)?
-        }
-    }
-
-    /// Tests whether the given rocket is able to degarrison a unit in the
-    /// given direction. There must be space in that direction, and the unit
-    /// must be ready to move.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a rocket.
-    /// * GameError::InvalidLocation - the location is off the map.
-    pub fn can_degarrison_rocket(&self, rocket_id: UnitID, direction: Direction)
-                                 -> Result<bool, Error> {
-        let rocket = self.get_unit(rocket_id)?;
-        if rocket.can_degarrison_unit()? {
-            let robot = self.get_unit(rocket.garrisoned_units()?[0])?;
-            let loc = rocket.location().unwrap().add(direction);
-            Ok(self.is_occupiable(loc)? && robot.is_move_ready()?)
-        } else {
-            Ok(false)
-        }
-    }
-
-    /// Degarrisons a robot from the garrison of the specified rocket. Robots
-    /// are degarrisoned in the order they garrisoned.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a rocket.
-    /// * GameError::InvalidLocation - the location is off the map.
-    /// * GameError::InvalidAction - the rocket cannot degarrison a unit.
-    pub fn degarrison_rocket(&mut self, rocket_id: UnitID, direction: Direction)
-                      -> Result<(), Error> {
-        if self.can_degarrison_rocket(rocket_id, direction)? {
-            let (robot_id, rocket_loc) = {
-                let rocket = self.get_unit_mut(rocket_id)?;
-                (rocket.degarrison_unit()?, rocket.location().unwrap())
-            };
-            let robot_loc = rocket_loc.add(direction);
-            self.get_unit_mut(robot_id)?.move_to(Some(robot_loc))?;
-            self.place_unit(robot_id)
-        } else {
-            Err(GameError::InvalidAction)?
-        }
-    }
-    */
 
     /// Whether the rocket can launch into space. The rocket can launch if the
     /// it has never been used before.
