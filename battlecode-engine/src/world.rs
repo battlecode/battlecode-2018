@@ -343,12 +343,6 @@ impl GameWorld {
         self.player_to_move.team
     }
 
-    /// The rockets in space that belong to the current team, including
-    /// their landing rounds and locations, by landing round.
-    pub fn rockets_in_space(&self) -> FnvHashMap<Rounds, Vec<Unit>> {
-        unimplemented!();
-    }
-
     /// The starting map of the given planet. Includes the map's planet,
     /// dimensions, impassable terrain, and initial units and karbonite.
     pub fn starting_map(&self, planet: Planet) -> &PlanetMap {
@@ -394,18 +388,34 @@ impl GameWorld {
     }
 
     /// All the units within the vision range.
+    /// Does not include units in space.
     pub fn units(&self) -> Vec<UnitInfo> {
         unimplemented!();
     }
 
     /// All the units within the vision range, by ID.
+    /// Does not include units in space.
     pub fn units_by_id(&self) -> FnvHashMap<UnitID, UnitInfo> {
         unimplemented!();
     }
 
     /// All the units within the vision range, by location.
+    /// Does not include units in garrisons or in space.
     pub fn units_by_loc(&self) -> FnvHashMap<MapLocation, UnitID> {
         unimplemented!();
+    }
+
+    /// All the units visible in space.
+    pub fn units_in_space(&self) -> Vec<UnitInfo> {
+        let mut units = vec![];
+        for &(_, landing) in self.my_team().rocket_landings.all().iter() {
+            let rocket = self.my_unit(landing.rocket_id).expect("rocket exists");
+            for unit_id in rocket.garrison().expect("unit is rocket") {
+                units.push(self.unit_info(unit_id).expect("unit exists"));
+            }
+            units.push(self.unit_info(landing.rocket_id).expect("rocket exists"));
+        }
+        units
     }
 
     /// The karbonite at the given location.
@@ -1402,6 +1412,15 @@ impl GameWorld {
     // ************************************************************************
     // *************************** ROCKET METHODS *****************************
     // ************************************************************************
+
+    /// The landing rounds and locations of rockets in space that belong to the
+    /// current team.
+    ///
+    /// Note that mutating this object does NOT have any effect on the actual
+    /// game. You MUST call the mutators in world!!
+    pub fn rocket_landings(&self) -> RocketLandingInfo {
+        self.my_team().rocket_landings.clone()
+    }
 
     /// Whether the rocket can launch into space to the given destination. The
     /// rocket can launch if the it has never been used before. The destination
