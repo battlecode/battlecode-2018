@@ -6,6 +6,7 @@ use config::Config;
 use location::*;
 use map::*;
 use research::*;
+use rockets::*;
 use schema::*;
 use unit::*;
 use world::*;
@@ -74,12 +75,6 @@ impl GameController {
         self.world.team()
     }
 
-    /// The rockets in space that belong to the current team, including
-    /// their landing rounds and locations, by landing round.
-    pub fn rockets_in_space(&self) -> FnvHashMap<Rounds, Vec<Unit>> {
-        self.world.rockets_in_space()
-    }
-
     /// The starting map of the given planet. Includes the map's planet,
     /// dimensions, impassable terrain, and initial units and karbonite.
     pub fn starting_map(&self, planet: Planet) -> &PlanetMap {
@@ -115,19 +110,27 @@ impl GameController {
         self.world.unit(id)
     }
 
-    /// All the units within the vision range.
-    pub fn units(&self) -> Vec<UnitInfo> {
+    /// All the units within the vision range, in no particular order.
+    /// Does not include units in space.
+    pub fn units(&self) -> Vec<&UnitInfo> {
         self.world.units()
     }
 
     /// All the units within the vision range, by ID.
+    /// Does not include units in space.
     pub fn units_by_id(&self) -> FnvHashMap<UnitID, UnitInfo> {
         self.world.units_by_id()
     }
 
     /// All the units within the vision range, by location.
+    /// Does not include units in garrisons or in space.
     pub fn units_by_loc(&self) -> FnvHashMap<MapLocation, UnitID> {
         self.world.units_by_loc()
+    }
+
+    /// All the units of this team that are in space.
+    pub fn units_in_space(&self) -> Vec<UnitInfo> {
+        self.world.units_in_space()
     }
 
     /// The karbonite at the given location.
@@ -737,6 +740,15 @@ impl GameController {
     // ************************************************************************
     // *************************** ROCKET METHODS *****************************
     // ************************************************************************
+
+    /// The landing rounds and locations of rockets in space that belong to the
+    /// current team.
+    ///
+    /// Note that mutating this object does NOT have any effect on the actual
+    /// game. You MUST call the mutators in world!!
+    pub fn rocket_landings(&self) -> RocketLandingInfo {
+        self.world.rocket_landings()
+    }
 
     /// Whether the rocket can launch into space. The rocket can launch if the
     /// it has never been used before.

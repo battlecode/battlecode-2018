@@ -293,8 +293,11 @@ impl GameWorld {
                     continue;
                 }
                 units_by_loc.insert(loc, id);
+                unit_infos.insert(id, unit);
+            } else if unit.team == team {
+                // Units in garrisons are only visible if on your team
+                unit_infos.insert(id, unit);
             }
-            unit_infos.insert(id, unit);
         };
 
         // Filter the team states.
@@ -343,12 +346,6 @@ impl GameWorld {
         self.player_to_move.team
     }
 
-    /// The rockets in space that belong to the current team, including
-    /// their landing rounds and locations, by landing round.
-    pub fn rockets_in_space(&self) -> FnvHashMap<Rounds, Vec<Unit>> {
-        unimplemented!();
-    }
-
     /// The starting map of the given planet. Includes the map's planet,
     /// dimensions, impassable terrain, and initial units and karbonite.
     pub fn starting_map(&self, planet: Planet) -> &PlanetMap {
@@ -393,26 +390,42 @@ impl GameWorld {
         self.unit_info(id)
     }
 
-    /// All the units within the vision range.
-    pub fn units(&self) -> Vec<UnitInfo> {
-        unimplemented!();
+    /// All the units within the vision range, in no particular order.
+    /// Does not include units in space.
+    pub fn units(&self) -> Vec<&UnitInfo> {
+        self.my_planet().unit_infos.values().collect::<Vec<&UnitInfo>>()
     }
 
     /// All the units within the vision range, by ID.
+    /// Does not include units in space.
     pub fn units_by_id(&self) -> FnvHashMap<UnitID, UnitInfo> {
-        unimplemented!();
+        self.my_planet().unit_infos.clone()
     }
 
     /// All the units within the vision range, by location.
+    /// Does not include units in garrisons or in space.
     pub fn units_by_loc(&self) -> FnvHashMap<MapLocation, UnitID> {
-        unimplemented!();
+        self.my_planet().units_by_loc.clone()
+    }
+
+    /// All the units visible in space.
+    pub fn units_in_space(&self) -> Vec<UnitInfo> {
+        let mut units = vec![];
+        for unit in self.my_team().units_in_space.values().into_iter() {
+            units.push(unit.info());
+        }
+        units
     }
 
     /// The karbonite at the given location.
     ///
     /// * GameError::InvalidLocation - the location is outside the vision range.
-    pub fn karbonite_at(&self, _location: MapLocation) -> Result<u32, Error> {
-        unimplemented!();
+    pub fn karbonite_at(&self, location: MapLocation) -> Result<u32, Error> {
+        if self.can_sense_location(location) {
+            Ok(self.my_planet().karbonite[location.y as usize][location.x as usize])
+        } else {
+            Err(GameError::InvalidLocation)?
+        }
     }
 
     /// Returns an array of all locations within a certain radius squared of
@@ -464,39 +477,54 @@ impl GameWorld {
     }
 
     /// Whether there is a unit with this ID within the vision range.
-    pub fn can_sense_unit(&self, _id: UnitID) -> bool {
-        unimplemented!();
+    pub fn can_sense_unit(&self, id: UnitID) -> bool {
+        self.unit_info(id).is_ok()
     }
 
     /// Sense units near the location within the given radius, inclusive, in
     /// distance squared. The units are within the vision range.
-    pub fn sense_nearby_units(&self, _location: MapLocation, _radius: u32)
+    pub fn sense_nearby_units(&self, location: MapLocation, radius: u32)
                               -> Vec<UnitInfo> {
-        unimplemented!();
+        let mut units: Vec<UnitInfo> = vec![];
+        for nearby_loc in self.all_locations_within(location, radius) {
+            if let Some(id) = self.my_planet().units_by_loc.get(&nearby_loc) {
+                units.push(self.unit_info(*id).expect("unit exists"));
+            }
+        }
+        units
     }
 
     /// Sense units near the location within the given radius, inclusive, in
     /// distance squared. The units are within the vision range. Additionally
     /// filters the units by team.
-    pub fn sense_nearby_units_by_team(&self, _location: MapLocation,
-                                      _radius: u32, _team: Team) -> Vec<UnitInfo> {
-        unimplemented!();
+    pub fn sense_nearby_units_by_team(&self, location: MapLocation,
+                                      radius: u32, team: Team) -> Vec<UnitInfo> {
+        self.sense_nearby_units(location, radius).into_iter()
+            .filter(|unit| unit.team == team)
+            .collect::<Vec<UnitInfo>>()
     }
 
     /// Sense units near the location within the given radius, inclusive, in
     /// distance squared. The units are within the vision range. Additionally
     /// filters the units by unit type.
-    pub fn sense_nearby_units_by_type(&self, _location: MapLocation,
-                                      _radius: u32, _unit_type: UnitType) -> Vec<UnitInfo> {
-        unimplemented!();
+    pub fn sense_nearby_units_by_type(&self, location: MapLocation,
+                                      radius: u32, unit_type: UnitType) -> Vec<UnitInfo> {
+        self.sense_nearby_units(location, radius).into_iter()
+            .filter(|unit| unit.unit_type == unit_type)
+            .collect::<Vec<UnitInfo>>()
     }
 
     /// The unit at the location, if it exists.
     ///
     /// * GameError::InvalidLocation - the location is outside the vision range.
-    pub fn sense_unit_at_location(&self, _location: MapLocation)
+    pub fn sense_unit_at_location(&self, location: MapLocation)
                                   -> Result<Option<UnitInfo>, Error> {
-        unimplemented!();
+        if self.can_sense_location(location) {
+            let unit_id = self.my_planet().units_by_loc.get(&location);
+            Ok(unit_id.map(|id| self.unit_info(*id).expect("unit exists")))
+        } else {
+            Err(GameError::InvalidLocation)?
+        }
     }
 
     // ************************************************************************
@@ -704,17 +732,16 @@ impl GameWorld {
                 self.unit_info_mut(id)
                     .expect("unit exists").location = OnMap(map_loc);
             },
-            InGarrison(id) => {
+            InGarrison(structure_id) => {
                 self.unit_info_mut(id)
-                    .expect("unit exists").location = InGarrison(id);
+                    .expect("unit exists").location = InGarrison(structure_id);
             },
             _ => panic!("Unit is not on a planet and cannot be placed."),
         }
     }
 
-    /// Temporarily removes this unit from any location-based indexing and
-    /// marks the unit info. Must be on the current planet and team before
-    /// being removed.
+    /// Temporarily removes this unit from any location-based indexing.
+    /// Must be on the current planet and team before being removed.
     fn remove_unit(&mut self, id: UnitID) {
         match self.my_unit(id)
                   .expect("Unit does not exist and cannot be removed.")
@@ -802,18 +829,19 @@ impl GameWorld {
                 self.my_team_mut().units_in_space.remove(&id);
                 return;
             },
-            Unknown => panic!("Unit is in ???, this should not be possible"),
-            _ => {},
+            _ => panic!("Unit is in ???, this should not be possible"),
         };
 
-        // TODO: units in factories
-        let info = self.unit_info(id).unwrap().clone();
-        if info.unit_type == UnitType::Rocket && info.team == self.team() {
-            let units_to_destroy = self.get_unit_mut(id).unwrap()
-                                       .garrison().unwrap();
-            for utd_id in units_to_destroy.iter() {
-                self.my_planet_mut().units.remove(&utd_id);
-                self.my_planet_mut().unit_infos.remove(&utd_id);
+        // If this unit's garrison is visible, destroy those units too.
+        if self.get_unit(id).is_ok() {
+            let unit_type = self.get_unit(id).unwrap().unit_type();
+            if unit_type == UnitType::Rocket || unit_type == UnitType::Factory {
+                let units_to_destroy = self.get_unit_mut(id).unwrap()
+                                           .garrison().unwrap();
+                for utd_id in units_to_destroy.iter() {
+                    self.my_planet_mut().units.remove(&utd_id);
+                    self.my_planet_mut().unit_infos.remove(&utd_id);
+                }
             }
         }
 
@@ -826,8 +854,10 @@ impl GameWorld {
     ///
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    pub fn disintegrate_unit(&mut self, _id: UnitID) -> Result<(), Error> {
-        unimplemented!();
+    pub fn disintegrate_unit(&mut self, id: UnitID) -> Result<(), Error> {
+        self.my_unit(id)?;
+        self.destroy_unit(id);
+        Ok(())
     }
 
     // ************************************************************************
@@ -1403,6 +1433,15 @@ impl GameWorld {
     // *************************** ROCKET METHODS *****************************
     // ************************************************************************
 
+    /// The landing rounds and locations of rockets in space that belong to the
+    /// current team.
+    ///
+    /// Note that mutating this object does NOT have any effect on the actual
+    /// game. You MUST call the mutators in world!!
+    pub fn rocket_landings(&self) -> RocketLandingInfo {
+        self.my_team().rocket_landings.clone()
+    }
+
     /// Whether the rocket can launch into space to the given destination. The
     /// rocket can launch if the it has never been used before. The destination
     /// is valid if it contains passable terrain on the other planet.
@@ -1638,6 +1677,134 @@ mod tests {
         assert_err!(blue_world.unit_controller(3), GameError::TeamNotAllowed);
         assert!(blue_world.unit_controller(4).is_ok());
         assert!(blue_world.unit_controller(5).is_ok());
+    }
+
+    #[test]
+    fn test_sensing_with_filter() {
+        // Create a world with some units on Earth, on Mars, and in space.
+        let initial_units_earth = vec![
+            Unit::new(1, Team::Red, UnitType::Worker, 0, MapLocation::new(Planet::Earth, 9, 10)).unwrap(),
+            Unit::new(2, Team::Red, UnitType::Mage, 0, MapLocation::new(Planet::Earth, 10, 11)).unwrap(),
+            Unit::new(3, Team::Red, UnitType::Rocket, 0, MapLocation::new(Planet::Earth, 10, 10)).unwrap(),
+            Unit::new(4, Team::Blue, UnitType::Mage, 0, MapLocation::new(Planet::Earth, 11, 10)).unwrap(),
+            Unit::new(5, Team::Blue, UnitType::Worker, 0, MapLocation::new(Planet::Earth, 29, 29)).unwrap(),
+        ];
+        let mut map = GameMap::test_map();
+        map.earth_map = PlanetMap {
+            planet: Planet::Earth,
+            height: 30,
+            width: 30,
+            initial_units: initial_units_earth,
+            is_passable_terrain: vec![vec![true; 30]; 30],
+            initial_karbonite: vec![vec![0; 30]; 30],
+        };
+        let world = GameWorld::new(map);
+
+        // Red can see 4 units initially on Earth.
+        let mut red_world = world.filter();
+        assert_eq!(red_world.units().len(), 4);
+
+        // After a unit is loaded, it's no longer indexed by location.
+        assert!(red_world.load(3, 1).is_ok());
+        assert_eq!(red_world.units_by_loc().values().len(), 3);
+
+        // After the rocket launches, it and the garrisoned unit enter space.
+        assert!(red_world.launch_rocket(3, MapLocation::new(Planet::Mars, 10, 10)).is_ok());
+        assert_eq!(red_world.units().len(), 2);
+        assert_eq!(red_world.units_in_space().len(), 2);
+        assert_eq!(red_world.units_by_id().values().len(), 2);
+        assert_eq!(red_world.units_by_loc().values().len(), 2);
+
+        // Those 4 units are the same units that Red can sense.
+        assert!(red_world.can_sense_unit(1));
+        assert!(red_world.can_sense_unit(2));
+        assert!(red_world.can_sense_unit(3));
+        assert!(red_world.can_sense_unit(4));
+        assert!(!red_world.can_sense_unit(5));
+
+        // Red can see locations within Unit 2's sensing range.
+        let loc_off_map_1 = MapLocation::new(Planet::Mars, 10, 10);
+        let loc_off_map_2 = MapLocation::new(Planet::Earth, 2, -2);
+        let loc_off_map_3 = MapLocation::new(Planet::Earth, 10, 30);
+        let loc_out_of_red_range = MapLocation::new(Planet::Earth, 15, 15);
+        let loc_in_red_range = MapLocation::new(Planet::Earth, 14, 14);
+        assert!(!red_world.can_sense_location(loc_off_map_1));
+        assert!(!red_world.can_sense_location(loc_off_map_2));
+        assert!(!red_world.can_sense_location(loc_off_map_3));
+        assert!(!red_world.can_sense_location(loc_out_of_red_range));
+        assert!(red_world.can_sense_location(loc_in_red_range));
+
+        // Nearby sensing functions should work as expected.
+        let red_mage_loc = MapLocation::new(Planet::Earth, 10, 10);
+        assert_eq!(red_world.sense_nearby_units(red_mage_loc, 10).len(), 2);
+        assert_eq!(red_world.sense_nearby_units_by_team(red_mage_loc, 10, Team::Red).len(), 1);
+        assert_eq!(red_world.sense_nearby_units_by_team(red_mage_loc, 10, Team::Blue).len(), 1);
+        assert_eq!(red_world.sense_nearby_units_by_type(red_mage_loc, 10, UnitType::Mage).len(), 2);
+
+        // Red cannot see the Blue worker, but it can see the Blue mage.
+        assert_err!(red_world.sense_unit_at_location(
+            MapLocation::new(Planet::Earth, 29, 29)), GameError::InvalidLocation);
+        assert!(red_world.sense_unit_at_location(
+            MapLocation::new(Planet::Earth, 11, 10)).unwrap().is_some());
+    }
+
+    #[test]
+    fn test_unit_disintegrate() {
+        let mut world = GameWorld::test_world();
+        let loc_a = MapLocation::new(Planet::Earth, 0, 1);
+        let loc_b = MapLocation::new(Planet::Earth, 0, 2);
+        let id_a = world.create_unit(Team::Red, loc_a, UnitType::Knight).unwrap();
+        let id_b = world.create_unit(Team::Blue, loc_b, UnitType::Knight).unwrap();
+
+        // Red can disintegrate a red unit.
+        assert!(world.disintegrate_unit(id_a).is_ok());
+
+        // Red cannot disintegrate a blue unit.
+        assert_err!(world.disintegrate_unit(id_b), GameError::TeamNotAllowed);
+
+        // But the Dev engine can "destroy" a blue unit if necessary.
+        world.destroy_unit(id_b);
+
+        // Either way, no one can disintegrate a unit that does not exist.
+        assert_err!(world.disintegrate_unit(id_b), GameError::NoSuchUnit);
+    }
+
+    #[test]
+    fn test_unit_destroy_with_filter() {
+        let mut world = GameWorld::test_world();
+        let loc_a = MapLocation::new(Planet::Earth, 0, 1);
+        let loc_b = MapLocation::new(Planet::Earth, 0, 2);
+        let loc_c = MapLocation::new(Planet::Earth, 0, 3);
+        let id_a = world.create_unit(Team::Red, loc_a, UnitType::Rocket).unwrap();
+        let id_b = world.create_unit(Team::Red, loc_b, UnitType::Knight).unwrap();
+        let id_c = world.create_unit(Team::Blue, loc_c, UnitType::Knight).unwrap();
+
+        // Load the rocket with a unit.
+        println!("id_a location: unit_info={:?} unit={:?}", world.unit_info(id_a).unwrap().location, world.my_unit(id_a).unwrap().location());
+        assert!(world.load(id_a, id_b).is_ok());
+        println!("id_a location: unit_info={:?} unit={:?}", world.unit_info(id_a).unwrap().location, world.my_unit(id_a).unwrap().location());
+
+        // Filter the world on Blue's turn.
+        assert!(world.end_turn().is_ok());
+        let mut blue_world = world.filter();
+
+        // Destroy the loaded rocket in the Dev engine.
+        assert_eq!(world.my_planet().units.len(), 3);
+        assert_eq!(world.my_planet().unit_infos.len(), 3);
+        assert_eq!(world.my_planet().units_by_loc.len(), 2);
+        world.destroy_unit(id_a);
+        assert_eq!(world.my_planet().units.len(), 1);
+        assert_eq!(world.my_planet().unit_infos.len(), 1);
+        assert_eq!(world.my_planet().units_by_loc.len(), 1);
+
+        // Destroy the loaded rocket in the Blue engine.
+        assert_eq!(blue_world.my_planet().units.len(), 1);
+        assert_eq!(blue_world.my_planet().unit_infos.len(), 2);
+        assert_eq!(blue_world.my_planet().units_by_loc.len(), 2);
+        blue_world.destroy_unit(id_a);
+        assert_eq!(blue_world.my_planet().units.len(), 1);
+        assert_eq!(blue_world.my_planet().unit_infos.len(), 1);
+        assert_eq!(blue_world.my_planet().units_by_loc.len(), 1);
     }
 
     #[test]
