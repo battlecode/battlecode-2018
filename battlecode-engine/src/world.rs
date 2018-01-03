@@ -387,33 +387,29 @@ impl GameWorld {
         self.unit_info(id)
     }
 
-    /// All the units within the vision range.
+    /// All the units within the vision range, in no particular order.
     /// Does not include units in space.
-    pub fn units(&self) -> Vec<UnitInfo> {
-        unimplemented!();
+    pub fn units(&self) -> Vec<&UnitInfo> {
+        self.my_planet().unit_infos.values().collect::<Vec<&UnitInfo>>()
     }
 
     /// All the units within the vision range, by ID.
     /// Does not include units in space.
     pub fn units_by_id(&self) -> FnvHashMap<UnitID, UnitInfo> {
-        unimplemented!();
+        self.my_planet().unit_infos.clone()
     }
 
     /// All the units within the vision range, by location.
     /// Does not include units in garrisons or in space.
     pub fn units_by_loc(&self) -> FnvHashMap<MapLocation, UnitID> {
-        unimplemented!();
+        self.my_planet().units_by_loc.clone()
     }
 
     /// All the units visible in space.
     pub fn units_in_space(&self) -> Vec<UnitInfo> {
         let mut units = vec![];
-        for &(_, landing) in self.my_team().rocket_landings.all().iter() {
-            let rocket = self.my_unit(landing.rocket_id).expect("rocket exists");
-            for unit_id in rocket.garrison().expect("unit is rocket") {
-                units.push(self.unit_info(unit_id).expect("unit exists"));
-            }
-            units.push(self.unit_info(landing.rocket_id).expect("rocket exists"));
+        for unit in self.my_team().units_in_space.values().into_iter() {
+            units.push(unit.info());
         }
         units
     }
@@ -421,8 +417,12 @@ impl GameWorld {
     /// The karbonite at the given location.
     ///
     /// * GameError::InvalidLocation - the location is outside the vision range.
-    pub fn karbonite_at(&self, _location: MapLocation) -> Result<u32, Error> {
-        unimplemented!();
+    pub fn karbonite_at(&self, location: MapLocation) -> Result<u32, Error> {
+        if self.can_sense_location(location) {
+            Ok(self.my_planet().karbonite[location.y as usize][location.x as usize])
+        } else {
+            Err(GameError::InvalidLocation)?
+        }
     }
 
     /// Returns an array of all locations within a certain radius squared of
@@ -474,39 +474,54 @@ impl GameWorld {
     }
 
     /// Whether there is a unit with this ID within the vision range.
-    pub fn can_sense_unit(&self, _id: UnitID) -> bool {
-        unimplemented!();
+    pub fn can_sense_unit(&self, id: UnitID) -> bool {
+        self.unit_info(id).is_ok()
     }
 
     /// Sense units near the location within the given radius, inclusive, in
     /// distance squared. The units are within the vision range.
-    pub fn sense_nearby_units(&self, _location: MapLocation, _radius: u32)
+    pub fn sense_nearby_units(&self, location: MapLocation, radius: u32)
                               -> Vec<UnitInfo> {
-        unimplemented!();
+        let mut units: Vec<UnitInfo> = vec![];
+        for nearby_loc in self.all_locations_within(location, radius) {
+            if let Some(id) = self.my_planet().units_by_loc.get(&nearby_loc) {
+                units.push(self.unit_info(*id).expect("unit exists"));
+            }
+        }
+        units
     }
 
     /// Sense units near the location within the given radius, inclusive, in
     /// distance squared. The units are within the vision range. Additionally
     /// filters the units by team.
-    pub fn sense_nearby_units_by_team(&self, _location: MapLocation,
-                                      _radius: u32, _team: Team) -> Vec<UnitInfo> {
-        unimplemented!();
+    pub fn sense_nearby_units_by_team(&self, location: MapLocation,
+                                      radius: u32, team: Team) -> Vec<UnitInfo> {
+        self.sense_nearby_units(location, radius).into_iter()
+            .filter(|unit| unit.team == team)
+            .collect::<Vec<UnitInfo>>()
     }
 
     /// Sense units near the location within the given radius, inclusive, in
     /// distance squared. The units are within the vision range. Additionally
     /// filters the units by unit type.
-    pub fn sense_nearby_units_by_type(&self, _location: MapLocation,
-                                      _radius: u32, _unit_type: UnitType) -> Vec<UnitInfo> {
-        unimplemented!();
+    pub fn sense_nearby_units_by_type(&self, location: MapLocation,
+                                      radius: u32, unit_type: UnitType) -> Vec<UnitInfo> {
+        self.sense_nearby_units(location, radius).into_iter()
+            .filter(|unit| unit.unit_type == unit_type)
+            .collect::<Vec<UnitInfo>>()
     }
 
     /// The unit at the location, if it exists.
     ///
     /// * GameError::InvalidLocation - the location is outside the vision range.
-    pub fn sense_unit_at_location(&self, _location: MapLocation)
+    pub fn sense_unit_at_location(&self, location: MapLocation)
                                   -> Result<Option<UnitInfo>, Error> {
-        unimplemented!();
+        if self.can_sense_location(location) {
+            let unit_id = self.my_planet().units_by_loc.get(&location);
+            Ok(unit_id.map(|id| self.unit_info(*id).expect("unit exists")))
+        } else {
+            Err(GameError::InvalidLocation)?
+        }
     }
 
     // ************************************************************************
@@ -1657,6 +1672,75 @@ mod tests {
         assert_err!(blue_world.unit_controller(3), GameError::TeamNotAllowed);
         assert!(blue_world.unit_controller(4).is_ok());
         assert!(blue_world.unit_controller(5).is_ok());
+    }
+
+    #[test]
+    fn test_sensing_with_filter() {
+        // Create a world with some units on Earth, on Mars, and in space.
+        let initial_units_earth = vec![
+            Unit::new(1, Team::Red, UnitType::Worker, 0, MapLocation::new(Planet::Earth, 9, 10)).unwrap(),
+            Unit::new(2, Team::Red, UnitType::Mage, 0, MapLocation::new(Planet::Earth, 10, 11)).unwrap(),
+            Unit::new(3, Team::Red, UnitType::Rocket, 0, MapLocation::new(Planet::Earth, 10, 10)).unwrap(),
+            Unit::new(4, Team::Blue, UnitType::Mage, 0, MapLocation::new(Planet::Earth, 11, 10)).unwrap(),
+            Unit::new(5, Team::Blue, UnitType::Worker, 0, MapLocation::new(Planet::Earth, 29, 29)).unwrap(),
+        ];
+        let mut map = GameMap::test_map();
+        map.earth_map = PlanetMap {
+            planet: Planet::Earth,
+            height: 30,
+            width: 30,
+            initial_units: initial_units_earth,
+            is_passable_terrain: vec![vec![true; 30]; 30],
+            initial_karbonite: vec![vec![0; 30]; 30],
+        };
+        let world = GameWorld::new(map);
+
+        // Red can see 4 units initially on Earth.
+        let mut red_world = world.filter();
+        assert_eq!(red_world.units().len(), 4);
+
+        // After a unit is loaded, it's no longer indexed by location.
+        assert!(red_world.load(3, 1).is_ok());
+        assert_eq!(red_world.units_by_loc().values().len(), 3);
+
+        // After the rocket launches, it and the garrisoned unit enter space.
+        assert!(red_world.launch_rocket(3, MapLocation::new(Planet::Mars, 10, 10)).is_ok());
+        assert_eq!(red_world.units().len(), 2);
+        assert_eq!(red_world.units_in_space().len(), 2);
+        assert_eq!(red_world.units_by_id().values().len(), 2);
+        assert_eq!(red_world.units_by_loc().values().len(), 2);
+
+        // Those 4 units are the same units that Red can sense.
+        assert!(red_world.can_sense_unit(1));
+        assert!(red_world.can_sense_unit(2));
+        assert!(red_world.can_sense_unit(3));
+        assert!(red_world.can_sense_unit(4));
+        assert!(!red_world.can_sense_unit(5));
+
+        // Red can see locations within Unit 2's sensing range.
+        let loc_off_map_1 = MapLocation::new(Planet::Mars, 10, 10);
+        let loc_off_map_2 = MapLocation::new(Planet::Earth, 2, -2);
+        let loc_off_map_3 = MapLocation::new(Planet::Earth, 10, 30);
+        let loc_out_of_red_range = MapLocation::new(Planet::Earth, 15, 15);
+        let loc_in_red_range = MapLocation::new(Planet::Earth, 14, 14);
+        assert!(!red_world.can_sense_location(loc_off_map_1));
+        assert!(!red_world.can_sense_location(loc_off_map_2));
+        assert!(!red_world.can_sense_location(loc_off_map_3));
+        assert!(!red_world.can_sense_location(loc_out_of_red_range));
+        assert!(red_world.can_sense_location(loc_in_red_range));
+
+        // Nearby sensing functions should work as expected.
+        let red_mage_loc = MapLocation::new(Planet::Earth, 10, 10);
+        assert_eq!(red_world.sense_nearby_units(red_mage_loc, 10).len(), 2);
+        assert_eq!(red_world.sense_nearby_units_by_team(red_mage_loc, 10, Team::Red).len(), 1);
+        assert_eq!(red_world.sense_nearby_units_by_team(red_mage_loc, 10, Team::Blue).len(), 1);
+        assert_eq!(red_world.sense_nearby_units_by_type(red_mage_loc, 10, UnitType::Mage).len(), 2);
+
+        // Red cannot see the Blue worker, but it can see the Blue mage.
+        assert_err!(red_world.sense_unit_at_location(
+            MapLocation::new(Planet::Earth, 29, 29)), GameError::InvalidLocation);
+        assert!(red_world.sense_unit_at_location(
+            MapLocation::new(Planet::Earth, 11, 10)).unwrap().is_some());
     }
 
     #[test]
