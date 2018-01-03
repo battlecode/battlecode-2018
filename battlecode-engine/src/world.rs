@@ -872,8 +872,8 @@ impl GameWorld {
     pub fn is_same_planet(&self, unit_id: UnitID, _location: MapLocation) 
             -> Result<bool, Error> {
         let unit_location = match self.get_unit(unit_id)?.location() {
-            Some(loc) => loc,
-            None => { return Ok(false) },
+            OnMap(loc) => loc,
+            _ => { return Ok(false) },
         };
         Ok(unit_location.planet() == _location.planet())
     }
@@ -922,25 +922,38 @@ impl GameWorld {
                 OnMap(loc) => loc.add(direction),
                 _ => Err(GameError::InvalidAction)?,
             };
-            self.remove_unit(robot_id);
-            self.my_unit_mut(robot_id)?.move_to(dest)?;
-            self.place_unit(robot_id);
-            Ok(())
+            self.move_to(robot_id, dest)
         } else {
             Err(GameError::InvalidAction)?
         }
     }
 
+    fn move_to(&mut self, _robot_id: UnitID, _location: MapLocation) -> Result<(), Error> {
+        self.remove_unit(_robot_id);
+        self.my_unit_mut(_robot_id)?.move_to(_location)?;
+        self.place_unit(_robot_id);
+        Ok(())
+    }
     // ************************************************************************
     // *************************** ATTACK METHODS *****************************
     // ************************************************************************
 
-    fn damage_unit(&mut self, _unit_id: UnitID, damage: i32) -> Result<(), Error> {
-        let should_destroy_unit = self.get_unit_mut(_unit_id)?.take_damage(damage);
-        if should_destroy_unit {
-            self.destroy_unit(_unit_id)?;
+    fn damage_unit(&mut self, _unit_id: UnitID, damage: i32) {
+        // The unit controller is always in the dev engine, but is only in the
+        // player engine if the unit is on this team.
+        if self.get_unit_mut(_unit_id).is_ok() {
+            self.get_unit_mut(_unit_id).unwrap().take_damage(damage);
         }
-        Ok(())
+
+        let should_destroy_unit = {
+            let unit_info = self.unit_info_mut(_unit_id).expect("unit exists");
+            unit_info.health = ((unit_info.health as i32) - damage) as u32;
+            unit_info.health == 0
+        };
+
+        if should_destroy_unit {
+            self.destroy_unit(_unit_id);
+        }
     }
 
     /// Deals damage to any unit in the target square, potentially destroying it.
@@ -951,25 +964,7 @@ impl GameWorld {
             return;
         };
 
-        // The unit controller is always in the dev engine, but is only in the
-        // player engine if the unit is on this team.
-        if self.get_unit_mut(id).is_ok() {
-            self.get_unit_mut(id).unwrap().take_damage(damage);
-        }
-
-        let should_destroy_unit = {
-            let unit_info = self.unit_info_mut(id).expect("unit exists");
-            unit_info.health = ((unit_info.health as i32) - damage) as u32;
-            unit_info.health == 0
-        };
-
-<<<<<<< HEAD
         self.damage_unit(id, damage)
-=======
-        if should_destroy_unit {
-            self.destroy_unit(id);
-        }
->>>>>>> master
     }
     
 
@@ -1182,7 +1177,7 @@ impl GameWorld {
         let target = self.get_unit(_target_id)?;
         knight.ok_if_javelin()?;
         
-        Ok(knight.is_within_range(knight.ability_range(), target.location()))
+        Ok(knight.is_within_range(knight.ability_range(), target.location().map_location()?))
     }
 
     /// Whether the knight is ready to javelin. Tests whether the knight's
@@ -1211,7 +1206,7 @@ impl GameWorld {
         if self.can_javelin(_knight_id, _target_id)? 
                 && self.get_unit(_knight_id)?.is_ability_ready()? {
             let damage = self.get_unit_mut(_knight_id)?.javelin()?;
-            self.damage_unit(_target_id, damage)?;
+            self.damage_unit(_target_id, damage);
             Ok(())
         } else {
             Err(GameError::InvalidAction)?
@@ -1249,7 +1244,7 @@ impl GameWorld {
     fn _process_ranger(&mut self, _ranger_id: UnitID) -> Result<(), Error> {
         let target_location = self.get_unit_mut(_ranger_id)?.process_snipe()?;
         let damage = self.get_unit(_ranger_id)?.damage()?;
-        self.damage_location(target_location, damage)?;
+        self.damage_location(target_location, damage);
         Ok(())
     }
 
@@ -1272,7 +1267,7 @@ impl GameWorld {
         let mage = self.get_unit(_mage_id)?;
         mage.ok_if_blink()?;
         
-        Ok(mage.is_within_range(mage.ability_range(), Some(_location))
+        Ok(mage.is_within_range(mage.ability_range(), _location)
                 && self.is_occupiable(_location)?)   
     }
 
@@ -1301,10 +1296,7 @@ impl GameWorld {
     pub fn blink(&mut self, _mage_id: UnitID, _location: MapLocation) -> Result<(), Error> {
         if self.can_blink(_mage_id, _location)? 
                 && self.get_unit(_mage_id)?.is_ability_ready()? {
-            self.remove_unit(_mage_id)?;
-            self.get_unit_mut(_mage_id)?.move_to(Some(_location))?;
-            self.place_unit(_mage_id)?;
-            Ok(())
+            self.move_to(_mage_id, _location)
         } else {
             Err(GameError::InvalidAction)?
         }
@@ -1361,7 +1353,7 @@ impl GameWorld {
         healer.ok_if_overcharge()?;
         robot.ok_if_ability()?;
 
-        Ok(healer.is_within_range(healer.ability_range(), robot.location()))
+        Ok(healer.is_within_range(healer.ability_range(), robot.location().map_location()?))
     }
 
     /// Whether the healer is ready to overcharge. Tests whether the healer's
