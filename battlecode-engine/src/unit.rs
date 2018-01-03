@@ -191,6 +191,7 @@ pub struct Unit {
     cannot_attack_range: u32,
     countdown: u32,
     target_location: Option<MapLocation>,
+    is_sniping: bool,
 
     // Mage special ability.
     explode_multiplier: Percent,
@@ -240,6 +241,7 @@ impl Default for Unit {
             cannot_attack_range: 10,
             countdown: 0,
             target_location: None,
+            is_sniping: false,
             explode_multiplier: 100,
             self_heal_amount: 1,
             production_queue: vec![],
@@ -340,9 +342,9 @@ impl Unit {
     /// Resets a unit's ability cooldown.
     /// 
     /// Errors if the unit is not a robot. 
-    fn reset_abliity_cooldown(&mut self) -> Result<(), Error> {
+    pub fn reset_ability_cooldown(&mut self) -> Result<(), Error> {
         self.ok_if_robot()?; 
-        self.ability_heat = DEFAULT_ABILITY_HEAT;
+        self.ability_heat = MIN_HEAT;
         Ok(())
     }
 
@@ -493,6 +495,19 @@ impl Unit {
         self.ability_range
     }
 
+    /// The unit's target location. 
+    pub fn target_location(&self) -> Option<MapLocation> {
+        self.target_location
+    }
+
+    pub fn is_sniping(&self) -> bool {
+        self.is_sniping
+    }
+
+    pub fn countdown(&self) -> u32 {
+        self.countdown
+    }
+
     /// The ability heat.
     /// 
     /// Errors if the unit is not a robot.
@@ -603,21 +618,44 @@ impl Unit {
         Ok(self.ok_if_ability()?)
     }
 
-    /// Updates the unit as if it has sniped.
-    /// 
-    /// Errors if the unit is not a ranger, or not ready to snipe. 
-    pub fn snipe(&mut self) -> Result<i32, Error> {
+    /// Updates the unit as if it has begun sniping. The unit's ability heat 
+    /// does not increase until it has sniped.
+    ///
+    /// Errors if the unit is not a ranger, or not ready to begin sniping. 
+    pub fn begin_snipe(&mut self, location: MapLocation) -> Result<(), Error> {
         self.ok_if_snipe()?;
         if self.is_ability_ready()? {
-            self.ability_heat += self.ability_cooldown;
-            self.movement_heat += self.countdown;
-            self.attack_heat += self.countdown;
-            Ok(self.damage)
+            self.movement_heat = u32::max_value();
+            self.attack_heat = u32::max_value();
+            self.target_location = Some(location);
+            self.countdown = MAX_RANGER_COUNTDOWN;
+            self.is_sniping = true;
+            Ok(())
         } else {
             Err(GameError::InvalidAction)?
         }
     }
 
+    /// Updates the unit as if it has sniped.
+    ///
+    /// Errors if the unit is not a ranger, or not ready to process snipe.
+    pub fn process_snipe(&mut self) -> Result<MapLocation, Error> {
+        self.ok_if_snipe()?;
+        if self.is_ability_ready()? && self.is_sniping() && self.countdown() == 0
+                && self.target_location().is_some() {
+            self.attack_heat = MIN_HEAT;
+            self.movement_heat = MIN_HEAT;
+            self.ability_heat += self.ability_cooldown;
+            self.is_sniping = false;
+            let target_location = match self.target_location() {
+                Some(loc) => loc,
+                None => { Err(GameError::InvalidAction)? },
+            };
+            Ok(target_location)
+        } else {
+            Err(GameError::InvalidAction)?
+        }
+    }
     // ************************************************************************
     // **************************** MAGE METHODS ******************************
     // ************************************************************************
@@ -967,7 +1005,6 @@ mod tests {
         // Sniping should fail if unit is not a ranger
         let mut worker = Unit::new(1, Team::Red, Worker, 0, loc).unwrap();
         assert!(worker.ok_if_snipe().is_err());
-        assert!(worker.snipe().is_err());
     }
 
     #[test]
