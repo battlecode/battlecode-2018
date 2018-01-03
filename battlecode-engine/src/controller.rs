@@ -5,6 +5,7 @@
 use config::Config;
 use location::*;
 use map::*;
+use research::*;
 use schema::*;
 use unit::*;
 use world::*;
@@ -12,7 +13,7 @@ use world::*;
 use failure::Error;
 use fnv::FnvHashMap;
 
-struct GameController {
+pub struct GameController {
     world: GameWorld,
     config: Config,
     turn: TurnMessage,
@@ -81,7 +82,7 @@ impl GameController {
 
     /// The starting map of the given planet. Includes the map's planet,
     /// dimensions, impassable terrain, and initial units and karbonite.
-    pub fn starting_map(&self, planet: Planet) -> PlanetMap {
+    pub fn starting_map(&self, planet: Planet) -> &PlanetMap {
         self.world.starting_map(planet)
     }
 
@@ -94,8 +95,28 @@ impl GameController {
     // ************************** SENSING METHODS *****************************
     // ************************************************************************
 
+    /// The unit controller for the unit of this ID. Use this method to get
+    /// detailed statistics on a unit in your team: heat, cooldowns, and
+    /// properties of special abilities like units garrisoned in a rocket.
+    ///
+    /// Note that mutating this object does NOT have any effect on the actual
+    /// game. You MUST call the mutators in world!!
+    ///
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    pub fn unit_controller(&self, id: UnitID) -> Result<&Unit, Error> {
+        self.world.unit_controller(id)
+    }
+
+    /// The single unit with this ID.
+    ///
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
+    pub fn unit(&self, id: UnitID) -> Result<UnitInfo, Error> {
+        self.world.unit(id)
+    }
+
     /// All the units within the vision range.
-    pub fn units(&self) -> Vec<Unit> {
+    pub fn units(&self) -> Vec<UnitInfo> {
         self.world.units()
     }
 
@@ -289,56 +310,36 @@ impl GameController {
     // ************************* RESEARCH METHODS *****************************
     // ************************************************************************
 
-    /*
-    /// Returns research info of the current player.
-    fn get_research(&self) -> ResearchInfo {
-        let team = self.team();
-        self.get_team_info(team).research.clone()
-    }
-
-    /// Returns mutable research info of the current player.
-    fn get_research_mut(&mut self) -> &mut ResearchInfo {
-        let team = self.team();
-        &mut self.get_team_info_mut(team).research
-    }
-
     /// The research info of the current team, including what branch is
     /// currently being researched, the number of rounds left.
     ///
     /// Note that mutating this object by resetting or queueing research
     /// does not have any effect. You must call the mutators on world.
-    pub fn research_info(&self) -> ResearchInfo {
-        self.get_research()
+    pub fn research_info(&self) -> Result<ResearchInfo, Error> {
+        Ok(self.world.research_info())
     }
 
     /// Resets the research queue to be empty. Returns true if the queue was
     /// not empty before, and false otherwise.
-    pub fn reset_research(&mut self) -> bool {
-        self.get_research_mut().reset_queue()
+    pub fn reset_research(&mut self) -> Result<bool, Error> {
+        let delta = Delta::ResetResearchQueue;
+        if self.config.generate_turn_messages {
+            self.turn.changes.push(delta.clone());
+        }
+        Ok(self.world.reset_research())
     }
 
     /// Adds a branch to the back of the queue, if it is a valid upgrade, and
     /// starts research if it is the first in the queue.
     ///
     /// Returns whether the branch was successfully added.
-    pub fn queue_research(&mut self, branch: &Branch) -> bool {
-        self.get_research_mut().add_to_queue(branch)
-    }
-
-    /// Update the current research and process any completed upgrades.
-    fn process_research(&mut self, team: Team) -> Result<(), Error> {
-        if let Some(branch) = self.get_team_info_mut(team).research.next_round()? {
-            for (_, unit) in self.units.iter_mut() {
-                if unit.unit_type() == branch {
-                    unit.research()?;
-                }
-            }
-            Ok(())
-        } else {
-            Ok(())
+    pub fn queue_research(&mut self, branch: UnitType) -> Result<bool, Error> {
+        let delta = Delta::QueueResearch { branch };
+        if self.config.generate_turn_messages {
+            self.turn.changes.push(delta.clone());
         }
+        Ok(self.world.queue_research(branch))
     }
-    */
 
     // ************************************************************************
     // *************************** WORKER METHODS *****************************
@@ -649,6 +650,67 @@ impl GameController {
     }
 
     // ************************************************************************
+    // ************************* STRUCTURE METHODS ****************************
+    // ************************************************************************
+
+    /// Whether the robot can be loaded into the given structure's garrison. The robot
+    /// must be ready to move and must be adjacent to the structure. The structure
+    /// and the robot must be on the same team, and the structure must have space.
+    ///
+    /// * GameError::NoSuchUnit - a unit does not exist.
+    /// * GameError::TeamNotAllowed - either unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the robot or structure are the wrong type.
+    pub fn can_load(&self, structure_id: UnitID, robot_id: UnitID)
+                        -> Result<bool, Error> {
+        Ok(self.world.can_load(structure_id, robot_id)?)
+    }
+
+    /// Loads the robot into the garrison of the structure.
+    ///
+    /// * GameError::NoSuchUnit - a unit does not exist.
+    /// * GameError::TeamNotAllowed - either unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the robot or structure are the wrong type.
+    /// * GameError::InvalidAction - the robot cannot be loaded inside the structure.
+    pub fn load(&mut self, structure_id: UnitID, robot_id: UnitID)
+                    -> Result<(), Error> {
+        let delta = Delta::Load { structure_id, robot_id };
+        if self.config.generate_turn_messages {
+            self.turn.changes.push(delta.clone());
+        }
+        Ok(self.world.apply(&delta)?)
+    }
+
+    /// Tests whether the given structure is able to unload a unit in the
+    /// given direction. There must be space in that direction, and the unit
+    /// must be ready to move.
+    ///
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a structure.
+    /// * GameError::InvalidLocation - the location is off the map.
+    pub fn can_unload(&self, structure_id: UnitID, direction: Direction)
+                                 -> Result<bool, Error> {
+        Ok(self.world.can_unload(structure_id, direction)?)
+    }
+
+    /// Unloads a robot from the garrison of the specified structure into an 
+    /// adjacent space. Robots are unloaded in the order they were loaded.
+    ///
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a structure.
+    /// * GameError::InvalidLocation - the location is off the map.
+    /// * GameError::InvalidAction - the rocket cannot degarrison a unit.
+    pub fn unload(&mut self, structure_id: UnitID, direction: Direction)
+                      -> Result<(), Error> {
+        let delta = Delta::Unload { structure_id, direction };
+        if self.config.generate_turn_messages {
+            self.turn.changes.push(delta.clone());
+        }
+        Ok(self.world.apply(&delta)?)
+    }
+
+    // ************************************************************************
     // ************************** FACTORY METHODS *****************************
     // ************************************************************************
 
@@ -665,31 +727,6 @@ impl GameController {
         unimplemented!();
     }
 
-    /// Tests whether the factory is able to degarrison a unit in the given
-    /// direction. There must be space in that direction.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a factory.
-    /// * GameError::InvalidLocation - the location is off the map.
-    pub fn can_degarrison_factory(&self, _factory_id: UnitID,
-                                  _direction: Direction) -> Result<bool, Error> {
-        unimplemented!();
-    }
-
-    /// Degarrisons a robot from the garrison of the specified factory. Robots
-    /// are degarrisoned in the order they garrisoned.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a factory.
-    /// * GameError::InvalidLocation - the location is off the map.
-    /// * GameError::InvalidAction - the factory cannot degarrison a unit.
-    pub fn degarrison_factory(&mut self, _factory_id: UnitID,
-                              _direction: Direction) -> Result<(), Error> {
-        unimplemented!();
-    }
-
     /// Process the end of the turn for factories. If a factory added a unit
     /// to its garrison, also mark that unit down in the game world.
     fn _process_factory(&self) {
@@ -700,83 +737,6 @@ impl GameController {
     // ************************************************************************
     // *************************** ROCKET METHODS *****************************
     // ************************************************************************
-
-    /*
-    /// Whether the robot can garrison inside the rocket. The robot must be
-    /// ready to move and adjacent to the rocket. The rocket must be on the
-    /// same team and have enough space.
-    ///
-    /// * GameError::NoSuchUnit - a unit does not exist.
-    /// * GameError::TeamNotAllowed - the rocket is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the robot or rocket are the wrong type.
-    pub fn can_garrison_rocket(&self, rocket_id: UnitID, robot_id: UnitID)
-                        -> Result<bool, Error> {
-        let robot = self.get_unit(robot_id)?;
-        let rocket = self.get_unit(rocket_id)?;
-        rocket.can_garrison(robot)
-    }
-
-    /// Moves the robot into the garrison of the rocket.
-    ///
-    /// * GameError::NoSuchUnit - a unit does not exist.
-    /// * GameError::TeamNotAllowed - the robot or rocket is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the robot or rocket are the wrong type.
-    /// * GameError::InvalidAction - the robot cannot garrison inside the rocket.
-    pub fn garrison_rocket(&mut self, rocket_id: UnitID, robot_id: UnitID)
-                    -> Result<(), Error> {
-        if self.can_garrison_rocket(rocket_id, robot_id)? {
-            self.get_unit_mut(rocket_id)?.garrison(robot_id)?;
-            self.remove_unit(robot_id)?;
-            self.get_unit_mut(robot_id)?.move_to(None)?;
-            Ok(())
-        } else {
-            Err(GameError::InvalidAction)?
-        }
-    }
-
-    /// Tests whether the given rocket is able to degarrison a unit in the
-    /// given direction. There must be space in that direction, and the unit
-    /// must be ready to move.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a rocket.
-    /// * GameError::InvalidLocation - the location is off the map.
-    pub fn can_degarrison_rocket(&self, rocket_id: UnitID, direction: Direction)
-                                 -> Result<bool, Error> {
-        let rocket = self.get_unit(rocket_id)?;
-        if rocket.can_degarrison_unit()? {
-            let robot = self.get_unit(rocket.garrisoned_units()?[0])?;
-            let loc = rocket.location().unwrap().add(direction);
-            Ok(self.is_occupiable(loc)? && robot.is_move_ready()?)
-        } else {
-            Ok(false)
-        }
-    }
-
-    /// Degarrisons a robot from the garrison of the specified rocket. Robots
-    /// are degarrisoned in the order they garrisoned.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a rocket.
-    /// * GameError::InvalidLocation - the location is off the map.
-    /// * GameError::InvalidAction - the rocket cannot degarrison a unit.
-    pub fn degarrison_rocket(&mut self, rocket_id: UnitID, direction: Direction)
-                      -> Result<(), Error> {
-        if self.can_degarrison_rocket(rocket_id, direction)? {
-            let (robot_id, rocket_loc) = {
-                let rocket = self.get_unit_mut(rocket_id)?;
-                (rocket.degarrison_unit()?, rocket.location().unwrap())
-            };
-            let robot_loc = rocket_loc.add(direction);
-            self.get_unit_mut(robot_id)?.move_to(Some(robot_loc))?;
-            self.place_unit(robot_id)
-        } else {
-            Err(GameError::InvalidAction)?
-        }
-    }
-    */
 
     /// Whether the rocket can launch into space. The rocket can launch if the
     /// it has never been used before.
