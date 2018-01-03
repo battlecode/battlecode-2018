@@ -186,7 +186,7 @@ pub struct Unit {
     // Worker special ability.
     build_health: u32,
     harvest_amount: u32,
-    has_harvested: bool,
+    has_worker_acted: bool,
 
     // Knight special ability.
     defense_per_robot: Percent,
@@ -239,7 +239,7 @@ impl Default for Unit {
             garrison: vec![],
             build_health: 5,
             harvest_amount: 3,
-            has_harvested: false,
+            has_worker_acted: false,
             defense_per_robot: 1,
             cannot_attack_range: 10,
             countdown: 0,
@@ -488,20 +488,21 @@ impl Unit {
         Ok(self.harvest_amount)
     }
 
-    /// Whether the unit can harvest.
+    /// Whether the unit can perform a worker action (building, blueprinting, 
+    /// harvesting, or replicating).
     ///
     /// Errors if the unit is not a worker.
-    pub fn can_harvest(&self) -> Result<bool, Error> {
+    pub fn can_worker_act(&self) -> Result<bool, Error> {
         self.ok_if_unit_type(Worker)?;
-        Ok(!self.has_harvested)
+        Ok(!self.has_worker_acted)
     }
 
-    /// Updates the unit as if it has harvested from a location.
+    /// Updates the unit as if it has performed a worker action.
     ///
-    /// Errors if the unit is not a worker, or not ready to harvest.
-    pub fn harvest(&mut self) -> Result<(), Error> {
-        if self.can_harvest()? {
-            self.has_harvested = true;
+    /// Errors if the unit is not a worker, or has already acted.
+    pub fn worker_act(&mut self) -> Result<(), Error> {
+        if self.can_worker_act()? {
+            self.has_worker_acted = true;
             Ok(())
         } else {
             Err(GameError::InvalidAction)?
