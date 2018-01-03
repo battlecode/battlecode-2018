@@ -10,6 +10,7 @@ use super::location::*;
 use super::research::Level;
 use super::world::Team;
 use unit::UnitType::*;
+use unit::Location::*;
 
 /// Percentage.
 pub type Percent = u32;
@@ -19,6 +20,7 @@ pub type UnitID = u32;
 
 /// The public version of the unit. Contains all the unit's stats but none of
 /// the action. The other team can see everything in the unit info.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct UnitInfo {
     /// The unique ID of the unit.
     pub id: UnitID,
@@ -27,7 +29,7 @@ pub struct UnitInfo {
     /// The type of the unit.
     pub unit_type: UnitType,
     /// The current location of the unit.
-    pub location: Option<MapLocation>,
+    pub location: Location,
     /// The current health of the unit.
     pub health: u32,
 }
@@ -156,7 +158,7 @@ pub struct Unit {
     team: Team,
     level: Level,
     unit_type: UnitType,
-    location: Option<MapLocation>,
+    location: Location,
     health: u32,
     movement_heat: u32,
     attack_heat: u32,
@@ -213,7 +215,7 @@ impl Default for Unit {
         Unit {
             id: 0,
             health: 0,
-            location: None,
+            location: Unknown,
             max_health: 0,
             team: Team::Red,
             unit_type: Worker,
@@ -261,7 +263,7 @@ impl Unit {
         let mut unit = unit_type.default();
         unit.id = id;
         unit.team = team;
-        unit.location = Some(location);
+        unit.location = OnMap(location);
 
         for _ in 0..level {
             unit.research()?;
@@ -297,6 +299,11 @@ impl Unit {
     /// The unit type.
     pub fn unit_type(&self) -> UnitType {
         self.unit_type
+    }
+
+    /// The unit vision range.
+    pub fn vision_range(&self) -> u32 {
+        self.vision_range
     }
 
     // ************************************************************************
@@ -337,8 +344,8 @@ impl Unit {
     // ************************** MOVEMENT METHODS ****************************
     // ************************************************************************
 
-    /// The location of the unit. None if the unit is traveling or in a rocket.
-    pub fn location(&self) -> Option<MapLocation> {
+    /// The location of the unit.
+    pub fn location(&self) -> Location {
         self.location
     }
 
@@ -370,11 +377,11 @@ impl Unit {
     /// movement heat.
     /// 
     /// Errors if the unit is not a robot, or not ready to move.
-    pub fn move_to(&mut self, location: Option<MapLocation>)
+    pub fn move_to(&mut self, location: MapLocation)
                    -> Result<(), Error> {
         if self.is_move_ready()? {
             self.movement_heat += self.movement_cooldown;
-            self.location = location;
+            self.location = OnMap(location);
             Ok(())
         } else {
             Err(GameError::InvalidAction)?
@@ -382,14 +389,14 @@ impl Unit {
     }
 
     /// Whether the unit is adjacent to the location.
-    pub fn is_adjacent_to(&self, location: Option<MapLocation>) -> bool {
+    pub fn is_adjacent_to(&self, location: Location) -> bool {
         let loc_a = match self.location() {
-            Some(loc) => loc,
-            None => { return false; },
+            OnMap(loc) => loc,
+            _ => { return false; },
         };
         let loc_b = match location {
-            Some(loc) => loc,
-            None => { return false; },
+            OnMap(loc) => loc,
+            _ => { return false; },
         };
         loc_a.is_adjacent_to(loc_b)
     }
@@ -459,11 +466,6 @@ impl Unit {
         // TODO: Knight damage resistance??
         self.health -= cmp::min(damage, self.health as i32) as u32;
         self.health == 0
-    }
-
-    /// Destroys the unit. Equivalent to removing it from the game.
-    pub fn destroy(&mut self) {
-        self.location = None;
     }
 
     // ************************************************************************
@@ -545,7 +547,7 @@ impl Unit {
     /// Whether the structure can load a unit. The unit must be ready to move
     /// and adjacent to the structure. The structure must have enough space.
     ///
-    /// Errors if this unit is not a structure.
+    /// Errors if the unit is not a rocket or robot is not a robot.
     pub fn can_load(&self, robot: &Unit) -> Result<bool, Error> {
         Ok(robot.is_move_ready()?
             && self.garrison()?.len() < self.max_capacity()?
@@ -573,7 +575,10 @@ impl Unit {
     ///
     /// Errors if the unit is not a structure.
     pub fn can_unload_unit(&self) -> Result<bool, Error> {
-        Ok(self.location().is_some() && self.garrison()?.len() > 0)
+        match self.location() {
+            OnMap(_) => Ok(self.garrison()?.len() > 0),
+            _ => Ok(false),
+        }
     }
 
     /// Updates the structure as if it has unloaded a single unit from the
@@ -609,7 +614,10 @@ impl Unit {
     ///
     /// Errors if the unit is not a rocket.
     pub fn can_launch_rocket(&mut self) -> Result<bool, Error> {
-        Ok(!self.is_rocket_used()? && self.location != None)
+        match self.location {
+            OnMap(_) => Ok(!self.is_rocket_used()?),
+            _ => Ok(false),
+        }
     }
 
     /// Updates the rocket as if it has launched by changing its location and
@@ -618,7 +626,7 @@ impl Unit {
     /// Errors if the unit is not a rocket.
     pub fn launch_rocket(&mut self) -> Result<(), Error> {
         if self.can_launch_rocket()? {
-            self.location = None;
+            self.location = InSpace;
             self.is_used = true;
             Ok(())
         } else {
@@ -630,9 +638,20 @@ impl Unit {
     ///
     /// Errors if the unit is not a rocket, or if it cannot be landed.
     pub fn land_rocket(&mut self, location: MapLocation) -> Result<(), Error> {
-        if self.location == None {
+        if self.location == InSpace {
             self.ok_if_unit_type(Rocket)?;
-            self.location = Some(location);
+            self.location = OnMap(location);
+            Ok(())
+        } else {
+            Err(GameError::InvalidAction)?
+        }
+    }
+
+    /// Boards a rocket. The unit must be ready to move.
+    pub fn board_rocket(&mut self, rocket_id: UnitID) -> Result<(), Error> {
+        if self.is_move_ready()? {
+            self.movement_heat += self.movement_cooldown;
+            self.location = InGarrison(rocket_id);
             Ok(())
         } else {
             Err(GameError::InvalidAction)?
@@ -697,7 +716,7 @@ impl Unit {
     }
 
     /// Process the end of the round.
-    pub fn next_round(&mut self) {
+    pub fn end_round(&mut self) {
         self.movement_heat -= cmp::min(HEAT_LOSS_PER_ROUND, self.movement_heat);
         self.attack_heat -= cmp::min(HEAT_LOSS_PER_ROUND, self.attack_heat);
     }
@@ -712,31 +731,31 @@ mod tests {
         let loc_a = MapLocation::new(Planet::Earth, 0, 0);
         let loc_b = MapLocation::new(Planet::Earth, 1, 1);
         let mut unit = Unit::new(1, Team::Red, Healer, 0, loc_a).unwrap();
-        assert!(unit.location().is_some());
-        assert!(unit.movement_cooldown().unwrap() > 0);
+        assert_eq!(unit.location(), OnMap(loc_a));
+        assert_gt!(unit.movement_cooldown().unwrap(), 0);
         assert!(unit.is_move_ready().unwrap());
-        assert_eq!(unit.location(), Some(loc_a));
+        assert_eq!(unit.location(), OnMap(loc_a));
         assert_eq!(unit.movement_heat().unwrap(), 0);
 
         // Move to a location, and fail to move immediately after.
-        assert!(unit.move_to(Some(loc_b)).is_ok());
+        assert!(unit.move_to(loc_b).is_ok());
         assert!(!unit.is_move_ready().unwrap());
-        assert!(unit.move_to(Some(loc_a)).is_err());
-        assert_eq!(unit.location(), Some(loc_b));
+        assert!(unit.move_to(loc_a).is_err());
+        assert_eq!(unit.location(), OnMap(loc_b));
 
         // Wait one round, and fail to move again.
-        unit.next_round();
+        unit.end_round();
         assert!(unit.movement_heat().unwrap() > MAX_HEAT_TO_ACT);
         assert!(!unit.is_move_ready().unwrap());
-        assert!(unit.move_to(Some(loc_a)).is_err());
-        assert_eq!(unit.location(), Some(loc_b));
+        assert!(unit.move_to(loc_a).is_err());
+        assert_eq!(unit.location(), OnMap(loc_b));
 
         // Wait one more round, and succesfully move.
-        unit.next_round();
+        unit.end_round();
         assert!(unit.movement_heat().unwrap() < MAX_HEAT_TO_ACT);
         assert!(unit.is_move_ready().unwrap());
-        assert!(unit.move_to(Some(loc_a)).is_ok());
-        assert_eq!(unit.location(), Some(loc_a));
+        assert!(unit.move_to(loc_a).is_ok());
+        assert_eq!(unit.location(), OnMap(loc_a));
     }
 
     #[test]
@@ -746,8 +765,8 @@ mod tests {
         let loc_c = MapLocation::new(Planet::Earth, 1, 2);
 
         let unit_a = Unit::new(1, Team::Red, Ranger, 0, loc_a).unwrap();
-        let mut unit_b = Unit::new(2, Team::Red, Worker, 0, loc_b).unwrap();
-        let mut unit_c = Unit::new(3, Team::Red, Mage, 0, loc_c).unwrap();
+        let unit_b = Unit::new(2, Team::Red, Worker, 0, loc_b).unwrap();
+        let unit_c = Unit::new(3, Team::Red, Mage, 0, loc_c).unwrap();
 
         // B is adjacent to both A and C, but A is not adjacent to C.
         assert!(unit_a.is_adjacent_to(unit_b.location()));
@@ -756,13 +775,6 @@ mod tests {
         assert!(unit_b.is_adjacent_to(unit_c.location()));
         assert!(!unit_a.is_adjacent_to(unit_c.location()));
         assert!(!unit_c.is_adjacent_to(unit_a.location()));
-
-        // Nothing is adjacent to None.
-        unit_b.move_to(None).unwrap();
-        unit_c.move_to(None).unwrap();
-        assert!(!unit_a.is_adjacent_to(unit_b.location()));
-        assert!(!unit_b.is_adjacent_to(unit_a.location()));
-        assert!(!unit_b.is_adjacent_to(unit_c.location()));
     }
 
     #[test]
@@ -774,13 +786,13 @@ mod tests {
         assert!(factory.movement_heat().is_err());
         assert!(factory.movement_cooldown().is_err());
         assert!(factory.is_move_ready().is_err());
-        assert!(factory.move_to(Some(adjacent_loc)).is_err());
+        assert!(factory.move_to(adjacent_loc).is_err());
 
         let mut rocket = Unit::new(1, Team::Red, Rocket, 0, loc).unwrap();
         assert!(rocket.movement_heat().is_err());
         assert!(rocket.movement_cooldown().is_err());
         assert!(rocket.is_move_ready().is_err());
-        assert!(rocket.move_to(Some(adjacent_loc)).is_err());
+        assert!(rocket.move_to(adjacent_loc).is_err());
     }
 
     #[test]
@@ -822,18 +834,18 @@ mod tests {
 
         // Load a unit and launch into space.
         assert!(rocket.load(robot.id()).is_ok());
-        robot.move_to(None).unwrap();
         assert_eq!(rocket.garrison().unwrap(), vec![robot.id()]);
         assert!(rocket.can_unload_unit().unwrap());
+
         assert_eq!(rocket.launch_rocket().unwrap(), ());
-        assert_eq!(rocket.location(), None);
+        assert_eq!(rocket.location(), InSpace);
         assert!(rocket.is_rocket_used().unwrap());
 
         // Proceed a round, then land the rocket.
-        robot.next_round();
-        rocket.next_round();
+        robot.end_round();
+        rocket.end_round();
         assert_eq!(rocket.land_rocket(mars_loc).unwrap(), ());
-        assert_eq!(rocket.location(), Some(mars_loc));
+        assert_eq!(rocket.location(), OnMap(mars_loc));
 
         // Unload the unit.
         assert!(rocket.can_unload_unit().unwrap());

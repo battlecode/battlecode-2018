@@ -36,8 +36,8 @@ pub enum Delta {
     Move { robot_id: UnitID, direction: Direction },
     /// Commands the given healer to overcharge the specified robot.
     Overcharge { healer_id: UnitID, target_robot_id: UnitID },
-    /// Queues the next level of the given research branch, for the specified team.
-    QueueResearch { team: Team, branch: UnitType },
+    /// Queues the next level of the given research branch.
+    QueueResearch { branch: UnitType },
     /// Commands the given factory to enqueue production a robot.
     QueueRobotProduction { factory_id: UnitID, robot_type: UnitType },
     /// Commands the given worker to repair the specified strucutre.
@@ -45,7 +45,7 @@ pub enum Delta {
     /// Commands the given worker to replicate in the given direction.
     Replicate { worker_id: UnitID, direction: Direction },
     /// Resets the current research queue, for the specified team.
-    ResetResearchQueue { team: Team },
+    ResetResearchQueue,
     /// Commands the given structure to unload a unit in the given direction.
     Unload { structure_id: UnitID, direction: Direction },
     /// Nothing happens.
