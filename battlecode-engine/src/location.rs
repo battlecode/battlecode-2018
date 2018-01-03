@@ -237,39 +237,6 @@ impl MapLocation {
     pub fn is_adjacent_to(&self, o: MapLocation) -> bool {
         self.distance_squared_to(o) <= 2
     }
-
-    /// Returns an array of all locations within a certain radius squared of
-    /// this location. (Cannot be called with a radius of greater than 100.)
-    ///
-    /// The locations are ordered first by the x-coordinate, then the
-    /// y-coordinate. The radius squared is inclusive.
-    ///
-    /// * GameError::IllegalArgument - radius squared is greater than 100
-    pub fn all_locations_within(&self, radius_squared: u32)
-                                -> Result<Vec<MapLocation>, Error> {
-        if radius_squared > 100 {
-            Err(GameError::IllegalArgument)?
-        }
-
-        let mut locations = vec![];
-
-        let radius = (radius_squared as f32).sqrt() as i32;
-        let min_x = self.x - radius;
-        let max_x = self.x + radius;
-        let min_y = self.y - radius;
-        let max_y = self.y + radius;
-
-        for x in min_x..max_x + 1 {
-            for y in min_y..max_y + 1 {
-                let loc = MapLocation::new(self.planet, x, y);
-                if self.distance_squared_to(loc) <= radius_squared {
-                    locations.push(loc);
-                }
-            }
-        }
-
-        Ok(locations)
-    }
 }
 
 /// Any location in the Battlecode world.
@@ -478,17 +445,5 @@ mod tests {
         assert!(!a.is_adjacent_to(d));
         assert!(!a.is_adjacent_to(e));
         assert!(a.is_adjacent_to(a), "a square is not adjacent to itself");
-    }
-
-    #[test]
-    fn map_location_all_locations_within() {
-        let loc = MapLocation::new(Earth, 2, 4);
-        let locs = loc.all_locations_within(16).unwrap();
-        assert_eq!(locs.len(), 49, "49 locations within 16 distance squared");
-        for new_loc in locs {
-            assert_lte!(loc.distance_squared_to(new_loc), 16);
-        }
-        assert_eq!(loc.all_locations_within(0).unwrap(), vec![loc]);
-        assert_err!(loc.all_locations_within(101), GameError::IllegalArgument);
     }
 }

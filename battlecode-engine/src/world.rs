@@ -1,6 +1,7 @@
 //! The core battlecode engine.
 
 use fnv::FnvHashMap;
+use std::cmp;
 
 use super::constants::*;
 use super::schema::Delta;
@@ -277,11 +278,9 @@ impl GameWorld {
             }
 
             let loc = unit.location().map_location().expect("unit is not on the map");
-            let locs = loc.all_locations_within(unit.vision_range()).expect("vision range is too large");
+            let locs = self.all_locations_within(loc, unit.vision_range());
             for loc in locs {
-                if map.on_map(loc) {
-                    visible_locs[loc.y as usize][loc.x as usize] = true;
-                }
+                visible_locs[loc.y as usize][loc.x as usize] = true;
             }
         }
 
@@ -414,6 +413,34 @@ impl GameWorld {
     /// * GameError::InvalidLocation - the location is outside the vision range.
     pub fn karbonite_at(&self, _location: MapLocation) -> Result<u32, Error> {
         unimplemented!();
+    }
+
+    /// Returns an array of all locations within a certain radius squared of
+    /// this location that are on the map.
+    ///
+    /// The locations are ordered first by the x-coordinate, then the
+    /// y-coordinate. The radius squared is inclusive.
+    pub fn all_locations_within(&self, location: MapLocation,
+                                radius_squared: u32) -> Vec<MapLocation> {
+        let mut locations = vec![];
+        let map = self.starting_map(location.planet);
+
+        let radius = (radius_squared as f32).sqrt() as i32;
+        let min_x = cmp::max(location.x - radius, 0);
+        let max_x = cmp::min(location.x + radius, map.width as i32 - 1);
+        let min_y = cmp::max(location.y - radius, 0);
+        let max_y = cmp::min(location.y + radius, map.height as i32 - 1);
+
+        for x in min_x..max_x + 1 {
+            for y in min_y..max_y + 1 {
+                let loc = MapLocation::new(location.planet, x, y);
+                if location.distance_squared_to(loc) <= radius_squared {
+                    locations.push(loc);
+                }
+            }
+        }
+
+        locations
     }
 
     /// Whether the location is within the vision range.
@@ -1572,6 +1599,18 @@ impl GameWorld {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_all_locations_within() {
+        let world = GameWorld::test_world();
+        let loc = MapLocation::new(Planet::Earth, 2, 4);
+        let locs = world.all_locations_within(loc, 16);
+        assert_eq!(locs.len(), 43, "43 locations within 16 distance squared");
+        for new_loc in locs {
+            assert_lte!(loc.distance_squared_to(new_loc), 16);
+        }
+        assert_eq!(world.all_locations_within(loc, 0), vec![loc]);
+    }
 
     #[test]
     fn test_filter_visibility() {
