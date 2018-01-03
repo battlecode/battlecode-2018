@@ -293,8 +293,11 @@ impl GameWorld {
                     continue;
                 }
                 units_by_loc.insert(loc, id);
+                unit_infos.insert(id, unit);
+            } else if unit.team == team {
+                // Units in garrisons are only visible if on your team
+                unit_infos.insert(id, unit);
             }
-            unit_infos.insert(id, unit);
         };
 
         // Filter the team states.
@@ -729,17 +732,16 @@ impl GameWorld {
                 self.unit_info_mut(id)
                     .expect("unit exists").location = OnMap(map_loc);
             },
-            InGarrison(id) => {
+            InGarrison(structure_id) => {
                 self.unit_info_mut(id)
-                    .expect("unit exists").location = InGarrison(id);
+                    .expect("unit exists").location = InGarrison(structure_id);
             },
             _ => panic!("Unit is not on a planet and cannot be placed."),
         }
     }
 
-    /// Temporarily removes this unit from any location-based indexing and
-    /// marks the unit info. Must be on the current planet and team before
-    /// being removed.
+    /// Temporarily removes this unit from any location-based indexing.
+    /// Must be on the current planet and team before being removed.
     fn remove_unit(&mut self, id: UnitID) {
         match self.my_unit(id)
                   .expect("Unit does not exist and cannot be removed.")
@@ -827,18 +829,19 @@ impl GameWorld {
                 self.my_team_mut().units_in_space.remove(&id);
                 return;
             },
-            Unknown => panic!("Unit is in ???, this should not be possible"),
-            _ => {},
+            _ => panic!("Unit is in ???, this should not be possible"),
         };
 
-        // TODO: units in factories
-        let info = self.unit_info(id).unwrap().clone();
-        if info.unit_type == UnitType::Rocket && info.team == self.team() {
-            let units_to_destroy = self.get_unit_mut(id).unwrap()
-                                       .garrison().unwrap();
-            for utd_id in units_to_destroy.iter() {
-                self.my_planet_mut().units.remove(&utd_id);
-                self.my_planet_mut().unit_infos.remove(&utd_id);
+        // If this unit's garrison is visible, destroy those units too.
+        if self.get_unit(id).is_ok() {
+            let unit_type = self.get_unit(id).unwrap().unit_type();
+            if unit_type == UnitType::Rocket || unit_type == UnitType::Factory {
+                let units_to_destroy = self.get_unit_mut(id).unwrap()
+                                           .garrison().unwrap();
+                for utd_id in units_to_destroy.iter() {
+                    self.my_planet_mut().units.remove(&utd_id);
+                    self.my_planet_mut().unit_infos.remove(&utd_id);
+                }
             }
         }
 
@@ -851,8 +854,10 @@ impl GameWorld {
     ///
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    pub fn disintegrate_unit(&mut self, _id: UnitID) -> Result<(), Error> {
-        unimplemented!();
+    pub fn disintegrate_unit(&mut self, id: UnitID) -> Result<(), Error> {
+        self.my_unit(id)?;
+        self.destroy_unit(id);
+        Ok(())
     }
 
     // ************************************************************************
@@ -1741,6 +1746,65 @@ mod tests {
             MapLocation::new(Planet::Earth, 29, 29)), GameError::InvalidLocation);
         assert!(red_world.sense_unit_at_location(
             MapLocation::new(Planet::Earth, 11, 10)).unwrap().is_some());
+    }
+
+    #[test]
+    fn test_unit_disintegrate() {
+        let mut world = GameWorld::test_world();
+        let loc_a = MapLocation::new(Planet::Earth, 0, 1);
+        let loc_b = MapLocation::new(Planet::Earth, 0, 2);
+        let id_a = world.create_unit(Team::Red, loc_a, UnitType::Knight).unwrap();
+        let id_b = world.create_unit(Team::Blue, loc_b, UnitType::Knight).unwrap();
+
+        // Red can disintegrate a red unit.
+        assert!(world.disintegrate_unit(id_a).is_ok());
+
+        // Red cannot disintegrate a blue unit.
+        assert_err!(world.disintegrate_unit(id_b), GameError::TeamNotAllowed);
+
+        // But the Dev engine can "destroy" a blue unit if necessary.
+        world.destroy_unit(id_b);
+
+        // Either way, no one can disintegrate a unit that does not exist.
+        assert_err!(world.disintegrate_unit(id_b), GameError::NoSuchUnit);
+    }
+
+    #[test]
+    fn test_unit_destroy_with_filter() {
+        let mut world = GameWorld::test_world();
+        let loc_a = MapLocation::new(Planet::Earth, 0, 1);
+        let loc_b = MapLocation::new(Planet::Earth, 0, 2);
+        let loc_c = MapLocation::new(Planet::Earth, 0, 3);
+        let id_a = world.create_unit(Team::Red, loc_a, UnitType::Rocket).unwrap();
+        let id_b = world.create_unit(Team::Red, loc_b, UnitType::Knight).unwrap();
+        let id_c = world.create_unit(Team::Blue, loc_c, UnitType::Knight).unwrap();
+
+        // Load the rocket with a unit.
+        println!("id_a location: unit_info={:?} unit={:?}", world.unit_info(id_a).unwrap().location, world.my_unit(id_a).unwrap().location());
+        assert!(world.load(id_a, id_b).is_ok());
+        println!("id_a location: unit_info={:?} unit={:?}", world.unit_info(id_a).unwrap().location, world.my_unit(id_a).unwrap().location());
+
+        // Filter the world on Blue's turn.
+        assert!(world.end_turn().is_ok());
+        let mut blue_world = world.filter();
+
+        // Destroy the loaded rocket in the Dev engine.
+        assert_eq!(world.my_planet().units.len(), 3);
+        assert_eq!(world.my_planet().unit_infos.len(), 3);
+        assert_eq!(world.my_planet().units_by_loc.len(), 2);
+        world.destroy_unit(id_a);
+        assert_eq!(world.my_planet().units.len(), 1);
+        assert_eq!(world.my_planet().unit_infos.len(), 1);
+        assert_eq!(world.my_planet().units_by_loc.len(), 1);
+
+        // Destroy the loaded rocket in the Blue engine.
+        assert_eq!(blue_world.my_planet().units.len(), 1);
+        assert_eq!(blue_world.my_planet().unit_infos.len(), 2);
+        assert_eq!(blue_world.my_planet().units_by_loc.len(), 2);
+        blue_world.destroy_unit(id_a);
+        assert_eq!(blue_world.my_planet().units.len(), 1);
+        assert_eq!(blue_world.my_planet().unit_infos.len(), 1);
+        assert_eq!(blue_world.my_planet().units_by_loc.len(), 1);
     }
 
     #[test]
