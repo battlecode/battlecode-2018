@@ -40,6 +40,9 @@ pub enum GameError {
     IllegalArgument,
 }
 
+/// Asserts that $left is an Err whose unwrapped value is the game error
+/// $right. This macro is helpful since all of our Errors wrap GameErrors,
+/// and we can use this to ensure it's the correct type of GameError.
 #[cfg(test)]
 macro_rules! assert_err {
     ($left:expr, $right:expr) => ({
@@ -57,6 +60,9 @@ macro_rules! assert_err {
     });
 }
 
+/// Asserts that $left is less than or equal to $right. More informative than
+/// assert!(left <= right), since it'll output the $left and $right values
+/// when panicking.
 #[cfg(test)]
 macro_rules! assert_lte {
     ($left:expr, $right:expr) => ({
@@ -84,6 +90,9 @@ macro_rules! assert_lte {
     });
 }
 
+/// Asserts that $left is greater than $right. More informative than
+/// assert!(left > right), since it'll output the $left and $right values
+/// when panicking.
 #[cfg(test)]
 macro_rules! assert_gt {
     ($left:expr, $right:expr) => ({

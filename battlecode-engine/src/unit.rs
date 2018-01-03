@@ -459,11 +459,6 @@ impl Unit {
         self.health == 0
     }
 
-    /// Destroys the unit. Equivalent to removing it from the game.
-    pub fn destroy(&mut self) {
-        self.location = Unknown;
-    }
-
     // ************************************************************************
     // *************************** WORKER METHODS *****************************
     // ************************************************************************

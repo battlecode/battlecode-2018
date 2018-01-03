@@ -197,6 +197,12 @@ impl MapLocation {
         let dx = (o.x - self.x) as f32;
         let dy = (o.y - self.y) as f32;
 
+        // 2.414 is an approximation of tan(67.5 degrees). It's a minor
+        // optimization for an expensive trigonometric operation.
+        //
+        // This value is halfway between 45 and 90 degrees. So an angle x
+        // such that 45 < x < 67.5 would be NE and an angle y such that
+        // 67.5 < y < 90 would be N.
         if dx.abs() >= 2.414 * dy.abs() {
             if dx > 0. {
                 Some(East)

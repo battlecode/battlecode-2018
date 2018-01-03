@@ -49,21 +49,24 @@ struct PlanetInfo {
     /// The unit controllers in the vision range.
     ///
     /// Invariants:
-    /// 1. Every unit has a unit info.
+    /// 1. Every entry has a corresponding entry in `unit_infos`.
     /// 2. In the Player engine, only has units on the current team.
     units: FnvHashMap<UnitID, Unit>,
 
     /// The units in the vision range. (Not every unit info may have a unit.)
     ///
     /// Invariants:
-    /// 1. Has every unit whose location is in `visible_locs`.
-    /// 2. Has every unit on this planet, or in a rocket/factory on this planet.
+    /// 1. Has every unit with a visible location on this planet.
+    /// 2. Has every unit in a visible structure on this planet. In the Player
+    ///    Engine, this is only true for structures on the current team. This
+    ///    is because one team should not know the existence of units in the
+    ///    structures of other teams.
     unit_infos: FnvHashMap<UnitID, UnitInfo>,
 
     /// All the units on the map, by map location. Cached for performance.
     ///
     /// Invariants:
-    /// 1. Has every unit with a location on this planet.
+    /// 1. Has every unit with a visible location on this planet.
     /// 2. Every entry has a corresponding entry in `unit_infos`.
     units_by_loc: FnvHashMap<MapLocation, UnitID>,
 
@@ -185,11 +188,7 @@ pub struct GameWorld {
 
 impl GameWorld {
     /// Initialize a new game world with maps from both planets.
-    ///
-    /// * GameError::InvalidMapObject - the map is invalid, check the specs.
     pub fn new(map: GameMap) -> GameWorld {
-        // map.validate()?;
-
         let mut planet_states = FnvHashMap::default();
         planet_states.insert(Planet::Earth, PlanetInfo::new(&map.earth_map));
         planet_states.insert(Planet::Mars, PlanetInfo::new(&map.mars_map));
@@ -765,7 +764,6 @@ impl GameWorld {
                   .location {
             OnMap(loc) => {
                 self.my_planet_mut().units_by_loc.remove(&loc);
-                // self.my_unit_mut(id).unwrap().destroy();
             },
             InSpace => {
                 // Units only die in space after a landing on their turn.
