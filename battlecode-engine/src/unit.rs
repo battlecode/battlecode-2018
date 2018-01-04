@@ -259,11 +259,11 @@ impl Unit {
                team: Team,
                unit_type: UnitType,
                level: Level,
-               location: MapLocation) -> Result<Unit, Error> {
+               location: Location) -> Result<Unit, Error> {
         let mut unit = unit_type.default();
         unit.id = id;
         unit.team = team;
-        unit.location = OnMap(location);
+        unit.location = location;
 
         for _ in 0..level {
             unit.research()?;
@@ -730,7 +730,7 @@ mod tests {
     fn test_movement() {
         let loc_a = MapLocation::new(Planet::Earth, 0, 0);
         let loc_b = MapLocation::new(Planet::Earth, 1, 1);
-        let mut unit = Unit::new(1, Team::Red, Healer, 0, loc_a).unwrap();
+        let mut unit = Unit::new(1, Team::Red, Healer, 0, OnMap(loc_a)).unwrap();
         assert_eq!(unit.location(), OnMap(loc_a));
         assert_gt!(unit.movement_cooldown().unwrap(), 0);
         assert!(unit.is_move_ready().unwrap());
@@ -764,9 +764,9 @@ mod tests {
         let loc_b = MapLocation::new(Planet::Earth, 1, 1);
         let loc_c = MapLocation::new(Planet::Earth, 1, 2);
 
-        let unit_a = Unit::new(1, Team::Red, Ranger, 0, loc_a).unwrap();
-        let unit_b = Unit::new(2, Team::Red, Worker, 0, loc_b).unwrap();
-        let unit_c = Unit::new(3, Team::Red, Mage, 0, loc_c).unwrap();
+        let unit_a = Unit::new(1, Team::Red, Ranger, 0, OnMap(loc_a)).unwrap();
+        let unit_b = Unit::new(2, Team::Red, Worker, 0, OnMap(loc_b)).unwrap();
+        let unit_c = Unit::new(3, Team::Red, Mage, 0, OnMap(loc_c)).unwrap();
 
         // B is adjacent to both A and C, but A is not adjacent to C.
         assert!(unit_a.is_adjacent_to(unit_b.location()));
@@ -782,13 +782,13 @@ mod tests {
         let loc = MapLocation::new(Planet::Earth, 0, 0);
         let adjacent_loc = MapLocation::new(Planet::Earth, 1, 0);
 
-        let mut factory = Unit::new(1, Team::Red, Factory, 0, loc).unwrap();
+        let mut factory = Unit::new(1, Team::Red, Factory, 0, OnMap(loc)).unwrap();
         assert!(factory.movement_heat().is_err());
         assert!(factory.movement_cooldown().is_err());
         assert!(factory.is_move_ready().is_err());
         assert!(factory.move_to(adjacent_loc).is_err());
 
-        let mut rocket = Unit::new(1, Team::Red, Rocket, 0, loc).unwrap();
+        let mut rocket = Unit::new(1, Team::Red, Rocket, 0, OnMap(loc)).unwrap();
         assert!(rocket.movement_heat().is_err());
         assert!(rocket.movement_cooldown().is_err());
         assert!(rocket.is_move_ready().is_err());
@@ -807,8 +807,8 @@ mod tests {
         let mars_loc = MapLocation::new(Planet::Mars, 0, 0);
         let adjacent_mars_loc = mars_loc.add(Direction::North);
 
-        let mut rocket = Unit::new(1, Team::Red, Rocket, 0, loc).unwrap();
-        let mut robot = Unit::new(2, Team::Red, Mage, 0, adjacent_loc).unwrap();
+        let mut rocket = Unit::new(1, Team::Red, Rocket, 0, OnMap(loc)).unwrap();
+        let mut robot = Unit::new(2, Team::Red, Mage, 0, OnMap(adjacent_loc)).unwrap();
 
         // Rocket accessor methods should fail on a robot.
         assert!(robot.max_capacity().is_err());
@@ -853,7 +853,7 @@ mod tests {
         assert!(!rocket.can_unload_unit().unwrap());
 
         // Load too many units
-        let robot = Unit::new(0, Team::Red, Mage, 0, adjacent_mars_loc).unwrap();
+        let robot = Unit::new(0, Team::Red, Mage, 0, OnMap(adjacent_mars_loc)).unwrap();
         for i in 0..rocket.max_capacity().unwrap() {
             assert!(rocket.can_load(&robot).unwrap(), "failed to load unit {}", i);
             assert!(rocket.load(0).is_ok());
@@ -866,7 +866,7 @@ mod tests {
     fn test_research() {
         // Create a unit and check that its basic fields are correct.
         let loc = MapLocation::new(Planet::Earth, 0, 0);
-        let mut unit_a = Unit::new(1, Team::Red, Worker, 0, loc).unwrap();
+        let mut unit_a = Unit::new(1, Team::Red, Worker, 0, OnMap(loc)).unwrap();
         assert_eq!(unit_a.id(), 1);
         assert_eq!(unit_a.team(), Team::Red);
         assert_eq!(unit_a.unit_type(), Worker);
@@ -887,7 +887,7 @@ mod tests {
         assert_eq!(unit_a.build_health().unwrap(), 6);
 
         // Create a unit with a default level above 0, and check its stats.
-        let unit_b = Unit::new(2, Team::Red, Worker, 2, loc).unwrap();
+        let unit_b = Unit::new(2, Team::Red, Worker, 2, OnMap(loc)).unwrap();
         assert_eq!(unit_b.research_level(), 2);
         assert_eq!(unit_b.harvest_amount().unwrap(), 4);
         assert_eq!(unit_b.build_health().unwrap(), 6);

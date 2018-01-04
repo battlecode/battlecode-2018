@@ -801,7 +801,7 @@ impl GameWorld {
                        unit_type: UnitType) -> Result<UnitID, Error> {
         let id = self.get_team_mut(team).id_generator.next_id();
         let level = self.get_team(team).research.get_level(&unit_type);
-        let unit = Unit::new(id, team, unit_type, level, location)?;
+        let unit = Unit::new(id, team, unit_type, level, OnMap(location))?;
 
         self.insert_unit(unit);
         Ok(id)
@@ -1634,11 +1634,11 @@ mod tests {
     #[test]
     fn test_filter_visibility() {
         let initial_units_earth = vec![
-            Unit::new(1, Team::Red, UnitType::Worker, 0, MapLocation::new(Planet::Earth, 0, 0)).unwrap(),
-            Unit::new(2, Team::Red, UnitType::Mage, 0, MapLocation::new(Planet::Earth, 10, 11)).unwrap(),
-            Unit::new(3, Team::Red, UnitType::Rocket, 0, MapLocation::new(Planet::Earth, 10, 10)).unwrap(),
-            Unit::new(4, Team::Blue, UnitType::Mage, 0, MapLocation::new(Planet::Earth, 11, 10)).unwrap(),
-            Unit::new(5, Team::Blue, UnitType::Worker, 0, MapLocation::new(Planet::Earth, 29, 29)).unwrap(),
+            Unit::new(1, Team::Red, UnitType::Worker, 0, OnMap(MapLocation::new(Planet::Earth, 0, 0))).unwrap(),
+            Unit::new(2, Team::Red, UnitType::Mage, 0, OnMap(MapLocation::new(Planet::Earth, 10, 11))).unwrap(),
+            Unit::new(3, Team::Red, UnitType::Rocket, 0, OnMap(MapLocation::new(Planet::Earth, 10, 10))).unwrap(),
+            Unit::new(4, Team::Blue, UnitType::Mage, 0, OnMap(MapLocation::new(Planet::Earth, 11, 10))).unwrap(),
+            Unit::new(5, Team::Blue, UnitType::Worker, 0, OnMap(MapLocation::new(Planet::Earth, 29, 29))).unwrap(),
         ];
 
         let mut map = GameMap::test_map();
@@ -1683,11 +1683,11 @@ mod tests {
     fn test_sensing_with_filter() {
         // Create a world with some units on Earth, on Mars, and in space.
         let initial_units_earth = vec![
-            Unit::new(1, Team::Red, UnitType::Worker, 0, MapLocation::new(Planet::Earth, 9, 10)).unwrap(),
-            Unit::new(2, Team::Red, UnitType::Mage, 0, MapLocation::new(Planet::Earth, 10, 11)).unwrap(),
-            Unit::new(3, Team::Red, UnitType::Rocket, 0, MapLocation::new(Planet::Earth, 10, 10)).unwrap(),
-            Unit::new(4, Team::Blue, UnitType::Mage, 0, MapLocation::new(Planet::Earth, 11, 10)).unwrap(),
-            Unit::new(5, Team::Blue, UnitType::Worker, 0, MapLocation::new(Planet::Earth, 29, 29)).unwrap(),
+            Unit::new(1, Team::Red, UnitType::Worker, 0, OnMap(MapLocation::new(Planet::Earth, 9, 10))).unwrap(),
+            Unit::new(2, Team::Red, UnitType::Mage, 0, OnMap(MapLocation::new(Planet::Earth, 10, 11))).unwrap(),
+            Unit::new(3, Team::Red, UnitType::Rocket, 0, OnMap(MapLocation::new(Planet::Earth, 10, 10))).unwrap(),
+            Unit::new(4, Team::Blue, UnitType::Mage, 0, OnMap(MapLocation::new(Planet::Earth, 11, 10))).unwrap(),
+            Unit::new(5, Team::Blue, UnitType::Worker, 0, OnMap(MapLocation::new(Planet::Earth, 29, 29))).unwrap(),
         ];
         let mut map = GameMap::test_map();
         map.earth_map = PlanetMap {
