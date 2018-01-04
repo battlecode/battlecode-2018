@@ -1583,7 +1583,10 @@ impl GameWorld {
 
     /// Process the end of the turn for factories. If a factory added a unit
     /// to its garrison, also mark that unit down in the game world.
-    fn process_factories(&mut self, planet: Planet) {
+    ///
+    /// Note that factores cannot be built on Mars, so we only process Earth.
+    fn process_factories(&mut self) {
+        let planet = Planet::Earth;
         let mut factory_ids: Vec<UnitID> = vec![];
         for unit in self.get_planet(planet).unit_infos.values().into_iter() {
             if unit.unit_type == UnitType::Factory {
@@ -1752,8 +1755,7 @@ impl GameWorld {
         self.process_snipes();
 
         // Add produced factory robots to the garrison.
-        self.process_factories(Planet::Earth);
-        self.process_factories(Planet::Mars);
+        self.process_factories();
 
         // Land rockets.
         self.process_rockets(Team::Red)?;
