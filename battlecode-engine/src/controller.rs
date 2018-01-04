@@ -717,25 +717,34 @@ impl GameController {
     // ************************** FACTORY METHODS *****************************
     // ************************************************************************
 
-    /*
-    /// Adds a unit to the factory's production queue. Does nothing if the
-    /// production queue is full. Returns whether the unit was added.
+    /// Whether the factory can produce a robot of the given type. The factory
+    /// must not currently be producing a robot, and the team must have
+    /// sufficient resources in its resource pool.
     ///
     /// * GameError::NoSuchUnit - the unit does not exist.
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a factory, or the
     ///   queued unit type is not a robot.
-    pub fn queue_robot(&mut self, _factory_id: UnitID, _unit_type: UnitType)
+    pub fn can_produce_robot(&mut self, factory_id: UnitID, robot_type: UnitType)
                        -> Result<bool, Error> {
-        unimplemented!();
+        self.world.can_produce_robot(factory_id, robot_type)
     }
 
-    /// Process the end of the turn for factories. If a factory added a unit
-    /// to its garrison, also mark that unit down in the game world.
-    fn _process_factory(&self) {
-        unimplemented!()
+    /// Starts producing the robot of the given type.
+    ///
+    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a factory, or the
+    ///   queued unit type is not a robot.
+    /// * GameError::InvalidAction - the factory cannot produce the robot.
+    pub fn produce_robot(&mut self, factory_id: UnitID, robot_type: UnitType)
+                       -> Result<(), Error> {
+        let delta = Delta::ProduceRobot { factory_id, robot_type };
+        if self.config.generate_turn_messages {
+            self.turn.changes.push(delta.clone());
+        }
+        Ok(self.world.apply(&delta)?)
     }
-    */
 
     // ************************************************************************
     // *************************** ROCKET METHODS *****************************
@@ -808,12 +817,9 @@ impl GameController {
     }
 }
 
+#[cfg(test)]
 mod tests {
-    use super::GameController;
-    use location::*;
-    use schema::*;
-    use unit::*;
-    use world::*;
+    use super::*;
 
     #[test]
     fn test_turn() {

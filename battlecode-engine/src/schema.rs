@@ -5,7 +5,6 @@
 use super::location::*;
 use super::unit::*;
 use super::world::GameWorld;
-use super::world::Team;
 
 /// A single, atomic "change" in the game world.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -36,10 +35,10 @@ pub enum Delta {
     Move { robot_id: UnitID, direction: Direction },
     /// Commands the given healer to overcharge the specified robot.
     Overcharge { healer_id: UnitID, target_robot_id: UnitID },
+    /// Commands the given factory to produce a robot.
+    ProduceRobot { factory_id: UnitID, robot_type: UnitType },
     /// Queues the next level of the given research branch.
     QueueResearch { branch: UnitType },
-    /// Commands the given factory to enqueue production a robot.
-    QueueRobotProduction { factory_id: UnitID, robot_type: UnitType },
     /// Commands the given worker to repair the specified strucutre.
     Repair { worker_id: UnitID, structure_id: UnitID },
     /// Commands the given worker to replicate in the given direction.

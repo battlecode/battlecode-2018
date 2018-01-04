@@ -1429,11 +1429,11 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a factory, or the
     ///   queued unit type is not a robot.
-    pub fn can_produce_robot(&mut self, factory_id: UnitID, unit_type: UnitType)
+    pub fn can_produce_robot(&mut self, factory_id: UnitID, robot_type: UnitType)
                        -> Result<bool, Error> {
         let factory = self.my_unit(factory_id)?;
-        if factory.can_produce_robot(unit_type)? {
-            let cost = unit_type.factory_cost().expect("unit type is ok");
+        if factory.can_produce_robot(robot_type)? {
+            let cost = robot_type.factory_cost().expect("unit type is ok");
             Ok(self.my_team().karbonite >= cost)
         } else {
             Ok(false)
@@ -1447,12 +1447,12 @@ impl GameWorld {
     /// * GameError::InappropriateUnitType - the unit is not a factory, or the
     ///   queued unit type is not a robot.
     /// * GameError::InvalidAction - the factory cannot produce the robot.
-    pub fn produce_robot(&mut self, factory_id: UnitID, unit_type: UnitType)
+    pub fn produce_robot(&mut self, factory_id: UnitID, robot_type: UnitType)
                        -> Result<(), Error> {
-        if self.can_produce_robot(factory_id, unit_type)? {
-            self.my_team_mut().karbonite -= unit_type.factory_cost().expect("unit type is ok");
+        if self.can_produce_robot(factory_id, robot_type)? {
+            self.my_team_mut().karbonite -= robot_type.factory_cost().expect("unit type is ok");
             let factory = self.my_unit_mut(factory_id).expect("factory exists");
-            factory.produce_robot(unit_type);
+            factory.produce_robot(robot_type);
             Ok(())
         } else {
             Err(GameError::InvalidAction)?
@@ -1660,8 +1660,8 @@ impl GameWorld {
             Delta::Load {structure_id, robot_id} => self.load(structure_id, robot_id),
             Delta::Move {robot_id, direction} => self.move_robot(robot_id, direction),
             Delta::Overcharge {healer_id, target_robot_id} => self.overcharge(healer_id, target_robot_id),
+            Delta::ProduceRobot {factory_id, robot_type} => self.produce_robot(factory_id, robot_type),
             Delta::QueueResearch {branch} => { self.queue_research(branch); Ok(()) },
-            Delta::QueueRobotProduction {factory_id, robot_type} => unimplemented!(),
             Delta::Repair {worker_id, structure_id} => unimplemented!(),
             Delta::Replicate {worker_id, direction} => self.replicate(worker_id, direction),
             Delta::ResetResearchQueue => { self.reset_research(); Ok(()) },
@@ -1842,7 +1842,7 @@ mod tests {
         let loc_c = MapLocation::new(Planet::Earth, 0, 3);
         let id_a = world.create_unit(Team::Red, loc_a, UnitType::Rocket).unwrap();
         let id_b = world.create_unit(Team::Red, loc_b, UnitType::Knight).unwrap();
-        let id_c = world.create_unit(Team::Blue, loc_c, UnitType::Knight).unwrap();
+        world.create_unit(Team::Blue, loc_c, UnitType::Knight).unwrap();
 
         // Load the rocket with a unit.
         assert!(world.load(id_a, id_b).is_ok());

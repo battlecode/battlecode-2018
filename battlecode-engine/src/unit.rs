@@ -946,7 +946,6 @@ mod tests {
         let loc = MapLocation::new(Planet::Earth, 0, 0);
         let adjacent_loc = loc.add(Direction::North);
         let mars_loc = MapLocation::new(Planet::Mars, 0, 0);
-        let adjacent_mars_loc = mars_loc.add(Direction::North);
 
         let mut rocket = Unit::new(1, Team::Red, Rocket, 0, OnMap(loc)).unwrap();
         let mut robot = Unit::new(2, Team::Red, Mage, 0, OnMap(adjacent_loc)).unwrap();
@@ -994,7 +993,6 @@ mod tests {
         assert!(!rocket.can_unload_unit().unwrap());
 
         // Load too many units
-        let robot = Unit::new(0, Team::Red, Mage, 0, OnMap(adjacent_mars_loc)).unwrap();
         for i in 0..rocket.max_capacity().unwrap() {
             assert!(rocket.can_load().unwrap(), "failed to load unit {}", i);
             assert!(rocket.load(0).is_ok());
