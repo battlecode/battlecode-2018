@@ -544,15 +544,13 @@ impl Unit {
         Ok(self.garrison.clone())
     }
 
-    /// Whether the structure can load a unit. The unit must be ready to move
-    /// and adjacent to the structure. The structure must have enough space.
+    /// Whether the structure can load a unit. The structure must have enough
+    /// space.
     ///
-    /// Errors if the unit is not a rocket or robot is not a robot.
-    pub fn can_load(&self, robot: &Unit) -> Result<bool, Error> {
-        Ok(robot.is_move_ready()?
-            && self.garrison()?.len() < self.max_capacity()?
-            && self.team == robot.team
-            && self.is_adjacent_to(robot.location()))
+    /// Errors if the unit is not a structure.
+    pub fn can_load(&self) -> Result<bool, Error> {
+        self.ok_if_structure()?;
+        Ok(self.garrison()?.len() < self.max_capacity()?)
     }
 
     /// Updates the structure as if it has loaded a unit inside its garrison.
@@ -560,8 +558,7 @@ impl Unit {
     ///
     /// Errors if this unit is not a structure, or it cannot load.
     pub fn load(&mut self, id: UnitID) -> Result<(), Error> {
-        if self.garrison()?.len() < self.max_capacity()? {
-            self.ok_if_structure()?;
+        if self.can_load()? {
             self.garrison.push(id);
             Ok(())
         } else {
@@ -825,7 +822,7 @@ mod tests {
         assert!(rocket.max_capacity().unwrap() > 0);
         assert!(!rocket.is_rocket_used().unwrap());
         assert_eq!(rocket.garrison().unwrap().len(), 0);
-        assert!(rocket.can_load(&robot).unwrap());
+        assert!(rocket.can_load().unwrap());
         assert!(!rocket.can_unload_unit().unwrap());
         assert!(rocket.can_launch_rocket().unwrap());
 
@@ -855,10 +852,10 @@ mod tests {
         // Load too many units
         let robot = Unit::new(0, Team::Red, Mage, 0, OnMap(adjacent_mars_loc)).unwrap();
         for i in 0..rocket.max_capacity().unwrap() {
-            assert!(rocket.can_load(&robot).unwrap(), "failed to load unit {}", i);
+            assert!(rocket.can_load().unwrap(), "failed to load unit {}", i);
             assert!(rocket.load(0).is_ok());
         }
-        assert!(!rocket.can_load(&robot).unwrap());
+        assert!(!rocket.can_load().unwrap());
         assert!(rocket.load(0).is_err());
     }
 

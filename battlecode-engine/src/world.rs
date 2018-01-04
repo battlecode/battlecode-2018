@@ -1340,7 +1340,9 @@ impl GameWorld {
                         -> Result<bool, Error> {
         let robot = self.my_unit(robot_id)?;
         let structure = self.my_unit(structure_id)?;
-        structure.can_load(robot)
+        Ok(robot.is_move_ready()?
+            && structure.can_load()?
+            && structure.is_adjacent_to(robot.location()))
     }
 
     /// Loads the robot into the garrison of the structure.
