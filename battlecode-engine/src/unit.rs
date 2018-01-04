@@ -913,6 +913,7 @@ impl Unit {
     pub fn end_round(&mut self) {
         self.movement_heat -= cmp::min(HEAT_LOSS_PER_ROUND, self.movement_heat);
         self.attack_heat -= cmp::min(HEAT_LOSS_PER_ROUND, self.attack_heat);
+        self.countdown -= cmp::min(COUNTDOWN_PER_ROUND, self.countdown);
     }
 }
 
@@ -996,16 +997,23 @@ mod tests {
     #[test]
     fn test_special_abilities() {
         let loc = MapLocation::new(Planet::Earth, 0, 0); 
+
+        // Worker and Rocket cannot use ability
         let worker = Unit::new(1, Team::Red, Worker, 0, loc).unwrap();
-
-        // Worker cannot use ability
         assert!(worker.ok_if_ability().is_err());
+        let rocket = Unit::new(1, Team::Red, Worker, 0, loc).unwrap();
+        assert!(rocket.ok_if_ability().is_err());
 
-        // Other units use ability.
+
+        // Other units can use ability.
         let knight = Unit::new(1, Team::Red, Knight, 3, loc).unwrap();
         assert!(knight.ok_if_ability().is_ok());
         let ranger = Unit::new(1, Team::Red, Knight, 3, loc).unwrap();
         assert!(ranger.ok_if_ability().is_ok());
+        let mage = Unit::new(1, Team::Red, Knight, 3, loc).unwrap();
+        assert!(mage.ok_if_ability().is_ok());
+        let healer = Unit::new(1, Team::Red, Knight, 3, loc).unwrap();
+        assert!(healer.ok_if_ability().is_ok());
 
         // Unit cannot use ability when ability heat >= max heat to act 
         let mut ranger = Unit::new(1, Team::Red, Ranger, 3, loc).unwrap();
@@ -1027,11 +1035,29 @@ mod tests {
 
     #[test]
     fn test_ranger() {
-        let loc = MapLocation::new(Planet::Earth, 0, 0);
+        let loc_a = MapLocation::new(Planet::Earth, 0, 0);
+        let loc_b = MapLocation::new(Planet::Earth, 0, 1);
 
         // Sniping should fail if unit is not a ranger
-        let mut worker = Unit::new(1, Team::Red, Worker, 0, loc).unwrap();
+        let mut worker = Unit::new(1, Team::Red, Worker, 0, loc_a).unwrap();
         assert!(worker.ok_if_snipe().is_err());
+
+        // Begin sniping
+        let mut ranger = Unit::new(1, Team::Red, Ranger, 3, loc_a).unwrap();
+        assert!(ranger.ok_if_snipe().is_ok());
+        assert!(ranger.begin_snipe(loc_b).is_ok());
+        assert!(ranger.process_snipe().is_err());
+        assert_eq!(ranger.target_location().unwrap(), loc_b);
+
+        // Ranger can begin sniping at anytime as long as ability heat < max heat to act
+        assert!(ranger.begin_snipe(loc_b).is_ok());
+
+        // Process sniping
+        let rounds = 200;
+        for round in 0..rounds {
+            ranger.end_round();
+        }
+        assert!(ranger.process_snipe().is_ok());
     }
 
     #[test]
@@ -1058,6 +1084,15 @@ mod tests {
         let mut worker = Unit::new(1, Team::Red, Worker, 0, loc).unwrap();
         assert!(worker.ok_if_overcharge().is_err());
         assert!(worker.overcharge().is_err());
+
+        // Healer canfnot overcharge if it has insufficient research level.
+        let mut healer = Unit::new(1, Team::Red, Healer, 0, loc).unwrap();
+        assert!(healer.ok_if_overcharge().is_err());
+
+        // Healer can overcharge if it has unlocked ability.
+        let mut healer = Unit::new(1, Team::Red, Healer, 3, loc).unwrap();
+        assert!(healer.ok_if_overcharge().is_ok());
+        assert!(healer.overcharge().is_ok());
     }
 
     #[test]
