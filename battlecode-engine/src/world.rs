@@ -602,6 +602,14 @@ impl GameWorld {
         }
     }
 
+    fn get_planet(&self, planet: Planet) -> &PlanetInfo {
+        if let Some(planet_info) = self.planet_states.get(&planet) {
+            planet_info
+        } else {
+            unreachable!();
+        }
+    }
+
     fn get_planet_mut(&mut self, planet: Planet) -> &mut PlanetInfo {
         if let Some(planet_info) = self.planet_states.get_mut(&planet) {
             planet_info
@@ -1423,7 +1431,13 @@ impl GameWorld {
     ///   queued unit type is not a robot.
     pub fn can_produce_robot(&mut self, factory_id: UnitID, unit_type: UnitType)
                        -> Result<bool, Error> {
-        unimplemented!();
+        let factory = self.my_unit(factory_id)?;
+        if factory.can_produce_robot(unit_type)? {
+            let cost = unit_type.factory_cost().expect("unit type is ok");
+            Ok(self.my_team().karbonite >= cost)
+        } else {
+            Ok(false)
+        }
     }
 
     /// Starts producing the robot of the given type.
@@ -1435,13 +1449,45 @@ impl GameWorld {
     /// * GameError::InvalidAction - the factory cannot produce the robot.
     pub fn produce_robot(&mut self, factory_id: UnitID, unit_type: UnitType)
                        -> Result<(), Error> {
-        unimplemented!();
+        if self.can_produce_robot(factory_id, unit_type)? {
+            self.my_team_mut().karbonite -= unit_type.factory_cost().expect("unit type is ok");
+            let factory = self.my_unit_mut(factory_id).expect("factory exists");
+            factory.produce_robot(unit_type);
+            Ok(())
+        } else {
+            Err(GameError::InvalidAction)?
+        }
     }
 
     /// Process the end of the turn for factories. If a factory added a unit
     /// to its garrison, also mark that unit down in the game world.
-    fn _process_factory(&mut self, _planet: Planet) {
-        unimplemented!();
+    fn process_factories(&mut self, planet: Planet) {
+        let mut factory_ids: Vec<UnitID> = vec![];
+        for unit in self.get_planet(planet).unit_infos.values().into_iter() {
+            if unit.unit_type == UnitType::Factory {
+                factory_ids.push(unit.id);
+            }
+        }
+
+        for factory_id in factory_ids {
+            let (unit_type, team) = {
+                let factory = self.get_unit_mut(factory_id).expect("unit exists");
+                let new_unit_type = factory.process_factory_round();
+                if new_unit_type.is_none() {
+                    continue;
+                }
+                (new_unit_type.unwrap(), factory.team())
+            };
+
+            let id = self.get_team_mut(team).id_generator.next_id();
+            let level = self.get_team(team).research.get_level(&unit_type);
+            let new_unit = Unit::new(id, team, unit_type, level, InGarrison(factory_id))
+                .expect("research_level is valid");
+
+            self.get_planet_mut(planet).unit_infos.insert(id, new_unit.info());
+            self.get_planet_mut(planet).units.insert(id, new_unit);
+            self.get_unit_mut(factory_id).unwrap().load(id).expect("unit can load");
+        }
     }
 
     // ************************************************************************
@@ -1579,6 +1625,10 @@ impl GameWorld {
         for unit in &mut self.get_planet_mut(Planet::Mars).units.values_mut() {
             unit.end_round();
         }
+
+        // Add produced factory robots to the garrison.
+        self.process_factories(Planet::Earth);
+        self.process_factories(Planet::Mars);
 
         // Land rockets.
         self.process_rockets(Team::Red)?;
@@ -2075,5 +2125,34 @@ mod tests {
         // Cannot unload an empty rocket.
         assert![!world.can_unload(rocket, Direction::East).unwrap()];
         assert_err![world.unload(rocket, Direction::East), GameError::InvalidAction];
+    }
+
+    #[test]
+    fn test_factory_production() {
+        let mut world = GameWorld::test_world();
+        let loc = MapLocation::new(Planet::Earth, 10, 10);
+        let factory = world.create_unit(Team::Red, loc, UnitType::Factory).unwrap();
+        let mage_cost = UnitType::Mage.factory_cost().unwrap();
+
+        // The factory can produce a robot only if it's not already busy.
+        assert!(world.can_produce_robot(factory, UnitType::Mage).unwrap());
+        assert!(world.produce_robot(factory, UnitType::Mage).is_ok());
+        assert!(!world.can_produce_robot(factory, UnitType::Mage).unwrap());
+        assert_err!(world.produce_robot(factory, UnitType::Mage), GameError::InvalidAction);
+        assert_eq!(world.my_team().karbonite, KARBONITE_STARTING - mage_cost);
+
+        // After a few rounds, the mage is added to the world.
+        for _ in 0..FACTORY_NUM_ROUNDS {
+            assert!(world.end_round().is_ok());
+        }
+        assert_eq!(world.my_unit(factory).unwrap().garrison().unwrap().len(), 1);
+        assert_eq!(world.my_planet().units.len(), 2);
+        assert_eq!(world.my_planet().unit_infos.len(), 2);
+        assert_eq!(world.my_planet().units_by_loc.len(), 1);
+
+        // Karbonite is a limiting factor for producing robots.
+        assert!(world.can_produce_robot(factory, UnitType::Mage).unwrap());
+        world.my_team_mut().karbonite = 0;
+        assert!(!world.can_produce_robot(factory, UnitType::Mage).unwrap());
     }
 }
