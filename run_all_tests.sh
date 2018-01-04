@@ -34,6 +34,12 @@ fi
 if [ $RUST -ne 0 -o $C -ne 0 -o $PYTHON -ne 0 ]; then
     echo -e '\033[31mTests failed!\033[0m'
     exit 1
+fi
+
+python3 ./battlecode-manager/test.py
+SERVER=$?
+if [ $SERVER -ne 0 ]; then
+    echo -e '\033[31mPython failed!\033[0m'
 else
     echo
     echo -e '\033[32mAll tests passed.\033[0m'

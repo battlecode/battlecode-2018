@@ -5,10 +5,14 @@ This file contains contains the CLI that starts games up
 import argparse
 import time
 import os
+import logging
 import sandbox
 import server
 
-def run_game(game, dockers, parse_args, sock_file):
+# TODO port number
+PORT = 808
+
+def run_game(game, dockers, args, sock_file):
     '''
     This contains the logic that needs to be cleaned up at the end of a game
     If there is something that needs to be cleaned up add it in the try catch
@@ -17,14 +21,14 @@ def run_game(game, dockers, parse_args, sock_file):
 
     # Start the unix stream server
     server.start_server(sock_file, game, dockers,
-                        use_docker=parse_args['use_docker'])
+                        use_docker=args['use_docker'])
 
-    if parse_args['use_viewer']:
-        # TODO Start the Viewer
-        pass
+    if args['use_viewer']:
+        # TODO check this function
+        server.start_viewer_server(PORT, game)
 
     # Start the docker instances
-    if parse_args['use_docker']:
+    if args['use_docker']:
         for player_key in DOCKERS:
             docker_inst = DOCKERS[player_key]
             docker_inst.start()
@@ -34,12 +38,12 @@ def run_game(game, dockers, parse_args, sock_file):
     while not GAME.game_over:
         time.sleep(1)
 
-def cleanup(dockers, parse_args, sock_file):
+def cleanup(dockers, args, sock_file):
     '''
     Clean up that needs to be done at the end of a game
     '''
     print("Cleaning up Docker and Socket")
-    if parse_args['use_docker']:
+    if args['use_docker']:
         for player_key in dockers:
             docker_inst = DOCKERS[player_key]
             docker_inst.destroy()
@@ -70,11 +74,15 @@ def parse_args():
     return_args['use_docker'] = (args.ud != None)
     return_args['use_viewer'] = (args.vw != None)
 
+    print(args.p1)
+    print(args.p2)
     return_args['dir_p1'] = os.path.abspath(args.p1)
     return_args['dir_p2'] = os.path.abspath(args.p2)
 
-    # TODO Read the map, and load into game
-    return_args['map_state'] = ''
+    # Maybe handle this better
+    # TODO do you want this to be a required, I think it should not be and then
+    # default to a specific map
+    return_args['map_file'] = args.map
 
     return return_args
 
@@ -85,7 +93,8 @@ def create_game(args):
     stuff
     '''
     # Load the Game state info
-    game = server.Game(4, "null")
+    game = server.Game(4, logging_level=logging.ERROR,
+                       map_file=args['map_file'])
 
 
     # Find a good filename to use as socket file

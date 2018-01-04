@@ -87,7 +87,7 @@ class TestLoginSocketServer(unittest.TestCase):
         This function setusp up the unix stream server for all the other tests.
         '''
         num_players = 2
-        self.game = server.Game(num_players, "NULL")
+        self.game = server.Game(num_players)
         dockers = {}
         try:
             os.unlink(SOCK_FILE)
@@ -299,7 +299,7 @@ class TestFourLoginSocketServer(unittest.TestCase):
         This function setusp up the unix stream server for all the other tests.
         '''
         num_players = 4
-        self.game = server.Game(num_players, "NULL")
+        self.game = server.Game(num_players)
         dockers = {}
         try:
             os.unlink(SOCK_FILE)

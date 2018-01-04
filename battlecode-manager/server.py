@@ -9,9 +9,18 @@ import threading
 import time
 import random
 import sys
-# import engine
 import logging
 import ujson as json
+import engine
+
+# TODO:
+# Timing works, but still has to be checked
+# We should also check that pausing doesn't hurt unix streams they don't
+# have
+
+INIT_TIME = 250
+TIME_PER_TURN = 10
+
 
 
 
@@ -24,9 +33,9 @@ class Game(object): # pylint: disable=too-many-instance-attributes
     reception is done by the ReceiveHandler and socket server
     '''
 
-    def __init__(self, num_players: int, state: bytes,
-                 logging_level=logging.DEBUG, logging_file="server.log"):
-        # TODO handle loading state
+    def __init__(self, num_players: int, logging_level=logging.DEBUG,
+                 logging_file="server.log", map_file=''):
+
         logging.basicConfig(filename=logging_file, level=logging_level)
         '''
         Initialize Game object
@@ -36,23 +45,36 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         '''
         self.num_players = num_players
         self.player_ids = [] # Array containing the player ids
-
-        self.player_logged = {}
         # Dict taking player id and giving bool of log in
+        self.player_logged = {}
+        # Dict taking player id and giving amount of time left as float
+        self.times = {}
 
         # Initialize the player_ids
         for _ in range(num_players):
             new_id = random.randrange(65536)
             self.player_ids.append(new_id)
             self.player_logged[new_id] = False
+            # Whatever timing is can be handled here
+            self.times[new_id] = INIT_TIME
 
-        self.state = state # This is the overall state of the game
         self.started = False
         self.game_over = False
+
+
 
         # Lock thread running player should hold
         self.running_lock = threading.RLock()
         self.this_turn_pid = 0 # The id of the player whose turn it is
+
+        # Game state
+        # This is initializing the engine, so we pass the map name and etc
+        # TODO replace with actual engine code here
+        if map_file == '' or map_file is None:
+            self.state = engine.init_state()
+        else:
+            # Yea this will get replaced by actual engine code later
+            pass
 
     @property
     def num_log_in(self):
@@ -101,7 +123,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         triggered when a game starts is stored here.
         '''
 
-        #Init the player who starts and then tell everyone we started
+        # Init the player who starts and then tell everyone we started
         self.this_turn_pid = self.player_ids[0]
         self.started = True
         return
@@ -143,27 +165,28 @@ class Game(object): # pylint: disable=too-many-instance-attributes
                     break
                 self.running_lock.release()
 
+        self.times[client_id] += TIME_PER_TURN
         logging.debug("Client %s: exit start turn", client_id)
         return
 
 
 
 
-    def make_action(self, data: bytes):
-        # TODO Write this function
+    def make_action(self, moves: bytes, client_id: int, diff_time: float):
         '''
         Take action data and give it to the engine
         Args:
             data: the data received from the stream
 
-        Return:
-            State diff to be send back to the client
         '''
         # interact with the engine
+        self.state = engine.commit_actions(self.state, moves, client_id)
+        self.times[client_id] -= diff_time
+        return
 
-        return data
 
-def create_receive_handler(game: Game, dockers, use_docker: bool)  \
+def create_receive_handler(game: Game, dockers, use_docker: bool,
+                           is_unix_stream: bool)  \
                                     -> socketserver.BaseRequestHandler:
     '''
     Create a Class that will be used a receive handler
@@ -191,6 +214,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool)  \
             self.client_id = 0
             self.error = ""
             self.logged_in = False
+            self.is_unix_stream = is_unix_stream
             super(ReceiveHandler, self).__init__(*args, **kwargs)
 
         def get_next_message(self) -> object:
@@ -211,6 +235,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool)  \
             try:
                 data = next(wrapped_socket)
             except (StopIteration, IOError):
+                # TODO on DC assign winners and losers
                 wrapped_socket.close()
                 recv_socket.close()
                 logging.warning("Client %s: Game Over", self.client_id)
@@ -255,6 +280,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool)  \
             try:
                 wrapped_socket.write(encoded_message)
             except IOError:
+                # TODO handle DCs better
                 self.game.game_over = True
                 wrapped_socket.close()
                 send_socket.close()
@@ -281,13 +307,10 @@ def create_receive_handler(game: Game, dockers, use_docker: bool)  \
             message['state_diff'] = state_diff
             return message
 
-
-        def handle(self):
+        def player_handler(self):
             '''
-            This does all the processing of the data we receive and we spend our
-            time in this function.
+            This is the handler for socket connections from players
             '''
-
             self.logged_in = False
             logging.debug("Client connected to server")
 
@@ -314,7 +337,8 @@ def create_receive_handler(game: Game, dockers, use_docker: bool)  \
                 self.send_message(log_success)
 
             if use_docker:
-                self.docker = self.dockers[self.client_id]
+                # Attribute defined here for ease of use.
+                self.docker = self.dockers[self.client_id]#pylint: disable=W0201
                 self.docker.pause()
 
 
@@ -336,22 +360,30 @@ def create_receive_handler(game: Game, dockers, use_docker: bool)  \
                 if self.game.game_over:
                     # Cleanup
                     self.request.close()
-                    self.docker.destroy()
+                    if use_docker:
+                        self.docker.destroy()
                     return
 
-                if use_docker:
-                    self.docker.unpause()
 
 
                 logging.debug("Client %s: Started turn", self.client_id)
 
-                # TODO get state diff
-                state_diff = ""
+                # TODO get message to send to player
+                state_diff = self.game.state
                 start_turn_msg = self.message(state_diff)
+
+                # Start player code computing
+                if use_docker:
+                    self.docker.unpause()
+
+                # TODO check this timer makes, sense it looks like the right one
+                # but i'm getting wierd results when testing?
+                start_time = time.perf_counter()
                 self.send_message(start_turn_msg)
 
-
                 unpacked_data = self.get_next_message()
+                end_time = time.perf_counter()
+                diff_time = end_time-start_time
 
                 # Check client is who they claim they are
                 if unpacked_data['client_id'] != self.client_id:
@@ -361,11 +393,31 @@ def create_receive_handler(game: Game, dockers, use_docker: bool)  \
                 moves = unpacked_data['moves']
 
                 # TODO add engine processing here
+                game.make_action(moves, self.client_id, diff_time)
 
 
                 if use_docker:
                     self.docker.pause()
                 self.game.end_turn()
+
+        def viewer_handler(self):
+            '''
+            This handles the connection to the viewer
+            '''
+
+            while True:
+                # TODO interact with engine and send next message
+                self.game.next_turn()
+
+        def handle(self):
+            '''
+            This does all the processing of the data we receive and we spend our
+            time in this function.
+            '''
+            if self.is_unix_stream:
+                self.player_handler()
+            else:
+                self.viewer_handler()
 
     return ReceiveHandler
 
@@ -387,7 +439,7 @@ def start_server(sock_file: str, game: Game, dockers, use_docker=True) -> socket
     '''
 
     # Create handler for mangaing each connections to server
-    receive_handler = create_receive_handler(game, dockers, use_docker)
+    receive_handler = create_receive_handler(game, dockers, use_docker, True)
 
     # Start server
     server = socketserver.ThreadingUnixStreamServer(sock_file, receive_handler)
@@ -413,12 +465,11 @@ def start_viewer_server(port: int, game: Game) -> socketserver.BaseServer:
     '''
 
     # Create handler for mangaing each connections to server
-    receive_handler = create_receive_handler(game, dockers, use_docker)
+    receive_handler = create_receive_handler(game, {}, False, False)
 
     # Start server
-    server = socketserver.ThreadingUnixStreamServer(sock_file, receive_handler)
+    server = socketserver.ThreadingTCPServer(('localhost', port), receive_handler)
     server_thread = threading.Thread(target=server.serve_forever, daemon=True)
-    logging.info("Server Started at %s", sock_file)
     server_thread.start()
 
     return server
