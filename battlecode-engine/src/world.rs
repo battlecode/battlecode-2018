@@ -45,6 +45,7 @@ struct PlanetInfo {
     /// Stored as a two-dimensional array, where the first index
     /// represents a square's y-coordinate, and the second index its
     /// x-coordinate.
+    #[serde(skip)]
     visible_locs: Vec<Vec<bool>>,
 
     /// The unit controllers in the vision range.
@@ -62,6 +63,7 @@ struct PlanetInfo {
     ///    Engine, this is only true for structures on the current team. This
     ///    is because one team should not know the existence of units in the
     ///    structures of other teams.
+    #[serde(skip)]
     unit_infos: FnvHashMap<UnitID, UnitInfo>,
 
     /// All the units on the map, by map location. Cached for performance.
@@ -69,6 +71,7 @@ struct PlanetInfo {
     /// Invariants:
     /// 1. Has every unit with a visible location on this planet.
     /// 2. Every entry has a corresponding entry in `unit_infos`.
+    #[serde(skip)]
     units_by_loc: FnvHashMap<MapLocation, UnitID>,
 
     /// The amount of Karbonite deposited on the specified square.
@@ -76,6 +79,7 @@ struct PlanetInfo {
     /// Stored as a two-dimensional array, where the first index 
     /// represents a square's y-coordinate, and the second index its 
     /// x-coordinate.
+    #[serde(skip)]
     karbonite: Vec<Vec<u32>>,
 }
 
@@ -107,10 +111,12 @@ struct TeamInfo {
     /// Team identification.
     team: Team,
 
+    #[serde(skip)]
     /// Unit ID generator.
     id_generator: IDGenerator,
 
     /// Communication array histories for each planet.
+    #[serde(skip)]
     team_arrays: FnvHashMap<Planet, TeamArrayHistory>,
 
     /// Rocket landings for this team.
@@ -172,12 +178,15 @@ pub struct GameWorld {
     player_to_move: Player,
 
     /// The asteroid strike pattern on Mars.
+    #[serde(skip)]
     asteroids: AsteroidPattern,
 
     /// The orbit pattern that determines a rocket's flight duration.
+    #[serde(skip)]
     orbit: OrbitPattern,
 
     /// The map of each planet.
+    #[serde(skip)]
     planet_maps: FnvHashMap<Planet, PlanetMap>,
 
     /// The state of each planet.

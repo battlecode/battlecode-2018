@@ -8,7 +8,7 @@ use world::Team;
 const ID_BLOCK_SIZE: usize = 4096;
 
 /// Generates a sequence of unique pseudorandom positive integer IDS for units.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
 pub struct IDGenerator {
     /// IDs generated are modulo mod 2.
     modulo: u32,

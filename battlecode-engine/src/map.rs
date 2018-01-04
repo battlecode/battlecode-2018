@@ -58,7 +58,7 @@ impl GameMap {
 
 /// The map for one of the planets in the Battlecode world. This information
 /// defines the terrain, dimensions, and initial units of the planet.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PlanetMap {
     /// The planet of the map.
     pub planet: Planet,
@@ -230,7 +230,7 @@ impl PlanetMap {
 }
 
 /// A single asteroid strike on Mars.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AsteroidStrike {
     /// The karbonite on the asteroid.
     pub karbonite: u32,
@@ -240,14 +240,14 @@ pub struct AsteroidStrike {
 
 /// The asteroid pattern, defined by the timing and contents of each asteroid
 /// strike.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AsteroidPattern {
     pattern: FnvHashMap<Rounds, AsteroidStrike>,
 }
 
 /// The orbit pattern that determines a rocket's flight duration. This pattern
 /// is a sinusoidal function y=a*sin(bx)+c.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct OrbitPattern {
     /// Amplitude of the orbit.
     pub amplitude: Rounds,
