@@ -418,8 +418,9 @@ impl GameController {
         Ok(self.world.can_build(worker_id, blueprint_id)?)
     }
 
-    /// Blueprints a unit of the given type in the given direction. Subtract
-    /// cost of that unit from the team's resource pool.
+    /// Builds a given blueprint, increasing its health by the worker's build
+    /// amount. If raised to maximum health, the blueprint becomes a completed
+    /// structure.
     ///
     /// * GameError::NoSuchUnit - a unit does not exist.
     /// * GameError::TeamNotAllowed - a unit is not on the current player's team.

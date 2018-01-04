@@ -519,6 +519,13 @@ impl Unit {
         self.health == 0
     }
 
+    /// Increases the unit's current health by the given amount, without healing
+    /// beyond the unit's maximum health. Returns true if unit is healed to max.
+    pub fn be_healed(&mut self, heal_amount: u32) -> bool {
+        self.health = cmp::min(self.health + heal_amount, self.max_health);
+        self.health == self.max_health
+    }
+
     // ************************************************************************
     // *************************** WORKER METHODS *****************************
     // ************************************************************************
@@ -588,12 +595,31 @@ impl Unit {
         Ok(self.max_capacity)
     }
 
+    /// Whether this structure has been built.
+    ///
+    /// Errors if the unit is not a structure.
+    pub fn is_built(&self) -> Result<bool, Error> {
+        self.ok_if_structure()?;
+        Ok(self.is_built)
+    }
+
     /// Returns the units in the structure's garrison.
     ///
     /// Errors if the unit is not a structure.
     pub fn garrison(&self) -> Result<Vec<UnitID>, Error> {
         self.ok_if_structure()?;
         Ok(self.garrison.clone())
+    }
+
+    /// Updates this structure as though a worker has just built it. Only errors
+    /// if the unit is not a structure (i.e. does not check that structure is
+    /// incomplete).
+    pub fn be_built(&mut self, build_health: u32) -> Result<(), Error> {
+        self.ok_if_structure()?;
+        if self.be_healed(build_health) {
+            self.is_built = true;
+        }
+        Ok(())
     }
 
     /// Whether the structure can load a unit. The unit must be ready to move
