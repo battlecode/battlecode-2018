@@ -147,6 +147,57 @@ impl UnitType {
             },
         }
     }
+
+    /// Whether the unit type is a robot.
+    pub fn is_robot(&self) -> bool {
+        match *self {
+            Worker => true,
+            Knight => true,
+            Ranger => true,
+            Mage => true,
+            Healer => true,
+            Factory => false,
+            Rocket => false,
+        }
+    }
+
+    /// Whether the unit type is a structure.
+    pub fn is_structure(&self) -> bool {
+        match *self {
+            Worker => false,
+            Knight => false,
+            Ranger => false,
+            Mage => false,
+            Healer => false,
+            Factory => true,
+            Rocket => true,
+        }
+    }
+
+    /// The cost of the unit in a factory.
+    ///
+    /// Errors if the unit cannot be produced in a factory.
+    pub fn factory_cost(self) -> Result<u32, Error> {
+        match self {
+            UnitType::Worker => Ok(FACTORY_WORKER_COST),
+            UnitType::Knight => Ok(FACTORY_KNIGHT_COST),
+            UnitType::Ranger => Ok(FACTORY_RANGER_COST),
+            UnitType::Mage => Ok(FACTORY_MAGE_COST),
+            UnitType::Healer => Ok(FACTORY_HEALER_COST),
+            _ => Err(GameError::InappropriateUnitType)?,
+        }
+    }
+
+    /// The cost to blueprint the unit.
+    ///
+    /// Errors if the unit cannot be blueprinted.
+    pub fn blueprint_cost(self) -> Result<u32, Error> {
+        match self {
+            UnitType::Factory => Ok(BLUEPRINT_FACTORY_COST),
+            UnitType::Rocket => Ok(BLUEPRINT_ROCKET_COST),
+            _ => Err(GameError::InappropriateUnitType)?,
+        }
+    }
 }
 
 /// A single unit in the game and its controller. Actions can be performed on

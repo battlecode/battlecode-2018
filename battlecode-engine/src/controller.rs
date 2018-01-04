@@ -382,9 +382,9 @@ impl GameController {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a worker, or the
     ///   unit type is not a factory or rocket.
-    pub fn can_blueprint(&self, worker_id: UnitID, unit_type: UnitType)
-                         -> Result<bool, Error> {
-        Ok(self.world.can_blueprint(worker_id, unit_type)?)
+    pub fn can_blueprint(&self, worker_id: UnitID, unit_type: UnitType,
+                         direction: Direction) -> Result<bool, Error> {
+        Ok(self.world.can_blueprint(worker_id, unit_type, direction)?)
     }
 
     /// Blueprints a unit of the given type in the given direction. Subtract

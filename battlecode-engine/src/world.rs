@@ -1077,10 +1077,36 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a worker, or the
-    ///   unit type is not a factory or rocket.
-    pub fn can_blueprint(&self, worker_id: UnitID, _unit_type: UnitType)
-                         -> Result<bool, Error> {
-        unimplemented!();
+    ///   unit type is not a structure.
+    pub fn can_blueprint(&self, worker_id: UnitID, unit_type: UnitType,
+                         direction: Direction) -> Result<bool, Error> {
+        // Players should never attempt to build a non-structure.
+        if !unit_type.is_structure() {
+            Err(GameError::InappropriateUnitType)?;
+        }
+        let unit = self.my_unit(worker_id)?;
+        if !unit.can_worker_act()? {
+            return Ok(false);
+        }
+        let build_loc = unit.location().map_location()?.add(direction);
+        // Check to see if we can sense the build location, (e.g. it is on the map).
+        if !self.can_sense_location(build_loc) {
+            return Ok(false);
+        }
+        // The build location must be unoccupied.
+        if !self.is_occupiable(build_loc)? {
+            return Ok(false);
+        }
+        // Structures can never be built on Mars.
+        if build_loc.planet == Planet::Mars {
+            return Ok(false);
+        }
+        // If building a rocket, Rocketry must be unlocked.
+        if unit_type == UnitType::Rocket && self.my_research().get_level(&unit_type) < 1 {
+            return Ok(false);
+        }
+        // Finally, the team must have sufficient karbonite.
+        Ok(self.karbonite() >= unit_type.blueprint_cost()?)
     }
 
     /// Blueprints a unit of the given type in the given direction. Subtract
@@ -1092,9 +1118,20 @@ impl GameWorld {
     ///   unit type is not a factory or rocket.
     /// * GameError::InvalidLocation - the location is off the map.
     /// * GameError::InvalidAction - the worker is not ready to blueprint.
-    pub fn blueprint(&mut self, _worker_id: UnitID, _unit_type: UnitType,
-                     _direction: Direction) -> Result<(), Error> {
-        unimplemented!();
+    pub fn blueprint(&mut self, worker_id: UnitID, unit_type: UnitType,
+                     direction: Direction) -> Result<(), Error> {
+        if !self.can_blueprint(worker_id, unit_type, direction)? {
+            Err(GameError::InvalidAction)?;
+        }
+        let build_loc = {
+            let worker = self.my_unit_mut(worker_id)?;
+            worker.worker_act()?;
+            worker.location().map_location()?.add(direction)
+        };
+        let team = self.team();
+        self.create_unit(team, build_loc, unit_type)?;
+        self.my_team_mut().karbonite -= unit_type.blueprint_cost()?;
+        Ok(())
     }
 
     /// Whether the worker can build a blueprint with the given ID. The worker
