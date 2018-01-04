@@ -627,6 +627,16 @@ impl Unit {
         Ok(self.ok_if_ability()?)
     }
 
+    /// Whether the unit is ready to process sniping.
+    ///
+    /// Errors if the unit is not ready to snipe.
+    pub fn is_process_snipe_ready(&self) -> Result<bool, Error> {
+        Ok(self.is_ability_ready()? 
+        && self.is_sniping() 
+        && self.countdown() == 0
+        && self.target_location().is_some())
+    }
+
     /// Updates the unit as if it has begun sniping. The unit's ability heat 
     /// does not increase until it has sniped.
     ///
@@ -648,19 +658,14 @@ impl Unit {
     /// Updates the unit as if it has sniped.
     ///
     /// Errors if the unit is not a ranger, or not ready to process snipe.
-    pub fn process_snipe(&mut self) -> Result<MapLocation, Error> {
+    pub fn process_snipe(&mut self) -> Result<Option<MapLocation>, Error> {
         self.ok_if_snipe()?;
-        if self.is_ability_ready()? && self.is_sniping() && self.countdown() == 0
-                && self.target_location().is_some() {
+        if self.is_process_snipe_ready()? {
             self.attack_heat = MIN_HEAT;
             self.movement_heat = MIN_HEAT;
             self.ability_heat += self.ability_cooldown;
             self.is_sniping = false;
-            let target_location = match self.target_location() {
-                Some(loc) => loc,
-                None => { Err(GameError::InvalidAction)? },
-            };
-            Ok(target_location)
+            Ok(self.target_location())
         } else {
             Err(GameError::InvalidAction)?
         }

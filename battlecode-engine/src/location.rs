@@ -133,10 +133,6 @@ impl MapLocation {
         MapLocation { planet: planet, x: x, y: y }
     }
 
-    pub fn planet(&self) -> Planet {
-        self.planet
-    }
-
     /// Returns the location one square from this one in the given direction.
     pub fn add(&self, direction: Direction) -> MapLocation {
         MapLocation { 

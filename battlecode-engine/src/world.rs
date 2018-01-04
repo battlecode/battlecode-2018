@@ -365,21 +365,6 @@ impl GameWorld {
     }
 
     // ************************************************************************
-    // ************************** HELPER METHODS ******************************
-    // ************************************************************************
-
-    /// Ok if the unit is on the current player's team.
-    ///
-    /// Errors if not. 
-    pub fn ok_if_current_team(&self, unit_id: UnitID) -> Result<(), Error> {
-        if self.team() == self.get_unit(unit_id)?.team() {
-            Ok(())
-        } else {
-            Err(GameError::TeamNotAllowed)?
-        }
-    }
-
-    // ************************************************************************
     // ************************** SENSING METHODS *****************************
     // ************************************************************************
 
@@ -871,14 +856,16 @@ impl GameWorld {
         }
     }
 
-    /// Whether the unit is on the same planet as the location. 
-    pub fn is_same_planet(&self, unit_id: UnitID, _location: MapLocation) 
+    /// Whether the unit is on the same planet as the location.
+    ///
+    /// * GameError::NoSuchUnit - the unit does not exist in the game.
+    pub fn is_same_planet(&self, unit_id: UnitID, location: MapLocation) 
             -> Result<bool, Error> {
-        let unit_location = match self.get_unit(unit_id)?.location() {
+        let unit_location = match self.unit_info(unit_id)?.location {
             OnMap(loc) => loc,
             _ => { return Ok(false) },
         };
-        Ok(unit_location.planet() == _location.planet())
+        Ok(unit_location.planet == location.planet)
     }
 
     /// Whether the robot can move in the given direction, without taking into
@@ -1004,9 +991,9 @@ impl GameWorld {
 
     // ************************************************************************
     // ************************* RESEARCH METHODS *****************************
-    // ************************************************************************
+    // ***********************f*************************************************
 
-    /// Returns research info chf the current player.
+    /// Returns research info of the current player.
     fn my_research(&self) -> ResearchInfo {
         self.my_team().research.clone()
     }
@@ -1174,12 +1161,12 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a knight.
-    pub fn can_javelin(&self, _knight_id: UnitID, _target_id: UnitID) -> Result<bool, Error> {
-        let knight = self.my_unit(_knight_id)?;
-        let target = self.get_unit(_target_id)?;
+    pub fn can_javelin(&self, knight_id: UnitID, target_id: UnitID) -> Result<bool, Error> {
+        let knight = self.my_unit(knight_id)?;
+        let target = self.unit_info(target_id)?;
         knight.ok_if_javelin()?;
         
-        Ok(knight.is_within_range(knight.ability_range(), target.location().map_location()?))
+        Ok(knight.is_within_range(knight.ability_range(), target.location.map_location()?))
     }
 
     /// Whether the knight is ready to javelin. Tests whether the knight's
@@ -1189,8 +1176,8 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a knight.
-    pub fn is_javelin_ready(&self, _knight_id: UnitID) -> Result<bool, Error> {
-       let knight = self.my_unit(_knight_id)?;
+    pub fn is_javelin_ready(&self, knight_id: UnitID) -> Result<bool, Error> {
+       let knight = self.my_unit(knight_id)?;
        knight.ok_if_javelin()?;
 
        Ok(knight.is_ability_ready()?)
@@ -1203,11 +1190,11 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a knight.
     /// * GameError::InvalidAction - the knight cannot javelin that unit.
-    pub fn javelin(&mut self, _knight_id: UnitID, _target_id: UnitID) -> Result<(), Error> {
-        if self.can_javelin(_knight_id, _target_id)? 
-                && self.get_unit(_knight_id)?.is_ability_ready()? {
-            let damage = self.get_unit_mut(_knight_id)?.javelin()?;
-            self.damage_unit(_target_id, damage);
+    pub fn javelin(&mut self, knight_id: UnitID, target_id: UnitID) -> Result<(), Error> {
+        if self.can_javelin(knight_id, target_id)? 
+                && self.my_unit(knight_id)?.is_ability_ready()? {
+            let damage = self.my_unit_mut(knight_id)?.javelin()?;
+            self.damage_unit(target_id, damage);
             Ok(())
         } else {
             Err(GameError::InvalidAction)?
@@ -1218,15 +1205,15 @@ impl GameWorld {
     // *************************** RANGER METHODS *****************************
     // ************************************************************************
 
-    /// Whether the ranger is ready to snipe. Tests whether the ranger's
+    /// Whether the ranger is ready to begin snipe. Tests whether the ranger's
     /// ability heat is sufficiently low.
     ///
     /// * GameError::InvalidResearchLevel - the ability has not been researched.
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a knight.
-    pub fn is_snipe_ready(&self, _ranger_id: UnitID) -> Result<bool, Error> {
-       let ranger = self.my_unit(_ranger_id)?;
+    pub fn is_begin_snipe_ready(&self, ranger_id: UnitID) -> Result<bool, Error> {
+       let ranger = self.my_unit(ranger_id)?;
        ranger.ok_if_snipe()?;
 
        Ok(ranger.is_ability_ready()?)
@@ -1242,27 +1229,52 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a ranger.
     /// * GameError::InvalidLocation - the location is off the map or on a different planet.
-    pub fn begin_snipe(&mut self, _ranger_id: UnitID, _location: MapLocation)
+    pub fn begin_snipe(&mut self, ranger_id: UnitID, location: MapLocation)
                        -> Result<(), Error> {
-        if !self.is_on_map(_location) {
+        if !self.is_on_map(location) {
             Err(GameError::InvalidLocation)?
         }
 
-        if self.is_snipe_ready(_ranger_id)? {
-            self.get_unit_mut(_ranger_id)?.begin_snipe(_location)?;
+        if self.is_begin_snipe_ready(ranger_id)? {
+            self.my_unit_mut(ranger_id)?.begin_snipe(location)?;
             Ok(())
         } else {
             Err(GameError::InvalidAction)?
         }
     }
-
+    
+    /// Whether the ranger snipe is ready to be processed.
     /// If a ranger's snipe has reached the end of its countdown, fires
     /// the shot and resets the attack and movement heats.
-    fn _process_ranger(&mut self, _ranger_id: UnitID) -> Result<(), Error> {
-        let target_location = self.get_unit_mut(_ranger_id)?.process_snipe()?;
-        let damage = self.get_unit(_ranger_id)?.damage()?;
-        self.damage_location(target_location, damage);
+    fn process_ranger(&mut self, ranger_id: UnitID) -> Result<(), Error> {
+        let target_location = self.get_unit_mut(ranger_id)?.process_snipe()?;
+        let damage = self.get_unit(ranger_id)?.damage()?;
+        self.damage_location(target_location.expect("ranger must have target if sniping"), damage);
         Ok(())
+    }
+
+    fn process_snipes(&mut self) {
+        let mut rangers: Vec<UnitID> = vec![];
+        for unit in &mut self.get_planet_mut(Planet::Earth).units.values_mut() {
+            if unit.unit_type() == UnitType::Ranger
+                && unit.is_sniping()
+                && unit.countdown() == 0
+                && unit.target_location().is_some() {
+                    rangers.push(unit.id());
+            }
+        }
+        for unit in &mut self.get_planet_mut(Planet::Mars).units.values_mut() {
+            if unit.unit_type() == UnitType::Ranger
+                && unit.is_sniping()
+                && unit.countdown() == 0
+                && unit.target_location().is_some() {
+                    rangers.push(unit.id());
+            }
+        }
+
+        for ranger in rangers {
+            self.process_ranger(ranger);
+        }
     }
 
     // ************************************************************************
@@ -1279,12 +1291,12 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a mage.
     /// * GameError::InvalidLocation - the location is outside the vision range.
-    pub fn can_blink(&self, _mage_id: UnitID, _location: MapLocation) -> Result<bool, Error> {
-        let mage = self.my_unit(_mage_id)?;
+    pub fn can_blink(&self, mage_id: UnitID, location: MapLocation) -> Result<bool, Error> {
+        let mage = self.my_unit(mage_id)?;
         mage.ok_if_blink()?;
         
-        Ok(mage.is_within_range(mage.ability_range(), _location)
-                && self.is_occupiable(_location)?)   
+        Ok(mage.is_within_range(mage.ability_range(), location)
+                && self.is_occupiable(location)?)   
     }
 
     /// Whether the mage is ready to blink. Tests whether the mage's ability
@@ -1294,8 +1306,8 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a mage.
-    pub fn is_blink_ready(&self, _mage_id: UnitID) -> Result<bool, Error> {
-        let mage = self.my_unit(_mage_id)?;
+    pub fn is_blink_ready(&self, mage_id: UnitID) -> Result<bool, Error> {
+        let mage = self.my_unit(mage_id)?;
         mage.ok_if_blink()?;
         Ok(mage.is_ability_ready()?)
     }
@@ -1307,11 +1319,13 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a mage.
     /// * GameError::InvalidAction - the mage cannot blink to that location.
-    pub fn blink(&mut self, _mage_id: UnitID, _location: MapLocation) -> Result<(), Error> {
-        if self.can_blink(_mage_id, _location)? 
-                && self.get_unit(_mage_id)?.is_ability_ready()? {
-            self.my_unit_mut(_mage_id)?.blink(_location);
-            self.move_to(_mage_id, _location)
+    pub fn blink(&mut self, mage_id: UnitID, location: MapLocation) -> Result<(), Error> {
+        if self.can_blink(mage_id, location)? 
+                && self.my_unit(mage_id)?.is_ability_ready()? {
+            self.remove_unit(mage_id);
+            self.my_unit_mut(mage_id)?.blink(location);
+            self.place_unit(mage_id);
+            Ok(())
         } else {
             Err(GameError::InvalidAction)?
         }
@@ -1360,10 +1374,10 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - a unit does not exist.
     /// * GameError::TeamNotAllowed - the first unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the healer or robot is not the right type.
-    pub fn can_overcharge(&self, _healer_id: UnitID, _robot_id: UnitID)
+    pub fn can_overcharge(&self, healer_id: UnitID, robot_id: UnitID)
                           -> Result<bool, Error> {
-        let healer = self.my_unit(_healer_id)?;
-        let robot = self.get_unit(_robot_id)?;
+        let healer = self.my_unit(healer_id)?;
+        let robot = self.my_unit(robot_id)?;
         healer.ok_if_overcharge()?;
         robot.ok_if_ability()?;
 
@@ -1377,9 +1391,8 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a healer.
-    pub fn is_overcharge_ready(&self, _healer_id: UnitID) -> Result<bool, Error> {
-        self.ok_if_current_team(_healer_id)?;
-        let healer = self.get_unit(_healer_id)?;
+    pub fn is_overcharge_ready(&self, healer_id: UnitID) -> Result<bool, Error> {
+        let healer = self.my_unit(healer_id)?;
         healer.ok_if_overcharge()?;
 
         Ok(healer.is_ability_ready()?)
@@ -1392,12 +1405,12 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the first unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the healer or robot is not the right type.
     /// * GameError::InvalidAction - the healer cannot overcharge that unit.
-    pub fn overcharge(&mut self, _healer_id: UnitID, _robot_id: UnitID)
+    pub fn overcharge(&mut self, healer_id: UnitID, robot_id: UnitID)
                       -> Result<(), Error> {
-        if self.can_overcharge(_healer_id, _robot_id)? 
-                && self.get_unit(_healer_id)?.is_ability_ready()? {
-            self.get_unit_mut(_healer_id)?.overcharge()?;
-            self.get_unit_mut(_robot_id)?.reset_ability_cooldown()?;
+        if self.can_overcharge(healer_id, robot_id)? 
+                && self.my_unit(healer_id)?.is_ability_ready()? {
+            self.my_unit_mut(healer_id)?.overcharge()?;
+            self.my_unit_mut(robot_id)?.reset_ability_cooldown()?;
             Ok(())
         } else {
             Err(GameError::InvalidAction)?  
@@ -1634,6 +1647,9 @@ impl GameWorld {
         for unit in &mut self.get_planet_mut(Planet::Mars).units.values_mut() {
             unit.end_round();
         }
+
+        // Process ranger snipes.
+        self.process_snipes();
 
         // Land rockets.
         self.process_rockets(Team::Red)?;
@@ -1914,16 +1930,18 @@ mod tests {
         // Ranger should not be able to snipe target location on a different planet.
         assert!(world.begin_snipe(ranger, loc_c).is_err());
 
-        // Ranger begins to snipe a location. 
+        // Processing snipe should fail if ranger has not channeled for enough rounds
+        assert!(world.process_ranger(ranger).is_err());
+
+        // Ranger begins to snipe a location.
         assert!(world.begin_snipe(ranger, loc_b).is_ok());
+
+        // Enough rounds pass where Ranger's snipe is processed
         let rounds = 200;
         for round in 0..rounds {
             assert!(world.end_round().is_ok());
         }
-
-        // Ranger snipes a location.
-        assert!(world._process_ranger(ranger).is_ok());
-
+        
         // Robot at sniped location should take damage
         let robot_damaged_health = 180;
         assert_eq!(world.get_unit(robot).unwrap().health(), robot_damaged_health);
