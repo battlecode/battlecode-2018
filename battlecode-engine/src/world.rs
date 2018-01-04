@@ -411,8 +411,12 @@ impl GameWorld {
     /// The karbonite at the given location.
     ///
     /// * GameError::InvalidLocation - the location is outside the vision range.
-    pub fn karbonite_at(&self, _location: MapLocation) -> Result<u32, Error> {
-        unimplemented!();
+    pub fn karbonite_at(&self, location: MapLocation) -> Result<u32, Error> {
+        if !self.can_sense_location(location) {
+            Err(GameError::InvalidLocation)?;
+        }
+        let planet_info = self.my_planet();
+        Ok(planet_info.karbonite[location.y as usize][location.x as usize])
     }
 
     /// Returns an array of all locations within a certain radius squared of
@@ -1021,14 +1025,24 @@ impl GameWorld {
     // *************************** WORKER METHODS *****************************
     // ************************************************************************
 
-    /// Whether the worker is ready to harvest. The worker cannot already have
-    /// performed an action this round.
+    /// Whether the worker is ready to harvest, and the given direction contains
+    /// karbonite to harvest. The worker cannot already have performed an action 
+    /// this round.
     ///
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a worker.
-    pub fn can_harvest(&self, _worker_id: UnitID) -> Result<bool, Error> {
-        unimplemented!();
+    pub fn can_harvest(&self, worker_id: UnitID, direction: Direction) -> Result<bool, Error> {
+        let unit = self.my_unit(worker_id)?;
+        if !unit.can_worker_act()? {
+            return Ok(false);
+        }
+        let harvest_loc = unit.location().map_location()?.add(direction);
+        // Check to see if we can sense the harvest location, (e.g. it is on the map).
+        if !self.can_sense_location(harvest_loc) {
+            return Ok(false);
+        }
+        Ok(self.karbonite_at(harvest_loc)? > 0)
     }
 
     /// Harvests up to the worker's harvest amount of karbonite from the given
@@ -1038,13 +1052,24 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a worker.
     /// * GameError::InvalidLocation - the location is off the map.
-    /// * GameError::InvalidAction - the worker is not ready to harvest.
-    pub fn harvest(&mut self, _worker_id: UnitID, _direction: Direction)
+    /// * GameError::InvalidAction - the worker is not ready to harvest, or there is no karbonite.
+    pub fn harvest(&mut self, worker_id: UnitID, direction: Direction)
                    -> Result<(), Error> {
-        unimplemented!();
+        if !self.can_harvest(worker_id, direction)? {
+            Err(GameError::InvalidAction)?;
+        }
+        let (harvest_loc, harvest_amount) = {
+            let worker = self.my_unit_mut(worker_id)?;
+            worker.worker_act()?;
+            (worker.location().map_location()?.add(direction), worker.harvest_amount()?)
+        };
+        let amount_mined = cmp::min(self.karbonite_at(harvest_loc)?, harvest_amount);
+        self.my_team_mut().karbonite += amount_mined;
+        self.my_planet_mut().karbonite[harvest_loc.y as usize][harvest_loc.x as usize] -= amount_mined;
+        Ok(())
     }
 
-    /// Whether the worker can blueprint a unit of the given type. The worker
+    /// Whether the worker can blueprint a structure of the given type. The worker
     /// can only blueprint factories, and rockets if Rocketry has been
     /// researched. The team must have sufficient karbonite in its resource
     /// pool. The worker cannot already have performed an action this round.
@@ -1053,7 +1078,7 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a worker, or the
     ///   unit type is not a factory or rocket.
-    pub fn can_blueprint(&self, _worker_id: UnitID, _unit_type: UnitType)
+    pub fn can_blueprint(&self, worker_id: UnitID, _unit_type: UnitType)
                          -> Result<bool, Error> {
         unimplemented!();
     }
@@ -1895,5 +1920,41 @@ mod tests {
         // Cannot unload an empty rocket.
         assert![!world.can_unload(rocket, Direction::East).unwrap()];
         assert_err![world.unload(rocket, Direction::East), GameError::InvalidAction];
+    }
+
+    #[test]
+    fn test_worker_harvest() {
+        // Create the game world, which by default has 10 karbonite everywhere.
+        let mut world = GameWorld::test_world();
+
+        // Create a deposit, and test that it can be mined out as expected.
+        let deposit = MapLocation::new(Planet::Earth, 0, 0);
+        let expected_karbonite = [10, 7, 4, 1, 0];
+        let expected_team_karbonite = [100, 103, 106, 109, 110];
+        for i in 0..4 {
+            let worker = world.create_unit(Team::Red, deposit.add(Direction::North), 
+                                                UnitType::Worker).unwrap();
+            assert![world.can_harvest(worker, Direction::South).unwrap()];
+            assert_eq![world.karbonite_at(deposit).unwrap(), expected_karbonite[i]];
+            assert_eq![world.karbonite(), expected_team_karbonite[i]];
+            assert![world.harvest(worker, Direction::South).is_ok()];
+            // The robot can no longer harvest, as it has already done so.
+            assert![!world.can_harvest(worker, Direction::South).unwrap()];
+            assert_eq![world.karbonite_at(deposit).unwrap(), expected_karbonite[i+1]];
+            assert_eq![world.karbonite(), expected_team_karbonite[i+1]];
+            world.destroy_unit(worker);
+        }
+
+        // The deposit has been mined out, so it cannot be harvested.
+        let worker = world.create_unit(Team::Red, deposit.add(Direction::North),
+                                            UnitType::Worker).unwrap();
+        assert![!world.can_harvest(worker, Direction::South).unwrap()];
+
+        // Other deposits can still be harvested, including in the robot's own space.
+        assert![world.can_harvest(worker, Direction::Center).unwrap()];
+
+        // Deposits off the edge of the map can obviously not be harvested, but checking
+        // this should not error.
+        assert![!world.can_harvest(worker, Direction::West).unwrap()];
     }
 }

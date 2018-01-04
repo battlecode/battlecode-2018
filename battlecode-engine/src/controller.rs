@@ -345,14 +345,15 @@ impl GameController {
     // *************************** WORKER METHODS *****************************
     // ************************************************************************
 
-    /// Whether the worker is ready to harvest. The worker cannot already have
-    /// performed an action this round.
+    /// Whether the worker is ready to harvest, and the given direction contains
+    /// karbonite to harvest. The worker cannot already have performed an action 
+    /// this round.
     ///
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a worker.
-    pub fn can_harvest(&self, worker_id: UnitID) -> Result<bool, Error> {
-        Ok(self.world.can_harvest(worker_id)?)
+    pub fn can_harvest(&self, worker_id: UnitID, direction: Direction) -> Result<bool, Error> {
+        Ok(self.world.can_harvest(worker_id, direction)?)
     }
 
     /// Harvests up to the worker's harvest amount of karbonite from the given
@@ -362,7 +363,7 @@ impl GameController {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a worker.
     /// * GameError::InvalidLocation - the location is off the map.
-    /// * GameError::InvalidAction - the worker is not ready to harvest.
+    /// * GameError::InvalidAction - the worker is not ready to harvest, or there is no karbonite.
     pub fn harvest(&mut self, worker_id: UnitID, direction: Direction)
                    -> Result<(), Error> {
         let delta = Delta::Harvest { worker_id, direction };

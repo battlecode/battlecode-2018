@@ -210,7 +210,7 @@ impl PlanetMap {
             height: MAP_HEIGHT_MIN,
             width: MAP_WIDTH_MIN,
             is_passable_terrain: vec![vec![true; MAP_WIDTH_MIN]; MAP_HEIGHT_MIN],
-            initial_karbonite: vec![vec![0; MAP_WIDTH_MIN]; MAP_HEIGHT_MIN],
+            initial_karbonite: vec![vec![10; MAP_WIDTH_MIN]; MAP_HEIGHT_MIN],
             initial_units: vec![],
         };
 
