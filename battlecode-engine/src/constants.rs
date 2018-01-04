@@ -59,6 +59,23 @@ pub const KARBONITE_PER_ROUND: u32 = 10;
 pub const KARBONITE_DECREASE_RATIO: u32 = 1500;
 
 // *********************************
+// ******* FACTORY CONSTANTS *******
+// *********************************
+
+/// The cost of a worker in a factory.
+pub const FACTORY_WORKER_COST: u32 = 60;
+/// The cost of a knight in a factory.
+pub const FACTORY_KNIGHT_COST: u32 = 50;
+/// The cost of a ranger in a factory.
+pub const FACTORY_RANGER_COST: u32 = 50;
+/// The cost of a mage in a factory.
+pub const FACTORY_MAGE_COST: u32 = 50;
+/// The cost of a healer in a factory.
+pub const FACTORY_HEALER_COST: u32 = 50;
+/// The number of rounds to produce a robot in a factory.
+pub const FACTORY_NUM_ROUNDS: Rounds = 5;
+
+// *********************************
 // ****** RESEARCH CONSTANTS *******
 // *********************************
 

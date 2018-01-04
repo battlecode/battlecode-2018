@@ -8,7 +8,7 @@ use super::constants::*;
 use super::error::GameError;
 use super::location::*;
 use super::research::Level;
-use super::world::Team;
+use super::world::*;
 use unit::UnitType::*;
 use unit::Location::*;
 
@@ -147,6 +147,46 @@ impl UnitType {
             },
         }
     }
+
+    /// Whether the unit type is a robot.
+    pub fn is_robot(&self) -> bool {
+        match *self {
+            Worker => true,
+            Knight => true,
+            Ranger => true,
+            Mage => true,
+            Healer => true,
+            Factory => false,
+            Rocket => false,
+        }
+    }
+
+    /// Whether the unit type is a structure.
+    pub fn is_structure(&self) -> bool {
+        match *self {
+            Worker => false,
+            Knight => false,
+            Ranger => false,
+            Mage => false,
+            Healer => false,
+            Factory => true,
+            Rocket => true,
+        }
+    }
+
+    /// The cost of the unit in a factory.
+    ///
+    /// Errors if the unit cannot be produced in a factory.
+    pub fn factory_cost(&self) -> Result<u32, Error> {
+        match *self {
+            UnitType::Worker => Ok(FACTORY_WORKER_COST),
+            UnitType::Knight => Ok(FACTORY_KNIGHT_COST),
+            UnitType::Ranger => Ok(FACTORY_RANGER_COST),
+            UnitType::Mage => Ok(FACTORY_MAGE_COST),
+            UnitType::Healer => Ok(FACTORY_HEALER_COST),
+            _ => Err(GameError::InappropriateUnitType)?,
+        }
+    }
 }
 
 /// A single unit in the game and its controller. Actions can be performed on
@@ -203,7 +243,8 @@ pub struct Unit {
     self_heal_amount: u32,
 
     // Factory special ability.
-    production_queue: Vec<UnitType>,
+    factory_unit_type: Option<UnitType>,
+    factory_rounds_left: Option<Rounds>,
 
     // Rocket special ability.
     is_used: bool,
@@ -246,7 +287,8 @@ impl Default for Unit {
             target_location: None,
             explode_multiplier: 100,
             self_heal_amount: 1,
-            production_queue: vec![],
+            factory_unit_type: None,
+            factory_rounds_left: None,
             is_used: false,
             travel_time_multiplier: 100,
         }
@@ -594,6 +636,61 @@ impl Unit {
     // ************************** FACTORY METHODS *****************************
     // ************************************************************************
 
+    /// Whether the factory can produce a robot of this type.
+    ///
+    /// Errors if the unit is not a factory or the robot type is not a robot.
+    pub fn can_produce_robot(&self, unit_type: UnitType) -> Result<bool, Error> {
+        self.ok_if_unit_type(Factory)?;
+        if !unit_type.is_robot() {
+            return Err(GameError::InappropriateUnitType)?;
+        }
+        Ok(self.factory_unit_type.is_none())
+    }
+
+    /// Starts producing a robot of this type.
+    /// Assumes the unit can produce a robot.
+    pub fn produce_robot(&mut self, unit_type: UnitType) {
+        self.factory_unit_type = Some(unit_type);
+        self.factory_rounds_left = Some(FACTORY_NUM_ROUNDS);
+    }
+
+    /// The number of rounds left to produce a robot in this factory. Returns
+    /// None if no unit is currently being produced.
+    ///
+    /// Errors if the unit is not a factory.
+    pub fn factory_rounds_left(&self) -> Result<Option<Rounds>, Error> {
+        self.ok_if_unit_type(Factory)?;
+        Ok(self.factory_rounds_left)
+    }
+
+    /// Ends a round for this factory. If the factory is currently producing a
+    /// robot, decreases the number of rounds left. If the number of rounds is
+    /// 0 and the factory can load a unit into the garrison, loads the unit and
+    /// returns the unit type and resets the factory. If the factory cannot
+    /// load a unit, does nothing.
+    ///
+    /// Assumes the unit is a factory.
+    pub fn process_factory_round(&mut self) -> Option<UnitType> {
+        if self.factory_rounds_left.is_none() {
+            return None;
+        }
+
+        let rounds_left = self.factory_rounds_left.unwrap() - 1;
+        if rounds_left != 0 {
+            self.factory_rounds_left = Some(rounds_left);
+            return None;
+        }
+
+        if !self.can_load().unwrap() {
+            return None;
+        }
+
+        let unit_type = self.factory_unit_type.unwrap();
+        self.factory_rounds_left = None;
+        self.factory_unit_type = None;
+        Some(unit_type)
+    }
+
     // ************************************************************************
     // *************************** ROCKET METHODS *****************************
     // ************************************************************************
@@ -795,6 +892,53 @@ mod tests {
     #[test]
     fn test_combat() {
 
+    }
+
+    #[test]
+    fn test_factory() {
+        // A worker cannot produce a robot.
+        let loc = MapLocation::new(Planet::Earth, 0, 0);
+        let worker = Unit::new(1, Team::Red, Worker, 0, OnMap(loc)).unwrap();
+        assert_err!(worker.can_produce_robot(Mage), GameError::InappropriateUnitType);
+
+        // A factory cannot produce a structure, but it can produce a mage.
+        let mut factory = Unit::new(1, Team::Red, Factory, 0, OnMap(loc)).unwrap();
+        assert_eq!(factory.factory_rounds_left().unwrap(), None);
+        assert_err!(factory.can_produce_robot(Factory), GameError::InappropriateUnitType);
+        assert_err!(factory.can_produce_robot(Rocket), GameError::InappropriateUnitType);
+        assert!(factory.can_produce_robot(Mage).unwrap());
+
+        // The factory cannot produce anything when it's already busy.
+        factory.produce_robot(Mage);
+        assert!(!factory.can_produce_robot(Mage).unwrap());
+
+        // After a few rounds, the factory can produce again.
+        for _ in 0..FACTORY_NUM_ROUNDS - 1 {
+            assert_eq!(factory.process_factory_round(), None);
+            assert!(!factory.can_produce_robot(Mage).unwrap());
+        }
+        assert_eq!(factory.process_factory_round(), Some(Mage));
+        assert!(factory.can_produce_robot(Mage).unwrap());
+
+        // Fill the factory to its max capacity.
+        for id in 0..factory.max_capacity().expect("unit has a capacity") {
+            assert!(factory.load(id as UnitID).is_ok());
+        }
+
+        // The factory can produce one more robot, but it won't go in its garrison.
+        assert!(factory.can_produce_robot(Mage).unwrap());
+        factory.produce_robot(Mage);
+        for _ in 0..FACTORY_NUM_ROUNDS * 2 {
+            assert_eq!(factory.process_factory_round(), None);
+            assert!(!factory.can_produce_robot(Mage).unwrap());
+        }
+
+        // After unloading the units, the factory will work again.
+        for id in 0..factory.max_capacity().expect("unit has a capacity") {
+            assert_eq!(factory.unload_unit().unwrap(), id as UnitID);
+        }
+        assert_eq!(factory.process_factory_round(), Some(Mage));
+        assert!(factory.can_produce_robot(Mage).unwrap());
     }
 
     #[test]

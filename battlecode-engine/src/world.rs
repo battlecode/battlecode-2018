@@ -1413,22 +1413,35 @@ impl GameWorld {
     // ************************** FACTORY METHODS *****************************
     // ************************************************************************
 
-    /// Adds a unit to the factory's production queue. Does nothing if the
-    /// production queue is full. Returns whether the unit was added.
+    /// Whether the factory can produce a robot of the given type. The factory
+    /// must not currently be producing a robot, and the team must have
+    /// sufficient resources in its resource pool.
     ///
     /// * GameError::NoSuchUnit - the unit does not exist.
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a factory, or the
     ///   queued unit type is not a robot.
-    pub fn queue_robot(&mut self, _factory_id: UnitID, _unit_type: UnitType)
+    pub fn can_produce_robot(&mut self, factory_id: UnitID, unit_type: UnitType)
                        -> Result<bool, Error> {
+        unimplemented!();
+    }
+
+    /// Starts producing the robot of the given type.
+    ///
+    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a factory, or the
+    ///   queued unit type is not a robot.
+    /// * GameError::InvalidAction - the factory cannot produce the robot.
+    pub fn produce_robot(&mut self, factory_id: UnitID, unit_type: UnitType)
+                       -> Result<(), Error> {
         unimplemented!();
     }
 
     /// Process the end of the turn for factories. If a factory added a unit
     /// to its garrison, also mark that unit down in the game world.
-    fn _process_factory(&self) {
-        unimplemented!()
+    fn _process_factory(&mut self, _planet: Planet) {
+        unimplemented!();
     }
 
     // ************************************************************************
@@ -1782,9 +1795,7 @@ mod tests {
         let id_c = world.create_unit(Team::Blue, loc_c, UnitType::Knight).unwrap();
 
         // Load the rocket with a unit.
-        println!("id_a location: unit_info={:?} unit={:?}", world.unit_info(id_a).unwrap().location, world.my_unit(id_a).unwrap().location());
         assert!(world.load(id_a, id_b).is_ok());
-        println!("id_a location: unit_info={:?} unit={:?}", world.unit_info(id_a).unwrap().location, world.my_unit(id_a).unwrap().location());
 
         // Filter the world on Blue's turn.
         assert!(world.end_turn().is_ok());
