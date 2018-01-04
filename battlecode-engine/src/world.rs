@@ -1172,8 +1172,7 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a knight.
     pub fn can_javelin(&self, _knight_id: UnitID, _target_id: UnitID) -> Result<bool, Error> {
-        self.ok_if_current_team(_knight_id)?;
-        let knight = self.get_unit(_knight_id)?;
+        let knight = self.my_unit(_knight_id)?;
         let target = self.get_unit(_target_id)?;
         knight.ok_if_javelin()?;
         
@@ -1188,8 +1187,7 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a knight.
     pub fn is_javelin_ready(&self, _knight_id: UnitID) -> Result<bool, Error> {
-       self.ok_if_current_team(_knight_id)?;
-       let knight = self.get_unit(_knight_id)?;
+       let knight = self.my_unit(_knight_id)?;
        knight.ok_if_javelin()?;
 
        Ok(knight.is_ability_ready()?)
@@ -1229,8 +1227,8 @@ impl GameWorld {
     /// * GameError::InvalidLocation - the location is off the map or on a different planet.
     pub fn begin_snipe(&mut self, _ranger_id: UnitID, _location: MapLocation)
                        -> Result<(), Error> {
-        if self.is_same_planet(_ranger_id, _location)?
-                && !self.is_off_map(_location) {
+        if self.is_same_planet(_ranger_id, _location)? && !self.is_off_map(_location) 
+                && self.my_unit(_ranger_id).is_ok() {
             self.get_unit_mut(_ranger_id)?.begin_snipe(_location)?;
             Ok(())
         } else {
@@ -1263,8 +1261,7 @@ impl GameWorld {
     /// * GameError::InappropriateUnitType - the unit is not a mage.
     /// * GameError::InvalidLocation - the location is outside the vision range.
     pub fn can_blink(&self, _mage_id: UnitID, _location: MapLocation) -> Result<bool, Error> {
-        self.ok_if_current_team(_mage_id)?;
-        let mage = self.get_unit(_mage_id)?;
+        let mage = self.my_unit(_mage_id)?;
         mage.ok_if_blink()?;
         
         Ok(mage.is_within_range(mage.ability_range(), _location)
@@ -1279,8 +1276,7 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a mage.
     pub fn is_blink_ready(&self, _mage_id: UnitID) -> Result<bool, Error> {
-        self.ok_if_current_team(_mage_id)?;
-        let mage = self.get_unit(_mage_id)?;
+        let mage = self.my_unit(_mage_id)?;
         mage.ok_if_blink()?;
 
         Ok(mage.is_ability_ready()?)
@@ -1347,8 +1343,7 @@ impl GameWorld {
     /// * GameError::InappropriateUnitType - the healer or robot is not the right type.
     pub fn can_overcharge(&self, _healer_id: UnitID, _robot_id: UnitID)
                           -> Result<bool, Error> {
-        self.ok_if_current_team(_healer_id)?;
-        let healer = self.get_unit(_healer_id)?;
+        let healer = self.my_unit(_healer_id)?;
         let robot = self.get_unit(_robot_id)?;
         healer.ok_if_overcharge()?;
         robot.ok_if_ability()?;
