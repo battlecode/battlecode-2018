@@ -10,8 +10,8 @@ use rand::distributions::range::Range;
 use constants::*;
 use error::GameError;
 use location::*;
-use unit::Unit;
-use super::world::Rounds;
+use unit::*;
+use world::*;
 
 /// The map defining the starting state for an entire game.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -41,6 +41,18 @@ impl GameMap {
     /// Whether a location is on the map of either planet.
     pub fn on_map(&self, location: MapLocation) -> bool {
         self.earth_map.on_map(location) || self.mars_map.on_map(location)
+    }
+
+    pub fn test_map() -> GameMap {
+        let seed = 1;
+        let mars_map = PlanetMap::test_map(Planet::Mars);
+        GameMap {
+            seed: seed,
+            earth_map: PlanetMap::test_map(Planet::Earth),
+            mars_map: mars_map.clone(),
+            asteroids: AsteroidPattern::random(seed, &mars_map),
+            orbit: OrbitPattern::new(100, 100, 300),
+        }
     }
 }
 
@@ -141,7 +153,8 @@ impl PlanetMap {
             }
         }
         for ref unit in &self.initial_units {
-            let location = unit.location().ok_or(GameError::InvalidMapObject)?;
+            let location = unit.location().map_location()?;
+            // TODO: .unwrap(GameError::InvalidMapObject)?;
             let x = location.x as usize;
             let y = location.y as usize;
             if location.planet != self.planet {
@@ -162,6 +175,8 @@ impl PlanetMap {
     /// Whether a location is on the map.
     pub fn on_map(&self, location: MapLocation) -> bool {
         self.planet == location.planet
+            && location.x >= 0
+            && location.y >= 0
             && location.x < self.width as i32
             && location.y < self.height as i32
     }
@@ -190,14 +205,27 @@ impl PlanetMap {
     }
 
     pub fn test_map(planet: Planet) -> PlanetMap {
-        PlanetMap {
+        let mut map = PlanetMap {
             planet: planet,
             height: MAP_HEIGHT_MIN,
             width: MAP_WIDTH_MIN,
             is_passable_terrain: vec![vec![true; MAP_WIDTH_MIN]; MAP_HEIGHT_MIN],
             initial_karbonite: vec![vec![0; MAP_WIDTH_MIN]; MAP_HEIGHT_MIN],
             initial_units: vec![],
-        }
+        };
+
+        if planet == Planet::Earth {
+            map.initial_units.push(Unit::new(
+                1, Team::Red, UnitType::Worker, 0,
+                MapLocation::new(planet, 1, 1)
+            ).expect("invalid test unit"));
+            map.initial_units.push(Unit::new(
+                2, Team::Blue, UnitType::Worker, 0,
+                MapLocation::new(planet, MAP_WIDTH_MIN as i32 - 1, MAP_HEIGHT_MIN as i32 - 1)
+            ).expect("invalid test unit"));
+        };
+
+        map
     }
 }
 
@@ -304,7 +332,7 @@ impl AsteroidPattern {
         // ASTEROID_ROUND_MAX] rounds, inclusive.
         let mut rounds: Vec<&Rounds> = self.pattern.keys().collect();
         rounds.sort();
-        if rounds[0] - 1 > ASTEROID_ROUND_MAX {
+        if *rounds[0] > ASTEROID_ROUND_MAX {
             Err(GameError::InvalidMapObject)?
         }
         if ROUND_LIMIT - rounds[rounds.len() - 1] > ASTEROID_ROUND_MAX {
@@ -370,20 +398,13 @@ impl OrbitPattern {
 
 #[cfg(test)]
 mod tests {
-    use fnv::FnvHashMap;
-
-    use super::AsteroidPattern;
-    use super::AsteroidStrike;
-    use super::OrbitPattern;
-    use super::super::constants::*;
-    use super::super::location::*;
-    use super::super::world::Rounds;
+    use super::*;
 
     fn insert_and_err(pattern: &FnvHashMap<Rounds, AsteroidStrike>,
                       round: Rounds, karbonite: u32, location: MapLocation) {
         let mut invalid = pattern.clone();
         invalid.insert(round, AsteroidStrike::new(karbonite, location));
-        assert!(AsteroidPattern::new(&invalid).validate().is_err());
+        assert_err!(AsteroidPattern::new(&invalid).validate(), GameError::InvalidMapObject);
     }
 
     fn gen_asteroid_map(start_round: Rounds, skip_round: Rounds)
@@ -410,10 +431,10 @@ mod tests {
         // Generate an asteroid pattern from a map.
         let asteroid_map = AsteroidPattern::random(0, mars_map).asteroid_map();
         let asteroids = AsteroidPattern::new(&asteroid_map);
-        asteroids.validate().is_ok();
+        assert!(asteroids.validate().is_ok());
 
         let mut asteroid_map = gen_asteroid_map(1, ASTEROID_ROUND_MAX);
-        AsteroidPattern::new(&asteroid_map).validate().is_ok();
+        assert!(AsteroidPattern::new(&asteroid_map).validate().is_ok());
 
         // Invalid asteroid strikes.
         let loc = MapLocation::new(Planet::Mars, 0, 0);
@@ -425,14 +446,14 @@ mod tests {
 
         // Invalid strike pattern.
         insert_and_err(&asteroid_map, 2, ASTEROID_KARB_MIN, loc);
-        asteroid_map.remove(&ASTEROID_ROUND_MIN);
-        AsteroidPattern::new(&asteroid_map).validate().is_err();
+        asteroid_map.remove(&1);
+        assert_err!(AsteroidPattern::new(&asteroid_map).validate(), GameError::InvalidMapObject);
     }
 
     #[test]
     fn validate_orbit() {
-        assert!(OrbitPattern::new(150, 200, 200).validate().is_err());
-        assert!(OrbitPattern::new(150, 200, 300).validate().is_err());
+        assert_err!(OrbitPattern::new(150, 200, 200).validate(), GameError::InvalidMapObject);
+        assert_err!(OrbitPattern::new(150, 200, 300).validate(), GameError::InvalidMapObject);
         assert!(OrbitPattern::new(150, 200, 250).validate().is_ok());
     }
 

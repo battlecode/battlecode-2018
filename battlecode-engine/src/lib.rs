@@ -24,6 +24,10 @@ extern crate rand;
 // significantly faster for integer keys.
 extern crate fnv;
 
+// see error.rs
+#[macro_use]
+pub mod error;
+
 // see controller.rs
 pub mod controller;
 
@@ -36,9 +40,6 @@ pub mod schema;
 // see world.rs
 pub mod world;
 
-// see error.rs
-pub mod error;
-
 // see location.rs
 pub mod location;
 
@@ -50,6 +51,9 @@ pub mod unit;
 
 // see research.rs
 pub mod research;
+
+// see rockets.rs
+pub mod rockets;
 
 // see constants.rs
 pub mod constants;

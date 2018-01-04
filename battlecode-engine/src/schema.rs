@@ -20,12 +20,8 @@ pub enum Delta {
     Blink { mage_id: UnitID, location: MapLocation },
     /// Commands the given worker to build a blueprint.
     Build { worker_id: UnitID, blueprint_id: UnitID },
-    /// Commands the given structure to degarrison a unit in the given direction.
-    Degarrison { structure_id: UnitID, direction: Direction },
     /// Commands the given unit to disintegrate.
     Disintegrate { unit_id: UnitID },
-    /// Commands the given structure to pull the specified robot into its garrison.
-    Garrison { structure_id: UnitID, robot_id: UnitID },
     /// Commands the given worker to mine karbonite from an adjacent square.
     Harvest { worker_id: UnitID, direction: Direction },
     /// Commands the given healer to heal the given robot.
@@ -34,12 +30,14 @@ pub enum Delta {
     Javelin { knight_id: UnitID, target_unit_id: UnitID },
     /// Commands the given rocket to launch, ultimately landing in the specified location.
     LaunchRocket { rocket_id: UnitID, location: MapLocation },
+    /// Commands the given structure to load the specified robot into its garrison.
+    Load { structure_id: UnitID, robot_id: UnitID },
     /// Commands the given robot to move in the given direction.
     Move { robot_id: UnitID, direction: Direction },
     /// Commands the given healer to overcharge the specified robot.
     Overcharge { healer_id: UnitID, target_robot_id: UnitID },
-    /// Queues the next level of the given research branch, for the specified team.
-    QueueResearch { team: Team, branch: UnitType },
+    /// Queues the next level of the given research branch.
+    QueueResearch { branch: UnitType },
     /// Commands the given factory to enqueue production a robot.
     QueueRobotProduction { factory_id: UnitID, robot_type: UnitType },
     /// Commands the given worker to repair the specified strucutre.
@@ -47,7 +45,9 @@ pub enum Delta {
     /// Commands the given worker to replicate in the given direction.
     Replicate { worker_id: UnitID, direction: Direction },
     /// Resets the current research queue, for the specified team.
-    ResetResearchQueue { team: Team },
+    ResetResearchQueue,
+    /// Commands the given structure to unload a unit in the given direction.
+    Unload { structure_id: UnitID, direction: Direction },
     /// Nothing happens.
     Nothing,
 }
