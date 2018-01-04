@@ -75,6 +75,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         else:
             # Yea this will get replaced by actual engine code later
             pass
+        self.viewer_messages = []
 
     @property
     def num_log_in(self):
@@ -146,6 +147,22 @@ class Game(object): # pylint: disable=too-many-instance-attributes
 
         self.running_lock.release()
 
+    def get_viewer_messages(self):
+        '''
+        A generator for the viewer messages
+        '''
+        # TODO check this works with the way the engine works
+        max_yield_item = 0
+        while not self.game_over or max_yield_item != len(self.viewer_messages):
+            if len(self.viewer_messages) > max_yield_item:
+                new_max = len(self.viewer_messages)
+                for i in range(max_yield_item, new_max):
+                    yield self.viewer_messages[i]
+                max_yield_item = new_max
+            time.sleep(0.1)
+
+
+
 
     def start_turn(self, client_id: int):
         '''
@@ -180,6 +197,8 @@ class Game(object): # pylint: disable=too-many-instance-attributes
 
         '''
         # interact with the engine
+        # TODO add to viewer_messages
+        self.viewer_messages.append("")
         self.state = engine.commit_actions(self.state, moves, client_id)
         self.times[client_id] -= diff_time
         return
@@ -404,10 +423,13 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             '''
             This handles the connection to the viewer
             '''
+            pass
 
             while True:
                 # TODO interact with engine and send next message
-                self.game.next_turn()
+                for message in self.game.get_next_message():
+                    # TODO check this schema works for the viewer
+                    self.send_message(message)
 
         def handle(self):
             '''
