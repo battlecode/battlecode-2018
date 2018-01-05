@@ -293,8 +293,11 @@ impl GameWorld {
                     continue;
                 }
                 units_by_loc.insert(loc, id);
+                unit_infos.insert(id, unit);
+            } else if unit.team == team {
+                // Units in garrisons are only visible if on your team
+                unit_infos.insert(id, unit);
             }
-            unit_infos.insert(id, unit);
         };
 
         // Filter the team states.
@@ -343,12 +346,6 @@ impl GameWorld {
         self.player_to_move.team
     }
 
-    /// The rockets in space that belong to the current team, including
-    /// their landing rounds and locations, by landing round.
-    pub fn rockets_in_space(&self) -> FnvHashMap<Rounds, Vec<Unit>> {
-        unimplemented!();
-    }
-
     /// The starting map of the given planet. Includes the map's planet,
     /// dimensions, impassable terrain, and initial units and karbonite.
     pub fn starting_map(&self, planet: Planet) -> &PlanetMap {
@@ -393,30 +390,42 @@ impl GameWorld {
         self.unit_info(id)
     }
 
-    /// All the units within the vision range.
-    pub fn units(&self) -> Vec<UnitInfo> {
-        unimplemented!();
+    /// All the units within the vision range, in no particular order.
+    /// Does not include units in space.
+    pub fn units(&self) -> Vec<&UnitInfo> {
+        self.my_planet().unit_infos.values().collect::<Vec<&UnitInfo>>()
     }
 
     /// All the units within the vision range, by ID.
+    /// Does not include units in space.
     pub fn units_by_id(&self) -> FnvHashMap<UnitID, UnitInfo> {
-        unimplemented!();
+        self.my_planet().unit_infos.clone()
     }
 
     /// All the units within the vision range, by location.
+    /// Does not include units in garrisons or in space.
     pub fn units_by_loc(&self) -> FnvHashMap<MapLocation, UnitID> {
-        unimplemented!();
+        self.my_planet().units_by_loc.clone()
+    }
+
+    /// All the units visible in space.
+    pub fn units_in_space(&self) -> Vec<UnitInfo> {
+        let mut units = vec![];
+        for unit in self.my_team().units_in_space.values().into_iter() {
+            units.push(unit.info());
+        }
+        units
     }
 
     /// The karbonite at the given location.
     ///
     /// * GameError::InvalidLocation - the location is outside the vision range.
     pub fn karbonite_at(&self, location: MapLocation) -> Result<u32, Error> {
-        if !self.can_sense_location(location) {
-            Err(GameError::InvalidLocation)?;
+        if self.can_sense_location(location) {
+            Ok(self.my_planet().karbonite[location.y as usize][location.x as usize])
+        } else {
+            Err(GameError::InvalidLocation)?
         }
-        let planet_info = self.my_planet();
-        Ok(planet_info.karbonite[location.y as usize][location.x as usize])
     }
 
     /// Returns an array of all locations within a certain radius squared of
@@ -468,39 +477,54 @@ impl GameWorld {
     }
 
     /// Whether there is a unit with this ID within the vision range.
-    pub fn can_sense_unit(&self, _id: UnitID) -> bool {
-        unimplemented!();
+    pub fn can_sense_unit(&self, id: UnitID) -> bool {
+        self.unit_info(id).is_ok()
     }
 
     /// Sense units near the location within the given radius, inclusive, in
     /// distance squared. The units are within the vision range.
-    pub fn sense_nearby_units(&self, _location: MapLocation, _radius: u32)
+    pub fn sense_nearby_units(&self, location: MapLocation, radius: u32)
                               -> Vec<UnitInfo> {
-        unimplemented!();
+        let mut units: Vec<UnitInfo> = vec![];
+        for nearby_loc in self.all_locations_within(location, radius) {
+            if let Some(id) = self.my_planet().units_by_loc.get(&nearby_loc) {
+                units.push(self.unit_info(*id).expect("unit exists"));
+            }
+        }
+        units
     }
 
     /// Sense units near the location within the given radius, inclusive, in
     /// distance squared. The units are within the vision range. Additionally
     /// filters the units by team.
-    pub fn sense_nearby_units_by_team(&self, _location: MapLocation,
-                                      _radius: u32, _team: Team) -> Vec<UnitInfo> {
-        unimplemented!();
+    pub fn sense_nearby_units_by_team(&self, location: MapLocation,
+                                      radius: u32, team: Team) -> Vec<UnitInfo> {
+        self.sense_nearby_units(location, radius).into_iter()
+            .filter(|unit| unit.team == team)
+            .collect::<Vec<UnitInfo>>()
     }
 
     /// Sense units near the location within the given radius, inclusive, in
     /// distance squared. The units are within the vision range. Additionally
     /// filters the units by unit type.
-    pub fn sense_nearby_units_by_type(&self, _location: MapLocation,
-                                      _radius: u32, _unit_type: UnitType) -> Vec<UnitInfo> {
-        unimplemented!();
+    pub fn sense_nearby_units_by_type(&self, location: MapLocation,
+                                      radius: u32, unit_type: UnitType) -> Vec<UnitInfo> {
+        self.sense_nearby_units(location, radius).into_iter()
+            .filter(|unit| unit.unit_type == unit_type)
+            .collect::<Vec<UnitInfo>>()
     }
 
     /// The unit at the location, if it exists.
     ///
     /// * GameError::InvalidLocation - the location is outside the vision range.
-    pub fn sense_unit_at_location(&self, _location: MapLocation)
+    pub fn sense_unit_at_location(&self, location: MapLocation)
                                   -> Result<Option<UnitInfo>, Error> {
-        unimplemented!();
+        if self.can_sense_location(location) {
+            let unit_id = self.my_planet().units_by_loc.get(&location);
+            Ok(unit_id.map(|id| self.unit_info(*id).expect("unit exists")))
+        } else {
+            Err(GameError::InvalidLocation)?
+        }
     }
 
     // ************************************************************************
@@ -573,6 +597,14 @@ impl GameWorld {
         let team = self.team();
         if let Some(team_info) = self.team_states.get_mut(&team) {
             team_info
+        } else {
+            unreachable!();
+        }
+    }
+
+    fn get_planet(&self, planet: Planet) -> &PlanetInfo {
+        if let Some(planet_info) = self.planet_states.get(&planet) {
+            planet_info
         } else {
             unreachable!();
         }
@@ -708,17 +740,16 @@ impl GameWorld {
                 self.unit_info_mut(id)
                     .expect("unit exists").location = OnMap(map_loc);
             },
-            InGarrison(id) => {
+            InGarrison(structure_id) => {
                 self.unit_info_mut(id)
-                    .expect("unit exists").location = InGarrison(id);
+                    .expect("unit exists").location = InGarrison(structure_id);
             },
             _ => panic!("Unit is not on a planet and cannot be placed."),
         }
     }
 
-    /// Temporarily removes this unit from any location-based indexing and
-    /// marks the unit info. Must be on the current planet and team before
-    /// being removed.
+    /// Temporarily removes this unit from any location-based indexing.
+    /// Must be on the current planet and team before being removed.
     fn remove_unit(&mut self, id: UnitID) {
         match self.my_unit(id)
                   .expect("Unit does not exist and cannot be removed.")
@@ -778,7 +809,7 @@ impl GameWorld {
                        unit_type: UnitType) -> Result<UnitID, Error> {
         let id = self.get_team_mut(team).id_generator.next_id();
         let level = self.get_team(team).research.get_level(&unit_type);
-        let unit = Unit::new(id, team, unit_type, level, location)?;
+        let unit = Unit::new(id, team, unit_type, level, OnMap(location))?;
 
         self.insert_unit(unit);
         Ok(id)
@@ -806,18 +837,19 @@ impl GameWorld {
                 self.my_team_mut().units_in_space.remove(&id);
                 return;
             },
-            Unknown => panic!("Unit is in ???, this should not be possible"),
-            _ => {},
+            _ => panic!("Unit is in ???, this should not be possible"),
         };
 
-        // TODO: units in factories
-        let info = self.unit_info(id).unwrap().clone();
-        if info.unit_type == UnitType::Rocket && info.team == self.team() {
-            let units_to_destroy = self.get_unit_mut(id).unwrap()
-                                       .garrison().unwrap();
-            for utd_id in units_to_destroy.iter() {
-                self.my_planet_mut().units.remove(&utd_id);
-                self.my_planet_mut().unit_infos.remove(&utd_id);
+        // If this unit's garrison is visible, destroy those units too.
+        if self.get_unit(id).is_ok() {
+            let unit_type = self.get_unit(id).unwrap().unit_type();
+            if unit_type == UnitType::Rocket || unit_type == UnitType::Factory {
+                let units_to_destroy = self.get_unit_mut(id).unwrap()
+                                           .garrison().unwrap();
+                for utd_id in units_to_destroy.iter() {
+                    self.my_planet_mut().units.remove(&utd_id);
+                    self.my_planet_mut().unit_infos.remove(&utd_id);
+                }
             }
         }
 
@@ -830,8 +862,10 @@ impl GameWorld {
     ///
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    pub fn disintegrate_unit(&mut self, _id: UnitID) -> Result<(), Error> {
-        unimplemented!();
+    pub fn disintegrate_unit(&mut self, id: UnitID) -> Result<(), Error> {
+        self.my_unit(id)?;
+        self.destroy_unit(id);
+        Ok(())
     }
 
     // ************************************************************************
@@ -850,6 +884,26 @@ impl GameWorld {
         let planet_map = &self.starting_map(location.planet);
         Ok(planet_map.is_passable_terrain_at(location)? &&
             !self.my_planet().units_by_loc.contains_key(&location))
+    }
+
+    pub fn is_on_map(&self, _location: MapLocation) -> bool {
+        if let Some(map) = self.planet_maps.get(&self.planet()) {
+            map.on_map(_location)
+        } else {
+            false
+        }
+    }
+
+    /// Whether the unit is on the same planet as the location.
+    ///
+    /// * GameError::NoSuchUnit - the unit does not exist in the game.
+    pub fn is_same_planet(&self, unit_id: UnitID, location: MapLocation) 
+            -> Result<bool, Error> {
+        let unit_location = match self.unit_info(unit_id)?.location {
+            OnMap(loc) => loc,
+            _ => { return Ok(false) },
+        };
+        Ok(unit_location.planet == location.planet)
     }
 
     /// Whether the robot can move in the given direction, without taking into
@@ -896,18 +950,39 @@ impl GameWorld {
                 OnMap(loc) => loc.add(direction),
                 _ => Err(GameError::InvalidAction)?,
             };
-            self.remove_unit(robot_id);
-            self.my_unit_mut(robot_id)?.move_to(dest)?;
-            self.place_unit(robot_id);
-            Ok(())
+            self.move_to(robot_id, dest)
         } else {
             Err(GameError::InvalidAction)?
         }
     }
 
+    fn move_to(&mut self, _robot_id: UnitID, _location: MapLocation) -> Result<(), Error> {
+        self.remove_unit(_robot_id);
+        self.my_unit_mut(_robot_id)?.move_to(_location)?;
+        self.place_unit(_robot_id);
+        Ok(())
+    }
     // ************************************************************************
     // *************************** ATTACK METHODS *****************************
     // ************************************************************************
+
+    fn damage_unit(&mut self, _unit_id: UnitID, damage: i32) {
+        // The unit controller is always in the dev engine, but is only in the
+        // player engine if the unit is on this team.
+        if self.get_unit_mut(_unit_id).is_ok() {
+            self.get_unit_mut(_unit_id).unwrap().take_damage(damage);
+        }
+
+        let should_destroy_unit = {
+            let unit_info = self.unit_info_mut(_unit_id).expect("unit exists");
+            unit_info.health = ((unit_info.health as i32) - damage) as u32;
+            unit_info.health == 0
+        };
+
+        if should_destroy_unit {
+            self.destroy_unit(_unit_id);
+        }
+    }
 
     /// Deals damage to any unit in the target square, potentially destroying it.
     fn damage_location(&mut self, location: MapLocation, damage: i32) {
@@ -917,22 +992,9 @@ impl GameWorld {
             return;
         };
 
-        // The unit controller is always in the dev engine, but is only in the
-        // player engine if the unit is on this team.
-        if self.get_unit_mut(id).is_ok() {
-            self.get_unit_mut(id).unwrap().take_damage(damage);
-        }
-
-        let should_destroy_unit = {
-            let unit_info = self.unit_info_mut(id).expect("unit exists");
-            unit_info.health = ((unit_info.health as i32) - damage) as u32;
-            unit_info.health == 0
-        };
-
-        if should_destroy_unit {
-            self.destroy_unit(id);
-        }
+        self.damage_unit(id, damage)
     }
+    
 
     /// Whether the robot can attack the given unit, without taking into
     /// account the unit's attack heat. Takes into account only the unit's
@@ -967,7 +1029,7 @@ impl GameWorld {
 
     // ************************************************************************
     // ************************* RESEARCH METHODS *****************************
-    // ************************************************************************
+    // ***********************f*************************************************
 
     /// Returns research info of the current player.
     fn my_research(&self) -> ResearchInfo {
@@ -1219,8 +1281,12 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a knight.
-    pub fn can_javelin(&self, _knight_id: UnitID, _target_id: UnitID) -> Result<bool, Error> {
-        unimplemented!();
+    pub fn can_javelin(&self, knight_id: UnitID, target_id: UnitID) -> Result<bool, Error> {
+        let knight = self.my_unit(knight_id)?;
+        let target = self.unit_info(target_id)?;
+        knight.ok_if_javelin()?;
+        
+        Ok(knight.is_within_range(knight.ability_range(), target.location.map_location()?))
     }
 
     /// Whether the knight is ready to javelin. Tests whether the knight's
@@ -1230,8 +1296,11 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a knight.
-    pub fn is_javelin_ready(&self, _knight_id: UnitID) -> Result<bool, Error> {
-        unimplemented!();
+    pub fn is_javelin_ready(&self, knight_id: UnitID) -> Result<bool, Error> {
+       let knight = self.my_unit(knight_id)?;
+       knight.ok_if_javelin()?;
+
+       Ok(knight.is_ability_ready()?)
     }
 
     /// Javelins the robot, dealing the amount of ability damage.
@@ -1241,13 +1310,34 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a knight.
     /// * GameError::InvalidAction - the knight cannot javelin that unit.
-    pub fn javelin(&mut self, _knight_id: UnitID, _target_id: UnitID) -> Result<(), Error> {
-        unimplemented!();
+    pub fn javelin(&mut self, knight_id: UnitID, target_id: UnitID) -> Result<(), Error> {
+        if self.can_javelin(knight_id, target_id)? 
+                && self.my_unit(knight_id)?.is_ability_ready()? {
+            let damage = self.my_unit_mut(knight_id)?.javelin()?;
+            self.damage_unit(target_id, damage);
+            Ok(())
+        } else {
+            Err(GameError::InvalidAction)?
+        }
     }
 
     // ************************************************************************
     // *************************** RANGER METHODS *****************************
     // ************************************************************************
+
+    /// Whether the ranger is ready to begin snipe. Tests whether the ranger's
+    /// ability heat is sufficiently low.
+    ///
+    /// * GameError::InvalidResearchLevel - the ability has not been researched.
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a knight.
+    pub fn is_begin_snipe_ready(&self, ranger_id: UnitID) -> Result<bool, Error> {
+       let ranger = self.my_unit(ranger_id)?;
+       ranger.ok_if_snipe()?;
+
+       Ok(ranger.is_ability_ready()?)
+    }
 
     /// Begins the countdown to snipe a given location. Maximizes the units
     /// attack and movement heats until the ranger has sniped. The ranger may
@@ -1259,15 +1349,52 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a ranger.
     /// * GameError::InvalidLocation - the location is off the map or on a different planet.
-    pub fn begin_snipe(&mut self, _ranger_id: UnitID, _location: MapLocation)
+    pub fn begin_snipe(&mut self, ranger_id: UnitID, location: MapLocation)
                        -> Result<(), Error> {
-        unimplemented!();
-    }
+        if !self.is_on_map(location) {
+            Err(GameError::InvalidLocation)?
+        }
 
+        if self.is_begin_snipe_ready(ranger_id)? {
+            self.my_unit_mut(ranger_id)?.begin_snipe(location)?;
+            Ok(())
+        } else {
+            Err(GameError::InvalidAction)?
+        }
+    }
+    
+    /// Whether the ranger snipe is ready to be processed.
     /// If a ranger's snipe has reached the end of its countdown, fires
     /// the shot and resets the attack and movement heats.
-    fn _process_ranger(&mut self) {
-        unimplemented!();
+    fn process_ranger(&mut self, ranger_id: UnitID) -> Result<(), Error> {
+        let target_location = self.get_unit_mut(ranger_id)?.process_snipe()?;
+        let damage = self.get_unit(ranger_id)?.damage()?;
+        self.damage_location(target_location.expect("ranger must have target if sniping"), damage);
+        Ok(())
+    }
+
+    fn process_snipes(&mut self) {
+        let mut rangers: Vec<UnitID> = vec![];
+        for unit in &mut self.get_planet_mut(Planet::Earth).units.values_mut() {
+            if unit.unit_type() == UnitType::Ranger
+                && unit.is_sniping()
+                && unit.countdown() == 0
+                && unit.target_location().is_some() {
+                    rangers.push(unit.id());
+            }
+        }
+        for unit in &mut self.get_planet_mut(Planet::Mars).units.values_mut() {
+            if unit.unit_type() == UnitType::Ranger
+                && unit.is_sniping()
+                && unit.countdown() == 0
+                && unit.target_location().is_some() {
+                    rangers.push(unit.id());
+            }
+        }
+
+        for ranger in rangers {
+            self.process_ranger(ranger);
+        }
     }
 
     // ************************************************************************
@@ -1284,8 +1411,12 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a mage.
     /// * GameError::InvalidLocation - the location is outside the vision range.
-    pub fn can_blink(&self, _mage_id: UnitID, _location: MapLocation) -> Result<bool, Error> {
-        unimplemented!();
+    pub fn can_blink(&self, mage_id: UnitID, location: MapLocation) -> Result<bool, Error> {
+        let mage = self.my_unit(mage_id)?;
+        mage.ok_if_blink()?;
+        
+        Ok(mage.is_within_range(mage.ability_range(), location)
+                && self.is_occupiable(location)?)   
     }
 
     /// Whether the mage is ready to blink. Tests whether the mage's ability
@@ -1295,8 +1426,10 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a mage.
-    pub fn is_blink_ready(&self, _mage_id: UnitID) -> Result<bool, Error> {
-        unimplemented!();
+    pub fn is_blink_ready(&self, mage_id: UnitID) -> Result<bool, Error> {
+        let mage = self.my_unit(mage_id)?;
+        mage.ok_if_blink()?;
+        Ok(mage.is_ability_ready()?)
     }
 
     /// Blinks the mage to the given location.
@@ -1306,8 +1439,16 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a mage.
     /// * GameError::InvalidAction - the mage cannot blink to that location.
-    pub fn blink(&mut self, _mage_id: UnitID, _location: MapLocation) -> Result<(), Error> {
-        unimplemented!();
+    pub fn blink(&mut self, mage_id: UnitID, location: MapLocation) -> Result<(), Error> {
+        if self.can_blink(mage_id, location)? 
+                && self.my_unit(mage_id)?.is_ability_ready()? {
+            self.remove_unit(mage_id);
+            self.my_unit_mut(mage_id)?.blink(location);
+            self.place_unit(mage_id);
+            Ok(())
+        } else {
+            Err(GameError::InvalidAction)?
+        }
     }
 
     // ************************************************************************
@@ -1332,7 +1473,7 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a healer.
     pub fn is_heal_ready(&self, _healer_id: UnitID) -> Result<bool, Error> {
-        unimplemented!();
+        unimplemented!()
     }
 
     /// Heals the robot, dealing the healer's standard amount of "damage".
@@ -1353,9 +1494,14 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - a unit does not exist.
     /// * GameError::TeamNotAllowed - the first unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the healer or robot is not the right type.
-    pub fn can_overcharge(&self, _healer_id: UnitID, _robot_id: UnitID)
+    pub fn can_overcharge(&self, healer_id: UnitID, robot_id: UnitID)
                           -> Result<bool, Error> {
-        unimplemented!();
+        let healer = self.my_unit(healer_id)?;
+        let robot = self.my_unit(robot_id)?;
+        healer.ok_if_overcharge()?;
+        robot.ok_if_ability()?;
+
+        Ok(healer.is_within_range(healer.ability_range(), robot.location().map_location()?))
     }
 
     /// Whether the healer is ready to overcharge. Tests whether the healer's
@@ -1365,8 +1511,11 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a healer.
-    pub fn is_overcharge_ready(&self, _healer_id: UnitID) -> Result<bool, Error> {
-        unimplemented!();
+    pub fn is_overcharge_ready(&self, healer_id: UnitID) -> Result<bool, Error> {
+        let healer = self.my_unit(healer_id)?;
+        healer.ok_if_overcharge()?;
+
+        Ok(healer.is_ability_ready()?)
     }
 
     /// Overcharges the robot, resetting the robot's cooldowns.
@@ -1376,9 +1525,16 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the first unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the healer or robot is not the right type.
     /// * GameError::InvalidAction - the healer cannot overcharge that unit.
-    pub fn overcharge(&mut self, _healer_id: UnitID, _robot_id: UnitID)
+    pub fn overcharge(&mut self, healer_id: UnitID, robot_id: UnitID)
                       -> Result<(), Error> {
-        unimplemented!();
+        if self.can_overcharge(healer_id, robot_id)? 
+                && self.my_unit(healer_id)?.is_ability_ready()? {
+            self.my_unit_mut(healer_id)?.overcharge()?;
+            self.my_unit_mut(robot_id)?.reset_ability_cooldown()?;
+            Ok(())
+        } else {
+            Err(GameError::InvalidAction)?  
+        }
     }
 
     // ************************************************************************
@@ -1396,7 +1552,9 @@ impl GameWorld {
                         -> Result<bool, Error> {
         let robot = self.my_unit(robot_id)?;
         let structure = self.my_unit(structure_id)?;
-        structure.can_load(robot)
+        Ok(robot.is_move_ready()?
+            && structure.can_load()?
+            && structure.is_adjacent_to(robot.location()))
     }
 
     /// Loads the robot into the garrison of the structure.
@@ -1467,27 +1625,90 @@ impl GameWorld {
     // ************************** FACTORY METHODS *****************************
     // ************************************************************************
 
-    /// Adds a unit to the factory's production queue. Does nothing if the
-    /// production queue is full. Returns whether the unit was added.
+    /// Whether the factory can produce a robot of the given type. The factory
+    /// must not currently be producing a robot, and the team must have
+    /// sufficient resources in its resource pool.
     ///
     /// * GameError::NoSuchUnit - the unit does not exist.
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a factory, or the
     ///   queued unit type is not a robot.
-    pub fn queue_robot(&mut self, _factory_id: UnitID, _unit_type: UnitType)
+    pub fn can_produce_robot(&mut self, factory_id: UnitID, robot_type: UnitType)
                        -> Result<bool, Error> {
-        unimplemented!();
+        let factory = self.my_unit(factory_id)?;
+        if factory.can_produce_robot(robot_type)? {
+            let cost = robot_type.factory_cost().expect("unit type is ok");
+            Ok(self.my_team().karbonite >= cost)
+        } else {
+            Ok(false)
+        }
+    }
+
+    /// Starts producing the robot of the given type.
+    ///
+    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a factory, or the
+    ///   queued unit type is not a robot.
+    /// * GameError::InvalidAction - the factory cannot produce the robot.
+    pub fn produce_robot(&mut self, factory_id: UnitID, robot_type: UnitType)
+                       -> Result<(), Error> {
+        if self.can_produce_robot(factory_id, robot_type)? {
+            self.my_team_mut().karbonite -= robot_type.factory_cost().expect("unit type is ok");
+            let factory = self.my_unit_mut(factory_id).expect("factory exists");
+            factory.produce_robot(robot_type);
+            Ok(())
+        } else {
+            Err(GameError::InvalidAction)?
+        }
     }
 
     /// Process the end of the turn for factories. If a factory added a unit
     /// to its garrison, also mark that unit down in the game world.
-    fn _process_factory(&self) {
-        unimplemented!()
+    ///
+    /// Note that factores cannot be built on Mars, so we only process Earth.
+    fn process_factories(&mut self) {
+        let planet = Planet::Earth;
+        let mut factory_ids: Vec<UnitID> = vec![];
+        for unit in self.get_planet(planet).unit_infos.values().into_iter() {
+            if unit.unit_type == UnitType::Factory {
+                factory_ids.push(unit.id);
+            }
+        }
+
+        for factory_id in factory_ids {
+            let (unit_type, team) = {
+                let factory = self.get_unit_mut(factory_id).expect("unit exists");
+                let new_unit_type = factory.process_factory_round();
+                if new_unit_type.is_none() {
+                    continue;
+                }
+                (new_unit_type.unwrap(), factory.team())
+            };
+
+            let id = self.get_team_mut(team).id_generator.next_id();
+            let level = self.get_team(team).research.get_level(&unit_type);
+            let new_unit = Unit::new(id, team, unit_type, level, InGarrison(factory_id))
+                .expect("research_level is valid");
+
+            self.get_planet_mut(planet).unit_infos.insert(id, new_unit.info());
+            self.get_planet_mut(planet).units.insert(id, new_unit);
+            self.get_unit_mut(factory_id).unwrap().load(id).expect("unit can load");
+        }
     }
 
     // ************************************************************************
     // *************************** ROCKET METHODS *****************************
     // ************************************************************************
+
+    /// The landing rounds and locations of rockets in space that belong to the
+    /// current team.
+    ///
+    /// Note that mutating this object does NOT have any effect on the actual
+    /// game. You MUST call the mutators in world!!
+    pub fn rocket_landings(&self) -> RocketLandingInfo {
+        self.my_team().rocket_landings.clone()
+    }
 
     /// Whether the rocket can launch into space to the given destination. The
     /// rocket can launch if the it has never been used before. The destination
@@ -1612,6 +1833,12 @@ impl GameWorld {
             unit.end_round();
         }
 
+        // Process ranger snipes.
+        self.process_snipes();
+
+        // Add produced factory robots to the garrison.
+        self.process_factories();
+
         // Land rockets.
         self.process_rockets(Team::Red)?;
         self.process_rockets(Team::Blue)?;
@@ -1642,8 +1869,8 @@ impl GameWorld {
             Delta::Load {structure_id, robot_id} => self.load(structure_id, robot_id),
             Delta::Move {robot_id, direction} => self.move_robot(robot_id, direction),
             Delta::Overcharge {healer_id, target_robot_id} => self.overcharge(healer_id, target_robot_id),
+            Delta::ProduceRobot {factory_id, robot_type} => self.produce_robot(factory_id, robot_type),
             Delta::QueueResearch {branch} => { self.queue_research(branch); Ok(()) },
-            Delta::QueueRobotProduction {factory_id, robot_type} => unimplemented!(),
             Delta::Repair {worker_id, structure_id} => unimplemented!(),
             Delta::Replicate {worker_id, direction} => self.replicate(worker_id, direction),
             Delta::ResetResearchQueue => { self.reset_research(); Ok(()) },
@@ -1681,11 +1908,11 @@ mod tests {
     #[test]
     fn test_filter_visibility() {
         let initial_units_earth = vec![
-            Unit::new(1, Team::Red, UnitType::Worker, 0, MapLocation::new(Planet::Earth, 0, 0)).unwrap(),
-            Unit::new(2, Team::Red, UnitType::Mage, 0, MapLocation::new(Planet::Earth, 10, 11)).unwrap(),
-            Unit::new(3, Team::Red, UnitType::Rocket, 0, MapLocation::new(Planet::Earth, 10, 10)).unwrap(),
-            Unit::new(4, Team::Blue, UnitType::Mage, 0, MapLocation::new(Planet::Earth, 11, 10)).unwrap(),
-            Unit::new(5, Team::Blue, UnitType::Worker, 0, MapLocation::new(Planet::Earth, 29, 29)).unwrap(),
+            Unit::new(1, Team::Red, UnitType::Worker, 0, OnMap(MapLocation::new(Planet::Earth, 0, 0))).unwrap(),
+            Unit::new(2, Team::Red, UnitType::Mage, 0, OnMap(MapLocation::new(Planet::Earth, 10, 11))).unwrap(),
+            Unit::new(3, Team::Red, UnitType::Rocket, 0, OnMap(MapLocation::new(Planet::Earth, 10, 10))).unwrap(),
+            Unit::new(4, Team::Blue, UnitType::Mage, 0, OnMap(MapLocation::new(Planet::Earth, 11, 10))).unwrap(),
+            Unit::new(5, Team::Blue, UnitType::Worker, 0, OnMap(MapLocation::new(Planet::Earth, 29, 29))).unwrap(),
         ];
 
         let mut map = GameMap::test_map();
@@ -1724,6 +1951,132 @@ mod tests {
         assert_err!(blue_world.unit_controller(3), GameError::TeamNotAllowed);
         assert!(blue_world.unit_controller(4).is_ok());
         assert!(blue_world.unit_controller(5).is_ok());
+    }
+
+    #[test]
+    fn test_sensing_with_filter() {
+        // Create a world with some units on Earth, on Mars, and in space.
+        let initial_units_earth = vec![
+            Unit::new(1, Team::Red, UnitType::Worker, 0, OnMap(MapLocation::new(Planet::Earth, 9, 10))).unwrap(),
+            Unit::new(2, Team::Red, UnitType::Mage, 0, OnMap(MapLocation::new(Planet::Earth, 10, 11))).unwrap(),
+            Unit::new(3, Team::Red, UnitType::Rocket, 0, OnMap(MapLocation::new(Planet::Earth, 10, 10))).unwrap(),
+            Unit::new(4, Team::Blue, UnitType::Mage, 0, OnMap(MapLocation::new(Planet::Earth, 11, 10))).unwrap(),
+            Unit::new(5, Team::Blue, UnitType::Worker, 0, OnMap(MapLocation::new(Planet::Earth, 29, 29))).unwrap(),
+        ];
+        let mut map = GameMap::test_map();
+        map.earth_map = PlanetMap {
+            planet: Planet::Earth,
+            height: 30,
+            width: 30,
+            initial_units: initial_units_earth,
+            is_passable_terrain: vec![vec![true; 30]; 30],
+            initial_karbonite: vec![vec![0; 30]; 30],
+        };
+        let world = GameWorld::new(map);
+
+        // Red can see 4 units initially on Earth.
+        let mut red_world = world.filter();
+        assert_eq!(red_world.units().len(), 4);
+
+        // After a unit is loaded, it's no longer indexed by location.
+        assert!(red_world.load(3, 1).is_ok());
+        assert_eq!(red_world.units_by_loc().values().len(), 3);
+
+        // After the rocket launches, it and the garrisoned unit enter space.
+        assert!(red_world.launch_rocket(3, MapLocation::new(Planet::Mars, 10, 10)).is_ok());
+        assert_eq!(red_world.units().len(), 2);
+        assert_eq!(red_world.units_in_space().len(), 2);
+        assert_eq!(red_world.units_by_id().values().len(), 2);
+        assert_eq!(red_world.units_by_loc().values().len(), 2);
+
+        // Those 4 units are the same units that Red can sense.
+        assert!(red_world.can_sense_unit(1));
+        assert!(red_world.can_sense_unit(2));
+        assert!(red_world.can_sense_unit(3));
+        assert!(red_world.can_sense_unit(4));
+        assert!(!red_world.can_sense_unit(5));
+
+        // Red can see locations within Unit 2's sensing range.
+        let loc_off_map_1 = MapLocation::new(Planet::Mars, 10, 10);
+        let loc_off_map_2 = MapLocation::new(Planet::Earth, 2, -2);
+        let loc_off_map_3 = MapLocation::new(Planet::Earth, 10, 30);
+        let loc_out_of_red_range = MapLocation::new(Planet::Earth, 15, 15);
+        let loc_in_red_range = MapLocation::new(Planet::Earth, 14, 14);
+        assert!(!red_world.can_sense_location(loc_off_map_1));
+        assert!(!red_world.can_sense_location(loc_off_map_2));
+        assert!(!red_world.can_sense_location(loc_off_map_3));
+        assert!(!red_world.can_sense_location(loc_out_of_red_range));
+        assert!(red_world.can_sense_location(loc_in_red_range));
+
+        // Nearby sensing functions should work as expected.
+        let red_mage_loc = MapLocation::new(Planet::Earth, 10, 10);
+        assert_eq!(red_world.sense_nearby_units(red_mage_loc, 10).len(), 2);
+        assert_eq!(red_world.sense_nearby_units_by_team(red_mage_loc, 10, Team::Red).len(), 1);
+        assert_eq!(red_world.sense_nearby_units_by_team(red_mage_loc, 10, Team::Blue).len(), 1);
+        assert_eq!(red_world.sense_nearby_units_by_type(red_mage_loc, 10, UnitType::Mage).len(), 2);
+
+        // Red cannot see the Blue worker, but it can see the Blue mage.
+        assert_err!(red_world.sense_unit_at_location(
+            MapLocation::new(Planet::Earth, 29, 29)), GameError::InvalidLocation);
+        assert!(red_world.sense_unit_at_location(
+            MapLocation::new(Planet::Earth, 11, 10)).unwrap().is_some());
+    }
+
+    #[test]
+    fn test_unit_disintegrate() {
+        let mut world = GameWorld::test_world();
+        let loc_a = MapLocation::new(Planet::Earth, 0, 1);
+        let loc_b = MapLocation::new(Planet::Earth, 0, 2);
+        let id_a = world.create_unit(Team::Red, loc_a, UnitType::Knight).unwrap();
+        let id_b = world.create_unit(Team::Blue, loc_b, UnitType::Knight).unwrap();
+
+        // Red can disintegrate a red unit.
+        assert!(world.disintegrate_unit(id_a).is_ok());
+
+        // Red cannot disintegrate a blue unit.
+        assert_err!(world.disintegrate_unit(id_b), GameError::TeamNotAllowed);
+
+        // But the Dev engine can "destroy" a blue unit if necessary.
+        world.destroy_unit(id_b);
+
+        // Either way, no one can disintegrate a unit that does not exist.
+        assert_err!(world.disintegrate_unit(id_b), GameError::NoSuchUnit);
+    }
+
+    #[test]
+    fn test_unit_destroy_with_filter() {
+        let mut world = GameWorld::test_world();
+        let loc_a = MapLocation::new(Planet::Earth, 0, 1);
+        let loc_b = MapLocation::new(Planet::Earth, 0, 2);
+        let loc_c = MapLocation::new(Planet::Earth, 0, 3);
+        let id_a = world.create_unit(Team::Red, loc_a, UnitType::Rocket).unwrap();
+        let id_b = world.create_unit(Team::Red, loc_b, UnitType::Knight).unwrap();
+        world.create_unit(Team::Blue, loc_c, UnitType::Knight).unwrap();
+
+        // Load the rocket with a unit.
+        assert!(world.load(id_a, id_b).is_ok());
+
+        // Filter the world on Blue's turn.
+        assert!(world.end_turn().is_ok());
+        let mut blue_world = world.filter();
+
+        // Destroy the loaded rocket in the Dev engine.
+        assert_eq!(world.my_planet().units.len(), 3);
+        assert_eq!(world.my_planet().unit_infos.len(), 3);
+        assert_eq!(world.my_planet().units_by_loc.len(), 2);
+        world.destroy_unit(id_a);
+        assert_eq!(world.my_planet().units.len(), 1);
+        assert_eq!(world.my_planet().unit_infos.len(), 1);
+        assert_eq!(world.my_planet().units_by_loc.len(), 1);
+
+        // Destroy the loaded rocket in the Blue engine.
+        assert_eq!(blue_world.my_planet().units.len(), 1);
+        assert_eq!(blue_world.my_planet().unit_infos.len(), 2);
+        assert_eq!(blue_world.my_planet().units_by_loc.len(), 2);
+        blue_world.destroy_unit(id_a);
+        assert_eq!(blue_world.my_planet().units.len(), 1);
+        assert_eq!(blue_world.my_planet().unit_infos.len(), 1);
+        assert_eq!(blue_world.my_planet().units_by_loc.len(), 1);
     }
 
     #[test]
@@ -1781,6 +2134,189 @@ mod tests {
         assert![!world.can_move(a, Direction::Southwest).unwrap()];
         assert![world.can_move(a, Direction::South).unwrap()];
         world.move_robot(a, Direction::South).unwrap();
+    }
+
+    #[test]
+    fn test_knight_javelin() {
+        // Create the game world.
+        let mut world = GameWorld::test_world();
+
+        // Unlock knight's javelin ability through research.
+        let unlock_level = 3;
+        let rounds = 200;
+
+        for level in 0..unlock_level {
+            let my_research = world.my_research_mut();
+            assert!(my_research.add_to_queue(&Branch::Knight));
+            for round in 0..rounds {
+                assert!(my_research.end_round().is_ok());
+            }
+        }
+
+        // Create knight and target robots
+        let loc_a = MapLocation::new(Planet::Earth, 0, 0);
+        let loc_b = MapLocation::new(Planet::Earth, 0, 1);
+        let loc_c = MapLocation::new(Planet::Earth, 0, 20);
+        let knight = world.create_unit(Team::Red, loc_a, UnitType::Knight).unwrap();
+        let robot_a = world.create_unit(Team::Red, loc_b, UnitType::Knight).unwrap();
+        let robot_b = world.create_unit(Team::Red, loc_c, UnitType::Knight).unwrap();
+    
+        // Knight Javelin is ready
+        assert!(world.is_javelin_ready(knight).unwrap());
+
+        // Knight should not be able to javelin target outside of range
+        assert!(!world.can_javelin(knight, robot_b).unwrap());
+
+        // Knight should be able to javelin target within range
+        assert!(world.can_javelin(knight, robot_a).unwrap());
+
+        // Javelin target. 
+        let robot_max_health = 250;
+        let robot_damaged_health = 150; 
+        assert_eq!(world.get_unit(robot_a).unwrap().health(), robot_max_health);
+        assert!(world.javelin(knight, robot_a).is_ok());
+        assert_eq!(world.get_unit(robot_a).unwrap().health(), robot_damaged_health);
+        assert!(!world.is_javelin_ready(knight).unwrap());
+    }
+
+    #[test]
+    fn test_mage_blink() {
+        // Create the game world.
+        let mut world = GameWorld::test_world();
+
+        // Unlock mage's blink ability through research.
+        let unlock_level = 4;
+        let rounds = 200;
+
+        for level in 0..unlock_level {
+            let my_research = world.my_research_mut();
+            assert!(my_research.add_to_queue(&Branch::Mage));
+            for round in 0..rounds {
+                assert!(my_research.end_round().is_ok());
+            }
+        }
+
+        // Create mage.
+        let loc_a = MapLocation::new(Planet::Earth, 0, 0);
+        let loc_b = MapLocation::new(Planet::Earth, 0, 1);
+        let loc_c = MapLocation::new(Planet::Earth, 0, 20);
+        let mage = world.create_unit(Team::Red, loc_a, UnitType::Mage).unwrap();
+        
+        // Mage blink is ready.
+        assert!(world.is_blink_ready(mage).unwrap());
+
+        // Mage should not be able to blink to target location outside of range.
+        assert!(!world.can_blink(mage, loc_c).unwrap());
+
+        // Mage should be able to blink to target location within range.
+        assert!(world.can_blink(mage, loc_b).unwrap());
+
+        // Blink moves mage to new location.
+        assert_eq!(world.get_unit(mage).unwrap().location(), OnMap(loc_a));
+        assert!(world.blink(mage, loc_b).is_ok());
+        assert_eq!(world.get_unit(mage).unwrap().location(), OnMap(loc_b));
+        assert!(!world.is_blink_ready(mage).unwrap());
+    }
+
+    #[test]
+    fn test_ranger_snipe() {
+        // Create the game world.
+        let mut world = GameWorld::test_world();
+
+        // Unlock mage's blink ability through research.
+        let unlock_level = 3;
+        let rounds = 200;
+
+        for level in 0..unlock_level {
+            let my_research = world.my_research_mut();
+            assert!(my_research.add_to_queue(&Branch::Ranger));
+            for round in 0..rounds {
+                assert!(my_research.end_round().is_ok());
+            }
+        }
+
+        // Create ranger and target robot.
+        let loc_a = MapLocation::new(Planet::Earth, 0, 0);
+        let loc_b = MapLocation::new(Planet::Earth, 0, 1);
+        let loc_c = MapLocation::new(Planet::Mars, 0, 20);
+        let ranger = world.create_unit(Team::Red, loc_a, UnitType::Ranger).unwrap();
+        let robot = world.create_unit(Team::Red, loc_b,UnitType::Knight).unwrap();
+        // Ranger should not be able to snipe target location on a different planet.
+        assert!(world.begin_snipe(ranger, loc_c).is_err());
+
+        // Processing snipe should fail if ranger has not channeled for enough rounds
+        assert!(world.process_ranger(ranger).is_err());
+
+        // Ranger begins to snipe a location.
+        assert!(world.begin_snipe(ranger, loc_b).is_ok());
+
+        // Enough rounds pass where Ranger's snipe is processed
+        let rounds = 200;
+        for round in 0..rounds {
+            assert!(world.end_round().is_ok());
+        }
+        
+        // Robot at sniped location should take damage
+        let robot_damaged_health = 180;
+        assert_eq!(world.get_unit(robot).unwrap().health(), robot_damaged_health);
+    }
+
+    #[test]
+    fn test_healer_overcharge() {
+        // Create the game world.
+        let mut world = GameWorld::test_world();
+
+        // Unlock healer's overcharge ability through research.
+        let unlock_level = 3;
+        let rounds = 200;
+
+        for level in 0..unlock_level {
+            let my_research = world.my_research_mut();
+            assert!(my_research.add_to_queue(&Branch::Healer));
+            for round in 0..rounds {
+                assert!(my_research.end_round().is_ok());
+            }
+        }
+
+        // Unlock robot's ability through research.
+        let unlock_level = 3;
+        let rounds = 200;
+
+        for level in 0..unlock_level {
+            let my_research = world.my_research_mut();
+            assert!(my_research.add_to_queue(&Branch::Knight));
+            for round in 0..rounds {
+                assert!(my_research.end_round().is_ok());
+            }
+        }
+
+        // Create healer and target robots.
+        let loc_a = MapLocation::new(Planet::Earth, 0, 0);
+        let loc_b = MapLocation::new(Planet::Earth, 0, 1);
+        let loc_c = MapLocation::new(Planet::Earth, 0, 20);
+        let healer = world.create_unit(Team::Red, loc_a, UnitType::Healer).unwrap();
+        let robot_a = world.create_unit(Team::Red, loc_b, UnitType::Knight).unwrap();
+        let robot_b = world.create_unit(Team::Red, loc_c, UnitType::Knight).unwrap();
+
+        // Healer overcharge is ready.
+        assert!(world.is_overcharge_ready(healer).unwrap());
+
+        // Healer should not be able to overcharge target robot outside of range.
+        assert!(!world.can_overcharge(healer, robot_b).unwrap());
+        
+        // Healer should be able to overcharge target robot within range.
+        assert!(world.can_overcharge(healer, robot_a).unwrap());
+
+        // Robot uses ability.
+        let loc_d = MapLocation::new(Planet::Earth, 0, 2);
+        assert!(world.move_to(robot_b, loc_d).is_ok());
+        assert!(world.javelin(robot_a, robot_b).is_ok());
+        assert!(!world.get_unit(robot_a).unwrap().is_ability_ready().unwrap());
+
+
+        // Healer uses overcharge to reset robot's ablity cooldown
+        assert!(world.overcharge(healer, robot_a).is_ok());
+        assert!(world.get_unit(robot_a).unwrap().is_ability_ready().unwrap());
     }
 
     #[test]
@@ -2096,5 +2632,33 @@ mod tests {
         let mars_factory_loc = MapLocation::new(Planet::Mars, 0, 0);
         let worker_e = world.create_unit(Team::Red, mars_factory_loc.add(Direction::North), UnitType::Worker).unwrap();
         assert![!world.can_blueprint(worker_e, UnitType::Factory, Direction::South).unwrap()];
+    }
+
+    fn test_factory_production() {
+        let mut world = GameWorld::test_world();
+        let loc = MapLocation::new(Planet::Earth, 10, 10);
+        let factory = world.create_unit(Team::Red, loc, UnitType::Factory).unwrap();
+        let mage_cost = UnitType::Mage.factory_cost().unwrap();
+
+        // The factory can produce a robot only if it's not already busy.
+        assert!(world.can_produce_robot(factory, UnitType::Mage).unwrap());
+        assert!(world.produce_robot(factory, UnitType::Mage).is_ok());
+        assert!(!world.can_produce_robot(factory, UnitType::Mage).unwrap());
+        assert_err!(world.produce_robot(factory, UnitType::Mage), GameError::InvalidAction);
+        assert_eq!(world.my_team().karbonite, KARBONITE_STARTING - mage_cost);
+
+        // After a few rounds, the mage is added to the world.
+        for _ in 0..FACTORY_NUM_ROUNDS {
+            assert!(world.end_round().is_ok());
+        }
+        assert_eq!(world.my_unit(factory).unwrap().garrison().unwrap().len(), 1);
+        assert_eq!(world.my_planet().units.len(), 2);
+        assert_eq!(world.my_planet().unit_infos.len(), 2);
+        assert_eq!(world.my_planet().units_by_loc.len(), 1);
+
+        // Karbonite is a limiting factor for producing robots.
+        assert!(world.can_produce_robot(factory, UnitType::Mage).unwrap());
+        world.my_team_mut().karbonite = 0;
+        assert!(!world.can_produce_robot(factory, UnitType::Mage).unwrap());
     }
 }

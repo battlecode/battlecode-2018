@@ -6,6 +6,7 @@ use config::Config;
 use location::*;
 use map::*;
 use research::*;
+use rockets::*;
 use schema::*;
 use unit::*;
 use world::*;
@@ -74,12 +75,6 @@ impl GameController {
         self.world.team()
     }
 
-    /// The rockets in space that belong to the current team, including
-    /// their landing rounds and locations, by landing round.
-    pub fn rockets_in_space(&self) -> FnvHashMap<Rounds, Vec<Unit>> {
-        self.world.rockets_in_space()
-    }
-
     /// The starting map of the given planet. Includes the map's planet,
     /// dimensions, impassable terrain, and initial units and karbonite.
     pub fn starting_map(&self, planet: Planet) -> &PlanetMap {
@@ -115,19 +110,27 @@ impl GameController {
         self.world.unit(id)
     }
 
-    /// All the units within the vision range.
-    pub fn units(&self) -> Vec<UnitInfo> {
+    /// All the units within the vision range, in no particular order.
+    /// Does not include units in space.
+    pub fn units(&self) -> Vec<&UnitInfo> {
         self.world.units()
     }
 
     /// All the units within the vision range, by ID.
+    /// Does not include units in space.
     pub fn units_by_id(&self) -> FnvHashMap<UnitID, UnitInfo> {
         self.world.units_by_id()
     }
 
     /// All the units within the vision range, by location.
+    /// Does not include units in garrisons or in space.
     pub fn units_by_loc(&self) -> FnvHashMap<MapLocation, UnitID> {
         self.world.units_by_loc()
+    }
+
+    /// All the units of this team that are in space.
+    pub fn units_in_space(&self) -> Vec<UnitInfo> {
+        self.world.units_in_space()
     }
 
     /// The karbonite at the given location.
@@ -716,29 +719,47 @@ impl GameController {
     // ************************** FACTORY METHODS *****************************
     // ************************************************************************
 
-    /*
-    /// Adds a unit to the factory's production queue. Does nothing if the
-    /// production queue is full. Returns whether the unit was added.
+    /// Whether the factory can produce a robot of the given type. The factory
+    /// must not currently be producing a robot, and the team must have
+    /// sufficient resources in its resource pool.
     ///
     /// * GameError::NoSuchUnit - the unit does not exist.
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a factory, or the
     ///   queued unit type is not a robot.
-    pub fn queue_robot(&mut self, _factory_id: UnitID, _unit_type: UnitType)
+    pub fn can_produce_robot(&mut self, factory_id: UnitID, robot_type: UnitType)
                        -> Result<bool, Error> {
-        unimplemented!();
+        self.world.can_produce_robot(factory_id, robot_type)
     }
 
-    /// Process the end of the turn for factories. If a factory added a unit
-    /// to its garrison, also mark that unit down in the game world.
-    fn _process_factory(&self) {
-        unimplemented!()
+    /// Starts producing the robot of the given type.
+    ///
+    /// * GameError::NoSuchUnit - the unit does not exist.
+    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::InappropriateUnitType - the unit is not a factory, or the
+    ///   queued unit type is not a robot.
+    /// * GameError::InvalidAction - the factory cannot produce the robot.
+    pub fn produce_robot(&mut self, factory_id: UnitID, robot_type: UnitType)
+                       -> Result<(), Error> {
+        let delta = Delta::ProduceRobot { factory_id, robot_type };
+        if self.config.generate_turn_messages {
+            self.turn.changes.push(delta.clone());
+        }
+        Ok(self.world.apply(&delta)?)
     }
-    */
 
     // ************************************************************************
     // *************************** ROCKET METHODS *****************************
     // ************************************************************************
+
+    /// The landing rounds and locations of rockets in space that belong to the
+    /// current team.
+    ///
+    /// Note that mutating this object does NOT have any effect on the actual
+    /// game. You MUST call the mutators in world!!
+    pub fn rocket_landings(&self) -> RocketLandingInfo {
+        self.world.rocket_landings()
+    }
 
     /// Whether the rocket can launch into space. The rocket can launch if the
     /// it has never been used before.
@@ -798,12 +819,9 @@ impl GameController {
     }
 }
 
+#[cfg(test)]
 mod tests {
-    use super::GameController;
-    use location::*;
-    use schema::*;
-    use unit::*;
-    use world::*;
+    use super::*;
 
     #[test]
     fn test_turn() {

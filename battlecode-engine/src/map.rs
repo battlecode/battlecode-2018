@@ -217,11 +217,11 @@ impl PlanetMap {
         if planet == Planet::Earth {
             map.initial_units.push(Unit::new(
                 1, Team::Red, UnitType::Worker, 0,
-                MapLocation::new(planet, 1, 1)
+                Location::OnMap(MapLocation::new(planet, 1, 1))
             ).expect("invalid test unit"));
             map.initial_units.push(Unit::new(
                 2, Team::Blue, UnitType::Worker, 0,
-                MapLocation::new(planet, MAP_WIDTH_MIN as i32 - 1, MAP_HEIGHT_MIN as i32 - 1)
+                Location::OnMap(MapLocation::new(planet, MAP_WIDTH_MIN as i32 - 1, MAP_HEIGHT_MIN as i32 - 1))
             ).expect("invalid test unit"));
         };
 
