@@ -1087,14 +1087,24 @@ impl GameWorld {
     // *************************** WORKER METHODS *****************************
     // ************************************************************************
 
-    /// Whether the worker is ready to harvest. The worker cannot already have
-    /// performed an action this round.
+    /// Whether the worker is ready to harvest, and the given direction contains
+    /// karbonite to harvest. The worker cannot already have performed an action 
+    /// this round.
     ///
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a worker.
-    pub fn can_harvest(&self, _worker_id: UnitID) -> Result<bool, Error> {
-        unimplemented!();
+    pub fn can_harvest(&self, worker_id: UnitID, direction: Direction) -> Result<bool, Error> {
+        let unit = self.my_unit(worker_id)?;
+        if !unit.can_worker_act()? {
+            return Ok(false);
+        }
+        let harvest_loc = unit.location().map_location()?.add(direction);
+        // Check to see if we can sense the harvest location, (e.g. it is on the map).
+        if !self.can_sense_location(harvest_loc) {
+            return Ok(false);
+        }
+        Ok(self.karbonite_at(harvest_loc)? > 0)
     }
 
     /// Harvests up to the worker's harvest amount of karbonite from the given
@@ -1104,13 +1114,24 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a worker.
     /// * GameError::InvalidLocation - the location is off the map.
-    /// * GameError::InvalidAction - the worker is not ready to harvest.
-    pub fn harvest(&mut self, _worker_id: UnitID, _direction: Direction)
+    /// * GameError::InvalidAction - the worker is not ready to harvest, or there is no karbonite.
+    pub fn harvest(&mut self, worker_id: UnitID, direction: Direction)
                    -> Result<(), Error> {
-        unimplemented!();
+        if !self.can_harvest(worker_id, direction)? {
+            Err(GameError::InvalidAction)?;
+        }
+        let (harvest_loc, harvest_amount) = {
+            let worker = self.my_unit_mut(worker_id)?;
+            worker.worker_act()?;
+            (worker.location().map_location()?.add(direction), worker.harvest_amount()?)
+        };
+        let amount_mined = cmp::min(self.karbonite_at(harvest_loc)?, harvest_amount);
+        self.my_team_mut().karbonite += amount_mined;
+        self.my_planet_mut().karbonite[harvest_loc.y as usize][harvest_loc.x as usize] -= amount_mined;
+        Ok(())
     }
 
-    /// Whether the worker can blueprint a unit of the given type. The worker
+    /// Whether the worker can blueprint a structure of the given type. The worker
     /// can only blueprint factories, and rockets if Rocketry has been
     /// researched. The team must have sufficient karbonite in its resource
     /// pool. The worker cannot already have performed an action this round.
@@ -1118,10 +1139,36 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a worker, or the
-    ///   unit type is not a factory or rocket.f
-    pub fn can_blueprint(&self, _worker_id: UnitID, _unit_type: UnitType)
-                         -> Result<bool, Error> {
-        unimplemented!();
+    ///   unit type is not a structure.
+    pub fn can_blueprint(&self, worker_id: UnitID, unit_type: UnitType,
+                         direction: Direction) -> Result<bool, Error> {
+        // Players should never attempt to build a non-structure.
+        if !unit_type.is_structure() {
+            Err(GameError::InappropriateUnitType)?;
+        }
+        let unit = self.my_unit(worker_id)?;
+        if !unit.can_worker_act()? {
+            return Ok(false);
+        }
+        let build_loc = unit.location().map_location()?.add(direction);
+        // Check to see if we can sense the build location, (e.g. it is on the map).
+        if !self.can_sense_location(build_loc) {
+            return Ok(false);
+        }
+        // The build location must be unoccupied.
+        if !self.is_occupiable(build_loc)? {
+            return Ok(false);
+        }
+        // Structures can never be built on Mars.
+        if build_loc.planet == Planet::Mars {
+            return Ok(false);
+        }
+        // If building a rocket, Rocketry must be unlocked.
+        if unit_type == UnitType::Rocket && self.my_research().get_level(&unit_type) < 1 {
+            return Ok(false);
+        }
+        // Finally, the team must have sufficient karbonite.
+        Ok(self.karbonite() >= unit_type.blueprint_cost()?)
     }
 
     /// Blueprints a unit of the given type in the given direction. Subtract
@@ -1133,9 +1180,20 @@ impl GameWorld {
     ///   unit type is not a factory or rocket.
     /// * GameError::InvalidLocation - the location is off the map.
     /// * GameError::InvalidAction - the worker is not ready to blueprint.
-    pub fn blueprint(&mut self, _worker_id: UnitID, _unit_type: UnitType,
-                     _direction: Direction) -> Result<(), Error> {
-        unimplemented!();
+    pub fn blueprint(&mut self, worker_id: UnitID, unit_type: UnitType,
+                     direction: Direction) -> Result<(), Error> {
+        if !self.can_blueprint(worker_id, unit_type, direction)? {
+            Err(GameError::InvalidAction)?;
+        }
+        let build_loc = {
+            let worker = self.my_unit_mut(worker_id)?;
+            worker.worker_act()?;
+            worker.location().map_location()?.add(direction)
+        };
+        let team = self.team();
+        self.create_unit(team, build_loc, unit_type)?;
+        self.my_team_mut().karbonite -= unit_type.blueprint_cost()?;
+        Ok(())
     }
 
     /// Whether the worker can build a blueprint with the given ID. The worker
@@ -1145,22 +1203,46 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - a unit does not exist.
     /// * GameError::TeamNotAllowed - a unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the worker or blueprint is the wrong
-    ///   type. A unit that has already been built is no longer a blueprint.
-    pub fn can_build(&self, _worker_id: UnitID, _blueprint_id: UnitID)
+    ///   type.
+    pub fn can_build(&self, worker_id: UnitID, blueprint_id: UnitID)
                      -> Result<bool, Error> {
-        unimplemented!();
+        let worker = self.my_unit(worker_id)?;
+        let blueprint = self.my_unit(blueprint_id)?;
+        // The worker must be able to act.
+        if !worker.can_worker_act()? {
+            return Ok(false);
+        }
+        // The worker must be adjacent to the blueprint.
+        if !worker.is_adjacent_to(blueprint.location()) {
+            return Ok(false);
+        }
+        // The blueprint must be incomplete.
+        if blueprint.is_built()? {
+            return Ok(false);
+        }
+        Ok(true)
     }
 
-    /// Blueprints a unit of the given type in the given direction. Subtract
-    /// cost of that unit from the team's resource pool.
+    /// Builds a given blueprint, increasing its health by the worker's build
+    /// amount. If raised to maximum health, the blueprint becomes a completed
+    /// structure.
     ///
     /// * GameError::NoSuchUnit - a unit does not exist.
     /// * GameError::TeamNotAllowed - a unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit or blueprint is the wrong type.
     /// * GameError::InvalidAction - the worker cannot build the blueprint.
-    pub fn build(&mut self, _worker_id: UnitID, _blueprint_id: UnitID)
+    pub fn build(&mut self, worker_id: UnitID, blueprint_id: UnitID)
                  -> Result<(), Error> {
-        unimplemented!();
+        if !self.can_build(worker_id, blueprint_id)? {
+            Err(GameError::InvalidAction)?;
+        }
+        let build_health = {
+            let worker = self.my_unit_mut(worker_id)?;
+            worker.worker_act()?;
+            worker.build_health()?
+        };
+        self.my_unit_mut(blueprint_id)?.be_built(build_health)?;
+        Ok(())
     }
 
     /// Whether the worker is ready to replicate. Tests that the worker's
@@ -2438,6 +2520,120 @@ mod tests {
     }
 
     #[test]
+    fn test_worker_harvest() {
+        // Create the game world, which by default has 10 karbonite everywhere.
+        let mut world = GameWorld::test_world();
+
+        // Select a deposit, and test that it can be mined out as expected.
+        let deposit = MapLocation::new(Planet::Earth, 0, 0);
+        let expected_karbonite = [10, 7, 4, 1, 0];
+        let expected_team_karbonite = [100, 103, 106, 109, 110];
+        for i in 0..4 {
+            let worker = world.create_unit(Team::Red, deposit.add(Direction::North), 
+                                                UnitType::Worker).unwrap();
+            assert![world.can_harvest(worker, Direction::South).unwrap()];
+            assert_eq![world.karbonite_at(deposit).unwrap(), expected_karbonite[i]];
+            assert_eq![world.karbonite(), expected_team_karbonite[i]];
+            assert![world.harvest(worker, Direction::South).is_ok()];
+            // The robot can no longer harvest, as it has already done so.
+            assert![!world.can_harvest(worker, Direction::South).unwrap()];
+            assert_eq![world.karbonite_at(deposit).unwrap(), expected_karbonite[i+1]];
+            assert_eq![world.karbonite(), expected_team_karbonite[i+1]];
+            world.destroy_unit(worker);
+        }
+
+        // The deposit has been mined out, so it cannot be harvested.
+        let worker = world.create_unit(Team::Red, deposit.add(Direction::North),
+                                            UnitType::Worker).unwrap();
+        assert![!world.can_harvest(worker, Direction::South).unwrap()];
+
+        // Other deposits can still be harvested, including in the robot's own space.
+        assert![world.can_harvest(worker, Direction::Center).unwrap()];
+
+        // Deposits off the edge of the map can obviously not be harvested, but checking
+        // this should not error.
+        assert![!world.can_harvest(worker, Direction::West).unwrap()];
+    }
+
+    #[test]
+    fn test_worker_blueprint_and_build() {
+        // Create the game world.
+        let mut world = GameWorld::test_world();
+
+        // Select a location to build a factory, and create a worker.
+        let factory_loc = MapLocation::new(Planet::Earth, 0, 0);
+        let worker_a = world.create_unit(Team::Red, factory_loc.add(Direction::North), UnitType::Worker).unwrap();
+
+        // Even testing if blueprinting a robot is possible results in an error.
+        assert![world.can_blueprint(worker_a, UnitType::Knight, Direction::South).is_err()];
+
+        // A factory cannot be blueprinted yet, because there are not enough resources.
+        assert![!world.can_blueprint(worker_a, UnitType::Factory, Direction::South).unwrap()];
+
+        // After adding more resources to the team pool, blueprinting a factory is possible.
+        world.get_team_mut(Team::Red).karbonite = 1000;
+        assert![world.can_blueprint(worker_a, UnitType::Factory, Direction::South).unwrap()];
+
+        // However, a factory cannot be blueprinted to the west, as this is off the map.
+        assert![!world.can_blueprint(worker_a, UnitType::Factory, Direction::West).unwrap()];
+
+        assert![world.blueprint(worker_a, UnitType::Factory, Direction::South).is_ok()];
+        let factory = world.get_planet_mut(Planet::Earth).units_by_loc[&factory_loc];
+
+        // The factory cannot be built by the same worker, because it has already acted.
+        assert![!world.can_build(worker_a, factory).unwrap()];
+        world.destroy_unit(worker_a);
+
+        // It takes 150 build actions, with default research, to complete a factory.
+        for i in 0..150 {
+            // Create a worker two squares north of the factory blueprint.
+            let worker_b = world.create_unit(Team::Red, 
+                                             factory_loc.add(Direction::North).add(Direction::North), 
+                                             UnitType::Worker).unwrap();
+
+            // The worker is initially too far away to build the factory.
+            assert![!world.can_build(worker_b, factory).unwrap()];
+            assert![world.move_robot(worker_b, Direction::South).is_ok()];
+
+            // The worker is now able to build the factory.
+            assert![world.can_build(worker_b, factory).unwrap()];
+            assert![world.build(worker_b, factory).is_ok()];
+            assert_eq![world.get_unit(factory).unwrap().health(), 255 + 5*i];
+
+            // The worker has already acted, and cannot build again.
+            assert![!world.can_build(worker_b, factory).unwrap()];
+            world.destroy_unit(worker_b);
+        }
+        assert![world.get_unit(factory).unwrap().is_built().unwrap()];
+
+        // Subsequent attempts to build the factory should fail.
+        let worker_c = world.create_unit(Team::Red, factory_loc.add(Direction::North), UnitType::Worker).unwrap();
+        assert![!world.can_build(worker_c, factory).unwrap()];
+        world.destroy_unit(worker_c);
+
+        // It should not be possible to blueprint a rocket until researching Rocketry.
+        let rocket_loc = MapLocation::new(Planet::Earth, 1, 0);
+        let worker_d = world.create_unit(Team::Red, rocket_loc.add(Direction::North), UnitType::Worker).unwrap();
+        assert![!world.can_blueprint(worker_d, UnitType::Rocket, Direction::South).unwrap()];
+
+        // Force-research Rocketry.
+        assert![world.queue_research(Branch::Rocket)];
+        for i in 0..1000 {
+            assert![world.process_research(Team::Red).is_ok()];
+        }
+
+        // Rockets can now be built!
+        assert![world.can_blueprint(worker_d, UnitType::Rocket, Direction::South).unwrap()];
+        assert![world.blueprint(worker_d, UnitType::Rocket, Direction::South).is_ok()];
+
+        // Blueprinting is never possible on Mars.
+        assert![world.end_turn().is_ok()];
+        assert![world.end_turn().is_ok()];
+        let mars_factory_loc = MapLocation::new(Planet::Mars, 0, 0);
+        let worker_e = world.create_unit(Team::Red, mars_factory_loc.add(Direction::North), UnitType::Worker).unwrap();
+        assert![!world.can_blueprint(worker_e, UnitType::Factory, Direction::South).unwrap()];
+    }
+
     fn test_factory_production() {
         let mut world = GameWorld::test_world();
         let loc = MapLocation::new(Planet::Earth, 10, 10);

@@ -187,6 +187,17 @@ impl UnitType {
             _ => Err(GameError::InappropriateUnitType)?,
         }
     }
+
+    /// The cost to blueprint the unit.
+    ///
+    /// Errors if the unit cannot be blueprinted.
+    pub fn blueprint_cost(self) -> Result<u32, Error> {
+        match self {
+            UnitType::Factory => Ok(BLUEPRINT_FACTORY_COST),
+            UnitType::Rocket => Ok(BLUEPRINT_ROCKET_COST),
+            _ => Err(GameError::InappropriateUnitType)?,
+        }
+    }
 }
 
 /// A single unit in the game and its controller. Actions can be performed on
@@ -226,7 +237,7 @@ pub struct Unit {
     // Worker special ability.
     build_health: u32,
     harvest_amount: u32,
-    has_harvested: bool,
+    has_worker_acted: bool,
 
     // Knight special ability.
     defense_per_robot: Percent,
@@ -281,7 +292,7 @@ impl Default for Unit {
             garrison: vec![],
             build_health: 5,
             harvest_amount: 3,
-            has_harvested: false,
+            has_worker_acted: false,
             defense_per_robot: 1,
             cannot_attack_range: 10,
             countdown: 0,
@@ -522,6 +533,13 @@ impl Unit {
         self.health == 0
     }
 
+    /// Increases the unit's current health by the given amount, without healing
+    /// beyond the unit's maximum health. Returns true if unit is healed to max.
+    pub fn be_healed(&mut self, heal_amount: u32) -> bool {
+        self.health = cmp::min(self.health + heal_amount, self.max_health);
+        self.health == self.max_health
+    }
+
     // ************************************************************************
     // *************************** ABILITY METHODS *****************************
     // ************************************************************************
@@ -613,20 +631,21 @@ impl Unit {
         Ok(self.harvest_amount)
     }
 
-    /// Whether the unit can harvest.
+    /// Whether the unit can perform a worker action (building, blueprinting, 
+    /// harvesting, or replicating).
     ///
     /// Errors if the unit is not a worker.
-    pub fn can_harvest(&self) -> Result<bool, Error> {
+    pub fn can_worker_act(&self) -> Result<bool, Error> {
         self.ok_if_unit_type(Worker)?;
-        Ok(!self.has_harvested)
+        Ok(!self.has_worker_acted)
     }
 
-    /// Updates the unit as if it has harvested from a location.
+    /// Updates the unit as if it has performed a worker action.
     ///
-    /// Errors if the unit is not a worker, or not ready to harvest.
-    pub fn harvest(&mut self) -> Result<(), Error> {
-        if self.can_harvest()? {
-            self.has_harvested = true;
+    /// Errors if the unit is not a worker, or has already acted.
+    pub fn worker_act(&mut self) -> Result<(), Error> {
+        if self.can_worker_act()? {
+            self.has_worker_acted = true;
             Ok(())
         } else {
             Err(GameError::InvalidAction)?
@@ -778,12 +797,31 @@ impl Unit {
         Ok(self.max_capacity)
     }
 
+    /// Whether this structure has been built.
+    ///
+    /// Errors if the unit is not a structure.
+    pub fn is_built(&self) -> Result<bool, Error> {
+        self.ok_if_structure()?;
+        Ok(self.is_built)
+    }
+
     /// Returns the units in the structure's garrison.
     ///
     /// Errors if the unit is not a structure.
     pub fn garrison(&self) -> Result<Vec<UnitID>, Error> {
         self.ok_if_structure()?;
         Ok(self.garrison.clone())
+    }
+
+    /// Updates this structure as though a worker has just built it. Only errors
+    /// if the unit is not a structure (i.e. does not check that structure is
+    /// incomplete).
+    pub fn be_built(&mut self, build_health: u32) -> Result<(), Error> {
+        self.ok_if_structure()?;
+        if self.be_healed(build_health) {
+            self.is_built = true;
+        }
+        Ok(())
     }
 
     /// Whether the structure can load a unit. The structure must have enough

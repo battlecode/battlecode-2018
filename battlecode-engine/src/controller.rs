@@ -348,14 +348,15 @@ impl GameController {
     // *************************** WORKER METHODS *****************************
     // ************************************************************************
 
-    /// Whether the worker is ready to harvest. The worker cannot already have
-    /// performed an action this round.
+    /// Whether the worker is ready to harvest, and the given direction contains
+    /// karbonite to harvest. The worker cannot already have performed an action 
+    /// this round.
     ///
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a worker.
-    pub fn can_harvest(&self, worker_id: UnitID) -> Result<bool, Error> {
-        Ok(self.world.can_harvest(worker_id)?)
+    pub fn can_harvest(&self, worker_id: UnitID, direction: Direction) -> Result<bool, Error> {
+        Ok(self.world.can_harvest(worker_id, direction)?)
     }
 
     /// Harvests up to the worker's harvest amount of karbonite from the given
@@ -365,7 +366,7 @@ impl GameController {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a worker.
     /// * GameError::InvalidLocation - the location is off the map.
-    /// * GameError::InvalidAction - the worker is not ready to harvest.
+    /// * GameError::InvalidAction - the worker is not ready to harvest, or there is no karbonite.
     pub fn harvest(&mut self, worker_id: UnitID, direction: Direction)
                    -> Result<(), Error> {
         let delta = Delta::Harvest { worker_id, direction };
@@ -384,9 +385,9 @@ impl GameController {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a worker, or the
     ///   unit type is not a factory or rocket.
-    pub fn can_blueprint(&self, worker_id: UnitID, unit_type: UnitType)
-                         -> Result<bool, Error> {
-        Ok(self.world.can_blueprint(worker_id, unit_type)?)
+    pub fn can_blueprint(&self, worker_id: UnitID, unit_type: UnitType,
+                         direction: Direction) -> Result<bool, Error> {
+        Ok(self.world.can_blueprint(worker_id, unit_type, direction)?)
     }
 
     /// Blueprints a unit of the given type in the given direction. Subtract
@@ -420,8 +421,9 @@ impl GameController {
         Ok(self.world.can_build(worker_id, blueprint_id)?)
     }
 
-    /// Blueprints a unit of the given type in the given direction. Subtract
-    /// cost of that unit from the team's resource pool.
+    /// Builds a given blueprint, increasing its health by the worker's build
+    /// amount. If raised to maximum health, the blueprint becomes a completed
+    /// structure.
     ///
     /// * GameError::NoSuchUnit - a unit does not exist.
     /// * GameError::TeamNotAllowed - a unit is not on the current player's team.

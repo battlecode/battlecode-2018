@@ -59,23 +59,6 @@ pub const KARBONITE_PER_ROUND: u32 = 10;
 pub const KARBONITE_DECREASE_RATIO: u32 = 1500;
 
 // *********************************
-// ******* FACTORY CONSTANTS *******
-// *********************************
-
-/// The cost of a worker in a factory.
-pub const FACTORY_WORKER_COST: u32 = 60;
-/// The cost of a knight in a factory.
-pub const FACTORY_KNIGHT_COST: u32 = 50;
-/// The cost of a ranger in a factory.
-pub const FACTORY_RANGER_COST: u32 = 50;
-/// The cost of a mage in a factory.
-pub const FACTORY_MAGE_COST: u32 = 50;
-/// The cost of a healer in a factory.
-pub const FACTORY_HEALER_COST: u32 = 50;
-/// The number of rounds to produce a robot in a factory.
-pub const FACTORY_NUM_ROUNDS: Rounds = 5;
-
-// *********************************
 // ****** RESEARCH CONSTANTS *******
 // *********************************
 
@@ -122,6 +105,27 @@ pub const COUNTDOWN_PER_ROUND: u32 = 1;
 
 /// The damage a rocket deals to adjacent units upon landing.
 pub const ROCKET_BLAST_DAMAGE: i32 = 50;
+
+// *********************************
+// ********** UNIT COSTS ***********
+// *********************************
+
+/// The cost of a worker in a factory.
+pub const FACTORY_WORKER_COST: u32 = 60;
+/// The cost of a knight in a factory.
+pub const FACTORY_KNIGHT_COST: u32 = 50;
+/// The cost of a ranger in a factory.
+pub const FACTORY_RANGER_COST: u32 = 50;
+/// The cost of a mage in a factory.
+pub const FACTORY_MAGE_COST: u32 = 50;
+/// The cost of a healer in a factory.
+pub const FACTORY_HEALER_COST: u32 = 50;
+/// The number of rounds to produce a robot in a factory.
+pub const FACTORY_NUM_ROUNDS: Rounds = 5;
+/// The cost to blueprint a factory.
+pub const BLUEPRINT_FACTORY_COST: u32 = 250;
+/// The cost to blueprint a rocket.
+pub const BLUEPRINT_ROCKET_COST: u32 = 200;
 
 // *********************************
 // ****** GAME PARAMETERS **********
