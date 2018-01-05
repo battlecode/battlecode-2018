@@ -107,9 +107,6 @@ struct TeamInfo {
     /// Team identification.
     team: Team,
 
-    /// Unit ID generator.
-    id_generator: IDGenerator,
-
     /// Communication array histories for each planet.
     team_arrays: FnvHashMap<Planet, TeamArrayHistory>,
 
@@ -128,10 +125,9 @@ struct TeamInfo {
 
 impl TeamInfo {
     /// Construct a team with the default properties.
-    fn new(team: Team, seed: u32) -> TeamInfo {
+    fn new(team: Team) -> TeamInfo {
         TeamInfo {
             team: team,
-            id_generator: IDGenerator::new(team, seed),
             team_arrays: FnvHashMap::default(),
             rocket_landings: RocketLandingInfo::new(),
             research: ResearchInfo::new(),
@@ -181,6 +177,9 @@ pub struct GameWorld {
     /// The player whose turn it is.
     player_to_move: Player,
 
+    /// Unit ID generator.
+    id_generator: IDGenerator,
+
     /// The asteroid strike pattern on Mars.
     asteroids: AsteroidPattern,
 
@@ -209,8 +208,8 @@ impl GameWorld {
         planet_states.insert(Planet::Mars, PlanetInfo::new(&map.mars_map));
 
         let mut team_states = FnvHashMap::default();
-        team_states.insert(Team::Red, TeamInfo::new(Team::Red, map.seed));
-        team_states.insert(Team::Blue, TeamInfo::new(Team::Blue, map.seed));
+        team_states.insert(Team::Red, TeamInfo::new(Team::Red));
+        team_states.insert(Team::Blue, TeamInfo::new(Team::Blue));
 
         let mut planet_maps = FnvHashMap::default();
         planet_maps.insert(Planet::Earth, map.earth_map.clone());
@@ -219,6 +218,7 @@ impl GameWorld {
         let mut world = GameWorld {
             round: 1,
             player_to_move: Player { team: Team::Red, planet: Planet::Earth },
+            id_generator: IDGenerator::new(map.seed),
             asteroids: map.asteroids,
             orbit: map.orbit,
             planet_maps: planet_maps,
@@ -253,8 +253,8 @@ impl GameWorld {
         planet_states.insert(Planet::Mars, PlanetInfo::new(&map.mars_map));
 
         let mut team_states = FnvHashMap::default();
-        team_states.insert(Team::Red, TeamInfo::new(Team::Red, map.seed));
-        team_states.insert(Team::Blue, TeamInfo::new(Team::Blue, map.seed));
+        team_states.insert(Team::Red, TeamInfo::new(Team::Red));
+        team_states.insert(Team::Blue, TeamInfo::new(Team::Blue));
 
         let mut planet_maps = FnvHashMap::default();
         planet_maps.insert(Planet::Earth, map.earth_map);
@@ -263,6 +263,7 @@ impl GameWorld {
         let mut world = GameWorld {
             round: 1,
             player_to_move: Player { team: Team::Red, planet: Planet::Earth },
+            id_generator: IDGenerator::new(map.seed),
             asteroids: map.asteroids,
             orbit: map.orbit,
             planet_maps: planet_maps,
@@ -349,6 +350,7 @@ impl GameWorld {
         GameWorld {
             round: self.round,
             player_to_move: player,
+            id_generator: self.id_generator.clone(),
             asteroids: self.asteroids.clone(),
             orbit: self.orbit.clone(),
             planet_maps: self.planet_maps.clone(),
@@ -839,7 +841,7 @@ impl GameWorld {
     /// referenced by ID. Used for testing only!!!
     pub fn create_unit(&mut self, team: Team, location: MapLocation,
                        unit_type: UnitType) -> Result<UnitID, Error> {
-        let id = self.get_team_mut(team).id_generator.next_id();
+        let id = self.id_generator.next_id();
         let level = self.get_team(team).research.get_level(&unit_type);
         let unit = Unit::new(id, team, unit_type, level, OnMap(location))?;
 
@@ -1718,7 +1720,7 @@ impl GameWorld {
                 (new_unit_type.unwrap(), factory.team())
             };
 
-            let id = self.get_team_mut(team).id_generator.next_id();
+            let id = self.id_generator.next_id();
             let level = self.get_team(team).research.get_level(&unit_type);
             let new_unit = Unit::new(id, team, unit_type, level, InGarrison(factory_id))
                 .expect("research_level is valid");
@@ -1871,6 +1873,7 @@ impl GameWorld {
             unit_infos_changed: vec![],
             unit_infos_vanished: vec![],
             karbonite_changed: vec![],
+            id_generator: world.id_generator.clone(),
             units_in_space_changed: vec![],
             units_in_space_vanished: vec![],
             other_planet_array: vec![], // TODO: communication
@@ -2031,6 +2034,7 @@ impl GameWorld {
             self.my_team_mut().units_in_space.remove(&unit_id);
         }
         // TODO: do something with turn.other_planet_array
+        self.id_generator = turn.id_generator;
         self.my_team_mut().rocket_landings = turn.rocket_landings;
         self.my_team_mut().research = turn.research;
         self.my_team_mut().karbonite = turn.karbonite;

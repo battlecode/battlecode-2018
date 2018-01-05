@@ -8,6 +8,7 @@
 //! Manager --StartTurnMessage--> Red Earth
 //! Manager <----TurnMessage----- Red Earth
 
+use super::id_generator::*;
 use super::location::*;
 use super::research::*;
 use super::rockets::*;
@@ -87,7 +88,7 @@ pub struct StartTurnMessage {
     pub karbonite_changed: Vec<(MapLocation, u32)>,
 
     // TeamInfo
-    // TODO: make sure IDs generated are the same.
+    pub id_generator: IDGenerator,
     pub units_in_space_changed: Vec<Unit>,
     pub units_in_space_vanished: Vec<UnitID>,
     pub other_planet_array: TeamArray,

@@ -2,7 +2,6 @@
 
 use rand::{Rng, SeedableRng, StdRng};
 use unit::UnitID;
-use world::Team;
 
 /// The size of groups of IDs to reserve at a time.
 const ID_BLOCK_SIZE: usize = 4096;
@@ -10,8 +9,6 @@ const ID_BLOCK_SIZE: usize = 4096;
 /// Generates a sequence of unique pseudorandom positive integer IDS for units.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct IDGenerator {
-    /// IDs generated are modulo mod 2.
-    modulo: u32,
     /// Map seed.
     seed: u32,
     /// The block of reserved IDs we walk through.
@@ -24,13 +21,12 @@ pub struct IDGenerator {
 
 impl IDGenerator {
     /// Create a new generator. Generates IDs that are (team as u32) mod 2.
-    pub fn new(team: Team, seed: u32) -> IDGenerator {
+    pub fn new(seed: u32) -> IDGenerator {
         let mut id_gen = IDGenerator {
-            modulo: team as u32,
             seed: seed,
-            reserved_ids: vec![0; ID_BLOCK_SIZE as usize],
+            reserved_ids: vec![0; ID_BLOCK_SIZE],
             cursor: 0,
-            next_id_block: 0,
+            next_id_block: ID_BLOCK_SIZE as UnitID,
         };
 
         id_gen.allocate_next_block();
@@ -45,7 +41,7 @@ impl IDGenerator {
         if self.cursor == ID_BLOCK_SIZE {
             self.allocate_next_block();
         }
-        id * 2 + self.modulo
+        id
     }
 
     /// Reserve the next ID_BLOCK_SIZE ints after self.next_id_block, shuffle
@@ -56,9 +52,9 @@ impl IDGenerator {
             self.reserved_ids[i] = self.next_id_block + i as UnitID;
         }
 
-        // The seed is a function of the original map seed, the team of the
-        // ID generator, and the next block size.
-        let seed: &[_] = &[(self.seed + self.next_id_block + self.modulo) as usize];
+        // The seed is a function of the original map seed
+        // and the next block size.
+        let seed: &[_] = &[(self.seed + self.next_id_block) as usize];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
         rng.shuffle(&mut self.reserved_ids);
         self.next_id_block += ID_BLOCK_SIZE as UnitID;
@@ -67,51 +63,79 @@ impl IDGenerator {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use std::collections::HashSet;
-    use super::super::world::Team;
+
+    const NUM_IDS: usize = ID_BLOCK_SIZE * 2;
 
     #[test]
-    fn uniqueness() {
+    fn test_id_generator_uniqueness() {
         // Create an ID generator for two teams.
-        let mut id_gen_a = super::IDGenerator::new(Team::Red, 1);
-        let mut id_gen_b = super::IDGenerator::new(Team::Blue, 1);
+        let mut id_gen = IDGenerator::new(1);
 
         // Generate a bunch of IDs. All the IDs should be unique.
-        // Also all red IDs are even, and blue IDs are odd.
         let mut ids = HashSet::new();
-        for _ in 0..super::ID_BLOCK_SIZE * 2 {
-            let id_a = id_gen_a.next_id();
-            assert!(!ids.contains(&id_a));
-            assert_eq!(id_a % 2, 0);
-            ids.insert(id_a);
-
-            let id_b = id_gen_b.next_id();
-            assert!(!ids.contains(&id_b));
-            assert_eq!(id_b % 2, 1);
-            ids.insert(id_b);
+        for _ in 0..NUM_IDS {
+            let id = id_gen.next_id();
+            assert!(!ids.contains(&id));
+            ids.insert(id);
         }
     }
 
     #[test]
-    fn determinacy() {
-        // ID generators with the same seed and team produce the same results.
-        let mut id_gen_a = super::IDGenerator::new(Team::Red, 1);
-        let mut id_gen_b = super::IDGenerator::new(Team::Red, 1);
-        for _ in 0..super::ID_BLOCK_SIZE * 2 {
+    fn test_id_generator_determinacy() {
+        // ID generators with the same seed produce the same results.
+        let mut id_gen_a = IDGenerator::new(1337);
+        let mut id_gen_b = IDGenerator::new(1337);
+        for _ in 0..NUM_IDS {
             let id_a = id_gen_a.next_id();
             let id_b = id_gen_b.next_id();
             assert_eq!(id_a, id_b);
         }
 
         // Different seeds produce different results.
-        let mut id_gen_a = super::IDGenerator::new(Team::Red, 1);
-        let mut id_gen_b = super::IDGenerator::new(Team::Red, 2);
+        let mut id_gen_a = IDGenerator::new(6147);
+        let mut id_gen_b = IDGenerator::new(6370);
         let mut different_results = false;
-        for _ in 0..super::ID_BLOCK_SIZE * 2 {
+        for _ in 0..NUM_IDS {
             let id_a = id_gen_a.next_id();
             let id_b = id_gen_b.next_id();
             different_results = different_results || id_a != id_b;
         }
         assert!(different_results)
+    }
+
+    #[test]
+    fn test_id_generator_mirror() {
+        // ID generators should properly produce units with the same IDs
+        // in both engine mode and player mode. Thus a cloned ID generator
+        // should be in the same state as its original.
+        let mut id_gen_manager = IDGenerator::new(1234);
+        let mut id_gen_red = id_gen_manager.clone();
+
+        // Red makes some units.
+        let mut red_ids: Vec<UnitID> = vec![];
+        for _ in 0..NUM_IDS {
+            red_ids.push(id_gen_red.next_id());
+        }
+
+        // The manager mirrors creating two Red units.
+        for i in 0..NUM_IDS {
+            let manager_id = id_gen_manager.next_id();
+            assert_eq!(manager_id, red_ids[i]);
+        }
+
+        // Blue clones the manager's ID generator, and makes some units.
+        let mut id_gen_blue = id_gen_manager.clone();
+        let mut blue_ids: Vec<UnitID> = vec![];
+        for _ in 0..NUM_IDS {
+            blue_ids.push(id_gen_blue.next_id());
+        }
+
+        // The manager mirrors creating two Blue units.
+        for i in 0..NUM_IDS {
+            let manager_id = id_gen_manager.next_id();
+            assert_eq!(manager_id, blue_ids[i]);
+        }
     }
 }
