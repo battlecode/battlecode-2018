@@ -9,7 +9,6 @@ addons:
         packages:
             - libssl-dev
             - python-pip
-            - python3.6
 cache:
   - cargo
   - directories:
@@ -19,6 +18,7 @@ before_install:
   - sudo add-apt-repository ppa:jonathonf/python-3.6
   - sudo apt-get update -q
 install:
+  - sudo -E apt-get -yq --no-install-suggests --no-install-recommends --force-yes install python3.6
   - python -m pip install -r bindings/python/requirements.txt --user
 
 script:
