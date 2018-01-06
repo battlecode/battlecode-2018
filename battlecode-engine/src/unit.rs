@@ -240,7 +240,7 @@ pub struct Unit {
     has_worker_acted: bool,
 
     // Knight special ability.
-    defense_per_robot: Percent,
+    defense: u32,
 
     // Ranger special ability.
     cannot_attack_range: u32,
@@ -293,7 +293,7 @@ impl Default for Unit {
             build_health: 5,
             harvest_amount: 3,
             has_worker_acted: false,
-            defense_per_robot: 1,
+            defense: 5,
             cannot_attack_range: 10,
             countdown: 0,
             target_location: None,
@@ -543,12 +543,14 @@ impl Unit {
 
     /// Take the amount of damage given, returning true if the unit has died.
     /// Returns false if the unit is still alive.
-    pub fn take_damage(&mut self, damage: i32) -> bool {
+    pub fn take_damage(&mut self, mut damage: i32) -> bool {
         if damage < 0 {
             self.be_healed((-damage) as u32);
             return false;
         }
-        // TODO: Knight damage resistance??
+        if self.unit_type() == UnitType::Knight {
+            damage = cmp::max(damage - self.defense as i32, 0);
+        }
         self.health -= cmp::min(damage, self.health as i32) as u32;
         self.health == 0
     }
@@ -1023,8 +1025,8 @@ impl Unit {
                 _ => Err(GameError::InvalidResearchLevel)?,
             },
             Knight => match self.level {
-                0 => { self.defense_per_robot += 1; },
-                1 => { self.defense_per_robot += 1; },
+                0 => { self.defense += 5; },
+                1 => { self.defense += 5; },
                 2 => { self.is_ability_unlocked = true; },
                 _ => Err(GameError::InvalidResearchLevel)?,
             },
