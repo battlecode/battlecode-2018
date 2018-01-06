@@ -1026,7 +1026,7 @@ impl GameWorld {
 
         self.damage_unit(id, damage)
     }
-    
+
     fn ok_if_can_attack(&self, robot_id: UnitID, target_id: UnitID) -> Result<(), Error> {
         let target_loc = self.unit_info(robot_id)?.location;
         if !target_loc.on_map() {
@@ -1409,38 +1409,21 @@ impl GameWorld {
         self.my_unit_mut(ranger_id)?.begin_snipe(location)?;
         Ok(())
     }
-    
-    /// Whether the ranger snipe is ready to be processed.
-    /// If a ranger's snipe has reached the end of its countdown, fires
-    /// the shot and resets the attack and movement heats.
-    fn process_ranger(&mut self, ranger_id: UnitID) -> Result<(), Error> {
-        let target_location = self.get_unit_mut(ranger_id)?.process_snipe()?;
-        let damage = self.get_unit(ranger_id)?.damage()?;
-        self.damage_location(target_location.expect("ranger must have target if sniping"), damage);
-        Ok(())
-    }
 
-    fn process_snipes(&mut self) {
+    fn process_rangers(&mut self, planet: Planet) {
         let mut rangers: Vec<UnitID> = vec![];
-        for unit in &mut self.get_planet_mut(Planet::Earth).units.values_mut() {
-            if unit.unit_type() == UnitType::Ranger
-                && unit.is_sniping()
-                && unit.countdown() == 0
-                && unit.target_location().is_some() {
-                    rangers.push(unit.id());
-            }
-        }
-        for unit in &mut self.get_planet_mut(Planet::Mars).units.values_mut() {
-            if unit.unit_type() == UnitType::Ranger
-                && unit.is_sniping()
-                && unit.countdown() == 0
-                && unit.target_location().is_some() {
-                    rangers.push(unit.id());
+        for unit in self.get_planet(planet).units.values() {
+            if unit.unit_type() == UnitType::Ranger {
+                rangers.push(unit.id());
             }
         }
 
-        for ranger in rangers {
-            self.process_ranger(ranger);
+        for id in rangers {
+            let target_location = self.get_planet_mut(planet).units.get_mut(&id).unwrap().process_snipe();
+            if target_location.is_some() {
+                let damage = self.get_planet(planet).units.get(&id).unwrap().damage().unwrap();
+                self.damage_location(target_location.unwrap(), damage);
+            }
         }
     }
 
@@ -1962,7 +1945,8 @@ impl GameWorld {
         }
 
         // Process ranger snipes.
-        self.process_snipes();
+        self.process_rangers(Planet::Earth);
+        self.process_rangers(Planet::Mars);
 
         // Add produced factory robots to the garrison.
         self.process_factories();
@@ -2462,9 +2446,6 @@ mod tests {
         let robot = world.create_unit(Team::Red, loc_b,UnitType::Knight).unwrap();
         // Ranger should not be able to snipe target location on a different planet.
         assert!(world.begin_snipe(ranger, loc_c).is_err());
-
-        // Processing snipe should fail if ranger has not channeled for enough rounds
-        assert!(world.process_ranger(ranger).is_err());
 
         // Ranger begins to snipe a location.
         assert!(world.begin_snipe(ranger, loc_b).is_ok());
