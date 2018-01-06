@@ -53,6 +53,9 @@ class CEnumWrapperType(Type):
     def unwrap_rust_value(self, name):
         return f'{name}.into()'
 
+    def python_postfix(self):
+        return f'result = {self.to_python()}(result)\n'
+
 class CEnumWrapper(CEnum):
     '''A wrapper for a rust c-style enum, that is, an enum with integer values.'''
 

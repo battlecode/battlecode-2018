@@ -56,9 +56,10 @@ class Function(object):
 
 class Method(Function):
     '''A function contained within some type.'''
-    def __init__(self, type, container, method_name, args, body='', docs='', pyname=None):
+    def __init__(self, type, container, method_name, args, body='', docs='', pyname=None, static=False):
         self.container = container
         self.method_name = method_name
+        self.static = static
         super().__init__(type, f'{self.container}_{self.method_name}', args, body, docs)
         if pyname is None:
             self.pyname = self.method_name
@@ -67,20 +68,24 @@ class Method(Function):
 
     def to_swig(self):
         result = s(f'''\
-            %feature("docstring", "{self.docs}");
+            %feature("docstring", "{self.docs}");{'ERROR BROKEN STATIC METHODS' if self.static else ''}
             {self.type.to_swig()} {self.method_name}({', '.join(a.to_swig() for a in self.args)});
         ''')
         return result
     
     def to_python(self):
-        args = [Var(self.args[0].type, 'self')] + self.args[1:]
+        if self.static:
+            args = self.args
+        else:
+            args = [Var(self.args[0].type, 'self')] + self.args[1:]
         pyargs = ', '.join(a.type.wrap_python_value(a.name) for a in args)
 
         body = f'result = _lib.{self.name}({pyargs})\n'
         body += '_check_errors()\n'
         body += self.type.python_postfix()
         body += 'return result\n'
-        return Function.pyentry(args, self.pyname, self.docs) + s(body, indent=4)
+        pre = '@staticmethod\n' if self.static else ''
+        return pre + Function.pyentry(args, self.pyname, self.docs) + s(body, indent=4)
 
 class FunctionWrapper(Function):
     def __init__(self, module, type, name, args):

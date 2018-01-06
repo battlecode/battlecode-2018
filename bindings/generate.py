@@ -41,16 +41,40 @@ MapLocation = p.struct('location::MapLocation',
 MapLocation.method(MapLocation.type, 'add', [Var(Direction.type, 'direction')])
 
 UnitID = p.typedef('unit::UnitID', u16.type)
+Rounds = p.typedef('world::Rounds', u32.type)
 
 Team = p.c_enum('world::Team')\
     .variant('Red', 0)\
     .variant('Blue', 1)
 
-PlanetMap = p.struct("map::PlanetMap")\
-    .constructor("test_map", [Var(Planet.type, "planet")])\
-    .method(void.type.result(), "validate", [])
+Player = p.struct('world::Player')
+Player.constructor('new', [Var(Team.type, 'team'), Var(Planet.type, 'planet')])
+Player.member(Team.type, 'team')
+Player.member(Planet.type, 'planet')
 
+GameMap = p.struct('map::GameMap')
+GameMap.method(GameMap.type, 'test_map', [], static=True)
 
+Delta = p.struct('schema::Delta')
+StartGameMessage = p.struct('schema::StartGameMessage')
+TurnMessage = p.struct('schema::TurnMessage')
+StartTurnMessage = p.struct('schema::StartTurnMessage')
+StartTurnMessage.member(Rounds.type, 'round')
+ViewerMessage = p.struct('schema::ViewerMessage')
+ErrorMessage = p.struct('schema::ErrorMessage')
+
+GameController = p.struct('controller::GameController')
+GameController.constructor('new_player', [Var(StartGameMessage.type, 'game')])
+GameController.method(void.type.result(), 'start_turn', [Var(StartTurnMessage.type, 'turn')])
+# TODO: Result checking fucks up on ptrs
+#GameController.method(TurnMessage.type.result(), 'end_turn', [])
+GameController.method(Rounds.type, 'round', [])
+GameController.method(Planet.type, 'planet', [])
+GameController.method(Team.type, 'team', [])
+GameController.method(u32.type, 'karbonite', [])
+# TODO: more methods
+GameController.method(GameController.type, 'new_manager', [Var(GameMap.type, 'map')], static=True)
+GameController.method(StartGameMessage.type, 'start_game', [Var(Player.type, 'player')])
 
 print('Generating...')
 with open("src/bindings.rs", "w+") as f:

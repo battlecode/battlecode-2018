@@ -129,17 +129,20 @@ class StructWrapper(object):
 
         return self
 
-    def method(self, type, name, args, docs=''):
+    def method(self, type, name, args, docs='', static=False):
         # we use the "Universal function call syntax"
         # Type::method(&mut self, arg1, arg2)
         # which is equivalent to:
         # self.method(arg1, arg2)
         original = f'{self.module}::{self.name}::{name}'
-        actual_args = [Var(self.type.mut_ref(), 'this')] + args
+        if static:
+            actual_args = args
+        else:
+            actual_args = [Var(self.type.mut_ref(), 'this')] + args
 
         self.methods.append(Method(type, self.c_name, name, actual_args,
             make_safe_call(type, original, actual_args), docs=docs
-        , pyname=name))
+        , pyname=name, static=static))
         return self
 
     def to_c(self):
