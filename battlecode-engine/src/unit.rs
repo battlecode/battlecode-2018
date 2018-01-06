@@ -504,7 +504,7 @@ impl Unit {
         Ok(self.attack_range)
     }
 
-    /// Tests whether the robot can attack the target loc, provided
+    /// Tests whether the robot can attack the target location.
     ///
     /// Errors if the unit is not a robot.
     pub fn is_within_attack_range(&self, target_loc: MapLocation) -> Result<bool, Error> {
