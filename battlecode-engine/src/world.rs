@@ -1294,6 +1294,37 @@ impl GameWorld {
         Ok(())
     }
 
+    fn ok_if_can_repair(&self, worker_id: UnitID, structure_id: UnitID) -> Result<(), Error> {
+        let worker = self.my_unit(worker_id)?;
+        let structure = self.my_unit(structure_id)?;
+        if !worker.can_worker_act()? {
+            Err(GameError::Overheated)?;
+        }
+        if !worker.is_adjacent_to(structure.location()) {
+            Err(GameError::OutOfRange)?;
+        }
+        if !structure.is_built()? {
+            Err(GameError::StructureNotYetBuilt)?;
+        }
+        Ok(())
+    }
+
+    /// Whether the given worker can repair the given strucutre. Tests that the worker
+    /// is able to execute a worker action, that the structure is built, and that the
+    /// structure is within range.
+    pub fn can_repair(&self, worker_id: UnitID, structure_id: UnitID) -> bool {
+        self.ok_if_can_repair(worker_id, structure_id).is_ok()
+    }
+
+    /// Commands the worker to repair a structure, repleneshing health to it. This
+    /// can only be done to structures which have been fully built.
+    pub fn repair(&mut self, worker_id: UnitID, structure_id: UnitID) -> Result<(), Error> {
+        self.ok_if_can_repair(worker_id, structure_id)?;
+        self.my_unit_mut(worker_id)?.worker_act()?;
+        self.my_unit_mut(structure_id)?.be_healed(WORKER_REPAIR_AMOUNT);
+        Ok(())
+    }
+
     fn ok_if_can_replicate(&self, _worker_id: UnitID) -> Result<(), Error> {
         unimplemented!();
     }
@@ -1983,7 +2014,7 @@ impl GameWorld {
             Delta::Overcharge {healer_id, target_robot_id} => self.overcharge(healer_id, target_robot_id),
             Delta::ProduceRobot {factory_id, robot_type} => self.produce_robot(factory_id, robot_type),
             Delta::QueueResearch {branch} => { self.queue_research(branch); Ok(()) },
-            Delta::Repair {worker_id, structure_id} => unimplemented!(),
+            Delta::Repair {worker_id, structure_id} => self.repair(worker_id, structure_id),
             Delta::Replicate {worker_id, direction} => self.replicate(worker_id, direction),
             Delta::ResetResearchQueue => { self.reset_research(); Ok(()) },
             Delta::Unload {structure_id, direction} => self.unload(structure_id, direction),
@@ -2890,5 +2921,40 @@ mod tests {
         assert![world.can_heal(healer, worker_in_range)];
         assert![world.heal(healer, worker_in_range).is_ok()];
         assert_eq![world.get_unit(worker_in_range).unwrap().health(), 40];
+    }
+
+    #[test]
+    fn test_repair() {
+        let mut world = GameWorld::test_world();
+        let factory = world.create_unit(Team::Red, MapLocation::new(Planet::Earth, 0, 0), UnitType::Factory).unwrap();
+        let worker = world.create_unit(Team::Red, MapLocation::new(Planet::Earth, 1, 0), UnitType::Worker).unwrap();
+
+        // The worker cannot repair the factory, as it is not yet built.
+        assert![!world.can_repair(worker, factory)];
+        assert_err![world.repair(worker, factory), GameError::StructureNotYetBuilt];
+
+        // After forcibly completing the structure, we damage it.
+        world.get_unit_mut(factory).unwrap().be_built(1000).unwrap();
+        assert![world.get_unit(factory).unwrap().is_built().unwrap()];
+        world.get_unit_mut(factory).unwrap().take_damage(100);
+        assert_eq![world.get_unit(factory).unwrap().health(), 900];
+
+        // The factory can now be repaired.
+        assert![world.can_repair(worker, factory)];
+        assert![world.repair(worker, factory).is_ok()];
+        assert_eq![world.get_unit(factory).unwrap().health(), 910];
+
+        // The worker cannot repair again this turn.
+        assert![!world.can_repair(worker, factory)];
+        assert_err![world.repair(worker, factory), GameError::Overheated];
+
+        // After force-ending the round, the worker can repair again.
+        assert![world.end_round().is_ok()];
+        assert![world.can_repair(worker, factory)];
+
+        // If the worker moves away, it cannot repair the factory.
+        assert![world.move_robot(worker, Direction::East).is_ok()];
+        assert![!world.can_repair(worker, factory)];
+        assert_err![world.repair(worker, factory), GameError::OutOfRange];
     }
 }

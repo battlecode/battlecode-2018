@@ -1064,7 +1064,9 @@ impl Unit {
     pub fn end_round(&mut self) {
         self.movement_heat -= cmp::min(HEAT_LOSS_PER_ROUND, self.movement_heat);
         self.attack_heat -= cmp::min(HEAT_LOSS_PER_ROUND, self.attack_heat);
+        self.ability_heat -= cmp::min(HEAT_LOSS_PER_ROUND, self.ability_heat);
         self.countdown -= cmp::min(COUNTDOWN_PER_ROUND, self.countdown);
+        self.has_worker_acted = false;
     }
 }
 
