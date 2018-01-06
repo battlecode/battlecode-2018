@@ -2439,7 +2439,7 @@ mod tests {
 
         // Javelin target. 
         let robot_max_health = 250;
-        let robot_damaged_health = 150; 
+        let robot_damaged_health = 165; 
         assert_eq!(world.get_unit(robot_a).unwrap().health(), robot_max_health);
         assert!(world.javelin(knight, robot_a).is_ok());
         assert_eq!(world.get_unit(robot_a).unwrap().health(), robot_damaged_health);
@@ -2521,7 +2521,7 @@ mod tests {
         }
         
         // Robot at sniped location should take damage
-        let robot_damaged_health = 180;
+        let robot_damaged_health = 185;
         assert_eq!(world.get_unit(robot).unwrap().health(), robot_damaged_health);
     }
 
@@ -2603,7 +2603,7 @@ mod tests {
         assert![world.can_launch_rocket(rocket, mars_loc)];
         world.launch_rocket(rocket, mars_loc).unwrap();
         assert_eq![world.my_unit(rocket).unwrap().location(), InSpace];
-        let damaged_knight_health = 200;
+        let damaged_knight_health = 205;
         for id in earth_bystanders.iter() {
             assert_eq![world.my_unit(*id).unwrap().health(), damaged_knight_health];
         }
