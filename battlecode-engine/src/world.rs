@@ -3031,6 +3031,19 @@ mod tests {
     }
 
     #[test]
+    fn test_ranger_attack_range() {
+        let mut world = GameWorld::test_world();
+        let ranger = world.create_unit(Team::Red, MapLocation::new(Planet::Earth, 0, 0), UnitType::Ranger).unwrap();
+        let too_close = world.create_unit(Team::Blue, MapLocation::new(Planet::Earth, 1, 0), UnitType::Ranger).unwrap();
+        let too_far = world.create_unit(Team::Blue, MapLocation::new(Planet::Earth, 10, 0), UnitType::Ranger).unwrap();
+        let just_right = world.create_unit(Team::Blue, MapLocation::new(Planet::Earth, 5, 0), UnitType::Ranger).unwrap();
+
+        assert_err![world.attack(ranger, too_close), GameError::OutOfRange];
+        assert_err![world.attack(ranger, too_far), GameError::OutOfRange];
+        assert![world.attack(ranger, just_right).is_ok()];
+    }
+  
+    #[test]
     fn test_mage_splash() {
         let mut world = GameWorld::test_world();
         let mage = world.create_unit(Team::Red, MapLocation::new(Planet::Earth, 0, 0), UnitType::Mage).unwrap();
