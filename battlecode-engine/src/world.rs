@@ -906,36 +906,37 @@ impl GameWorld {
         Ok(unit_location.planet == location.planet)
     }
 
+    fn ok_if_can_move(&self, robot_id: UnitID, direction: Direction) -> Result<(), Error> {
+        let unit = self.my_unit(robot_id)?;
+        let new_location = unit.location().map_location()?.add(direction);
+        if !self.starting_map(new_location.planet).on_map(new_location) {
+            Err(GameError::InvalidLocation)?;
+        }
+        if !self.is_occupiable(new_location)? {
+            Err(GameError::LocationNotEmpty)?;
+        }
+        Ok(())
+    }
+
     /// Whether the robot can move in the given direction, without taking into
     /// account the unit's movement heat. Takes into account only the map
     /// terrain, positions of other robots, and the edge of the game map.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a robot.
-    pub fn can_move(&self, robot_id: UnitID, direction: Direction) -> Result<bool, Error> {
+    pub fn can_move(&self, robot_id: UnitID, direction: Direction) -> bool {
+        self.ok_if_can_move(robot_id, direction).is_ok()
+    }
+
+    fn ok_if_move_ready(&self, robot_id: UnitID) -> Result<(), Error> {
         let unit = self.my_unit(robot_id)?;
-        if let OnMap(location) = unit.location() {
-            let new_location = location.add(direction);
-            if self.starting_map(new_location.planet).on_map(new_location) {
-                Ok(self.is_occupiable(new_location)?)
-            } else {
-                Ok(false)
-            }
-        } else {
-            Ok(false)
+        if !self.my_unit(robot_id)?.is_move_ready()? {
+            Err(GameError::Overheated)?;
         }
+        Ok(())
     }
 
     /// Whether the robot is ready to move. Tests whether the robot's attack
     /// heat is sufficiently low.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a robot.
-    pub fn is_move_ready(&self, robot_id: UnitID) -> Result<bool, Error> {
-        let unit = self.my_unit(robot_id)?;
-        Ok(unit.is_move_ready()?)
+    pub fn is_move_ready(&self, robot_id: UnitID) -> bool {
+        self.ok_if_move_ready(robot_id).is_ok()
     }
 
     /// Moves the robot in the given direction.
@@ -945,15 +946,12 @@ impl GameWorld {
     /// * GameError::InappropriateUnitType - the unit is not a robot.
     /// * GameError::InvalidAction - the robot cannot move in that direction.
     pub fn move_robot(&mut self, robot_id: UnitID, direction: Direction) -> Result<(), Error> {
-        if self.can_move(robot_id, direction)? {
-            let dest = match self.my_unit(robot_id)?.location() {
-                OnMap(loc) => loc.add(direction),
-                _ => Err(GameError::InvalidAction)?,
-            };
-            self.move_to(robot_id, dest)
-        } else {
-            Err(GameError::InvalidAction)?
-        }
+        self.ok_if_can_move(robot_id, direction)?;
+        let dest = match self.my_unit(robot_id)?.location() {
+            OnMap(loc) => loc.add(direction),
+            _ => Err(GameError::InvalidAction)?,
+        };
+        self.move_to(robot_id, dest)
     }
 
     fn move_to(&mut self, _robot_id: UnitID, _location: MapLocation) -> Result<(), Error> {
@@ -962,6 +960,7 @@ impl GameWorld {
         self.place_unit(_robot_id);
         Ok(())
     }
+
     // ************************************************************************
     // *************************** ATTACK METHODS *****************************
     // ************************************************************************
@@ -995,26 +994,25 @@ impl GameWorld {
         self.damage_unit(id, damage)
     }
     
+    fn ok_if_can_attack(&self, robot_id: UnitID, target_id: UnitID) -> Result<(), Error> {
+        unimplemented!();
+    }
 
     /// Whether the robot can attack the given unit, without taking into
     /// account the unit's attack heat. Takes into account only the unit's
     /// attack range, and the location of the unit.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is a healer, or not a robot.
-    pub fn can_attack(&self, _robot_id: UnitID, _target_id: UnitID) -> Result<bool, Error> {
+    pub fn can_attack(&self, robot_id: UnitID, target_id: UnitID) -> bool {
+        self.ok_if_can_attack(robot_id, target_id).is_ok()
+    }
+
+    fn ok_if_attack_ready(&self, robot_id: UnitID) -> Result<(), Error> {
         unimplemented!();
     }
 
     /// Whether the robot is ready to attack. Tests whether the robot's attack
     /// heat is sufficiently low.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is a healer, or not a robot.
-    pub fn is_attack_ready(&self, _robot_id: UnitID) -> Result<bool, Error> {
-        unimplemented!();
+    pub fn is_attack_ready(&self, robot_id: UnitID) -> bool {
+        self.ok_if_attack_ready(robot_id).is_ok()
     }
 
     /// Attacks the robot, dealing the unit's standard amount of damage.
@@ -1023,7 +1021,9 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is a healer, or not a robot.
     /// * GameError::InvalidAction - the robot cannot attack that location.
-    pub fn attack(&mut self, _robot_id: UnitID, _target_id: UnitID) -> Result<(), Error> {
+    pub fn attack(&mut self, robot_id: UnitID, target_id: UnitID) -> Result<(), Error> {
+        self.ok_if_can_attack(robot_id, target_id)?;
+        self.ok_if_attack_ready(robot_id)?;
         unimplemented!();
     }
 
@@ -1087,24 +1087,27 @@ impl GameWorld {
     // *************************** WORKER METHODS *****************************
     // ************************************************************************
 
-    /// Whether the worker is ready to harvest, and the given direction contains
-    /// karbonite to harvest. The worker cannot already have performed an action 
-    /// this round.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a worker.
-    pub fn can_harvest(&self, worker_id: UnitID, direction: Direction) -> Result<bool, Error> {
+    fn ok_if_can_harvest(&self, worker_id: UnitID, direction: Direction) -> Result<(), Error> {
         let unit = self.my_unit(worker_id)?;
         if !unit.can_worker_act()? {
-            return Ok(false);
+            Err(GameError::Overheated)?;
         }
         let harvest_loc = unit.location().map_location()?.add(direction);
         // Check to see if we can sense the harvest location, (e.g. it is on the map).
         if !self.can_sense_location(harvest_loc) {
-            return Ok(false);
+            Err(GameError::InvalidLocation)?;
         }
-        Ok(self.karbonite_at(harvest_loc)? > 0)
+        if self.karbonite_at(harvest_loc)? == 0 {
+            Err(GameError::KarboniteDepositEmpty)?;
+        }
+        Ok(())
+    }
+
+    /// Whether the worker is ready to harvest, and the given direction contains
+    /// karbonite to harvest. The worker cannot already have performed an action 
+    /// this round.
+    pub fn can_harvest(&self, worker_id: UnitID, direction: Direction) -> bool {
+        self.ok_if_can_harvest(worker_id, direction).is_ok()
     }
 
     /// Harvests up to the worker's harvest amount of karbonite from the given
@@ -1117,9 +1120,7 @@ impl GameWorld {
     /// * GameError::InvalidAction - the worker is not ready to harvest, or there is no karbonite.
     pub fn harvest(&mut self, worker_id: UnitID, direction: Direction)
                    -> Result<(), Error> {
-        if !self.can_harvest(worker_id, direction)? {
-            Err(GameError::InvalidAction)?;
-        }
+        self.ok_if_can_harvest(worker_id, direction)?;
         let (harvest_loc, harvest_amount) = {
             let worker = self.my_unit_mut(worker_id)?;
             worker.worker_act()?;
@@ -1128,6 +1129,40 @@ impl GameWorld {
         let amount_mined = cmp::min(self.karbonite_at(harvest_loc)?, harvest_amount);
         self.my_team_mut().karbonite += amount_mined;
         self.my_planet_mut().karbonite[harvest_loc.y as usize][harvest_loc.x as usize] -= amount_mined;
+        Ok(())
+    }
+
+    fn ok_if_can_blueprint(&self, worker_id: UnitID, unit_type: UnitType,
+                         direction: Direction) -> Result<(), Error> {
+        // Players should never attempt to build a non-structure.
+        if !unit_type.is_structure() {
+            Err(GameError::InappropriateUnitType)?;
+        }
+        let unit = self.my_unit(worker_id)?;
+        if !unit.can_worker_act()? {
+            Err(GameError::Overheated)?;
+        }
+        let build_loc = unit.location().map_location()?.add(direction);
+        // Check to see if we can sense the build location, (e.g. it is on the map).
+        if !self.can_sense_location(build_loc) {
+            Err(GameError::InvalidLocation)?;
+        }
+        // The build location must be unoccupied.
+        if !self.is_occupiable(build_loc)? {
+            Err(GameError::LocationNotEmpty)?;
+        }
+        // Structures can never be built on Mars.
+        if build_loc.planet == Planet::Mars {
+            Err(GameError::CannotBuildOnMars)?;
+        }
+        // If building a rocket, Rocketry must be unlocked.
+        if unit_type == UnitType::Rocket && self.my_research().get_level(&unit_type) < 1 {
+            Err(GameError::InvalidResearchLevel)?;
+        }
+        // Finally, the team must have sufficient karbonite.
+        if self.karbonite() < unit_type.blueprint_cost()? {
+            Err(GameError::InsufficientKarbonite)?;
+        }
         Ok(())
     }
 
@@ -1141,34 +1176,8 @@ impl GameWorld {
     /// * GameError::InappropriateUnitType - the unit is not a worker, or the
     ///   unit type is not a structure.
     pub fn can_blueprint(&self, worker_id: UnitID, unit_type: UnitType,
-                         direction: Direction) -> Result<bool, Error> {
-        // Players should never attempt to build a non-structure.
-        if !unit_type.is_structure() {
-            Err(GameError::InappropriateUnitType)?;
-        }
-        let unit = self.my_unit(worker_id)?;
-        if !unit.can_worker_act()? {
-            return Ok(false);
-        }
-        let build_loc = unit.location().map_location()?.add(direction);
-        // Check to see if we can sense the build location, (e.g. it is on the map).
-        if !self.can_sense_location(build_loc) {
-            return Ok(false);
-        }
-        // The build location must be unoccupied.
-        if !self.is_occupiable(build_loc)? {
-            return Ok(false);
-        }
-        // Structures can never be built on Mars.
-        if build_loc.planet == Planet::Mars {
-            return Ok(false);
-        }
-        // If building a rocket, Rocketry must be unlocked.
-        if unit_type == UnitType::Rocket && self.my_research().get_level(&unit_type) < 1 {
-            return Ok(false);
-        }
-        // Finally, the team must have sufficient karbonite.
-        Ok(self.karbonite() >= unit_type.blueprint_cost()?)
+                         direction: Direction) -> bool {
+        self.ok_if_can_blueprint(worker_id, unit_type, direction).is_ok()
     }
 
     /// Blueprints a unit of the given type in the given direction. Subtract
@@ -1182,9 +1191,7 @@ impl GameWorld {
     /// * GameError::InvalidAction - the worker is not ready to blueprint.
     pub fn blueprint(&mut self, worker_id: UnitID, unit_type: UnitType,
                      direction: Direction) -> Result<(), Error> {
-        if !self.can_blueprint(worker_id, unit_type, direction)? {
-            Err(GameError::InvalidAction)?;
-        }
+        self.ok_if_can_blueprint(worker_id, unit_type, direction)?;
         let build_loc = {
             let worker = self.my_unit_mut(worker_id)?;
             worker.worker_act()?;
@@ -1196,31 +1203,30 @@ impl GameWorld {
         Ok(())
     }
 
-    /// Whether the worker can build a blueprint with the given ID. The worker
-    /// and the blueprint must be adjacent to each other. The worker cannot
-    /// already have performed an action this round.
-    ///
-    /// * GameError::NoSuchUnit - a unit does not exist.
-    /// * GameError::TeamNotAllowed - a unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the worker or blueprint is the wrong
-    ///   type.
-    pub fn can_build(&self, worker_id: UnitID, blueprint_id: UnitID)
-                     -> Result<bool, Error> {
+    fn ok_if_can_build(&self, worker_id: UnitID, blueprint_id: UnitID)
+                       -> Result<(), Error> {
         let worker = self.my_unit(worker_id)?;
         let blueprint = self.my_unit(blueprint_id)?;
         // The worker must be able to act.
         if !worker.can_worker_act()? {
-            return Ok(false);
+            Err(GameError::Overheated)?;
         }
         // The worker must be adjacent to the blueprint.
         if !worker.is_adjacent_to(blueprint.location()) {
-            return Ok(false);
+            Err(GameError::OutOfRange)?;
         }
         // The blueprint must be incomplete.
         if blueprint.is_built()? {
-            return Ok(false);
+            Err(GameError::StructureAlreadyBuilt)?;
         }
-        Ok(true)
+        Ok(())
+    }
+
+    /// Whether the worker can build a blueprint with the given ID. The worker
+    /// and the blueprint must be adjacent to each other. The worker cannot
+    /// already have performed an action this round.
+    pub fn can_build(&self, worker_id: UnitID, blueprint_id: UnitID) -> bool {
+        self.ok_if_can_build(worker_id, blueprint_id).is_ok()
     }
 
     /// Builds a given blueprint, increasing its health by the worker's build
@@ -1233,9 +1239,7 @@ impl GameWorld {
     /// * GameError::InvalidAction - the worker cannot build the blueprint.
     pub fn build(&mut self, worker_id: UnitID, blueprint_id: UnitID)
                  -> Result<(), Error> {
-        if !self.can_build(worker_id, blueprint_id)? {
-            Err(GameError::InvalidAction)?;
-        }
+        self.ok_if_can_build(worker_id, blueprint_id)?;
         let build_health = {
             let worker = self.my_unit_mut(worker_id)?;
             worker.worker_act()?;
@@ -1245,15 +1249,15 @@ impl GameWorld {
         Ok(())
     }
 
+    fn ok_if_can_replicate(&self, _worker_id: UnitID) -> Result<(), Error> {
+        unimplemented!();
+    }
+
     /// Whether the worker is ready to replicate. Tests that the worker's
     /// ability heat is sufficiently low, and that the team has sufficient
     /// karbonite in its resource pool.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a worker.
-    pub fn can_replicate(&self, _worker_id: UnitID) -> Result<bool, Error> {
-        unimplemented!();
+    pub fn can_replicate(&self, worker_id: UnitID) -> bool {
+        self.ok_if_can_replicate(worker_id).is_ok()
     }
 
     /// Replicates a worker in the given direction. Subtracts the cost of the
@@ -1264,8 +1268,9 @@ impl GameWorld {
     /// * GameError::InappropriateUnitType - the unit is not a worker.
     /// * GameError::InvalidLocation - the location is off the map.
     /// * GameError::InvalidAction - the worker is not ready to replicate.
-    pub fn replicate(&mut self, _worker_id: UnitID, _direction: Direction)
+    pub fn replicate(&mut self, worker_id: UnitID, direction: Direction)
                      -> Result<(), Error> {
+        self.ok_if_can_replicate(worker_id)?;
         unimplemented!();
     }
 
@@ -1273,34 +1278,37 @@ impl GameWorld {
     // *************************** KNIGHT METHODS *****************************
     // ************************************************************************
 
-    /// Whether the knight can javelin the given robot, without taking into
-    /// account the knight's ability heat. Takes into account only the knight's
-    /// ability range, and the location of the robot.
-    ///
-    /// * GameError::InvalidResearchLevel - the ability has not been researched.
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a knight.
-    pub fn can_javelin(&self, knight_id: UnitID, target_id: UnitID) -> Result<bool, Error> {
+    fn ok_if_can_javelin(&self, knight_id: UnitID, target_id: UnitID) -> Result<(), Error> {
         let knight = self.my_unit(knight_id)?;
         let target = self.unit_info(target_id)?;
         knight.ok_if_javelin()?;
         
-        Ok(knight.is_within_range(knight.ability_range(), target.location.map_location()?))
+        if !knight.is_within_range(knight.ability_range(), target.location.map_location()?) {
+            Err(GameError::OutOfRange)?;
+        }
+        Ok(())
+    }
+
+    /// Whether the knight can javelin the given robot, without taking into
+    /// account the knight's ability heat. Takes into account only the knight's
+    /// ability range, and the location of the robot.
+    pub fn can_javelin(&self, knight_id: UnitID, target_id: UnitID) -> bool {
+        self.ok_if_can_javelin(knight_id, target_id).is_ok()
+    }
+
+    fn ok_if_javelin_ready(&self, knight_id: UnitID) -> Result<(), Error> {
+        let knight = self.my_unit(knight_id)?;
+        knight.ok_if_javelin()?;
+        if !knight.is_ability_ready()? {
+            Err(GameError::Overheated)?;
+        }
+        Ok(())
     }
 
     /// Whether the knight is ready to javelin. Tests whether the knight's
     /// ability heat is sufficiently low.
-    ///
-    /// * GameError::InvalidResearchLevel - the ability has not been researched.
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a knight.
-    pub fn is_javelin_ready(&self, knight_id: UnitID) -> Result<bool, Error> {
-       let knight = self.my_unit(knight_id)?;
-       knight.ok_if_javelin()?;
-
-       Ok(knight.is_ability_ready()?)
+    pub fn is_javelin_ready(&self, knight_id: UnitID) -> bool {
+       self.ok_if_javelin_ready(knight_id).is_ok()
     }
 
     /// Javelins the robot, dealing the amount of ability damage.
@@ -1311,32 +1319,30 @@ impl GameWorld {
     /// * GameError::InappropriateUnitType - the unit is not a knight.
     /// * GameError::InvalidAction - the knight cannot javelin that unit.
     pub fn javelin(&mut self, knight_id: UnitID, target_id: UnitID) -> Result<(), Error> {
-        if self.can_javelin(knight_id, target_id)? 
-                && self.my_unit(knight_id)?.is_ability_ready()? {
-            let damage = self.my_unit_mut(knight_id)?.javelin()?;
-            self.damage_unit(target_id, damage);
-            Ok(())
-        } else {
-            Err(GameError::InvalidAction)?
-        }
+        self.ok_if_can_javelin(knight_id, target_id)?;
+        self.ok_if_javelin_ready(knight_id)?;
+        let damage = self.my_unit_mut(knight_id)?.javelin()?;
+        self.damage_unit(target_id, damage);
+        Ok(())
     }
 
     // ************************************************************************
     // *************************** RANGER METHODS *****************************
     // ************************************************************************
 
-    /// Whether the ranger is ready to begin snipe. Tests whether the ranger's
-    /// ability heat is sufficiently low.
-    ///
-    /// * GameError::InvalidResearchLevel - the ability has not been researched.
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a knight.
-    pub fn is_begin_snipe_ready(&self, ranger_id: UnitID) -> Result<bool, Error> {
+    fn ok_if_begin_snipe_ready(&self, ranger_id: UnitID) -> Result<(), Error> {
        let ranger = self.my_unit(ranger_id)?;
        ranger.ok_if_snipe()?;
+       if !ranger.is_ability_ready()? {
+           Err(GameError::Overheated)?;
+       }
+       Ok(())
+    }
 
-       Ok(ranger.is_ability_ready()?)
+    /// Whether the ranger is ready to begin snipe. Tests whether the ranger's
+    /// ability heat is sufficiently low.
+    pub fn is_begin_snipe_ready(&self, ranger_id: UnitID) -> bool {
+        self.ok_if_begin_snipe_ready(ranger_id).is_ok()
     }
 
     /// Begins the countdown to snipe a given location. Maximizes the units
@@ -1354,13 +1360,9 @@ impl GameWorld {
         if !self.is_on_map(location) {
             Err(GameError::InvalidLocation)?
         }
-
-        if self.is_begin_snipe_ready(ranger_id)? {
-            self.my_unit_mut(ranger_id)?.begin_snipe(location)?;
-            Ok(())
-        } else {
-            Err(GameError::InvalidAction)?
-        }
+        self.ok_if_begin_snipe_ready(ranger_id)?;
+        self.my_unit_mut(ranger_id)?.begin_snipe(location)?;
+        Ok(())
     }
     
     /// Whether the ranger snipe is ready to be processed.
@@ -1401,35 +1403,40 @@ impl GameWorld {
     // **************************** MAGE METHODS ******************************
     // ************************************************************************
     
+    fn ok_if_can_blink(&self, mage_id: UnitID, location: MapLocation) -> Result<(), Error> {
+        let mage = self.my_unit(mage_id)?;
+        mage.ok_if_blink()?;
+        
+        if !mage.is_within_range(mage.ability_range(), location) {
+            Err(GameError::OutOfRange)?;
+        }
+        if !self.is_occupiable(location)? {
+            Err(GameError::LocationNotEmpty)?;
+        }
+        Ok(())
+    }
+
     /// Whether the mage can blink to the given location, without taking into
     /// account the mage's ability heat. Takes into account only the mage's
     /// ability range, the map terrain, positions of other units, and the edge
     /// of the game map.
-    ///
-    /// * GameError::InvalidResearchLevel - the ability has not been researched.
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a mage.
-    /// * GameError::InvalidLocation - the location is outside the vision range.
-    pub fn can_blink(&self, mage_id: UnitID, location: MapLocation) -> Result<bool, Error> {
+    pub fn can_blink(&self, mage_id: UnitID, location: MapLocation) -> bool {
+        self.ok_if_can_blink(mage_id, location).is_ok()
+    }
+
+    fn ok_if_blink_ready(&self, mage_id: UnitID) -> Result<(), Error> {
         let mage = self.my_unit(mage_id)?;
         mage.ok_if_blink()?;
-        
-        Ok(mage.is_within_range(mage.ability_range(), location)
-                && self.is_occupiable(location)?)   
+        if !mage.is_ability_ready()? {
+            Err(GameError::Overheated)?;
+        }
+        Ok(())
     }
 
     /// Whether the mage is ready to blink. Tests whether the mage's ability
     /// heat is sufficiently low.
-    ///
-    /// * GameError::InvalidResearchLevel - the ability has not been researched.
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a mage.
-    pub fn is_blink_ready(&self, mage_id: UnitID) -> Result<bool, Error> {
-        let mage = self.my_unit(mage_id)?;
-        mage.ok_if_blink()?;
-        Ok(mage.is_ability_ready()?)
+    pub fn is_blink_ready(&self, mage_id: UnitID) -> bool {
+        self.ok_if_blink_ready(mage_id).is_ok()
     }
 
     /// Blinks the mage to the given location.
@@ -1440,40 +1447,37 @@ impl GameWorld {
     /// * GameError::InappropriateUnitType - the unit is not a mage.
     /// * GameError::InvalidAction - the mage cannot blink to that location.
     pub fn blink(&mut self, mage_id: UnitID, location: MapLocation) -> Result<(), Error> {
-        if self.can_blink(mage_id, location)? 
-                && self.my_unit(mage_id)?.is_ability_ready()? {
-            self.remove_unit(mage_id);
-            self.my_unit_mut(mage_id)?.blink(location);
-            self.place_unit(mage_id);
-            Ok(())
-        } else {
-            Err(GameError::InvalidAction)?
-        }
+        self.ok_if_can_blink(mage_id, location)?;
+        self.ok_if_blink_ready(mage_id)?;
+        self.remove_unit(mage_id);
+        self.my_unit_mut(mage_id)?.blink(location);
+        self.place_unit(mage_id);
+        Ok(())
     }
 
     // ************************************************************************
     // *************************** HEALER METHODS *****************************
     // ************************************************************************
 
+    fn ok_if_can_heal(&self, healer_id: UnitID, robot_id: UnitID) -> Result<(), Error> {
+        unimplemented!();
+    }
+
     /// Whether the healer can heal the given robot, without taking into
     /// account the healer's attack heat. Takes into account only the healer's
     /// attack range, and the location of the robot.
-    ///
-    /// * GameError::NoSuchUnit - a unit does not exist.
-    /// * GameError::TeamNotAllowed - the first unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the healer or robot is not the right type.
-    pub fn can_heal(&self, _healer_id: UnitID, _robot_id: UnitID) -> Result<bool, Error> {
+    pub fn can_heal(&self, healer_id: UnitID, robot_id: UnitID) -> bool {
+        self.ok_if_can_heal(healer_id, robot_id).is_ok()
+    }
+
+    fn ok_if_heal_ready(&self, healer_id: UnitID) -> Result<(), Error> {
         unimplemented!();
     }
 
     /// Whether the healer is ready to heal. Tests whether the healer's attack
     /// heat is sufficiently low.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a healer.
-    pub fn is_heal_ready(&self, _healer_id: UnitID) -> Result<bool, Error> {
-        unimplemented!()
+    pub fn is_heal_ready(&self, healer_id: UnitID) -> bool {
+        self.ok_if_heal_ready(healer_id).is_ok()
     }
 
     /// Heals the robot, dealing the healer's standard amount of "damage".
@@ -1482,40 +1486,45 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the first unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the healer or robot is not the right type.
     /// * GameError::InvalidAction - the healer cannot heal that unit.
-    pub fn heal(&mut self, _healer_id: UnitID, _robot_id: UnitID) -> Result<(), Error> {
+    pub fn heal(&mut self, healer_id: UnitID, robot_id: UnitID) -> Result<(), Error> {
+        self.ok_if_can_heal(healer_id, robot_id)?;
+        self.ok_if_heal_ready(healer_id)?;
         unimplemented!();
     }
 
-    /// Whether the healer can overcharge the given robot, without taking into
-    /// account the healer's ability heat. Takes into account only the healer's
-    /// ability range, and the location of the robot.
-    ///
-    /// * GameError::InvalidResearchLevel - the ability has not been researched.
-    /// * GameError::NoSuchUnit - a unit does not exist.
-    /// * GameError::TeamNotAllowed - the first unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the healer or robot is not the right type.
-    pub fn can_overcharge(&self, healer_id: UnitID, robot_id: UnitID)
-                          -> Result<bool, Error> {
+    fn ok_if_can_overcharge(&self, healer_id: UnitID, robot_id: UnitID)
+                            -> Result<(), Error> {
         let healer = self.my_unit(healer_id)?;
         let robot = self.my_unit(robot_id)?;
         healer.ok_if_overcharge()?;
         robot.ok_if_ability()?;
 
-        Ok(healer.is_within_range(healer.ability_range(), robot.location().map_location()?))
+        if !healer.is_within_range(healer.ability_range(), robot.location().map_location()?) {
+            Err(GameError::OutOfRange)?;
+        }
+        Ok(())
+    }
+
+    /// Whether the healer can overcharge the given robot, without taking into
+    /// account the healer's ability heat. Takes into account only the healer's
+    /// ability range, and the location of the robot.
+    pub fn can_overcharge(&self, healer_id: UnitID, robot_id: UnitID) -> bool {
+        self.ok_if_can_overcharge(healer_id, robot_id).is_ok()                      
+    }
+
+    fn ok_if_overcharge_ready(&self, healer_id: UnitID) -> Result<(), Error> {
+        let healer = self.my_unit(healer_id)?;
+        healer.ok_if_overcharge()?;
+        if !healer.is_ability_ready()? {
+            Err(GameError::Overheated)?;
+        }
+        Ok(())
     }
 
     /// Whether the healer is ready to overcharge. Tests whether the healer's
     /// ability heat is sufficiently low.
-    ///
-    /// * GameError::InvalidResearchLevel - the ability has not been researched.
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a healer.
-    pub fn is_overcharge_ready(&self, healer_id: UnitID) -> Result<bool, Error> {
-        let healer = self.my_unit(healer_id)?;
-        healer.ok_if_overcharge()?;
-
-        Ok(healer.is_ability_ready()?)
+    pub fn is_overcharge_ready(&self, healer_id: UnitID) -> bool {
+        self.ok_if_overcharge_ready(healer_id).is_ok()
     }
 
     /// Overcharges the robot, resetting the robot's cooldowns.
@@ -1527,19 +1536,30 @@ impl GameWorld {
     /// * GameError::InvalidAction - the healer cannot overcharge that unit.
     pub fn overcharge(&mut self, healer_id: UnitID, robot_id: UnitID)
                       -> Result<(), Error> {
-        if self.can_overcharge(healer_id, robot_id)? 
-                && self.my_unit(healer_id)?.is_ability_ready()? {
-            self.my_unit_mut(healer_id)?.overcharge()?;
-            self.my_unit_mut(robot_id)?.reset_ability_cooldown()?;
-            Ok(())
-        } else {
-            Err(GameError::InvalidAction)?  
-        }
+        self.ok_if_can_overcharge(healer_id, robot_id)?;
+        self.ok_if_overcharge_ready(healer_id)?;
+        self.my_unit_mut(healer_id)?.overcharge()?;
+        self.my_unit_mut(robot_id)?.reset_ability_cooldown()?;
+        Ok(())
     }
 
     // ************************************************************************
     // ************************* STRUCTURE METHODS ****************************
     // ************************************************************************
+
+    fn ok_if_can_load(&self, structure_id: UnitID, robot_id: UnitID)
+                      -> Result<(), Error> {
+        let robot = self.my_unit(robot_id)?;
+        let structure = self.my_unit(structure_id)?;
+        if !robot.is_move_ready()? {
+            Err(GameError::Overheated)?;
+        }
+        structure.ok_if_can_load()?;
+        if !structure.is_adjacent_to(robot.location()) {
+            Err(GameError::OutOfRange)?;
+        }
+        Ok(())
+    }
 
     /// Whether the robot can be loaded into the given structure's garrison. The robot
     /// must be ready to move and must be adjacent to the structure. The structure
@@ -1548,13 +1568,8 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - a unit does not exist.
     /// * GameError::TeamNotAllowed - either unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the robot or structure are the wrong type.
-    pub fn can_load(&self, structure_id: UnitID, robot_id: UnitID)
-                        -> Result<bool, Error> {
-        let robot = self.my_unit(robot_id)?;
-        let structure = self.my_unit(structure_id)?;
-        Ok(robot.is_move_ready()?
-            && structure.can_load()?
-            && structure.is_adjacent_to(robot.location()))
+    pub fn can_load(&self, structure_id: UnitID, robot_id: UnitID) -> bool {
+        self.ok_if_can_load(structure_id, robot_id).is_ok()
     }
 
     /// Loads the robot into the garrison of the structure.
@@ -1565,36 +1580,34 @@ impl GameWorld {
     /// * GameError::InvalidAction - the robot cannot be loaded inside the structure.
     pub fn load(&mut self, structure_id: UnitID, robot_id: UnitID)
                     -> Result<(), Error> {
-        if self.can_load(structure_id, robot_id)? {
-            self.remove_unit(robot_id);
-            self.my_unit_mut(structure_id)?.load(robot_id)?;
-            self.my_unit_mut(robot_id)?.board_rocket(structure_id)?;
-            self.place_unit(robot_id);
-            Ok(())
-        } else {
-            Err(GameError::InvalidAction)?
+        self.ok_if_can_load(structure_id, robot_id)?;
+        self.remove_unit(robot_id);
+        self.my_unit_mut(structure_id)?.load(robot_id)?;
+        self.my_unit_mut(robot_id)?.board_rocket(structure_id)?;
+        self.place_unit(robot_id);
+        Ok(())
+    }
+
+    fn ok_if_can_unload(&self, structure_id: UnitID, direction: Direction)
+                        -> Result<(), Error> {
+        let structure = self.my_unit(structure_id)?;
+        structure.ok_if_can_unload_unit()?;
+        let robot = self.my_unit(structure.garrison()?[0])?;
+        let loc = structure.location().map_location()?.add(direction);
+        if !self.is_occupiable(loc)? {
+            Err(GameError::LocationNotEmpty)?;
         }
+        if !robot.is_move_ready()? {
+            Err(GameError::Overheated)?;
+        }
+        Ok(())
     }
 
     /// Tests whether the given structure is able to unload a unit in the
     /// given direction. There must be space in that direction, and the unit
     /// must be ready to move.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a structure.
-    /// * GameError::InvalidLocation - the location is off the map.
-    pub fn can_unload(&self, structure_id: UnitID, direction: Direction)
-                                 -> Result<bool, Error> {
-
-        let structure = self.my_unit(structure_id)?;
-        if structure.can_unload_unit()? {
-            let robot = self.my_unit(structure.garrison()?[0])?;
-            let loc = structure.location().map_location()?.add(direction);
-            Ok(self.is_occupiable(loc)? && robot.is_move_ready()?)
-        } else {
-            Ok(false)
-        }
+    pub fn can_unload(&self, structure_id: UnitID, direction: Direction) -> bool {
+        self.ok_if_can_unload(structure_id, direction).is_ok()
     }
 
     /// Unloads a robot from the garrison of the specified structure into an 
@@ -1606,42 +1619,38 @@ impl GameWorld {
     /// * GameError::InvalidLocation - the location is off the map.
     /// * GameError::InvalidAction - the rocket cannot degarrison a unit.
     pub fn unload(&mut self, structure_id: UnitID, direction: Direction)
-                      -> Result<(), Error> {
-        if self.can_unload(structure_id, direction)? {
-            let (robot_id, structure_loc) = {
-                let structure = self.my_unit_mut(structure_id)?;
-                (structure.unload_unit()?, structure.location().map_location()?)
-            };
-            let robot_loc = structure_loc.add(direction);
-            self.my_unit_mut(robot_id)?.move_to(robot_loc)?;
-            self.place_unit(robot_id);
-            Ok(())
-        } else {
-            Err(GameError::InvalidAction)?
-        }
+                  -> Result<(), Error> {
+        self.ok_if_can_unload(structure_id, direction)?;
+        let (robot_id, structure_loc) = {
+            let structure = self.my_unit_mut(structure_id)?;
+            (structure.unload_unit()?, structure.location().map_location()?)
+        };
+        let robot_loc = structure_loc.add(direction);
+        self.my_unit_mut(robot_id)?.move_to(robot_loc)?;
+        self.place_unit(robot_id);
+        Ok(())
     }
 
     // ************************************************************************
     // ************************** FACTORY METHODS *****************************
     // ************************************************************************
 
+    fn ok_if_can_produce_robot(&self, factory_id: UnitID, robot_type: UnitType)
+                                 -> Result<(), Error> {
+        let factory = self.my_unit(factory_id)?;
+        factory.ok_if_can_produce_robot(robot_type)?;
+        let cost = robot_type.factory_cost().expect("unit type is ok");
+        if self.karbonite() < cost {
+            Err(GameError::InsufficientKarbonite)?;
+        }
+        Ok(())
+    }
+
     /// Whether the factory can produce a robot of the given type. The factory
     /// must not currently be producing a robot, and the team must have
     /// sufficient resources in its resource pool.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist.
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a factory, or the
-    ///   queued unit type is not a robot.
-    pub fn can_produce_robot(&mut self, factory_id: UnitID, robot_type: UnitType)
-                       -> Result<bool, Error> {
-        let factory = self.my_unit(factory_id)?;
-        if factory.can_produce_robot(robot_type)? {
-            let cost = robot_type.factory_cost().expect("unit type is ok");
-            Ok(self.my_team().karbonite >= cost)
-        } else {
-            Ok(false)
-        }
+    pub fn can_produce_robot(&mut self, factory_id: UnitID, robot_type: UnitType) -> bool {
+        self.ok_if_can_produce_robot(factory_id, robot_type).is_ok()        
     }
 
     /// Starts producing the robot of the given type.
@@ -1653,14 +1662,11 @@ impl GameWorld {
     /// * GameError::InvalidAction - the factory cannot produce the robot.
     pub fn produce_robot(&mut self, factory_id: UnitID, robot_type: UnitType)
                        -> Result<(), Error> {
-        if self.can_produce_robot(factory_id, robot_type)? {
-            self.my_team_mut().karbonite -= robot_type.factory_cost().expect("unit type is ok");
-            let factory = self.my_unit_mut(factory_id).expect("factory exists");
-            factory.produce_robot(robot_type);
-            Ok(())
-        } else {
-            Err(GameError::InvalidAction)?
-        }
+        self.ok_if_can_produce_robot(factory_id, robot_type)?;
+        self.my_team_mut().karbonite -= robot_type.factory_cost().expect("unit type is ok");
+        let factory = self.my_unit_mut(factory_id).expect("factory exists");
+        factory.produce_robot(robot_type);
+        Ok(())
     }
 
     /// Process the end of the turn for factories. If a factory added a unit
@@ -1710,26 +1716,31 @@ impl GameWorld {
         self.my_team().rocket_landings.clone()
     }
 
+    fn ok_if_can_launch_rocket(&self, rocket_id: UnitID, destination: MapLocation)
+                               -> Result<(), Error> {
+        if destination.planet == self.planet() {
+            Err(GameError::SamePlanet)?;
+        }
+        let rocket = self.my_unit(rocket_id)?;
+        if rocket.is_rocket_used()? {
+            Err(GameError::RocketUsed)?;
+        }
+        let map = &self.starting_map(destination.planet);
+        if !map.on_map(destination) {
+            Err(GameError::InvalidLocation)?;
+        }
+        if !map.is_passable_terrain_at(destination)? {
+            Err(GameError::LocationNotEmpty)?;
+        }
+        Ok(())
+    }
+
     /// Whether the rocket can launch into space to the given destination. The
     /// rocket can launch if the it has never been used before. The destination
     /// is valid if it contains passable terrain on the other planet.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a rocket.
     pub fn can_launch_rocket(&self, rocket_id: UnitID, destination: MapLocation)
-                             -> Result<bool, Error> {
-        if destination.planet == self.planet() {
-            return Ok(false);
-        }
-
-        let rocket = self.my_unit(rocket_id)?;
-        if rocket.is_rocket_used()? {
-            return Ok(false);
-        }
-
-        let map = &self.starting_map(destination.planet);
-        Ok(map.on_map(destination) && map.is_passable_terrain_at(destination)?)
+                             -> bool {
+        self.ok_if_can_launch_rocket(rocket_id, destination).is_ok()
     }
 
     /// Launches the rocket into space, damaging the units adjacent to the
@@ -1741,24 +1752,19 @@ impl GameWorld {
     /// * GameError::InvalidAction - the rocket cannot launch.
     pub fn launch_rocket(&mut self, rocket_id: UnitID, destination: MapLocation)
                          -> Result<(), Error> {
-        if self.can_launch_rocket(rocket_id, destination)? {
-            let takeoff_loc = self.my_unit(rocket_id)?.location().map_location()?;
-            for dir in Direction::all() {
-                self.damage_location(takeoff_loc.add(dir), ROCKET_BLAST_DAMAGE);
-            }
-
-            self.move_to_space(rocket_id);
-            self.my_unit_mut(rocket_id)?.launch_rocket()?;
-
-            let landing_round = self.round + self.orbit.duration(self.round);
-            self.my_team_mut().rocket_landings.add_landing(
-                landing_round, RocketLanding::new(rocket_id, destination)
-            );
-
-            Ok(())
-        } else {
-            Err(GameError::InvalidAction)?
+        self.ok_if_can_launch_rocket(rocket_id, destination)?;
+        let takeoff_loc = self.my_unit(rocket_id)?.location().map_location()?;
+        for dir in Direction::all() {
+            self.damage_location(takeoff_loc.add(dir), ROCKET_BLAST_DAMAGE);
         }
+        self.move_to_space(rocket_id);
+        self.my_unit_mut(rocket_id)?.launch_rocket()?;
+
+        let landing_round = self.round + self.orbit.duration(self.round);
+        self.my_team_mut().rocket_landings.add_landing(
+            landing_round, RocketLanding::new(rocket_id, destination)
+        );
+        Ok(())
     }
 
     /// Lands the rocket, damaging the units in adjacent squares. The rocket
@@ -2111,28 +2117,28 @@ mod tests {
 
         // Robot A cannot move east, as this is where B is. However,
         // it can move northeast.
-        assert![world.is_move_ready(a).unwrap()];
-        assert![!world.can_move(a, Direction::East).unwrap()];
-        assert![world.can_move(a, Direction::Northeast).unwrap()];
+        assert![world.is_move_ready(a)];
+        assert![!world.can_move(a, Direction::East)];
+        assert![world.can_move(a, Direction::Northeast)];
         world.move_robot(a, Direction::Northeast).unwrap();
 
         // A is now one square north of B. B cannot move north to
         // A's new location, but can move west to A's old location.
-        assert![world.is_move_ready(b).unwrap()];
-        assert![!world.can_move(b, Direction::North).unwrap()];
-        assert![world.can_move(b, Direction::West).unwrap()];
+        assert![world.is_move_ready(b)];
+        assert![!world.can_move(b, Direction::North)];
+        assert![world.can_move(b, Direction::West)];
         world.move_robot(b, Direction::West).unwrap();
 
-        // A cannot move again until its cooldowns are reset.
-        assert![!world.is_move_ready(a).unwrap()];
-        assert![world.can_move(a, Direction::South).unwrap()];
+        // A robot cannot move again until its cooldowns are reset.
+        assert![!world.is_move_ready(a)];
+        assert![world.can_move(a, Direction::South)];
         assert![world.move_robot(a, Direction::South).is_err()];
         assert![world.end_round().is_ok()];
 
         // Finally, let's test that A cannot move back to its old square.
-        assert![world.is_move_ready(a).unwrap()];
-        assert![!world.can_move(a, Direction::Southwest).unwrap()];
-        assert![world.can_move(a, Direction::South).unwrap()];
+        assert![world.is_move_ready(a)];
+        assert![!world.can_move(a, Direction::Southwest)];
+        assert![world.can_move(a, Direction::South)];
         world.move_robot(a, Direction::South).unwrap();
     }
 
@@ -2162,13 +2168,13 @@ mod tests {
         let robot_b = world.create_unit(Team::Red, loc_c, UnitType::Knight).unwrap();
     
         // Knight Javelin is ready
-        assert!(world.is_javelin_ready(knight).unwrap());
+        assert!(world.is_javelin_ready(knight));
 
         // Knight should not be able to javelin target outside of range
-        assert!(!world.can_javelin(knight, robot_b).unwrap());
+        assert!(!world.can_javelin(knight, robot_b));
 
         // Knight should be able to javelin target within range
-        assert!(world.can_javelin(knight, robot_a).unwrap());
+        assert!(world.can_javelin(knight, robot_a));
 
         // Javelin target. 
         let robot_max_health = 250;
@@ -2176,7 +2182,7 @@ mod tests {
         assert_eq!(world.get_unit(robot_a).unwrap().health(), robot_max_health);
         assert!(world.javelin(knight, robot_a).is_ok());
         assert_eq!(world.get_unit(robot_a).unwrap().health(), robot_damaged_health);
-        assert!(!world.is_javelin_ready(knight).unwrap());
+        assert!(!world.is_javelin_ready(knight));
     }
 
     #[test]
@@ -2203,19 +2209,19 @@ mod tests {
         let mage = world.create_unit(Team::Red, loc_a, UnitType::Mage).unwrap();
         
         // Mage blink is ready.
-        assert!(world.is_blink_ready(mage).unwrap());
+        assert!(world.is_blink_ready(mage));
 
         // Mage should not be able to blink to target location outside of range.
-        assert!(!world.can_blink(mage, loc_c).unwrap());
+        assert!(!world.can_blink(mage, loc_c));
 
         // Mage should be able to blink to target location within range.
-        assert!(world.can_blink(mage, loc_b).unwrap());
+        assert!(world.can_blink(mage, loc_b));
 
         // Blink moves mage to new location.
         assert_eq!(world.get_unit(mage).unwrap().location(), OnMap(loc_a));
         assert!(world.blink(mage, loc_b).is_ok());
         assert_eq!(world.get_unit(mage).unwrap().location(), OnMap(loc_b));
-        assert!(!world.is_blink_ready(mage).unwrap());
+        assert!(!world.is_blink_ready(mage));
     }
 
     #[test]
@@ -2299,13 +2305,13 @@ mod tests {
         let robot_b = world.create_unit(Team::Red, loc_c, UnitType::Knight).unwrap();
 
         // Healer overcharge is ready.
-        assert!(world.is_overcharge_ready(healer).unwrap());
+        assert!(world.is_overcharge_ready(healer));
 
         // Healer should not be able to overcharge target robot outside of range.
-        assert!(!world.can_overcharge(healer, robot_b).unwrap());
+        assert!(!world.can_overcharge(healer, robot_b));
         
         // Healer should be able to overcharge target robot within range.
-        assert!(world.can_overcharge(healer, robot_a).unwrap());
+        assert!(world.can_overcharge(healer, robot_a));
 
         // Robot uses ability.
         let loc_d = MapLocation::new(Planet::Earth, 0, 2);
@@ -2336,7 +2342,7 @@ mod tests {
         }
 
         // Launch the rocket.
-        assert![world.can_launch_rocket(rocket, mars_loc).unwrap()];
+        assert![world.can_launch_rocket(rocket, mars_loc)];
         world.launch_rocket(rocket, mars_loc).unwrap();
         assert_eq![world.my_unit(rocket).unwrap().location(), InSpace];
         let damaged_knight_health = 200;
@@ -2373,15 +2379,15 @@ mod tests {
         let factory = world.create_unit(Team::Blue, mars_loc_factory, UnitType::Factory).unwrap();
 
         // Failed launches.
-        assert![!world.can_launch_rocket(rocket_a, earth_loc_b).unwrap()];
-        assert_err![world.launch_rocket(rocket_a, earth_loc_b), GameError::InvalidAction];
-        assert![!world.can_launch_rocket(rocket_a, mars_loc_off_map).unwrap()];
-        assert_err![world.launch_rocket(rocket_a, mars_loc_off_map), GameError::InvalidAction];
-        assert![!world.can_launch_rocket(rocket_a, mars_loc_impassable).unwrap()];
-        assert_err![world.launch_rocket(rocket_a, mars_loc_impassable), GameError::InvalidAction];
+        assert![!world.can_launch_rocket(rocket_a, earth_loc_b)];
+        assert_err![world.launch_rocket(rocket_a, earth_loc_b), GameError::SamePlanet];
+        assert![!world.can_launch_rocket(rocket_a, mars_loc_off_map)];
+        assert_err![world.launch_rocket(rocket_a, mars_loc_off_map), GameError::InvalidLocation];
+        assert![!world.can_launch_rocket(rocket_a, mars_loc_impassable)];
+        assert_err![world.launch_rocket(rocket_a, mars_loc_impassable), GameError::LocationNotEmpty];
 
         // Rocket landing on a robot should destroy the robot.
-        assert![world.can_launch_rocket(rocket_a, mars_loc_knight).unwrap()];
+        assert![world.can_launch_rocket(rocket_a, mars_loc_knight)];
         assert![world.launch_rocket(rocket_a, mars_loc_knight).is_ok()];
         assert![world.end_turn().is_ok()];
         assert![world.end_turn().is_ok()];
@@ -2392,7 +2398,7 @@ mod tests {
 
         // Launch the rocket on Earth.
         assert![world.end_turn().is_ok()];
-        assert![world.can_launch_rocket(rocket_b, mars_loc_factory).unwrap()];
+        assert![world.can_launch_rocket(rocket_b, mars_loc_factory)];
         assert![world.launch_rocket(rocket_b, mars_loc_factory).is_ok()];
 
         // Go forward two turns so that we're on Mars.
@@ -2414,47 +2420,47 @@ mod tests {
 
         // Correct loading.
         let valid_boarder = world.create_unit(Team::Red, takeoff_loc.add(Direction::North), UnitType::Knight).unwrap();
-        assert![world.can_load(rocket, valid_boarder).unwrap()];
+        assert![world.can_load(rocket, valid_boarder)];
         assert![world.load(rocket, valid_boarder).is_ok()];
         assert_eq![world.my_unit(valid_boarder).unwrap().location(), InGarrison(rocket)];
 
         // Boarding fails when too far from the rocket.
         let invalid_boarder_too_far = world.create_unit(Team::Red, takeoff_loc.add(Direction::North).add(Direction::North), UnitType::Knight).unwrap();
-        assert![!world.can_load(rocket, valid_boarder).unwrap()];
-        assert_err![world.load(rocket, invalid_boarder_too_far), GameError::InvalidAction];
+        assert![!world.can_load(rocket, valid_boarder)];
+        assert_err![world.load(rocket, invalid_boarder_too_far), GameError::OutOfRange];
 
         // Boarding fails when the robot has already moved.
         assert![world.move_robot(invalid_boarder_too_far, Direction::South).is_ok()];
         let invalid_boarder_already_moved = invalid_boarder_too_far;
-        assert![!world.is_move_ready(invalid_boarder_already_moved).unwrap()];
-        assert![!world.can_load(rocket, invalid_boarder_already_moved).unwrap()];
-        assert_err![world.load(rocket, invalid_boarder_already_moved), GameError::InvalidAction];
+        assert![!world.is_move_ready(invalid_boarder_already_moved)];
+        assert![!world.can_load(rocket, invalid_boarder_already_moved)];
+        assert_err![world.load(rocket, invalid_boarder_already_moved), GameError::Overheated];
 
         // Factories and rockets cannot board rockets.
         let invalid_boarder_factory = world.create_unit(Team::Red, takeoff_loc.add(Direction::Southeast), UnitType::Factory).unwrap();
-        assert_err![world.can_load(rocket, invalid_boarder_factory), GameError::InappropriateUnitType];
+        assert![!world.can_load(rocket, invalid_boarder_factory)];
         assert_err![world.load(rocket, invalid_boarder_factory), GameError::InappropriateUnitType];
         let invalid_boarder_rocket = world.create_unit(Team::Red, takeoff_loc.add(Direction::South), UnitType::Rocket).unwrap();
-        assert_err![world.can_load(rocket, invalid_boarder_rocket), GameError::InappropriateUnitType];
+        assert![!world.can_load(rocket, invalid_boarder_rocket)];
         assert_err![world.load(rocket, invalid_boarder_rocket), GameError::InappropriateUnitType];
 
         // Rockets can be loaded up to their capacity...
         for _ in 1..8 {
             let valid_extra_boarder = world.create_unit(Team::Red, takeoff_loc.add(Direction::East), UnitType::Knight).unwrap();
-            assert![world.can_load(rocket, valid_extra_boarder).unwrap()];
+            assert![world.can_load(rocket, valid_extra_boarder)];
             assert![world.load(rocket, valid_extra_boarder).is_ok()];
         }
 
         // ... but not beyond their capacity.
         let invalid_boarder_rocket_full = world.create_unit(Team::Red, takeoff_loc.add(Direction::East), UnitType::Knight).unwrap();
-        assert![!world.can_load(rocket, invalid_boarder_rocket_full).unwrap()];
-        assert_err![world.load(rocket, invalid_boarder_rocket_full), GameError::InvalidAction];
+        assert![!world.can_load(rocket, invalid_boarder_rocket_full)];
+        assert_err![world.load(rocket, invalid_boarder_rocket_full), GameError::NotEnoughSpace];
 
         // A unit should not be able to board another team's rocket.
         let blue_takeoff_loc = MapLocation::new(Planet::Earth, 5, 5);
         let blue_rocket = world.create_unit(Team::Blue, blue_takeoff_loc, UnitType::Rocket).unwrap();
         let invalid_boarder_wrong_team = world.create_unit(Team::Red, blue_takeoff_loc.add(Direction::North), UnitType::Knight).unwrap();
-        assert_err![world.can_load(blue_rocket, invalid_boarder_wrong_team), GameError::TeamNotAllowed];
+        assert![!world.can_load(blue_rocket, invalid_boarder_wrong_team)];
         assert_err![world.load(blue_rocket, invalid_boarder_wrong_team), GameError::TeamNotAllowed];
     }
 
@@ -2468,7 +2474,7 @@ mod tests {
         // Load the rocket with robots.
         for _ in 0..2 {
             let robot = world.create_unit(Team::Red, takeoff_loc.add(Direction::North), UnitType::Knight).unwrap();
-            assert![world.can_load(rocket, robot).unwrap()];
+            assert![world.can_load(rocket, robot)];
             assert![world.load(rocket, robot).is_ok()];
         }
 
@@ -2482,41 +2488,41 @@ mod tests {
         assert![world.land_rocket(rocket, landing_loc).is_ok()];
 
         // Cannot unload in the same round. But can after one turn.
-        assert![!world.can_unload(rocket, Direction::North).unwrap()];
-        assert_err![world.unload(rocket, Direction::North), GameError::InvalidAction];
+        assert![!world.can_unload(rocket, Direction::North)];
+        assert_err![world.unload(rocket, Direction::North), GameError::Overheated];
         assert![world.end_round().is_ok()];
 
         // Correct unloading.
-        assert![world.can_unload(rocket, Direction::North).unwrap()];
+        assert![world.can_unload(rocket, Direction::North)];
         assert![world.unload(rocket, Direction::North).is_ok()];
 
         // Cannot unload into an occupied square.
-        assert![!world.can_unload(rocket, Direction::North).unwrap()];
+        assert![!world.can_unload(rocket, Direction::North)];
         assert![world.unload(rocket, Direction::North).is_err()];
 
         // Cannot unload into an impassable square.
         world.planet_maps.get_mut(&Planet::Mars).unwrap().is_passable_terrain[0][1] = false;
-        assert![!world.can_unload(rocket, Direction::East).unwrap()];
-        assert_err![world.unload(rocket, Direction::East), GameError::InvalidAction];
+        assert![!world.can_unload(rocket, Direction::East)];
+        assert_err![world.unload(rocket, Direction::East), GameError::LocationNotEmpty];
 
         // Error unloading off the map.
-        assert_err![world.can_unload(rocket, Direction::South), GameError::InvalidLocation];
+        assert![!world.can_unload(rocket, Direction::South)];
         assert_err![world.unload(rocket, Direction::South), GameError::InvalidLocation];
 
         // Error unloading not a rocket.
         let robot_loc = MapLocation::new(Planet::Mars, 10, 10);
         let robot = world.create_unit(Team::Red, robot_loc, UnitType::Mage).unwrap();
-        assert_err![world.can_unload(robot, Direction::East), GameError::InappropriateUnitType];
+        assert![!world.can_unload(robot, Direction::East)];
         assert_err![world.unload(robot, Direction::East), GameError::InappropriateUnitType];
 
         // Correct unloading, again.
         world.planet_maps.get_mut(&Planet::Mars).unwrap().is_passable_terrain[0][1] = true;
-        assert![world.can_unload(rocket, Direction::East).unwrap()];
+        assert![world.can_unload(rocket, Direction::East)];
         assert![world.unload(rocket, Direction::East).is_ok()];
 
         // Cannot unload an empty rocket.
-        assert![!world.can_unload(rocket, Direction::East).unwrap()];
-        assert_err![world.unload(rocket, Direction::East), GameError::InvalidAction];
+        assert![!world.can_unload(rocket, Direction::East)];
+        assert_err![world.unload(rocket, Direction::East), GameError::GarrisonEmpty];
     }
 
     #[test]
@@ -2531,12 +2537,12 @@ mod tests {
         for i in 0..4 {
             let worker = world.create_unit(Team::Red, deposit.add(Direction::North), 
                                                 UnitType::Worker).unwrap();
-            assert![world.can_harvest(worker, Direction::South).unwrap()];
+            assert![world.can_harvest(worker, Direction::South)];
             assert_eq![world.karbonite_at(deposit).unwrap(), expected_karbonite[i]];
             assert_eq![world.karbonite(), expected_team_karbonite[i]];
             assert![world.harvest(worker, Direction::South).is_ok()];
             // The robot can no longer harvest, as it has already done so.
-            assert![!world.can_harvest(worker, Direction::South).unwrap()];
+            assert![!world.can_harvest(worker, Direction::South)];
             assert_eq![world.karbonite_at(deposit).unwrap(), expected_karbonite[i+1]];
             assert_eq![world.karbonite(), expected_team_karbonite[i+1]];
             world.destroy_unit(worker);
@@ -2545,14 +2551,14 @@ mod tests {
         // The deposit has been mined out, so it cannot be harvested.
         let worker = world.create_unit(Team::Red, deposit.add(Direction::North),
                                             UnitType::Worker).unwrap();
-        assert![!world.can_harvest(worker, Direction::South).unwrap()];
+        assert![!world.can_harvest(worker, Direction::South)];
 
         // Other deposits can still be harvested, including in the robot's own space.
-        assert![world.can_harvest(worker, Direction::Center).unwrap()];
+        assert![world.can_harvest(worker, Direction::Center)];
 
         // Deposits off the edge of the map can obviously not be harvested, but checking
         // this should not error.
-        assert![!world.can_harvest(worker, Direction::West).unwrap()];
+        assert![!world.can_harvest(worker, Direction::West)];
     }
 
     #[test]
@@ -2564,24 +2570,24 @@ mod tests {
         let factory_loc = MapLocation::new(Planet::Earth, 0, 0);
         let worker_a = world.create_unit(Team::Red, factory_loc.add(Direction::North), UnitType::Worker).unwrap();
 
-        // Even testing if blueprinting a robot is possible results in an error.
-        assert![world.can_blueprint(worker_a, UnitType::Knight, Direction::South).is_err()];
+        // You cannot blueprint a robot.
+        assert![!world.can_blueprint(worker_a, UnitType::Knight, Direction::South)];
 
         // A factory cannot be blueprinted yet, because there are not enough resources.
-        assert![!world.can_blueprint(worker_a, UnitType::Factory, Direction::South).unwrap()];
+        assert![!world.can_blueprint(worker_a, UnitType::Factory, Direction::South)];
 
         // After adding more resources to the team pool, blueprinting a factory is possible.
         world.get_team_mut(Team::Red).karbonite = 1000;
-        assert![world.can_blueprint(worker_a, UnitType::Factory, Direction::South).unwrap()];
+        assert![world.can_blueprint(worker_a, UnitType::Factory, Direction::South)];
 
         // However, a factory cannot be blueprinted to the west, as this is off the map.
-        assert![!world.can_blueprint(worker_a, UnitType::Factory, Direction::West).unwrap()];
+        assert![!world.can_blueprint(worker_a, UnitType::Factory, Direction::West)];
 
         assert![world.blueprint(worker_a, UnitType::Factory, Direction::South).is_ok()];
         let factory = world.get_planet_mut(Planet::Earth).units_by_loc[&factory_loc];
 
         // The factory cannot be built by the same worker, because it has already acted.
-        assert![!world.can_build(worker_a, factory).unwrap()];
+        assert![!world.can_build(worker_a, factory)];
         world.destroy_unit(worker_a);
 
         // It takes 150 build actions, with default research, to complete a factory.
@@ -2592,29 +2598,29 @@ mod tests {
                                              UnitType::Worker).unwrap();
 
             // The worker is initially too far away to build the factory.
-            assert![!world.can_build(worker_b, factory).unwrap()];
+            assert![!world.can_build(worker_b, factory)];
             assert![world.move_robot(worker_b, Direction::South).is_ok()];
 
             // The worker is now able to build the factory.
-            assert![world.can_build(worker_b, factory).unwrap()];
+            assert![world.can_build(worker_b, factory)];
             assert![world.build(worker_b, factory).is_ok()];
             assert_eq![world.get_unit(factory).unwrap().health(), 255 + 5*i];
 
             // The worker has already acted, and cannot build again.
-            assert![!world.can_build(worker_b, factory).unwrap()];
+            assert![!world.can_build(worker_b, factory)];
             world.destroy_unit(worker_b);
         }
         assert![world.get_unit(factory).unwrap().is_built().unwrap()];
 
         // Subsequent attempts to build the factory should fail.
         let worker_c = world.create_unit(Team::Red, factory_loc.add(Direction::North), UnitType::Worker).unwrap();
-        assert![!world.can_build(worker_c, factory).unwrap()];
+        assert![!world.can_build(worker_c, factory)];
         world.destroy_unit(worker_c);
 
         // It should not be possible to blueprint a rocket until researching Rocketry.
         let rocket_loc = MapLocation::new(Planet::Earth, 1, 0);
         let worker_d = world.create_unit(Team::Red, rocket_loc.add(Direction::North), UnitType::Worker).unwrap();
-        assert![!world.can_blueprint(worker_d, UnitType::Rocket, Direction::South).unwrap()];
+        assert![!world.can_blueprint(worker_d, UnitType::Rocket, Direction::South)];
 
         // Force-research Rocketry.
         assert![world.queue_research(Branch::Rocket)];
@@ -2623,7 +2629,7 @@ mod tests {
         }
 
         // Rockets can now be built!
-        assert![world.can_blueprint(worker_d, UnitType::Rocket, Direction::South).unwrap()];
+        assert![world.can_blueprint(worker_d, UnitType::Rocket, Direction::South)];
         assert![world.blueprint(worker_d, UnitType::Rocket, Direction::South).is_ok()];
 
         // Blueprinting is never possible on Mars.
@@ -2631,7 +2637,7 @@ mod tests {
         assert![world.end_turn().is_ok()];
         let mars_factory_loc = MapLocation::new(Planet::Mars, 0, 0);
         let worker_e = world.create_unit(Team::Red, mars_factory_loc.add(Direction::North), UnitType::Worker).unwrap();
-        assert![!world.can_blueprint(worker_e, UnitType::Factory, Direction::South).unwrap()];
+        assert![!world.can_blueprint(worker_e, UnitType::Factory, Direction::South)];
     }
 
     fn test_factory_production() {
@@ -2641,9 +2647,9 @@ mod tests {
         let mage_cost = UnitType::Mage.factory_cost().unwrap();
 
         // The factory can produce a robot only if it's not already busy.
-        assert!(world.can_produce_robot(factory, UnitType::Mage).unwrap());
+        assert!(world.can_produce_robot(factory, UnitType::Mage));
         assert!(world.produce_robot(factory, UnitType::Mage).is_ok());
-        assert!(!world.can_produce_robot(factory, UnitType::Mage).unwrap());
+        assert!(!world.can_produce_robot(factory, UnitType::Mage));
         assert_err!(world.produce_robot(factory, UnitType::Mage), GameError::InvalidAction);
         assert_eq!(world.my_team().karbonite, KARBONITE_STARTING - mage_cost);
 
@@ -2657,8 +2663,8 @@ mod tests {
         assert_eq!(world.my_planet().units_by_loc.len(), 1);
 
         // Karbonite is a limiting factor for producing robots.
-        assert!(world.can_produce_robot(factory, UnitType::Mage).unwrap());
+        assert!(world.can_produce_robot(factory, UnitType::Mage));
         world.my_team_mut().karbonite = 0;
-        assert!(!world.can_produce_robot(factory, UnitType::Mage).unwrap());
+        assert!(!world.can_produce_robot(factory, UnitType::Mage));
     }
 }

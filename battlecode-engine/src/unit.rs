@@ -824,13 +824,16 @@ impl Unit {
         Ok(())
     }
 
-    /// Whether the structure can load a unit. The structure must have enough
-    /// space.
+    /// Returns OK if the structure can load a unit. The structure 
+    /// must have enough space.
     ///
-    /// Errors if the unit is not a rocket or robot is not a robot.
-    pub fn can_load(&self) -> Result<bool, Error> {
+    /// Errors if the action is not possible.
+    pub fn ok_if_can_load(&self) -> Result<(), Error> {
         self.ok_if_structure()?;
-        Ok(self.garrison()?.len() < self.max_capacity()?)
+        if self.garrison()?.len() == self.max_capacity()? {
+            Err(GameError::NotEnoughSpace)?;
+        }
+        Ok(())
     }
 
     /// Updates the structure as if it has loaded a unit inside its garrison.
@@ -838,24 +841,26 @@ impl Unit {
     ///
     /// Errors if this unit is not a structure, or it cannot load.
     pub fn load(&mut self, id: UnitID) -> Result<(), Error> {
-        if self.can_load()? {
-            self.ok_if_structure()?;
-            self.garrison.push(id);
-            Ok(())
-        } else {
-            Err(GameError::InvalidAction)?
-        }
+        self.ok_if_can_load()?;
+        self.ok_if_structure()?;
+        self.garrison.push(id);
+        Ok(())
     }
 
-    /// Whether the structure can unload a unit. The structure must be on a
-    /// planet and it must have at least one unit to unload. Does not check
+    /// Returns OK if the structure can unload a unit. The structure must be on
+    /// a planet and it must have at least one unit to unload. Does not check
     /// whether the unit is ready to move.
     ///
-    /// Errors if the unit is not a structure.
-    pub fn can_unload_unit(&self) -> Result<bool, Error> {
+    /// Returns if the action is not possible.
+    pub fn ok_if_can_unload_unit(&self) -> Result<(), Error> {
         match self.location() {
-            OnMap(_) => Ok(self.garrison()?.len() > 0),
-            _ => Ok(false),
+            OnMap(_) => {
+                if self.garrison()?.len() == 0 {
+                    Err(GameError::GarrisonEmpty)?;
+                }
+                Ok(())
+            },
+            _ => Err(GameError::UnitNotOnMap)?,
         }
     }
 
@@ -864,26 +869,26 @@ impl Unit {
     ///
     /// Errors if the unit is not a structure, or it cannot unload.
     pub fn unload_unit(&mut self) -> Result<UnitID, Error> {
-        if self.can_unload_unit()? {
-            Ok(self.garrison.remove(0))
-        } else {
-            Err(GameError::InvalidAction)?
-        }
+        self.ok_if_can_unload_unit()?;
+        Ok(self.garrison.remove(0))
     }
 
     // ************************************************************************
     // ************************** FACTORY METHODS *****************************
     // ************************************************************************
 
-    /// Whether the factory can produce a robot of this type.
+    /// Returns OK if the factory can produce a robot of this type.
     ///
-    /// Errors if the unit is not a factory or the robot type is not a robot.
-    pub fn can_produce_robot(&self, unit_type: UnitType) -> Result<bool, Error> {
+    /// Errors if the action is not possible.
+    pub fn ok_if_can_produce_robot(&self, unit_type: UnitType) -> Result<(), Error> {
         self.ok_if_unit_type(Factory)?;
         if !unit_type.is_robot() {
-            return Err(GameError::InappropriateUnitType)?;
+            Err(GameError::InappropriateUnitType)?;
         }
-        Ok(self.factory_unit_type.is_none())
+        if !self.factory_unit_type.is_none() {
+            Err(GameError::FactoryBusy)?;
+        }
+        Ok(())
     }
 
     /// Starts producing a robot of this type.
@@ -920,7 +925,7 @@ impl Unit {
             return None;
         }
 
-        if !self.can_load().unwrap() {
+        if self.ok_if_can_load().is_err() {
             return None;
         }
 
@@ -1239,26 +1244,26 @@ mod tests {
         // A worker cannot produce a robot.
         let loc = MapLocation::new(Planet::Earth, 0, 0);
         let worker = Unit::new(1, Team::Red, Worker, 0, OnMap(loc)).unwrap();
-        assert_err!(worker.can_produce_robot(Mage), GameError::InappropriateUnitType);
+        assert_err!(worker.ok_if_can_produce_robot(Mage), GameError::InappropriateUnitType);
 
         // A factory cannot produce a structure, but it can produce a mage.
         let mut factory = Unit::new(1, Team::Red, Factory, 0, OnMap(loc)).unwrap();
         assert_eq!(factory.factory_rounds_left().unwrap(), None);
-        assert_err!(factory.can_produce_robot(Factory), GameError::InappropriateUnitType);
-        assert_err!(factory.can_produce_robot(Rocket), GameError::InappropriateUnitType);
-        assert!(factory.can_produce_robot(Mage).unwrap());
+        assert_err!(factory.ok_if_can_produce_robot(Factory), GameError::InappropriateUnitType);
+        assert_err!(factory.ok_if_can_produce_robot(Rocket), GameError::InappropriateUnitType);
+        assert!(factory.ok_if_can_produce_robot(Mage).is_ok());
 
         // The factory cannot produce anything when it's already busy.
         factory.produce_robot(Mage);
-        assert!(!factory.can_produce_robot(Mage).unwrap());
+        assert!(factory.ok_if_can_produce_robot(Mage).is_err());
 
         // After a few rounds, the factory can produce again.
         for _ in 0..FACTORY_NUM_ROUNDS - 1 {
             assert_eq!(factory.process_factory_round(), None);
-            assert!(!factory.can_produce_robot(Mage).unwrap());
+            assert!(factory.ok_if_can_produce_robot(Mage).is_err());
         }
         assert_eq!(factory.process_factory_round(), Some(Mage));
-        assert!(factory.can_produce_robot(Mage).unwrap());
+        assert!(factory.ok_if_can_produce_robot(Mage).is_ok());
 
         // Fill the factory to its max capacity.
         for id in 0..factory.max_capacity().expect("unit has a capacity") {
@@ -1266,11 +1271,11 @@ mod tests {
         }
 
         // The factory can produce one more robot, but it won't go in its garrison.
-        assert!(factory.can_produce_robot(Mage).unwrap());
+        assert!(factory.ok_if_can_produce_robot(Mage).is_ok());
         factory.produce_robot(Mage);
         for _ in 0..FACTORY_NUM_ROUNDS * 2 {
             assert_eq!(factory.process_factory_round(), None);
-            assert!(!factory.can_produce_robot(Mage).unwrap());
+            assert!(factory.ok_if_can_produce_robot(Mage).is_err());
         }
 
         // After unloading the units, the factory will work again.
@@ -1278,7 +1283,7 @@ mod tests {
             assert_eq!(factory.unload_unit().unwrap(), id as UnitID);
         }
         assert_eq!(factory.process_factory_round(), Some(Mage));
-        assert!(factory.can_produce_robot(Mage).unwrap());
+        assert!(factory.ok_if_can_produce_robot(Mage).is_ok());
     }
 
     #[test]
@@ -1299,15 +1304,15 @@ mod tests {
         assert!(robot.can_launch_rocket().is_err());
         assert!(robot.launch_rocket().is_err());
         assert!(robot.land_rocket(loc).is_err());
-        assert!(robot.can_unload_unit().is_err());
+        assert!(robot.ok_if_can_unload_unit().is_err());
         assert!(robot.unload_unit().is_err());
 
         // Check accessor methods on the rocket.
         assert!(rocket.max_capacity().unwrap() > 0);
         assert!(!rocket.is_rocket_used().unwrap());
         assert_eq!(rocket.garrison().unwrap().len(), 0);
-        assert!(rocket.can_load().unwrap());
-        assert!(!rocket.can_unload_unit().unwrap());
+        assert!(rocket.ok_if_can_load().is_ok());
+        assert!(rocket.ok_if_can_unload_unit().is_err());
         assert!(rocket.can_launch_rocket().unwrap());
 
         // The rocket cannot land.
@@ -1316,7 +1321,7 @@ mod tests {
         // Load a unit and launch into space.
         assert!(rocket.load(robot.id()).is_ok());
         assert_eq!(rocket.garrison().unwrap(), vec![robot.id()]);
-        assert!(rocket.can_unload_unit().unwrap());
+        assert!(rocket.ok_if_can_unload_unit().is_ok());
 
         assert_eq!(rocket.launch_rocket().unwrap(), ());
         assert_eq!(rocket.location(), InSpace);
@@ -1329,17 +1334,17 @@ mod tests {
         assert_eq!(rocket.location(), OnMap(mars_loc));
 
         // Unload the unit.
-        assert!(rocket.can_unload_unit().unwrap());
+        assert!(rocket.ok_if_can_unload_unit().is_ok());
         assert_eq!(rocket.unload_unit().unwrap(), robot.id());
-        assert!(!rocket.can_unload_unit().unwrap());
+        assert!(!rocket.ok_if_can_unload_unit().is_ok());
 
         // Load too many units
         let robot = Unit::new(0, Team::Red, Mage, 0, OnMap(adjacent_mars_loc)).unwrap();
         for i in 0..rocket.max_capacity().unwrap() {
-            assert!(rocket.can_load().unwrap(), "failed to load unit {}", i);
+            assert!(rocket.ok_if_can_load().is_ok(), "failed to load unit {}", i);
             assert!(rocket.load(0).is_ok());
         }
-        assert!(!rocket.can_load().unwrap());
+        assert!(rocket.ok_if_can_load().is_err());
         assert!(rocket.load(0).is_err());
     }
 
