@@ -8,6 +8,7 @@ use map::*;
 use research::*;
 use rockets::*;
 use schema::*;
+use team_array::*;
 use unit::*;
 use world::*;
 
@@ -205,6 +206,25 @@ impl GameController {
     // ************************************************************************
     // *********************** COMMUNICATION METHODS **************************
     // ************************************************************************
+
+    /// Gets a read-only version of this planet's team array. If the given
+    /// planet is different from the planet of the player, reads the version
+    /// of the planet's team array from COMMUNICATION_DELAY rounds prior.
+    pub fn get_team_array(&self, planet: Planet) -> &TeamArray {
+        self.world.get_team_array(planet)
+    }
+
+    /// Writes the value at the index of this planet's team array.
+    ///
+    /// * GameError::ArrayOutOfBounds - the index of the array is out of
+    ///   bounds. It must be within [0, COMMUNICATION_ARRAY_LENGTH).
+    pub fn write_team_array(&mut self, index: usize, value: i32) -> Result<(), Error> {
+        let delta = Delta::WriteTeamArray { index, value };
+        if self.config.generate_turn_messages {
+            self.turn.changes.push(delta.clone());
+        }
+        Ok(self.world.apply(&delta)?)
+    }
 
     // ************************************************************************
     // ********************** UNIT DESTRUCTION METHODS ************************
