@@ -6,6 +6,7 @@
 
 use failure::Error;
 use fnv::FnvHashMap;
+use std::collections::VecDeque;
 
 use super::constants::*;
 use super::location::*;
@@ -16,7 +17,7 @@ pub type TeamArray = Vec<i32>;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TeamArrayInfo {
-    history: FnvHashMap<Planet, Vec<TeamArray>>,
+    history: FnvHashMap<Planet, VecDeque<TeamArray>>,
 }
 
 impl TeamArrayInfo {
@@ -24,17 +25,19 @@ impl TeamArrayInfo {
     pub fn new() -> TeamArrayInfo {
         // The length of the history is COMMUNICATION_DELAY + 1 for each array
         // from 1 to COMMUNICATION_DELAY rounds ago, and the current round.
-        let mut history: FnvHashMap<Planet, Vec<TeamArray>> = FnvHashMap::default();
-        history.insert(Planet::Earth, vec![
-            vec![0; COMMUNICATION_ARRAY_LENGTH]; COMMUNICATION_DELAY + 1]);
-        history.insert(Planet::Mars, vec![
-            vec![0; COMMUNICATION_ARRAY_LENGTH]; COMMUNICATION_DELAY + 1]);
+        let mut history: FnvHashMap<Planet, VecDeque<TeamArray>> = FnvHashMap::default();
+        let mut deque: VecDeque<TeamArray> = VecDeque::with_capacity(COMMUNICATION_DELAY + 1);
+        for _ in 0..COMMUNICATION_DELAY + 1 {
+            deque.push_back(vec![0; COMMUNICATION_ARRAY_LENGTH]);
+        }
+        history.insert(Planet::Earth, deque.clone());
+        history.insert(Planet::Mars, deque);
         TeamArrayInfo {
             history: history,
         }
     }
 
-    fn get_arrays(&self, planet: Planet) -> &Vec<TeamArray> {
+    fn get_arrays(&self, planet: Planet) -> &VecDeque<TeamArray> {
         if let Some(array) = self.history.get(&planet) {
             array
         } else {
@@ -42,7 +45,7 @@ impl TeamArrayInfo {
         }
     }
 
-    fn get_arrays_mut(&mut self, planet: Planet) -> &mut Vec<TeamArray> {
+    fn get_arrays_mut(&mut self, planet: Planet) -> &mut VecDeque<TeamArray> {
         if let Some(array) = self.history.get_mut(&planet) {
             array
         } else {
@@ -54,11 +57,17 @@ impl TeamArrayInfo {
     /// any intermediate arrays, and only the arrays that can be accessed on
     /// this planet.
     pub fn filter(&self, planet: Planet) -> TeamArrayInfo {
-        let this_array = self.get_arrays(planet).get(0).unwrap().clone();
-        let that_array = self.get_arrays(planet.other()).get(COMMUNICATION_DELAY).unwrap().clone();
-        let mut history: FnvHashMap<Planet, Vec<TeamArray>> = FnvHashMap::default();
-        history.insert(planet, vec![this_array]);
-        history.insert(planet.other(), vec![that_array]);
+        let this_array = self.get_arrays(planet).front().unwrap().clone();
+        let that_array = self.get_arrays(planet.other()).back().unwrap().clone();
+        let mut history: FnvHashMap<Planet, VecDeque<TeamArray>> = FnvHashMap::default();
+
+        let mut this_deque: VecDeque<TeamArray> = VecDeque::with_capacity(1);
+        let mut that_deque: VecDeque<TeamArray> = VecDeque::with_capacity(1);
+        this_deque.push_back(this_array);
+        that_deque.push_back(that_array);
+
+        history.insert(planet, this_deque);
+        history.insert(planet.other(), that_deque);
         TeamArrayInfo {
             history: history,
         }
@@ -66,19 +75,18 @@ impl TeamArrayInfo {
 
     /// Get the most recent version of this planet's team array.
     pub fn first_array(&self, planet: Planet) -> &TeamArray {
-        self.get_arrays(planet).get(0).unwrap()
+        self.get_arrays(planet).front().unwrap()
     }
 
     /// Get the oldest version of this planet's team array.
     pub fn last_array(&self, planet: Planet) -> &TeamArray {
-        let array_len = self.get_arrays(planet).len();
-        self.get_arrays(planet).get(array_len - 1).unwrap()
+        self.get_arrays(planet).back().unwrap()
     }
 
     /// Writes the value at the index of this planet's team array.
     /// Errors if the array written to is accessed out of bounds.
     pub fn write(&mut self, planet: Planet, index: usize, value: i32) -> Result<(), Error> {
-        let array = self.get_arrays_mut(planet).get_mut(0).unwrap();
+        let array = self.get_arrays_mut(planet).front_mut().unwrap();
         if index < array.len() {
             array[index] = value;
             Ok(())
@@ -90,13 +98,13 @@ impl TeamArrayInfo {
     /// Ends the round by discarding the oldest version of each planet's team
     /// array in favor of another version that is a round more recent.
     pub fn end_round(&mut self) {
-        let array = self.get_arrays(Planet::Earth).get(0).unwrap().clone();
-        self.get_arrays_mut(Planet::Earth).pop();
-        self.get_arrays_mut(Planet::Earth).insert(0, array);
+        let array = self.get_arrays(Planet::Earth).front().unwrap().clone();
+        self.get_arrays_mut(Planet::Earth).pop_back();
+        self.get_arrays_mut(Planet::Earth).push_front(array);
 
-        let array = self.get_arrays(Planet::Mars).get(0).unwrap().clone();
-        self.get_arrays_mut(Planet::Mars).pop();
-        self.get_arrays_mut(Planet::Mars).insert(0, array);
+        let array = self.get_arrays(Planet::Mars).front().unwrap().clone();
+        self.get_arrays_mut(Planet::Mars).pop_back();
+        self.get_arrays_mut(Planet::Mars).push_front(array);
     }
 }
 
