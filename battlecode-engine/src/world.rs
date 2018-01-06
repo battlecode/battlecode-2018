@@ -998,21 +998,21 @@ impl GameWorld {
     // *************************** ATTACK METHODS *****************************
     // ************************************************************************
 
-    fn damage_unit(&mut self, _unit_id: UnitID, damage: i32) {
+    fn damage_unit(&mut self, unit_id: UnitID, damage: i32) {
         // The unit controller is always in the dev engine, but is only in the
         // player engine if the unit is on this team.
-        if self.get_unit_mut(_unit_id).is_ok() {
-            self.get_unit_mut(_unit_id).unwrap().take_damage(damage);
+        if self.get_unit_mut(unit_id).is_ok() {
+            self.get_unit_mut(unit_id).unwrap().take_damage(damage);
         }
 
         let should_destroy_unit = {
-            let unit_info = self.unit_info_mut(_unit_id).expect("unit exists");
+            let unit_info = self.unit_info_mut(unit_id).expect("unit exists");
             unit_info.health = ((unit_info.health as i32) - damage) as u32;
             unit_info.health == 0
         };
 
         if should_destroy_unit {
-            self.destroy_unit(_unit_id);
+            self.destroy_unit(unit_id);
         }
     }
 
@@ -1068,7 +1068,13 @@ impl GameWorld {
         self.ok_if_can_attack(robot_id, target_id)?;
         self.ok_if_attack_ready(robot_id)?;
         let damage = self.my_unit_mut(robot_id)?.use_attack()?;
-        self.get_unit_mut(target_id)?.take_damage(damage);
+        if self.my_unit(robot_id)?.unit_type() == UnitType::Mage {
+            let epicenter = self.unit_info(target_id)?.location.map_location()?;
+            for direction in Direction::all().iter() {
+                self.damage_location(epicenter.add(*direction), damage);
+            }
+        }
+        self.damage_unit(target_id, damage);
         Ok(())
     }
 
@@ -2956,5 +2962,26 @@ mod tests {
         assert![world.move_robot(worker, Direction::East).is_ok()];
         assert![!world.can_repair(worker, factory)];
         assert_err![world.repair(worker, factory), GameError::OutOfRange];
+    }
+
+    #[test]
+    fn test_mage_splash() {
+        let mut world = GameWorld::test_world();
+        let mage = world.create_unit(Team::Red, MapLocation::new(Planet::Earth, 0, 0), UnitType::Mage).unwrap();
+        let mut victims = vec![];
+        for x in 1..4 {
+            for y in 1..4 {
+                victims.push(world.create_unit(Team::Red, MapLocation::new(Planet::Earth, x, y), UnitType::Factory).unwrap());
+            }
+        }
+
+        // After attacking the middle factory, all factories should be damaged.
+        for victim in victims.iter() {
+            assert_eq![world.unit_info(*victim).unwrap().health, 250];
+        }
+        assert![world.attack(mage, victims[4]).is_ok()];
+        for victim in victims.iter() {
+            assert_eq![world.unit_info(*victim).unwrap().health, 100];
+        }
     }
 }
