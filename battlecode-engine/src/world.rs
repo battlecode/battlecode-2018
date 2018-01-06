@@ -995,7 +995,7 @@ impl GameWorld {
     }
     
     fn ok_if_can_attack(&self, robot_id: UnitID, target_id: UnitID) -> Result<(), Error> {
-        let target_loc = self.get_unit(robot_id)?.location();
+        let target_loc = self.unit_info(robot_id)?.location;
         if !target_loc.on_map() {
             Err(GameError::UnitNotOnMap)?;
         }
