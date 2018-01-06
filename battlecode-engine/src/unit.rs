@@ -496,6 +496,22 @@ impl Unit {
         Ok(self.attack_cooldown)
     }
 
+    /// The attack range.
+    ///
+    /// Errors if the unit is not a robot.
+    pub fn attack_range(&self) -> Result<u32, Error> {
+        self.ok_if_robot()?;
+        Ok(self.attack_range)
+    }
+
+    /// Tests whether the robot can attack the target loc, provided
+    ///
+    /// Errors if the unit is not a robot.
+    pub fn is_within_attack_range(&self, target_loc: MapLocation) -> Result<bool, Error> {
+        self.ok_if_robot()?;
+        Ok(self.is_within_range(self.attack_range()?, target_loc))
+    }
+
     /// Whether the unit is ready to attack. The attack heat must be lower than
     /// the maximum heat to act.
     ///
@@ -516,7 +532,7 @@ impl Unit {
     /// Returns the damage done.
     ///
     /// Errors if the unit is not a robot, or not ready to attack.
-    pub fn attack(&mut self) -> Result<i32, Error> {
+    pub fn use_attack(&mut self) -> Result<i32, Error> {
         if self.is_attack_ready()? {
             self.attack_heat += self.attack_cooldown;
             Ok(self.damage)
@@ -528,6 +544,10 @@ impl Unit {
     /// Take the amount of damage given, returning true if the unit has died.
     /// Returns false if the unit is still alive.
     pub fn take_damage(&mut self, damage: i32) -> bool {
+        if damage < 0 {
+            self.be_healed((-damage) as u32);
+            return false;
+        }
         // TODO: Knight damage resistance??
         self.health -= cmp::min(damage, self.health as i32) as u32;
         self.health == 0
