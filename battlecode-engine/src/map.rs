@@ -17,7 +17,7 @@ use world::*;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct GameMap {
     /// Seed for random number generation.
-    pub seed: u32,
+    pub seed: u16,
     /// Earth map.
     pub earth_map: PlanetMap,
     /// Mars map.
@@ -280,7 +280,7 @@ impl AsteroidPattern {
     }
 
     /// Constructs a pseudorandom asteroid pattern given a map of Mars.
-    pub fn random(seed: u32, mars_map: &PlanetMap) -> AsteroidPattern {
+    pub fn random(seed: u16, mars_map: &PlanetMap) -> AsteroidPattern {
         let mut pattern: FnvHashMap<Rounds, AsteroidStrike> = FnvHashMap::default();
 
         let karbonite_gen = Range::new(ASTEROID_KARB_MIN, ASTEROID_KARB_MAX);
