@@ -11,27 +11,7 @@ cargo test
 RUST=$?
 echo
 
-battlecode-engine-c/run_tests.sh
-C=$?
-echo
-
-battlecode-engine-py/run_tests.sh
-PYTHON=$?
-echo
-echo
-echo '---------------'
-
 if [ $RUST -ne 0 ]; then
-    echo -e '\033[31mRust failed!\033[0m'
-fi
-if [ $C -ne 0 ]; then
-    echo -e '\033[31mC failed!\033[0m'
-fi
-if [ $PYTHON -ne 0 ]; then
-    echo -e '\033[31mPython failed!\033[0m'
-fi
-
-if [ $RUST -ne 0 -o $C -ne 0 -o $PYTHON -ne 0 ]; then
     echo -e '\033[31mTests failed!\033[0m'
     exit 1
 else

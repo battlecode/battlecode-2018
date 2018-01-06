@@ -8,7 +8,7 @@ use super::world::Rounds;
 use super::location::MapLocation;
 
 /// A rocket landing.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RocketLanding {
     pub rocket_id: UnitID,
     pub destination: MapLocation,
@@ -37,7 +37,7 @@ impl RocketLanding {
 }
 
 /// All rocket landings.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RocketLandingInfo {
     landings: FnvHashMap<Rounds, Vec<RocketLanding>>,
 }

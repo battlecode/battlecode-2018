@@ -14,8 +14,6 @@ cache:
   - directories:
     - target
     - ~/.cache/pip
-install:
-  - python3 -m pip install -r battlecode-engine-py/requirements.txt --user
 
 script:
   - cargo build --verbose --all

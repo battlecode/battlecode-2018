@@ -46,7 +46,7 @@ pub fn cost_of(branch: &Branch, level: Level) -> Result<Rounds, Error> {
 }
 
 /// The status of research for a single team.
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct ResearchInfo {
     /// Stats of each unit type, and the current research levels.
     level: FnvHashMap<Branch, Level>,

@@ -15,7 +15,8 @@ use failure::Error;
 use fnv::FnvHashMap;
 
 pub struct GameController {
-    world: GameWorld,
+    /// Temporarily 'pub' for testing purposes.
+    pub world: GameWorld,
     config: Config,
     turn: TurnMessage,
 }
@@ -263,10 +264,11 @@ impl GameController {
     /// * GameError::InvalidAction - the robot cannot move in that direction.
     pub fn move_robot(&mut self, robot_id: UnitID, direction: Direction) -> Result<(), Error> {
         let delta = Delta::Move { robot_id, direction };
+        let result = self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
             self.turn.changes.push(delta.clone());
         }
-        Ok(self.world.apply(&delta)?)
+        Ok(result)
     }
 
     // ************************************************************************
@@ -805,6 +807,10 @@ impl GameController {
             config: Config::runner_config(),
             turn: TurnMessage { changes: vec![] }
         }
+    }
+
+    pub fn first_turn(&mut self) -> Result<StartTurnMessage, Error> {
+        Ok(StartTurnMessage{ world: self.world.clone() })
     }
 
     /// Given a TurnMessage from a player, apply those changes.

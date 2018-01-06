@@ -111,6 +111,13 @@ impl Direction {
     }
 }
 
+impl Default for Direction {
+    fn default() -> Direction { Direction::Center }
+}
+impl Default for Planet {
+    fn default() -> Planet { Planet::Earth }
+}
+
 /// The planets in the Battlecode world.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub enum Planet {
@@ -119,7 +126,7 @@ pub enum Planet {
 }
 
 /// Two-dimensional coordinates in the Battlecode world.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct MapLocation {
     pub planet: Planet,
     pub x: i32,
