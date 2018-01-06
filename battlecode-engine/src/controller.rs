@@ -413,10 +413,11 @@ impl GameController {
     }
 
     /// Whether the worker is ready to replicate. Tests that the worker's
-    /// ability heat is sufficiently low, and that the team has sufficient
-    /// karbonite in its resource pool.
-    pub fn can_replicate(&self, worker_id: UnitID) -> bool {
-        self.world.can_replicate(worker_id)
+    /// ability heat is sufficiently low, that the team has sufficient
+    /// karbonite in its resource pool, and that the square in the given
+    /// direction is empty.
+    pub fn can_replicate(&self, worker_id: UnitID, direction: Direction) -> bool {
+        self.world.can_replicate(worker_id, direction)
     }
 
     /// Replicates a worker in the given direction. Subtracts the cost of the

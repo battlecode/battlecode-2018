@@ -177,8 +177,8 @@ impl UnitType {
     /// The cost of the unit in a factory.
     ///
     /// Errors if the unit cannot be produced in a factory.
-    pub fn factory_cost(&self) -> Result<u32, Error> {
-        match *self {
+    pub fn factory_cost(self) -> Result<u32, Error> {
+        match self {
             UnitType::Worker => Ok(FACTORY_WORKER_COST),
             UnitType::Knight => Ok(FACTORY_KNIGHT_COST),
             UnitType::Ranger => Ok(FACTORY_RANGER_COST),
@@ -195,6 +195,16 @@ impl UnitType {
         match self {
             UnitType::Factory => Ok(BLUEPRINT_FACTORY_COST),
             UnitType::Rocket => Ok(BLUEPRINT_ROCKET_COST),
+            _ => Err(GameError::InappropriateUnitType)?,
+        }
+    }
+
+    /// The cost to replicate the unit.
+    ///
+    /// Errors if the unit cannot be replicated.
+    pub fn replicate_cost(self) -> Result<u32, Error> {
+        match self {
+            UnitType::Worker => Ok(FACTORY_WORKER_COST),
             _ => Err(GameError::InappropriateUnitType)?,
         }
     }
