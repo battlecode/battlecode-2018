@@ -15,6 +15,9 @@ cache:
   - directories:
     - target
     - ~/.cache/pip
+before_install:
+  - sudo add-apt-repository ppa:jonathonf/python-3.6
+  - sudo apt-get update -q
 install:
   - python -m pip install -r bindings/python/requirements.txt --user
 
