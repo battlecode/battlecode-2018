@@ -97,6 +97,9 @@ pub const MIN_HEAT: u32 = 0;
 /// actions corresponding to that heat.
 pub const MAX_HEAT_TO_ACT: u32 = 10;
 
+/// The amount of health a worker can repair a structure per round.
+pub const WORKER_REPAIR_AMOUNT: u32 = 10;
+
 /// The max countdown for ranger's snipe. 
 pub const MAX_RANGER_COUNTDOWN: u32 = 50;
 
