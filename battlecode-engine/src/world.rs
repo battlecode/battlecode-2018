@@ -960,7 +960,6 @@ impl GameWorld {
     }
 
     fn ok_if_move_ready(&self, robot_id: UnitID) -> Result<(), Error> {
-        let unit = self.my_unit(robot_id)?;
         if !self.my_unit(robot_id)?.is_move_ready()? {
             Err(GameError::Overheated)?;
         }
@@ -2072,7 +2071,7 @@ impl GameWorld {
 mod tests {
     use super::*;
 
-    fn print_visible_locs(locs: &Vec<Vec<bool>>) {
+    fn _print_visible_locs(locs: &Vec<Vec<bool>>) {
         for bool_row in locs {
             let mut int_row: Vec<u8> = vec![];
             for entry in bool_row {
@@ -2365,10 +2364,10 @@ mod tests {
         let unlock_level = 3;
         let rounds = 200;
 
-        for level in 0..unlock_level {
+        for _ in 0..unlock_level {
             let my_research = world.my_research_mut();
             assert!(my_research.add_to_queue(&Branch::Knight));
-            for round in 0..rounds {
+            for _ in 0..rounds {
                 assert!(my_research.end_round().is_ok());
             }
         }
@@ -2408,10 +2407,10 @@ mod tests {
         let unlock_level = 4;
         let rounds = 200;
 
-        for level in 0..unlock_level {
+        for _ in 0..unlock_level {
             let my_research = world.my_research_mut();
             assert!(my_research.add_to_queue(&Branch::Mage));
-            for round in 0..rounds {
+            for _ in 0..rounds {
                 assert!(my_research.end_round().is_ok());
             }
         }
@@ -2447,10 +2446,10 @@ mod tests {
         let unlock_level = 3;
         let rounds = 200;
 
-        for level in 0..unlock_level {
+        for _ in 0..unlock_level {
             let my_research = world.my_research_mut();
             assert!(my_research.add_to_queue(&Branch::Ranger));
-            for round in 0..rounds {
+            for _ in 0..rounds {
                 assert!(my_research.end_round().is_ok());
             }
         }
@@ -2472,7 +2471,7 @@ mod tests {
 
         // Enough rounds pass where Ranger's snipe is processed
         let rounds = 200;
-        for round in 0..rounds {
+        for _ in 0..rounds {
             assert!(world.end_round().is_ok());
         }
         
@@ -2490,10 +2489,10 @@ mod tests {
         let unlock_level = 3;
         let rounds = 200;
 
-        for level in 0..unlock_level {
+        for _ in 0..unlock_level {
             let my_research = world.my_research_mut();
             assert!(my_research.add_to_queue(&Branch::Healer));
-            for round in 0..rounds {
+            for _ in 0..rounds {
                 assert!(my_research.end_round().is_ok());
             }
         }
@@ -2502,10 +2501,10 @@ mod tests {
         let unlock_level = 3;
         let rounds = 200;
 
-        for level in 0..unlock_level {
+        for _ in 0..unlock_level {
             let my_research = world.my_research_mut();
             assert!(my_research.add_to_queue(&Branch::Knight));
-            for round in 0..rounds {
+            for _ in 0..rounds {
                 assert!(my_research.end_round().is_ok());
             }
         }
@@ -2838,7 +2837,7 @@ mod tests {
 
         // Force-research Rocketry.
         assert![world.queue_research(Branch::Rocket)];
-        for i in 0..1000 {
+        for _ in 0..1000 {
             assert![world.process_research(Team::Red).is_ok()];
         }
 
@@ -2854,6 +2853,7 @@ mod tests {
         assert![!world.can_blueprint(worker_e, UnitType::Factory, Direction::South)];
     }
 
+    #[test]
     fn test_factory_production() {
         let mut world = GameWorld::test_world();
         let loc = MapLocation::new(Planet::Earth, 10, 10);
@@ -2882,6 +2882,7 @@ mod tests {
         assert!(!world.can_produce_robot(factory, UnitType::Mage));
     }
 
+    #[test]
     fn test_robot_attack_and_heal() {
         let mut world = GameWorld::test_world();
         let ranger = world.create_unit(Team::Red, MapLocation::new(Planet::Earth, 0, 0), UnitType::Ranger).unwrap();

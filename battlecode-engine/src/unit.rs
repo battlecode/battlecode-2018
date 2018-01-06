@@ -1203,7 +1203,7 @@ mod tests {
         let loc_b = MapLocation::new(Planet::Earth, 0, 1);
 
         // Sniping should fail if unit is not a ranger
-        let mut worker = Unit::new(1, Team::Red, Worker, 0, OnMap(loc_a)).unwrap();
+        let worker = Unit::new(1, Team::Red, Worker, 0, OnMap(loc_a)).unwrap();
         assert!(worker.ok_if_snipe().is_err());
 
         // Begin sniping
@@ -1218,7 +1218,7 @@ mod tests {
 
         // Process sniping
         let rounds = 200;
-        for round in 0..rounds {
+        for _ in 0..rounds {
             ranger.end_round();
         }
         assert!(ranger.process_snipe().is_ok());
@@ -1250,7 +1250,7 @@ mod tests {
         assert!(worker.overcharge().is_err());
 
         // Healer canfnot overcharge if it has insufficient research level.
-        let mut healer = Unit::new(1, Team::Red, Healer, 0, OnMap(loc)).unwrap();
+        let healer = Unit::new(1, Team::Red, Healer, 0, OnMap(loc)).unwrap();
         assert!(healer.ok_if_overcharge().is_err());
 
         // Healer can overcharge if it has unlocked ability.
@@ -1359,7 +1359,6 @@ mod tests {
         assert!(!rocket.ok_if_can_unload_unit().is_ok());
 
         // Load too many units
-        let robot = Unit::new(0, Team::Red, Mage, 0, OnMap(adjacent_mars_loc)).unwrap();
         for i in 0..rocket.max_capacity().unwrap() {
             assert!(rocket.ok_if_can_load().is_ok(), "failed to load unit {}", i);
             assert!(rocket.load(0).is_ok());
