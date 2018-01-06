@@ -1331,6 +1331,9 @@ impl GameWorld {
         if !worker.can_worker_act()? {
             Err(GameError::Overheated)?;
         }
+        if !worker.is_ability_ready()? {
+            Err(GameError::Overheated)?;
+        }
         if self.karbonite() < worker.unit_type().replicate_cost()? {
             Err(GameError::InsufficientKarbonite)?;
         }
@@ -1364,6 +1367,7 @@ impl GameWorld {
                      -> Result<(), Error> {
         self.ok_if_can_replicate(worker_id, direction)?;
         self.my_unit_mut(worker_id)?.worker_act()?;
+        self.my_unit_mut(worker_id)?.replicate();
         let (team, location) = {
             let worker = self.my_unit(worker_id)?;
             (worker.team(), worker.location().map_location()?.add(direction))
@@ -2976,6 +2980,11 @@ mod tests {
         assert![world.replicate(child, Direction::North).is_ok()];
 
         // The child cannot replicate again this round.
+        assert![!world.can_replicate(child, Direction::East)];
+        assert_err![world.replicate(child, Direction::East), GameError::Overheated];
+
+        // Even after ending the round, the child cannot replicate immediately again.
+        assert![world.end_round().is_ok()];
         assert![!world.can_replicate(child, Direction::East)];
         assert_err![world.replicate(child, Direction::East), GameError::Overheated];
     }

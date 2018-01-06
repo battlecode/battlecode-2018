@@ -79,6 +79,7 @@ impl UnitType {
                 vision_range: 50,
                 movement_cooldown: 20,
                 attack_cooldown: 0,
+                ability_cooldown: 50,
                 ..Default::default()
             },
             Knight => Unit {
@@ -680,6 +681,12 @@ impl Unit {
         } else {
             Err(GameError::InvalidAction)?
         }
+    }
+
+    /// Updates the worker as though it has replicated. In reality,
+    /// just updates the worker's ability heat.
+    pub fn replicate(&mut self) {
+        self.ability_heat += self.ability_cooldown;
     }
 
     // ************************************************************************
