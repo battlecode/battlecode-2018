@@ -509,6 +509,11 @@ impl Unit {
     /// Errors if the unit is not a robot.
     pub fn is_within_attack_range(&self, target_loc: MapLocation) -> Result<bool, Error> {
         self.ok_if_robot()?;
+        if self.unit_type() == UnitType::Ranger {
+            if self.is_within_range(self.cannot_attack_range, target_loc) {
+                return Ok(false);
+            }
+        }
         Ok(self.is_within_range(self.attack_range()?, target_loc))
     }
 
