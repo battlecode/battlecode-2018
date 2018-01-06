@@ -1029,7 +1029,7 @@ impl GameWorld {
     }
     
     fn ok_if_can_attack(&self, robot_id: UnitID, target_id: UnitID) -> Result<(), Error> {
-        let target_loc = self.unit_info(robot_id)?.location;
+        let target_loc = self.unit_info(target_id)?.location;
         if !target_loc.on_map() {
             Err(GameError::UnitNotOnMap)?;
         }
@@ -2854,6 +2854,7 @@ mod tests {
         assert![!world.can_blueprint(worker_e, UnitType::Factory, Direction::South)];
     }
 
+    #[test]
     fn test_factory_production() {
         let mut world = GameWorld::test_world();
         let loc = MapLocation::new(Planet::Earth, 10, 10);
@@ -2864,7 +2865,7 @@ mod tests {
         assert!(world.can_produce_robot(factory, UnitType::Mage));
         assert!(world.produce_robot(factory, UnitType::Mage).is_ok());
         assert!(!world.can_produce_robot(factory, UnitType::Mage));
-        assert_err!(world.produce_robot(factory, UnitType::Mage), GameError::InvalidAction);
+        assert_err!(world.produce_robot(factory, UnitType::Mage), GameError::FactoryBusy);
         assert_eq!(world.my_team().karbonite, KARBONITE_STARTING - mage_cost);
 
         // After a few rounds, the mage is added to the world.
@@ -2882,6 +2883,7 @@ mod tests {
         assert!(!world.can_produce_robot(factory, UnitType::Mage));
     }
 
+    #[test]
     fn test_robot_attack_and_heal() {
         let mut world = GameWorld::test_world();
         let ranger = world.create_unit(Team::Red, MapLocation::new(Planet::Earth, 0, 0), UnitType::Ranger).unwrap();
@@ -2899,7 +2901,9 @@ mod tests {
 
         // The ranger cannot attack again.
         assert![!world.is_attack_ready(ranger)];
-        assert![!world.can_attack(ranger, worker_in_range)];
+        assert_err![world.attack(ranger, worker_in_range), GameError::Overheated];
+        assert![!world.is_attack_ready(ranger)];
+        assert![world.can_attack(ranger, worker_in_range)];
 
         // Create a healer, and use it to heal the worker.
         let healer = world.create_unit(Team::Red, MapLocation::new(Planet::Earth, 5, 1), UnitType::Healer).unwrap();
