@@ -14,7 +14,7 @@ cache:
   - cargo
   - directories:
     - target
-- ~/.cache/pip
+    - ~/.cache/pip
 install:
   - python -m pip install -r bindings/python/requirements.txt --user
 
