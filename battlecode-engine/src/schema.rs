@@ -91,7 +91,7 @@ pub struct StartTurnMessage {
     pub id_generator: IDGenerator,
     pub units_in_space_changed: Vec<Unit>,
     pub units_in_space_vanished: Vec<UnitID>,
-    pub other_planet_array: TeamArray,
+    pub other_array_changed: Vec<(usize, i32)>,
     pub rocket_landings: RocketLandingInfo,
     pub research: ResearchInfo,
     pub karbonite: u32,

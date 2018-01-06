@@ -118,6 +118,16 @@ pub enum Planet {
     Mars,
 }
 
+impl Planet {
+    /// The other planet.
+    pub fn other(&self) -> Planet {
+        match *self {
+            Planet::Earth => Planet::Mars,
+            Planet::Mars => Planet::Earth,
+        }
+    }
+}
+
 /// Two-dimensional coordinates in the Battlecode world.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct MapLocation {

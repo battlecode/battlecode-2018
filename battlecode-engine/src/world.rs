@@ -14,6 +14,7 @@ use super::unit::*;
 use super::unit::UnitType as Branch;
 use super::research::*;
 use super::rockets::*;
+use super::team_array::*;
 use super::error::GameError;
 use failure::Error;
 
@@ -93,22 +94,12 @@ impl PlanetInfo {
     }
 }
 
-/// A team-shared communication array.
-pub type TeamArray = Vec<u8>;
-
-/// A history of communication arrays. Read from the back of the queue on the
-/// current planet, and the front of the queue on the other planet.
-type TeamArrayHistory = Vec<TeamArray>;
-
 /// Persistent info specific to a single team. Teams are only able to access
 /// the team info of their own team.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 struct TeamInfo {
-    /// Team identification.
-    team: Team,
-
     /// Communication array histories for each planet.
-    team_arrays: FnvHashMap<Planet, TeamArrayHistory>,
+    team_arrays: TeamArrayInfo,
 
     /// Rocket landings for this team.
     rocket_landings: RocketLandingInfo,
@@ -125,10 +116,9 @@ struct TeamInfo {
 
 impl TeamInfo {
     /// Construct a team with the default properties.
-    fn new(team: Team) -> TeamInfo {
+    fn new() -> TeamInfo {
         TeamInfo {
-            team: team,
-            team_arrays: FnvHashMap::default(),
+            team_arrays: TeamArrayInfo::new(),
             rocket_landings: RocketLandingInfo::new(),
             research: ResearchInfo::new(),
             units_in_space: FnvHashMap::default(),
@@ -208,8 +198,8 @@ impl GameWorld {
         planet_states.insert(Planet::Mars, PlanetInfo::new(&map.mars_map));
 
         let mut team_states = FnvHashMap::default();
-        team_states.insert(Team::Red, TeamInfo::new(Team::Red));
-        team_states.insert(Team::Blue, TeamInfo::new(Team::Blue));
+        team_states.insert(Team::Red, TeamInfo::new());
+        team_states.insert(Team::Blue, TeamInfo::new());
 
         let mut planet_maps = FnvHashMap::default();
         planet_maps.insert(Planet::Earth, map.earth_map.clone());
@@ -253,8 +243,8 @@ impl GameWorld {
         planet_states.insert(Planet::Mars, PlanetInfo::new(&map.mars_map));
 
         let mut team_states = FnvHashMap::default();
-        team_states.insert(Team::Red, TeamInfo::new(Team::Red));
-        team_states.insert(Team::Blue, TeamInfo::new(Team::Blue));
+        team_states.insert(Team::Red, TeamInfo::new());
+        team_states.insert(Team::Blue, TeamInfo::new());
 
         let mut planet_maps = FnvHashMap::default();
         planet_maps.insert(Planet::Earth, map.earth_map);
@@ -334,7 +324,15 @@ impl GameWorld {
 
         // Filter the team states.
         let mut team_states: FnvHashMap<Team, TeamInfo> = FnvHashMap::default();
-        team_states.insert(team, self.get_team(team).clone());
+        let old_team_state = self.get_team(team);
+        let new_team_state = TeamInfo {
+            team_arrays: old_team_state.team_arrays.filter(planet),
+            rocket_landings: old_team_state.rocket_landings.clone(),
+            research: old_team_state.research.clone(),
+            units_in_space: old_team_state.units_in_space.clone(),
+            karbonite: old_team_state.karbonite,
+        };
+        team_states.insert(team, new_team_state);
 
         // Planet state.
         let mut planet_states: FnvHashMap<Planet, PlanetInfo> = FnvHashMap::default();
@@ -595,6 +593,26 @@ impl GameWorld {
     // ************************************************************************
     // *********************** COMMUNICATION METHODS **************************
     // ************************************************************************
+
+    /// Gets a read-only version of this planet's team array. If the given
+    /// planet is different from the planet of the player, reads the version
+    /// of the planet's team array from COMMUNICATION_DELAY rounds prior.
+    pub fn get_team_array(&self, planet: Planet) -> &TeamArray {
+        if planet == self.planet() {
+            self.my_team().team_arrays.first_array(planet)
+        } else {
+            self.my_team().team_arrays.last_array(planet)
+        }
+    }
+
+    /// Writes the value at the index of this planet's team array.
+    ///
+    /// * GameError::ArrayOutOfBounds - the index of the array is out of
+    ///   bounds. It must be within [0, COMMUNICATION_ARRAY_LENGTH).
+    pub fn write_team_array(&mut self, index: usize, value: i32) -> Result<(), Error> {
+        let planet = self.planet();
+        self.my_team_mut().team_arrays.write(planet, index, value)
+    }
 
     // ************************************************************************
     // ****************************** ACCESSORS *******************************
@@ -1935,7 +1953,7 @@ impl GameWorld {
             id_generator: world.id_generator.clone(),
             units_in_space_changed: vec![],
             units_in_space_vanished: vec![],
-            other_planet_array: vec![], // TODO: communication
+            other_array_changed: vec![],
             rocket_landings: world.my_team().rocket_landings.clone(),
             research: world.my_team().research.clone(),
             karbonite: world.my_team().karbonite,
@@ -1975,6 +1993,13 @@ impl GameWorld {
                     stm.unit_infos_vanished.push(*id);
                 }
             }
+            let old_array = old_world.get_team_array(player.planet.other());
+            let new_array = world.get_team_array(player.planet.other());
+            for index in 0..COMMUNICATION_ARRAY_LENGTH {
+                if old_array[index] != new_array[index] {
+                    stm.other_array_changed.push((index, new_array[index]));
+                }
+            }
             let map = self.starting_map(player.planet);
             for y in 0..map.height {
                 for x in 0..map.width {
@@ -2001,6 +2026,10 @@ impl GameWorld {
         for unit in &mut self.get_planet_mut(Planet::Mars).units.values_mut() {
             unit.end_round();
         }
+
+        // Discard the oldest version of each team array.
+        self.get_team_mut(Team::Red).team_arrays.end_round();
+        self.get_team_mut(Team::Blue).team_arrays.end_round();
 
         // Process ranger snipes.
         self.process_rangers(Planet::Earth);
@@ -2093,7 +2122,10 @@ impl GameWorld {
         for unit_id in turn.units_in_space_vanished {
             self.my_team_mut().units_in_space.remove(&unit_id);
         }
-        // TODO: do something with turn.other_planet_array
+        let planet = self.planet().other();
+        for (index, value) in turn.other_array_changed {
+            self.write_team_array(planet, index, value).unwrap();
+        }
         self.id_generator = turn.id_generator;
         self.my_team_mut().rocket_landings = turn.rocket_landings;
         self.my_team_mut().research = turn.research;
@@ -2159,7 +2191,7 @@ mod tests {
             assert_eq!(stm.karbonite_changed.len(), 0);
             assert_eq!(stm.units_in_space_changed.len(), 0);
             assert_eq!(stm.units_in_space_vanished.len(), 0);
-            //assert_eq!(stm.other_planet_array, );  // TODO: communication
+            assert_eq!(stm.other_array_changed.len(), 0);
             assert_eq!(stm.rocket_landings, old_worlds[i].my_team().rocket_landings);
             assert_eq!(stm.research, old_worlds[i].my_team().research);
             assert_eq!(stm.karbonite, old_worlds[i].my_team().karbonite);
