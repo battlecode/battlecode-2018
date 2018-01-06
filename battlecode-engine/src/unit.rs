@@ -712,11 +712,10 @@ impl Unit {
     /// Whether the unit is ready to process sniping.
     ///
     /// Errors if the unit is not ready to snipe.
-    pub fn is_process_snipe_ready(&self) -> Result<bool, Error> {
-        Ok(self.is_ability_ready()? 
-        && self.is_sniping() 
+    pub fn is_process_snipe_ready(&self) -> bool {
+        self.is_sniping()
         && self.countdown() == 0
-        && self.target_location().is_some())
+        && self.target_location().is_some()
     }
 
     /// Updates the unit as if it has begun sniping. The unit's ability heat 
@@ -738,18 +737,15 @@ impl Unit {
     }
 
     /// Updates the unit as if it has sniped.
-    ///
-    /// Errors if the unit is not a ranger, or not ready to process snipe.
-    pub fn process_snipe(&mut self) -> Result<Option<MapLocation>, Error> {
-        self.ok_if_snipe()?;
-        if self.is_process_snipe_ready()? {
+    pub fn process_snipe(&mut self) -> Option<MapLocation> {
+        if self.is_process_snipe_ready() {
             self.attack_heat = MIN_HEAT;
             self.movement_heat = MIN_HEAT;
             self.ability_heat += self.ability_cooldown;
             self.is_sniping = false;
-            Ok(self.target_location())
+            self.target_location()
         } else {
-            Err(GameError::InvalidAction)?
+            None
         }
     }
 
@@ -766,18 +762,9 @@ impl Unit {
     }
 
     /// Updates the unit as if it has blinked.
-    /// 
-    /// Errors if the unit is not a mage, or not ready to blink.
-    pub fn blink(&mut self, location: MapLocation) 
-                 -> Result<(), Error> {
-        self.ok_if_blink()?;
-        if self.is_ability_ready()? {
-            self.ability_heat += self.ability_cooldown;
-            self.location = OnMap(location); 
-            Ok(())
-        } else {
-            Err(GameError::InvalidAction)?
-        }
+    pub fn blink(&mut self, location: MapLocation) {
+        self.ability_heat += self.ability_cooldown;
+        self.location = OnMap(location);
     }
 
     // ************************************************************************
@@ -1205,14 +1192,14 @@ mod tests {
         let loc_b = MapLocation::new(Planet::Earth, 0, 1);
 
         // Sniping should fail if unit is not a ranger
-        let mut worker = Unit::new(1, Team::Red, Worker, 0, OnMap(loc_a)).unwrap();
+        let worker = Unit::new(1, Team::Red, Worker, 0, OnMap(loc_a)).unwrap();
         assert!(worker.ok_if_snipe().is_err());
 
         // Begin sniping
         let mut ranger = Unit::new(1, Team::Red, Ranger, 3, OnMap(loc_a)).unwrap();
         assert!(ranger.ok_if_snipe().is_ok());
         assert!(ranger.begin_snipe(loc_b).is_ok());
-        assert!(ranger.process_snipe().is_err());
+        assert!(ranger.process_snipe().is_none());
         assert_eq!(ranger.target_location().unwrap(), loc_b);
 
         // Ranger can begin sniping at anytime as long as ability heat < max heat to act
@@ -1220,10 +1207,10 @@ mod tests {
 
         // Process sniping
         let rounds = 200;
-        for round in 0..rounds {
+        for _ in 0..rounds {
             ranger.end_round();
         }
-        assert!(ranger.process_snipe().is_ok());
+        assert!(ranger.process_snipe().is_some());
     }
 
     #[test]
@@ -1233,13 +1220,8 @@ mod tests {
 
         // Blinking moves mage to new location 
         let mut mage = Unit::new(1, Team::Red, Mage, 4, OnMap(loc_a)).unwrap();
-        assert!(mage.blink(loc_b).is_ok());
+        mage.blink(loc_b);
         assert_eq!(mage.location(), OnMap(loc_b));
-    
-        // Blinking should fail if unit is not a mage
-        let mut worker = Unit::new(1, Team::Red, Worker, 0, OnMap(loc_a)).unwrap();
-        assert!(worker.ok_if_blink().is_err());
-        assert!(worker.blink(loc_b).is_err());
     }
 
     #[test]
@@ -1252,7 +1234,7 @@ mod tests {
         assert!(worker.overcharge().is_err());
 
         // Healer canfnot overcharge if it has insufficient research level.
-        let mut healer = Unit::new(1, Team::Red, Healer, 0, OnMap(loc)).unwrap();
+        let healer = Unit::new(1, Team::Red, Healer, 0, OnMap(loc)).unwrap();
         assert!(healer.ok_if_overcharge().is_err());
 
         // Healer can overcharge if it has unlocked ability.
@@ -1313,7 +1295,6 @@ mod tests {
         let loc = MapLocation::new(Planet::Earth, 0, 0);
         let adjacent_loc = loc.add(Direction::North);
         let mars_loc = MapLocation::new(Planet::Mars, 0, 0);
-        let adjacent_mars_loc = mars_loc.add(Direction::North);
 
         let mut rocket = Unit::new(1, Team::Red, Rocket, 0, OnMap(loc)).unwrap();
         let mut robot = Unit::new(2, Team::Red, Mage, 0, OnMap(adjacent_loc)).unwrap();
@@ -1361,7 +1342,6 @@ mod tests {
         assert!(!rocket.ok_if_can_unload_unit().is_ok());
 
         // Load too many units
-        let robot = Unit::new(0, Team::Red, Mage, 0, OnMap(adjacent_mars_loc)).unwrap();
         for i in 0..rocket.max_capacity().unwrap() {
             assert!(rocket.ok_if_can_load().is_ok(), "failed to load unit {}", i);
             assert!(rocket.load(0).is_ok());
