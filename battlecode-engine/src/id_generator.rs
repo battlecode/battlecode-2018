@@ -1,63 +1,64 @@
 //! Generates a sequence of unique pseudorandom positive integer IDS for units.
+//!
+//! Algorithm from:
+//! http://preshing.com/20121224/how-to-generate-a-sequence-of-unique-random-integers/
 
-use rand::{Rng, SeedableRng, StdRng};
 use unit::UnitID;
 
-/// The size of groups of IDs to reserve at a time.
-const ID_BLOCK_SIZE: usize = 4096;
+/// IDs generated are less than p, which is a prime such that p = 3 mod 4. This
+/// is the closest prime number less than 2^16 that satisifes this condition.
+const PRIME: u16 = 65519;
+const XOR_VALUE: u16 = 0xc0d3;
+
+/// IDs less than or equal to the maximum reserved ID are reserved for
+/// initial units or testing units.
+const MAX_RESERVED_ID: UnitID = 10;
 
 /// Generates a sequence of unique pseudorandom positive integer IDS for units.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct IDGenerator {
     /// Map seed.
-    seed: u32,
-    /// The block of reserved IDs we walk through.
-    reserved_ids: Vec<UnitID>,
-    /// Where we are in the current block.
-    cursor: usize,
-    /// The number at the start of the next block.
-    next_id_block: UnitID,
+    seed: u16,
+    /// An index into the random number generator. Must not be 0 or 1.
+    index: u16,
+}
+
+fn permute_qpr(x: UnitID) -> UnitID {
+    // The integers out of range are mapped to themselves.
+    if x >= PRIME {
+        return x;
+    }
+    let residue = ((x as u32 * x as u32) % PRIME as u32) as u16;
+    if x <= PRIME / 2 {
+        residue
+    } else {
+        PRIME - residue
+    }
 }
 
 impl IDGenerator {
-    /// Create a new generator. Generates IDs that are (team as u32) mod 2.
-    pub fn new(seed: u32) -> IDGenerator {
-        let mut id_gen = IDGenerator {
+    /// Create a new generator.
+    pub fn new(seed: u16) -> IDGenerator {
+        IDGenerator {
             seed: seed,
-            reserved_ids: vec![0; ID_BLOCK_SIZE],
-            cursor: 0,
-            next_id_block: ID_BLOCK_SIZE as UnitID,
-        };
-
-        id_gen.allocate_next_block();
-        id_gen
+            index: 2,
+        }
     }
 
     /// Return a new ID. Each unit ID is unique.
+    /// Does not produce IDs in the range [0, MAX_RESERVED_ID].
     pub fn next_id(&mut self) -> UnitID {
-        let id = self.reserved_ids[self.cursor];
-        self.cursor += 1;
-
-        if self.cursor == ID_BLOCK_SIZE {
-            self.allocate_next_block();
+        let mut id = self.next_id_unchecked();
+        while id <= MAX_RESERVED_ID {
+            id = self.next_id_unchecked();
         }
         id
     }
 
-    /// Reserve the next ID_BLOCK_SIZE ints after self.next_id_block, shuffle
-    /// them, and reset the cursor.
-    fn allocate_next_block(&mut self) {
-        self.cursor = 0;
-        for i in 0..ID_BLOCK_SIZE {
-            self.reserved_ids[i] = self.next_id_block + i as UnitID;
-        }
-
-        // The seed is a function of the original map seed
-        // and the next block size.
-        let seed: &[_] = &[(self.seed + self.next_id_block) as usize];
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-        rng.shuffle(&mut self.reserved_ids);
-        self.next_id_block += ID_BLOCK_SIZE as UnitID;
+    fn next_id_unchecked(&mut self) -> UnitID {
+        let x = self.index;
+        self.index += 1;
+        permute_qpr(permute_qpr(x).wrapping_add(self.seed) ^ XOR_VALUE)
     }
 }
 
@@ -66,19 +67,22 @@ mod tests {
     use super::*;
     use std::collections::HashSet;
 
-    const NUM_IDS: usize = ID_BLOCK_SIZE * 2;
+    const NUM_IDS: usize = 20000;
 
     #[test]
     fn test_id_generator_uniqueness() {
-        // Create an ID generator for two teams.
-        let mut id_gen = IDGenerator::new(1);
+        let test_seeds: [u16; 3] = [1, 2, 888];
+        for seed in test_seeds.iter() {
+            // Create an ID generator.
+            let mut id_gen = IDGenerator::new(*seed);
 
-        // Generate a bunch of IDs. All the IDs should be unique.
-        let mut ids = HashSet::new();
-        for _ in 0..NUM_IDS {
-            let id = id_gen.next_id();
-            assert!(!ids.contains(&id));
-            ids.insert(id);
+            // Generate a bunch of IDs. All the IDs should be unique.
+            let mut ids = HashSet::new();
+            for i in 0..NUM_IDS {
+                let id = id_gen.next_id();
+                assert!(!ids.contains(&id), "failed at the {}th ID", i);
+                ids.insert(id);
+            }
         }
     }
 

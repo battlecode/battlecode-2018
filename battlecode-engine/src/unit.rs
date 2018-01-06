@@ -16,7 +16,7 @@ use unit::Location::*;
 pub type Percent = u32;
 
 /// The ID of an unit is assigned when the unit is spawned.
-pub type UnitID = u32;
+pub type UnitID = u16;
 
 /// The public version of the unit. Contains all the unit's stats but none of
 /// the action. The other team can see everything in the unit info.
