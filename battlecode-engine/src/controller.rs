@@ -412,6 +412,23 @@ impl GameController {
         Ok(self.world.apply(&delta)?)
     }
 
+    /// Whether the given worker can repair the given strucutre. Tests that the worker
+    /// is able to execute a worker action, that the structure is built, and that the
+    /// structure is within range.
+    pub fn can_repair(&self, worker_id: UnitID, structure_id: UnitID) -> bool {
+        self.world.can_repair(worker_id, structure_id)
+    }
+
+    /// Commands the worker to repair a structure, repleneshing health to it. This
+    /// can only be done to structures which have been fully built.
+    pub fn repair(&mut self, worker_id: UnitID, structure_id: UnitID) -> Result<(), Error> {
+        let delta = Delta::Repair { worker_id, structure_id };
+        if self.config.generate_turn_messages {
+            self.turn.changes.push(delta.clone());
+        }
+        Ok(self.world.apply(&delta)?)
+    }
+
     /// Whether the worker is ready to replicate. Tests that the worker's
     /// ability heat is sufficiently low, that the team has sufficient
     /// karbonite in its resource pool, and that the square in the given
