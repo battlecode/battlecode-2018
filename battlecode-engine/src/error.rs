@@ -27,13 +27,69 @@ pub enum GameError {
     #[fail(display = "You are not allowed to control units on the other team.")]
     TeamNotAllowed,
 
+    /// You cannot build structures on Mars.
+    #[fail(display = "You cannot build structures on Mars.")]
+    CannotBuildOnMars,
+
+    /// The factory is already producing a unit.
+    #[fail(display = "The factory is already producing a unit.")]
+    FactoryBusy,
+
+    /// The structure's garrison is empty.
+    #[fail(display = "The structure's garrison is empty.")]
+    GarrisonEmpty,
+
+    /// Your team does not have enough Karbonite to perform the requested action.
+    #[fail(display = "Your team does not have enough Karbonite to perform the requested action.")]
+    InsufficientKarbonite,
+
     /// The level of research may not exist, or has not been unlocked by your team.
     #[fail(display = "The level of research may not exist, or has not been unlocked by your team.")]
     InvalidResearchLevel,
 
+    /// The Karbonite deposit is empty and cannot be harvested further.
+    #[fail(display = "The Karbonite deposit is empty and cannot be harvested further.")]
+    KarboniteDepositEmpty,
+
+    /// The location corresponding to the requested action is not empty.
+    #[fail(display = "The location corresponding to the requested action is not empty.")]
+    LocationNotEmpty,
+
+    /// The structure's garrison is full.
+    #[fail(display = "The structure's garrison is full.")]
+    NotEnoughSpace,
+
     /// The specified unit does not exist, at least within your vision range.
     #[fail(display = "The specified unit does not exist, at least within your vision range.")]
     NoSuchUnit,
+
+    /// The unit is too far away to perform an action.
+    #[fail(display = "The unit is too far away to perform an action.")]
+    OutOfRange,
+
+    /// The unit's heat is not low enough to perform the requested action.
+    #[fail(display = "The unit's heat is not low enough to perform the requested action.")]
+    Overheated,
+
+    /// The rocket has already been used.
+    #[fail(display = "The rocket has already been used.")]
+    RocketUsed,
+
+    /// Rockets cannot be flown to other locations on the same planet.
+    #[fail(display = "Rockets cannot be flown to other locations on the same planet.")]
+    SamePlanet,
+
+    /// The structure has already been completed, and cannot be built further.
+    #[fail(display = "The structure has already been completed, and cannot be built further.")]
+    StructureAlreadyBuilt,
+
+    /// The structure has not yet been completed, and cannot perform actions yet.
+    #[fail(display = "The structure has not yet been completed, and cannot perform actions yet.")]
+    StructureNotYetBuilt,
+
+    /// The unit is not on the map.
+    #[fail(display = "The unit is not on the map")]
+    UnitNotOnMap,
 
     /// The argument to this function does not conform to the specs.
     #[fail(display = "The argument to this function does not conform to the specs.")]

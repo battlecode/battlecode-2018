@@ -275,7 +275,7 @@ impl Location {
     pub fn map_location(&self) -> Result<MapLocation, Error> {
         match *self {
             Location::OnMap(map_loc) => Ok(map_loc),
-            _ => Err(GameError::InvalidLocation)?,
+            _ => Err(GameError::UnitNotOnMap)?,
         }
     }
 }

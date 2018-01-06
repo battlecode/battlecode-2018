@@ -238,22 +238,14 @@ impl GameController {
     /// Whether the robot can move in the given direction, without taking into
     /// account the unit's movement heat. Takes into account only the map
     /// terrain, positions of other robots, and the edge of the game map.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a robot.
-    pub fn can_move(&self, robot_id: UnitID, direction: Direction) -> Result<bool, Error> {
-        Ok(self.world.can_move(robot_id, direction)?)
+    pub fn can_move(&self, robot_id: UnitID, direction: Direction) -> bool {
+        self.world.can_move(robot_id, direction)
     }
 
     /// Whether the robot is ready to move. Tests whether the robot's attack
     /// heat is sufficiently low.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a robot.
-    pub fn is_move_ready(&self, robot_id: UnitID) -> Result<bool, Error> {
-        Ok(self.world.is_move_ready(robot_id)?)
+    pub fn is_move_ready(&self, robot_id: UnitID) -> bool {
+        self.world.is_move_ready(robot_id)
     }
 
     /// Moves the robot in the given direction.
@@ -278,12 +270,8 @@ impl GameController {
     /// Whether the robot can attack the given unit, without taking into
     /// account the unit's attack heat. Takes into account only the unit's
     /// attack range, and the location of the unit.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is a healer, or not a robot.
-    pub fn can_attack(&self, robot_id: UnitID, target_unit_id: UnitID) -> Result<bool, Error> {
-        Ok(self.world.can_attack(robot_id, target_unit_id)?)
+    pub fn can_attack(&self, robot_id: UnitID, target_unit_id: UnitID) -> bool {
+        self.world.can_attack(robot_id, target_unit_id)
     }
 
     /// Whether the robot is ready to attack. Tests whether the robot's attack
@@ -292,8 +280,8 @@ impl GameController {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is a healer, or not a robot.
-    pub fn is_attack_ready(&self, robot_id: UnitID) -> Result<bool, Error> {
-        Ok(self.world.is_attack_ready(robot_id)?)
+    pub fn is_attack_ready(&self, robot_id: UnitID) -> bool {
+        self.world.is_attack_ready(robot_id)
     }
 
     /// Attacks the robot, dealing the unit's standard amount of damage.
@@ -352,12 +340,8 @@ impl GameController {
     /// Whether the worker is ready to harvest, and the given direction contains
     /// karbonite to harvest. The worker cannot already have performed an action 
     /// this round.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a worker.
-    pub fn can_harvest(&self, worker_id: UnitID, direction: Direction) -> Result<bool, Error> {
-        Ok(self.world.can_harvest(worker_id, direction)?)
+    pub fn can_harvest(&self, worker_id: UnitID, direction: Direction) -> bool {
+        self.world.can_harvest(worker_id, direction)
     }
 
     /// Harvests up to the worker's harvest amount of karbonite from the given
@@ -381,14 +365,9 @@ impl GameController {
     /// can only blueprint factories, and rockets if Rocketry has been
     /// researched. The team must have sufficient karbonite in its resource
     /// pool. The worker cannot already have performed an action this round.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a worker, or the
-    ///   unit type is not a factory or rocket.
     pub fn can_blueprint(&self, worker_id: UnitID, unit_type: UnitType,
-                         direction: Direction) -> Result<bool, Error> {
-        Ok(self.world.can_blueprint(worker_id, unit_type, direction)?)
+                         direction: Direction) -> bool {
+        self.world.can_blueprint(worker_id, unit_type, direction)
     }
 
     /// Blueprints a unit of the given type in the given direction. Subtract
@@ -412,14 +391,8 @@ impl GameController {
     /// Whether the worker can build a blueprint with the given ID. The worker
     /// and the blueprint must be adjacent to each other. The worker cannot
     /// already have performed an action this round.
-    ///
-    /// * GameError::NoSuchUnit - a unit does not exist.
-    /// * GameError::TeamNotAllowed - a unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the worker or blueprint is the wrong
-    ///   type. A unit that has already been built is no longer a blueprint.
-    pub fn can_build(&self, worker_id: UnitID, blueprint_id: UnitID)
-                     -> Result<bool, Error> {
-        Ok(self.world.can_build(worker_id, blueprint_id)?)
+    pub fn can_build(&self, worker_id: UnitID, blueprint_id: UnitID) -> bool {
+        self.world.can_build(worker_id, blueprint_id)
     }
 
     /// Builds a given blueprint, increasing its health by the worker's build
@@ -442,12 +415,8 @@ impl GameController {
     /// Whether the worker is ready to replicate. Tests that the worker's
     /// ability heat is sufficiently low, and that the team has sufficient
     /// karbonite in its resource pool.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a worker.
-    pub fn can_replicate(&self, worker_id: UnitID) -> Result<bool, Error> {
-        Ok(self.world.can_replicate(worker_id)?)
+    pub fn can_replicate(&self, worker_id: UnitID) -> bool {
+        self.world.can_replicate(worker_id)
     }
 
     /// Replicates a worker in the given direction. Subtracts the cost of the
@@ -474,24 +443,14 @@ impl GameController {
     /// Whether the knight can javelin the given robot, without taking into
     /// account the knight's ability heat. Takes into account only the knight's
     /// ability range, and the location of the robot.
-    ///
-    /// * GameError::InvalidResearchLevel - the ability has not been researched.
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a knight.
-    pub fn can_javelin(&self, knight_id: UnitID, target_unit_id: UnitID) -> Result<bool, Error> {
-        Ok(self.world.can_javelin(knight_id, target_unit_id)?)
+    pub fn can_javelin(&self, knight_id: UnitID, target_unit_id: UnitID) -> bool {
+        self.world.can_javelin(knight_id, target_unit_id)
     }
 
     /// Whether the knight is ready to javelin. Tests whether the knight's
     /// ability heat is sufficiently low.
-    ///
-    /// * GameError::InvalidResearchLevel - the ability has not been researched.
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a knight.
-    pub fn is_javelin_ready(&self, knight_id: UnitID) -> Result<bool, Error> {
-        Ok(self.world.is_javelin_ready(knight_id)?)
+    pub fn is_javelin_ready(&self, knight_id: UnitID) -> bool {
+        self.world.is_javelin_ready(knight_id)
     }
 
     /// Javelins the robot, dealing the amount of ability damage.
@@ -540,14 +499,8 @@ impl GameController {
     /// account the mage's ability heat. Takes into account only the mage's
     /// ability range, the map terrain, positions of other units, and the edge
     /// of the game map.
-    ///
-    /// * GameError::InvalidResearchLevel - the ability has not been researched.
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a mage.
-    /// * GameError::InvalidLocation - the location is outside the vision range.
-    pub fn can_blink(&self, mage_id: UnitID, location: MapLocation) -> Result<bool, Error> {
-        Ok(self.world.can_blink(mage_id, location)?)
+    pub fn can_blink(&self, mage_id: UnitID, location: MapLocation) -> bool {
+        self.world.can_blink(mage_id, location)
     }
 
     /// Whether the mage is ready to blink. Tests whether the mage's ability
@@ -557,8 +510,8 @@ impl GameController {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a mage.
-    pub fn is_blink_ready(&self, mage_id: UnitID) -> Result<bool, Error> {
-        Ok(self.world.is_blink_ready(mage_id)?)
+    pub fn is_blink_ready(&self, mage_id: UnitID) -> bool {
+        self.world.is_blink_ready(mage_id)
     }
 
     /// Blinks the mage to the given location.
@@ -583,22 +536,14 @@ impl GameController {
     /// Whether the healer can heal the given robot, without taking into
     /// account the healer's attack heat. Takes into account only the healer's
     /// attack range, and the location of the robot.
-    ///
-    /// * GameError::NoSuchUnit - a unit does not exist.
-    /// * GameError::TeamNotAllowed - the first unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the healer or robot is not the right type.
-    pub fn can_heal(&self, healer_id: UnitID, target_robot_id: UnitID) -> Result<bool, Error> {
-        Ok(self.world.can_heal(healer_id, target_robot_id)?)
+    pub fn can_heal(&self, healer_id: UnitID, target_robot_id: UnitID) -> bool {
+        self.world.can_heal(healer_id, target_robot_id)
     }
 
     /// Whether the healer is ready to heal. Tests whether the healer's attack
     /// heat is sufficiently low.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a healer.
-    pub fn is_heal_ready(&self, healer_id: UnitID) -> Result<bool, Error> {
-        Ok(self.world.is_heal_ready(healer_id)?)
+    pub fn is_heal_ready(&self, healer_id: UnitID) -> bool {
+        self.world.is_heal_ready(healer_id)
     }
 
     /// Heals the robot, dealing the healer's standard amount of "damage".
@@ -618,25 +563,14 @@ impl GameController {
     /// Whether the healer can overcharge the given robot, without taking into
     /// account the healer's ability heat. Takes into account only the healer's
     /// ability range, and the location of the robot.
-    ///
-    /// * GameError::InvalidResearchLevel - the ability has not been researched.
-    /// * GameError::NoSuchUnit - a unit does not exist.
-    /// * GameError::TeamNotAllowed - the first unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the healer or robot is not the right type.
-    pub fn can_overcharge(&self, healer_id: UnitID, target_robot_id: UnitID)
-                          -> Result<bool, Error> {
-        Ok(self.world.can_overcharge(healer_id, target_robot_id)?)
+    pub fn can_overcharge(&self, healer_id: UnitID, target_robot_id: UnitID) -> bool {
+        self.world.can_overcharge(healer_id, target_robot_id)
     }
 
     /// Whether the healer is ready to overcharge. Tests whether the healer's
     /// ability heat is sufficiently low.
-    ///
-    /// * GameError::InvalidResearchLevel - the ability has not been researched.
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a healer.
-    pub fn is_overcharge_ready(&self, healer_id: UnitID) -> Result<bool, Error> {
-        Ok(self.world.is_overcharge_ready(healer_id)?)
+    pub fn is_overcharge_ready(&self, healer_id: UnitID) -> bool {
+        self.world.is_overcharge_ready(healer_id)
     }
 
     /// Overcharges the robot, resetting the robot's cooldowns.
@@ -662,13 +596,8 @@ impl GameController {
     /// Whether the robot can be loaded into the given structure's garrison. The robot
     /// must be ready to move and must be adjacent to the structure. The structure
     /// and the robot must be on the same team, and the structure must have space.
-    ///
-    /// * GameError::NoSuchUnit - a unit does not exist.
-    /// * GameError::TeamNotAllowed - either unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the robot or structure are the wrong type.
-    pub fn can_load(&self, structure_id: UnitID, robot_id: UnitID)
-                        -> Result<bool, Error> {
-        Ok(self.world.can_load(structure_id, robot_id)?)
+    pub fn can_load(&self, structure_id: UnitID, robot_id: UnitID) -> bool {
+        self.world.can_load(structure_id, robot_id)
     }
 
     /// Loads the robot into the garrison of the structure.
@@ -689,14 +618,8 @@ impl GameController {
     /// Tests whether the given structure is able to unload a unit in the
     /// given direction. There must be space in that direction, and the unit
     /// must be ready to move.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a structure.
-    /// * GameError::InvalidLocation - the location is off the map.
-    pub fn can_unload(&self, structure_id: UnitID, direction: Direction)
-                                 -> Result<bool, Error> {
-        Ok(self.world.can_unload(structure_id, direction)?)
+    pub fn can_unload(&self, structure_id: UnitID, direction: Direction) -> bool {
+        self.world.can_unload(structure_id, direction)
     }
 
     /// Unloads a robot from the garrison of the specified structure into an 
@@ -723,13 +646,7 @@ impl GameController {
     /// Whether the factory can produce a robot of the given type. The factory
     /// must not currently be producing a robot, and the team must have
     /// sufficient resources in its resource pool.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist.
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a factory, or the
-    ///   queued unit type is not a robot.
-    pub fn can_produce_robot(&mut self, factory_id: UnitID, robot_type: UnitType)
-                       -> Result<bool, Error> {
+    pub fn can_produce_robot(&mut self, factory_id: UnitID, robot_type: UnitType) -> bool {
         self.world.can_produce_robot(factory_id, robot_type)
     }
 
@@ -764,13 +681,8 @@ impl GameController {
 
     /// Whether the rocket can launch into space. The rocket can launch if the
     /// it has never been used before.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a rocket.
-    pub fn can_launch_rocket(&self, rocket_id: UnitID, destination: MapLocation)
-                             -> Result<bool, Error> {
-        Ok(self.world.can_launch_rocket(rocket_id, destination)?)
+    pub fn can_launch_rocket(&self, rocket_id: UnitID, destination: MapLocation) -> bool {
+        self.world.can_launch_rocket(rocket_id, destination)
     }
 
     /// Launches the rocket into space. If the destination is not on the map of
@@ -859,8 +771,8 @@ mod tests {
         let mut player_controller_blue = GameController::new_player(blue_start_game_msg);
 
         // Test that red can move as expected.
-        assert![!player_controller_red.can_move(red_robot, Direction::East).unwrap()];
-        assert![player_controller_red.can_move(red_robot, Direction::Northeast).unwrap()];
+        assert![!player_controller_red.can_move(red_robot, Direction::East)];
+        assert![player_controller_red.can_move(red_robot, Direction::Northeast)];
         assert![player_controller_red.move_robot(red_robot, Direction::Northeast).is_ok()];
 
         // End red's turn, and pass the message to the manager, which
@@ -871,8 +783,8 @@ mod tests {
 
         // Test that blue can move as expected. This demonstrates
         // it has received red's actions in its own state.
-        assert![!player_controller_blue.can_move(blue_robot, Direction::North).unwrap()];
-        assert![player_controller_blue.can_move(blue_robot, Direction::West).unwrap()];
+        assert![!player_controller_blue.can_move(blue_robot, Direction::North)];
+        assert![player_controller_blue.can_move(blue_robot, Direction::West)];
         assert![player_controller_blue.move_robot(blue_robot, Direction::West).is_ok()];
     }
 }
