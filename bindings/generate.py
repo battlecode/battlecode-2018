@@ -46,13 +46,6 @@ Team = p.c_enum('world::Team')\
     .variant('Red', 0)\
     .variant('Blue', 1)
 
-#UnitInfo = p.struct('unit::UnitInfo')\
-#    .constructor('default', [])
-
-Unit = p.struct('unit::Unit')\
-    .constructor('test_unit', [Var(UnitID.type, 'id')])\
-    .method(boolean.type, 'is_move_ready', [])
-
 PlanetMap = p.struct("map::PlanetMap")\
     .constructor("test_map", [Var(Planet.type, "planet")])\
     .method(void.type.result(), "validate", [])

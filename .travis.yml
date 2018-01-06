@@ -14,9 +14,9 @@ cache:
   - cargo
   - directories:
     - target
-    - ~/.cache/pip
+- ~/.cache/pip
 install:
-  - python -m pip install -r frankenstein/python/requirements.txt --user
+  - python -m pip install -r bindings/python/requirements.txt --user
 
 script:
   - make test

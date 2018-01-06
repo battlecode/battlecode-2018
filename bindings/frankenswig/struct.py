@@ -1,6 +1,6 @@
-from helpers import *
-from type import Type, void
-from function import Function, Method
+from .helpers import *
+from .type import Type, void
+from .function import Function, Method
 
 class StructType(Type):
     '''Rust structs are always treated as pointers by SWIG.
@@ -143,9 +143,9 @@ class StructWrapper(object):
         return self
 
     def to_c(self):
-        assert self.constructor_ is not None
         definition = 'typedef struct {0.c_name} {0.c_name};\n'.format(self)
-        definition += self.constructor_.to_c()
+        if self.constructor_:
+            definition += self.constructor_.to_c()
         definition += self.destructor.to_c()
         definition += ''.join(getter.to_c() for getter in self.getters)
         definition += ''.join(setter.to_c() for setter in self.setters)
@@ -154,7 +154,6 @@ class StructWrapper(object):
 
     def to_swig(self):
         '''Generate a SWIG interface for this struct.'''
-        assert self.constructor_ is not None
         definition = '%feature("docstring", "{}");\n'.format(self.docs)
         # luckily, swig treats all structs as pointers anyway
         definition += 'typedef struct {0.c_name} {{}} {0.c_name};\n'.format(self)
@@ -172,9 +171,11 @@ class StructWrapper(object):
         # int Bananas_peel(Bananas *self, int)
         # which we generate :)
 
-        body = f'%feature("docstring", "{self.constructor_.docs}");\n'
-        body += f'''{self.c_name}({", ".join(a.to_swig() for a in self.constructor_.args)});\n'''
-        body += f'~{self.c_name}();\n'
+        body = ''
+        if self.constructor_:
+            body += f'%feature("docstring", "{self.constructor_.docs}");\n'
+            body += f'''{self.c_name}({", ".join(a.to_swig() for a in self.constructor_.args)});\n'''
+            body += f'~{self.c_name}();\n'
         for method in self.methods:
             body += method.to_swig()
         for member, member_docs in zip(self.members, self.member_docs):
@@ -187,9 +188,10 @@ class StructWrapper(object):
 
     def to_rust(self):
         '''Generate a rust implementation for this struct.'''
-        assert self.constructor_ is not None
         # assume that struct is already defined
-        definition = self.constructor_.to_rust()
+        definition = ''
+        if self.constructor_:
+            definition += self.constructor_.to_rust()
         definition += self.destructor.to_rust()
         definition += ''.join(getter.to_rust() for getter in self.getters)
         definition += ''.join(setter.to_rust() for setter in self.setters)
@@ -203,16 +205,24 @@ class StructWrapper(object):
             __slots__ = ['_ptr']
         ''')
 
-        cargs = [Var(self.type, 'self')] + self.constructor_.args
-        cinit = Function.pyentry(
-            cargs,
-            '__init__',
-            self.constructor_.docs
+        if self.constructor_:
+            cargs = [Var(self.type, 'self')] + self.constructor_.args
+            cinit = Function.pyentry(
+                cargs,
+                '__init__',
+                self.constructor_.docs
+                )
+            cpyargs = ', '.join(a.type.wrap_python_value(a.name) for a in cargs[1:])
+            cbody = f'self._ptr = _lib.{self.constructor_.name}({cpyargs})\n'
+            cbody += '_check_errors()\n'
+        else:
+            cinit = Function.pyentry(
+                [Var(self.type, 'self')],
+                '__init__',
+                'INVALID: this object cannot be constructed from Python code!'
             )
-        cpyargs = ', '.join(a.type.wrap_python_value(a.name) for a in cargs[1:])
-        cbody = f'self._ptr = _lib.{self.constructor_.name}({cpyargs})\n'
-        cbody += '_check_errors()\n'
-        
+            cbody = 'raise TypeError("This object cannot be constructed from Python code!")'
+
         constructor = cinit + s(cbody, indent=4) + '\n'
 
         dinit = Function.pyentry([Var(self.type, 'self')], '__del__', 'Clean up the object.')

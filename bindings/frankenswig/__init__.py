@@ -1,5 +1,5 @@
 '''This module can be used to easily generate interfaces to Rust from many other languages,
-by generating a thin SWIG wrapper.
+by generating a thin SWIG wrapper, as well as a CFFI wrapper for python.
 
 TODO: %newobject, makefiles, enums, results, javadocs
 
@@ -59,11 +59,11 @@ It may be reasonable to disable these locks for Sync types, I haven't checked.
 
 from collections import namedtuple
 
-from helpers import *
-from type import *
-from function import FunctionWrapper
-from struct import StructWrapper
-from enums import EnumWrapper, CEnumWrapper
+from .helpers import *
+from .type import *
+from .function import FunctionWrapper
+from .struct import StructWrapper
+from .enums import EnumWrapper, CEnumWrapper
 
 RUST_HEADER = '''/// GENERATED RUST, DO NOT EDIT
 extern crate {crate};

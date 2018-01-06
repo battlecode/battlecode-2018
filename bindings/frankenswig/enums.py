@@ -1,7 +1,7 @@
-from helpers import *
-from type import Type
-from function import Function, Method
-from struct import StructWrapper
+from .helpers import *
+from .type import Type
+from .function import Function, Method
+from .struct import StructWrapper
 
 class CEnum(object):
     '''A c-style enum.'''

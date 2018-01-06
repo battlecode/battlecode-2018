@@ -1,4 +1,4 @@
-from helpers import *
+from .helpers import *
 
 class Function(object):
     def __init__(self, type, name, args, body='', docs=''):
