@@ -79,6 +79,7 @@ impl UnitType {
                 vision_range: 50,
                 movement_cooldown: 20,
                 attack_cooldown: 0,
+                ability_cooldown: 50,
                 ..Default::default()
             },
             Knight => Unit {
@@ -177,8 +178,8 @@ impl UnitType {
     /// The cost of the unit in a factory.
     ///
     /// Errors if the unit cannot be produced in a factory.
-    pub fn factory_cost(&self) -> Result<u32, Error> {
-        match *self {
+    pub fn factory_cost(self) -> Result<u32, Error> {
+        match self {
             UnitType::Worker => Ok(FACTORY_WORKER_COST),
             UnitType::Knight => Ok(FACTORY_KNIGHT_COST),
             UnitType::Ranger => Ok(FACTORY_RANGER_COST),
@@ -195,6 +196,16 @@ impl UnitType {
         match self {
             UnitType::Factory => Ok(BLUEPRINT_FACTORY_COST),
             UnitType::Rocket => Ok(BLUEPRINT_ROCKET_COST),
+            _ => Err(GameError::InappropriateUnitType)?,
+        }
+    }
+
+    /// The cost to replicate the unit.
+    ///
+    /// Errors if the unit cannot be replicated.
+    pub fn replicate_cost(self) -> Result<u32, Error> {
+        match self {
+            UnitType::Worker => Ok(FACTORY_WORKER_COST),
             _ => Err(GameError::InappropriateUnitType)?,
         }
     }
@@ -670,6 +681,12 @@ impl Unit {
         } else {
             Err(GameError::InvalidAction)?
         }
+    }
+
+    /// Updates the worker as though it has replicated. In reality,
+    /// just updates the worker's ability heat.
+    pub fn replicate(&mut self) {
+        self.ability_heat += self.ability_cooldown;
     }
 
     // ************************************************************************

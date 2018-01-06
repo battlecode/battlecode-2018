@@ -920,9 +920,9 @@ impl GameWorld {
             !self.my_planet().units_by_loc.contains_key(&location))
     }
 
-    pub fn is_on_map(&self, _location: MapLocation) -> bool {
+    pub fn is_on_map(&self, location: MapLocation) -> bool {
         if let Some(map) = self.planet_maps.get(&self.planet()) {
-            map.on_map(_location)
+            map.on_map(location)
         } else {
             false
         }
@@ -1325,15 +1325,34 @@ impl GameWorld {
         Ok(())
     }
 
-    fn ok_if_can_replicate(&self, _worker_id: UnitID) -> Result<(), Error> {
-        unimplemented!();
+    fn ok_if_can_replicate(&self, worker_id: UnitID, direction: Direction) 
+                           -> Result<(), Error> {
+        let worker = self.my_unit(worker_id)?;
+        if !worker.can_worker_act()? {
+            Err(GameError::Overheated)?;
+        }
+        if !worker.is_ability_ready()? {
+            Err(GameError::Overheated)?;
+        }
+        if self.karbonite() < worker.unit_type().replicate_cost()? {
+            Err(GameError::InsufficientKarbonite)?;
+        }
+        let replicate_loc = worker.location().map_location()?.add(direction);
+        if !self.is_on_map(replicate_loc) {
+            Err(GameError::InvalidLocation)?;
+        }
+        if !self.is_occupiable(replicate_loc)? {
+            Err(GameError::LocationNotEmpty)?;
+        }
+        Ok(())
     }
 
     /// Whether the worker is ready to replicate. Tests that the worker's
-    /// ability heat is sufficiently low, and that the team has sufficient
-    /// karbonite in its resource pool.
-    pub fn can_replicate(&self, worker_id: UnitID) -> bool {
-        self.ok_if_can_replicate(worker_id).is_ok()
+    /// ability heat is sufficiently low, that the team has sufficient
+    /// karbonite in its resource pool, and that the square in the given
+    /// direction is empty.
+    pub fn can_replicate(&self, worker_id: UnitID, direction: Direction) -> bool {
+        self.ok_if_can_replicate(worker_id, direction).is_ok()
     }
 
     /// Replicates a worker in the given direction. Subtracts the cost of the
@@ -1346,8 +1365,16 @@ impl GameWorld {
     /// * GameError::InvalidAction - the worker is not ready to replicate.
     pub fn replicate(&mut self, worker_id: UnitID, direction: Direction)
                      -> Result<(), Error> {
-        self.ok_if_can_replicate(worker_id)?;
-        unimplemented!();
+        self.ok_if_can_replicate(worker_id, direction)?;
+        self.my_unit_mut(worker_id)?.worker_act()?;
+        self.my_unit_mut(worker_id)?.replicate();
+        let (team, location) = {
+            let worker = self.my_unit(worker_id)?;
+            (worker.team(), worker.location().map_location()?.add(direction))
+        };
+        self.create_unit(team, location, UnitType::Worker)?;
+        self.my_team_mut().karbonite -= UnitType::Worker.replicate_cost()?;
+        Ok(())
     }
 
     // ************************************************************************
@@ -2921,6 +2948,45 @@ mod tests {
         assert![world.can_heal(healer, worker_in_range)];
         assert![world.heal(healer, worker_in_range).is_ok()];
         assert_eq![world.get_unit(worker_in_range).unwrap().health(), 40];
+    }
+
+    #[test]
+    fn test_replicate() {
+        let mut world = GameWorld::test_world();
+        let worker = world.create_unit(Team::Red, MapLocation::new(Planet::Earth, 0, 0), UnitType::Worker).unwrap();
+        let _ = world.create_unit(Team::Blue, MapLocation::new(Planet::Earth, 1, 0), UnitType::Factory).unwrap();
+
+        // The worker cannot replicate to the west, because that space is off the map.
+        assert![!world.can_replicate(worker, Direction::West)];
+        assert_err![world.replicate(worker, Direction::West), GameError::InvalidLocation];
+
+        // The worker cannot replicate to the east, because that space is obstructed.
+        assert![!world.can_replicate(worker, Direction::East)];
+        assert_err![world.replicate(worker, Direction::East), GameError::LocationNotEmpty];
+
+        // The worker can replicate to the north.
+        assert![world.can_replicate(worker, Direction::North)];
+        assert![world.replicate(worker, Direction::North).is_ok()];
+        assert_eq![world.karbonite(), 40];
+
+        // The child cannot replicate, because there isn't enough Karbonite.
+        let child = world.sense_unit_at_location(MapLocation::new(Planet::Earth, 0, 1)).unwrap().unwrap().id;
+        assert![!world.can_replicate(child, Direction::North)];
+        assert_err![world.replicate(child, Direction::North), GameError::InsufficientKarbonite];
+
+        // After acquiring more Karbonite, replication is possible.
+        world.my_team_mut().karbonite += 1000;
+        assert![world.can_replicate(child, Direction::North)];
+        assert![world.replicate(child, Direction::North).is_ok()];
+
+        // The child cannot replicate again this round.
+        assert![!world.can_replicate(child, Direction::East)];
+        assert_err![world.replicate(child, Direction::East), GameError::Overheated];
+
+        // Even after ending the round, the child cannot replicate immediately again.
+        assert![world.end_round().is_ok()];
+        assert![!world.can_replicate(child, Direction::East)];
+        assert_err![world.replicate(child, Direction::East), GameError::Overheated];
     }
 
     #[test]
