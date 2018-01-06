@@ -2074,6 +2074,7 @@ impl GameWorld {
             Delta::Replicate {worker_id, direction} => self.replicate(worker_id, direction),
             Delta::ResetResearchQueue => { self.reset_research(); Ok(()) },
             Delta::Unload {structure_id, direction} => self.unload(structure_id, direction),
+            Delta::WriteTeamArray {index, value} => self.write_team_array(index, value),
             Delta::Nothing => Ok(()),
         }
     }
@@ -2124,7 +2125,7 @@ impl GameWorld {
         }
         let planet = self.planet().other();
         for (index, value) in turn.other_array_changed {
-            self.write_team_array(planet, index, value).unwrap();
+            self.my_team_mut().team_arrays.write(planet, index, value).unwrap();
         }
         self.id_generator = turn.id_generator;
         self.my_team_mut().rocket_landings = turn.rocket_landings;
