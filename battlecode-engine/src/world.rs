@@ -2,10 +2,10 @@
 
 use fnv::FnvHashMap;
 use std::cmp;
+use std::collections::HashMap;
 
 use super::constants::*;
-use super::schema::Delta;
-use super::schema::TurnMessage;
+use super::schema::*;
 use super::id_generator::IDGenerator;
 use super::location::*;
 use super::location::Location::*;
@@ -107,9 +107,6 @@ struct TeamInfo {
     /// Team identification.
     team: Team,
 
-    /// Unit ID generator.
-    id_generator: IDGenerator,
-
     /// Communication array histories for each planet.
     team_arrays: FnvHashMap<Planet, TeamArrayHistory>,
 
@@ -128,10 +125,9 @@ struct TeamInfo {
 
 impl TeamInfo {
     /// Construct a team with the default properties.
-    fn new(team: Team, seed: u32) -> TeamInfo {
+    fn new(team: Team) -> TeamInfo {
         TeamInfo {
             team: team,
-            id_generator: IDGenerator::new(team, seed),
             team_arrays: FnvHashMap::default(),
             rocket_landings: RocketLandingInfo::new(),
             research: ResearchInfo::new(),
@@ -142,7 +138,7 @@ impl TeamInfo {
 }
 
 /// A player represents a program controlling some group of units.
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Player {
     /// The team of this player.
     pub team: Team,
@@ -155,6 +151,16 @@ impl Player {
     /// Constructs a new player.
     pub fn new(team: Team, planet: Planet) -> Player {
         Player { team: team, planet: planet }
+    }
+
+    /// All players, in the order they go in.
+    pub fn all() -> Vec<Player> {
+        vec![
+            Player::new(Team::Red, Planet::Earth),
+            Player::new(Team::Blue, Planet::Earth),
+            Player::new(Team::Red, Planet::Mars),
+            Player::new(Team::Blue, Planet::Mars),
+        ]
     }
 }
 
@@ -171,6 +177,9 @@ pub struct GameWorld {
     /// The player whose turn it is.
     player_to_move: Player,
 
+    /// Unit ID generator.
+    id_generator: IDGenerator,
+
     /// The asteroid strike pattern on Mars.
     asteroids: AsteroidPattern,
 
@@ -185,6 +194,10 @@ pub struct GameWorld {
 
     /// The state of each team.
     team_states: FnvHashMap<Team, TeamInfo>,
+
+    /// Cached game worlds per player, to calculate start turn messages.
+    /// These worlds were filtered at the start of the turn.
+    cached_world: HashMap<Player, GameWorld>,
 }
 
 impl GameWorld {
@@ -195,8 +208,8 @@ impl GameWorld {
         planet_states.insert(Planet::Mars, PlanetInfo::new(&map.mars_map));
 
         let mut team_states = FnvHashMap::default();
-        team_states.insert(Team::Red, TeamInfo::new(Team::Red, map.seed));
-        team_states.insert(Team::Blue, TeamInfo::new(Team::Blue, map.seed));
+        team_states.insert(Team::Red, TeamInfo::new(Team::Red));
+        team_states.insert(Team::Blue, TeamInfo::new(Team::Blue));
 
         let mut planet_maps = FnvHashMap::default();
         planet_maps.insert(Planet::Earth, map.earth_map.clone());
@@ -205,11 +218,13 @@ impl GameWorld {
         let mut world = GameWorld {
             round: 1,
             player_to_move: Player { team: Team::Red, planet: Planet::Earth },
+            id_generator: IDGenerator::new(map.seed),
             asteroids: map.asteroids,
             orbit: map.orbit,
             planet_maps: planet_maps,
             planet_states: planet_states,
             team_states: team_states,
+            cached_world: HashMap::default(),
         };
 
         // Insert initial units.
@@ -219,6 +234,13 @@ impl GameWorld {
         for unit in &map.mars_map.initial_units {
             world.insert_unit(unit.clone());
         }
+
+        // Cache the initial filtered states.
+        let mut cached_world = HashMap::default();
+        for player in Player::all() {
+            cached_world.insert(player, world.filter(player));
+        }
+        world.cached_world = cached_world;
         world
     }
 
@@ -231,22 +253,32 @@ impl GameWorld {
         planet_states.insert(Planet::Mars, PlanetInfo::new(&map.mars_map));
 
         let mut team_states = FnvHashMap::default();
-        team_states.insert(Team::Red, TeamInfo::new(Team::Red, map.seed));
-        team_states.insert(Team::Blue, TeamInfo::new(Team::Blue, map.seed));
+        team_states.insert(Team::Red, TeamInfo::new(Team::Red));
+        team_states.insert(Team::Blue, TeamInfo::new(Team::Blue));
 
         let mut planet_maps = FnvHashMap::default();
         planet_maps.insert(Planet::Earth, map.earth_map);
         planet_maps.insert(Planet::Mars, map.mars_map);
 
-        GameWorld {
+        let mut world = GameWorld {
             round: 1,
             player_to_move: Player { team: Team::Red, planet: Planet::Earth },
+            id_generator: IDGenerator::new(map.seed),
             asteroids: map.asteroids,
             orbit: map.orbit,
             planet_maps: planet_maps,
             planet_states: planet_states,
             team_states: team_states,
+            cached_world: HashMap::default(),
+        };
+
+        // Cache the initial filtered states.
+        let mut cached_world = HashMap::default();
+        for player in Player::all() {
+            cached_world.insert(player, world.filter(player));
         }
+        world.cached_world = cached_world;
+        world
     }
 
     /// Filters the game world from the perspective of the current player. All
@@ -257,14 +289,14 @@ impl GameWorld {
     ///
     /// As an invariant, the game world filtered once should be the same as the
     /// game world filtered multiple times.
-    pub fn filter(&self) -> GameWorld {
-        let team = self.team();
-        let planet = self.planet();
+    pub fn filter(&self, player: Player) -> GameWorld {
+        let team = player.team;
+        let planet = player.planet;
         let map = self.starting_map(planet);
 
         // Filter the unit controllers, including the units in garrisons.
         let mut units: FnvHashMap<UnitID, Unit> = FnvHashMap::default();
-        for (id, unit) in self.my_planet().units.clone().into_iter() {
+        for (id, unit) in self.get_planet(planet).units.clone().into_iter() {
             if unit.team() == team {
                 units.insert(id, unit);
             }
@@ -287,7 +319,7 @@ impl GameWorld {
         // Filter the unit infos and unit by location.
         let mut unit_infos: FnvHashMap<UnitID, UnitInfo> = FnvHashMap::default();
         let mut units_by_loc: FnvHashMap<MapLocation, UnitID> = FnvHashMap::default();
-        for (id, unit) in self.my_planet().unit_infos.clone().into_iter() {
+        for (id, unit) in self.get_planet(planet).unit_infos.clone().into_iter() {
             if let OnMap(loc) = unit.location {
                 if !visible_locs[loc.y as usize][loc.x as usize] {
                     continue;
@@ -302,7 +334,7 @@ impl GameWorld {
 
         // Filter the team states.
         let mut team_states: FnvHashMap<Team, TeamInfo> = FnvHashMap::default();
-        team_states.insert(team, self.my_team().clone());
+        team_states.insert(team, self.get_team(team).clone());
 
         // Planet state.
         let mut planet_states: FnvHashMap<Planet, PlanetInfo> = FnvHashMap::default();
@@ -311,18 +343,20 @@ impl GameWorld {
             units: units,
             unit_infos: unit_infos,
             units_by_loc: units_by_loc,
-            karbonite: self.my_planet().karbonite.clone(),
+            karbonite: self.get_planet(planet).karbonite.clone(),
         };
         planet_states.insert(planet, planet_info);
 
         GameWorld {
             round: self.round,
-            player_to_move: self.player_to_move,
+            player_to_move: player,
+            id_generator: self.id_generator.clone(),
             asteroids: self.asteroids.clone(),
             orbit: self.orbit.clone(),
             planet_maps: self.planet_maps.clone(),
             planet_states: planet_states,
             team_states: team_states,
+            cached_world: HashMap::default(),
         }
     }
 
@@ -807,7 +841,7 @@ impl GameWorld {
     /// referenced by ID. Used for testing only!!!
     pub fn create_unit(&mut self, team: Team, location: MapLocation,
                        unit_type: UnitType) -> Result<UnitID, Error> {
-        let id = self.get_team_mut(team).id_generator.next_id();
+        let id = self.id_generator.next_id();
         let level = self.get_team(team).research.get_level(&unit_type);
         let unit = Unit::new(id, team, unit_type, level, OnMap(location))?;
 
@@ -1705,7 +1739,7 @@ impl GameWorld {
                 (new_unit_type.unwrap(), factory.team())
             };
 
-            let id = self.get_team_mut(team).id_generator.next_id();
+            let id = self.id_generator.next_id();
             let level = self.get_team(team).research.get_level(&unit_type);
             let new_unit = Unit::new(id, team, unit_type, level, InGarrison(factory_id))
                 .expect("research_level is valid");
@@ -1816,8 +1850,16 @@ impl GameWorld {
     }
 
     // ************************************************************************
-    // ****************************** GAME LOOP *******************************
+    // ***************************** MANAGER API ******************************
     // ************************************************************************
+
+    pub fn cached_world(&self, player: Player) -> &GameWorld {
+        if let Some(world) = self.cached_world.get(&player) {
+            world
+        } else {
+            unreachable!();
+        }
+    }
 
     /// Updates the current player in the game. If a round of four turns has
     /// finished, also processes the end of the round. This includes updating
@@ -1825,23 +1867,91 @@ impl GameWorld {
     /// the next player to move, and whether the round was also ended.
     ///
     /// * GameError::InternalEngineError - something happened here...
-    pub fn end_turn(&mut self) -> Result<(Player, bool), Error> {
-        let mut end_round = false;
+    pub fn end_turn(&mut self) -> Result<StartTurnMessage, Error> {
+        use self::Team::*;
+        use self::Planet::*;
+
         self.player_to_move = match self.player_to_move {
-            Player { team: Team::Red, planet: Planet::Earth } => Player { team: Team::Blue, planet: Planet::Earth},
-            Player { team: Team::Blue, planet: Planet::Earth } => Player { team: Team::Red, planet: Planet::Mars},
-            Player { team: Team::Red, planet: Planet::Mars } => Player { team: Team::Blue, planet: Planet::Mars},
-            Player { team: Team::Blue, planet: Planet::Mars } => {
+            Player { team: Red, planet: Earth } => Player::new(Blue, Earth),
+            Player { team: Blue, planet: Earth } => Player::new(Red, Mars),
+            Player { team: Red, planet: Mars } => Player::new(Blue, Mars),
+            Player { team: Blue, planet: Mars } => {
                 // This is the last player to move, so we can advance to the next round.
                 self.end_round()?;
-                end_round = true;
-                Player { team: Team::Red, planet: Planet::Earth}
+                Player::new(Red, Earth)
             },
         };
-        Ok((self.player_to_move, end_round))
+
+        let player = self.player_to_move;
+        let world = self.filter(player);
+        let mut stm = StartTurnMessage {
+            round: world.round,
+            visible_locs: world.my_planet().visible_locs.clone(),
+            units_changed: vec![],
+            units_vanished: vec![],
+            unit_infos_changed: vec![],
+            unit_infos_vanished: vec![],
+            karbonite_changed: vec![],
+            id_generator: world.id_generator.clone(),
+            units_in_space_changed: vec![],
+            units_in_space_vanished: vec![],
+            other_planet_array: vec![], // TODO: communication
+            rocket_landings: world.my_team().rocket_landings.clone(),
+            research: world.my_team().research.clone(),
+            karbonite: world.my_team().karbonite,
+        };
+        {
+            let old_world = self.cached_world.get(&player).unwrap();
+            for (id, unit) in world.my_planet().units.iter() {
+                if !old_world.my_planet().units.contains_key(&id) ||
+                (old_world.my_planet().units.get(&id) != Some(&unit)) {
+                    stm.units_changed.push(unit.clone());
+                }
+            }
+            for id in old_world.my_planet().units.keys().into_iter() {
+                if !world.my_planet().units.contains_key(&id) {
+                    stm.units_vanished.push(*id);
+                }
+            }
+            for (id, unit) in world.my_planet().unit_infos.iter() {
+                if !old_world.my_planet().unit_infos.contains_key(&id) ||
+                (old_world.my_planet().unit_infos.get(&id) != Some(&unit)) {
+                    stm.unit_infos_changed.push(unit.clone());
+                }
+            }
+            for id in old_world.my_planet().unit_infos.keys().into_iter() {
+                if !world.my_planet().unit_infos.contains_key(&id) {
+                    stm.unit_infos_vanished.push(*id);
+                }
+            }
+            for (id, unit) in world.my_team().units_in_space.iter() {
+                if !old_world.my_team().units_in_space.contains_key(&id) ||
+                (old_world.my_team().units_in_space.get(&id) != Some(&unit)) {
+                    stm.units_in_space_changed.push(unit.clone());
+                }
+            }
+            for id in old_world.my_team().units_in_space.keys().into_iter() {
+                if !world.my_team().units_in_space.contains_key(&id) {
+                    stm.unit_infos_vanished.push(*id);
+                }
+            }
+            let map = self.starting_map(player.planet);
+            for y in 0..map.height {
+                for x in 0..map.width {
+                    let karbonite = world.my_planet().karbonite[y][x];
+                    if karbonite != old_world.my_planet().karbonite[y][x] {
+                        let loc = MapLocation::new(player.planet, x as i32, y as i32);
+                        stm.karbonite_changed.push((loc, karbonite));
+                    }
+                }
+            }
+        }
+        self.cached_world.insert(player, world);
+
+        Ok(stm)
     }
 
-    pub fn end_round(&mut self) -> Result<(), Error> {
+    fn end_round(&mut self) -> Result<(), Error> {
         self.round += 1;
 
         // Update unit cooldowns.
@@ -1900,17 +2010,77 @@ impl GameWorld {
 
     /// Applies a turn message to this GameWorld, and ends the current turn. Returns
     /// the next player to move, and whether the current round was also ended.
-    pub fn apply_turn(&mut self, turn: &TurnMessage) -> Result<(Player, bool), Error> {
+    pub fn apply_turn(&mut self, turn: &TurnMessage) -> Result<StartTurnMessage, Error> {
         for delta in turn.changes.iter() {
             self.apply(delta)?;
         }
         Ok(self.end_turn()?)
+    }
+
+    // ************************************************************************
+    // ****************************** PLAYER API ******************************
+    // ************************************************************************
+
+    /// Applies a start turn message to reflect the changes in the GameWorld
+    /// since the player's last turn, but with the player's limited visibility.
+    ///
+    /// Aside from applying the changes in the message, this function must
+    /// also increment the round and reindex units by location.
+    pub fn start_turn(&mut self, turn: StartTurnMessage) {
+        self.round = turn.round;
+        self.my_planet_mut().visible_locs = turn.visible_locs;
+        for unit in turn.units_changed {
+            self.my_planet_mut().units.insert(unit.id(), unit);
+        }
+        for unit_id in turn.units_vanished {
+            self.my_planet_mut().units.remove(&unit_id);
+        }
+        for unit in turn.unit_infos_changed {
+            self.my_planet_mut().unit_infos.insert(unit.id, unit);
+        }
+        for unit_id in turn.unit_infos_vanished {
+            self.my_planet_mut().unit_infos.remove(&unit_id);
+        }
+        for (location, karbonite) in turn.karbonite_changed {
+            let x = location.x as usize;
+            let y = location.y as usize;
+            self.my_planet_mut().karbonite[y][x] = karbonite;
+        }
+        for unit in turn.units_in_space_changed {
+            self.my_team_mut().units_in_space.insert(unit.id(), unit);
+        }
+        for unit_id in turn.units_in_space_vanished {
+            self.my_team_mut().units_in_space.remove(&unit_id);
+        }
+        // TODO: do something with turn.other_planet_array
+        self.id_generator = turn.id_generator;
+        self.my_team_mut().rocket_landings = turn.rocket_landings;
+        self.my_team_mut().research = turn.research;
+        self.my_team_mut().karbonite = turn.karbonite;
+
+        let mut units_by_loc = FnvHashMap::default();
+        for (id, unit) in self.my_planet().unit_infos.iter() {
+            if let OnMap(loc) = unit.location {
+                units_by_loc.insert(loc, *id);
+            }
+        }
+        self.my_planet_mut().units_by_loc = units_by_loc;
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn print_visible_locs(locs: &Vec<Vec<bool>>) {
+        for bool_row in locs {
+            let mut int_row: Vec<u8> = vec![];
+            for entry in bool_row {
+                int_row.push(*entry as u8);
+            }
+            println!("{:?}", int_row);
+        }
+    }
 
     #[test]
     fn test_all_locations_within() {
@@ -1922,6 +2092,37 @@ mod tests {
             assert_lte!(loc.distance_squared_to(new_loc), 16);
         }
         assert_eq!(world.all_locations_within(loc, 0), vec![loc]);
+    }
+
+    #[test]
+    fn test_end_turn_trivial() {
+        let mut world = GameWorld::new(GameMap::test_map());
+        let old_worlds = [
+            world.cached_world(Player::new(Team::Blue, Planet::Earth)).clone(),
+            world.cached_world(Player::new(Team::Red, Planet::Mars)).clone(),
+            world.cached_world(Player::new(Team::Blue, Planet::Mars)).clone(),
+            world.cached_world(Player::new(Team::Red, Planet::Earth)).clone(),
+        ];
+        let new_rounds = [1, 1, 1, 2];
+
+        // There should be no changes in each of the first four turns between
+        // the initial filtered map and the next turn's filtered map.
+        for i in 0..4 {
+            let stm = world.end_turn().expect("turn ends OK");
+            assert_eq!(stm.round, new_rounds[i]);
+            assert_eq!(stm.visible_locs, old_worlds[i].my_planet().visible_locs);
+            assert_eq!(stm.units_changed.len(), 0);
+            assert_eq!(stm.units_vanished.len(), 0);
+            assert_eq!(stm.unit_infos_changed.len(), 0);
+            assert_eq!(stm.unit_infos_vanished.len(), 0);
+            assert_eq!(stm.karbonite_changed.len(), 0);
+            assert_eq!(stm.units_in_space_changed.len(), 0);
+            assert_eq!(stm.units_in_space_vanished.len(), 0);
+            //assert_eq!(stm.other_planet_array, );  // TODO: communication
+            assert_eq!(stm.rocket_landings, old_worlds[i].my_team().rocket_landings);
+            assert_eq!(stm.research, old_worlds[i].my_team().research);
+            assert_eq!(stm.karbonite, old_worlds[i].my_team().karbonite);
+        }
     }
 
     #[test]
@@ -1944,6 +2145,8 @@ mod tests {
             initial_karbonite: vec![vec![0; 30]; 30],
         };
         let mut world = GameWorld::new(map);
+        let red_world = world.cached_world(Player::new(Team::Red, Planet::Earth)).clone();
+        let mut blue_world = world.cached_world(Player::new(Team::Blue, Planet::Earth)).clone();
 
         // The Devs engine can see all the units.
         assert!(world.unit_controller(1).is_ok());
@@ -1955,7 +2158,6 @@ mod tests {
         assert_err!(world.unit_controller(5), GameError::TeamNotAllowed);
 
         // The Red Earth engine cannot see 5, which is not in range.
-        let red_world = world.filter();
         assert!(red_world.unit_controller(1).is_ok());
         assert!(red_world.unit_controller(2).is_ok());
         assert!(red_world.unit_controller(3).is_ok());
@@ -1963,8 +2165,7 @@ mod tests {
         assert_err!(red_world.unit_controller(5), GameError::NoSuchUnit);
 
         // The Blue Earth engine cannot see 1, which is not in range.
-        assert!(world.end_turn().is_ok());
-        let blue_world = world.filter();
+        blue_world.start_turn(world.end_turn().expect("turn ends OK"));
         assert_err!(blue_world.unit_controller(1), GameError::NoSuchUnit);
         assert_err!(blue_world.unit_controller(2), GameError::TeamNotAllowed);
         assert_err!(blue_world.unit_controller(3), GameError::TeamNotAllowed);
@@ -1994,7 +2195,7 @@ mod tests {
         let world = GameWorld::new(map);
 
         // Red can see 4 units initially on Earth.
-        let mut red_world = world.filter();
+        let mut red_world = world.filter(world.player_to_move);
         assert_eq!(red_world.units().len(), 4);
 
         // After a unit is loaded, it's no longer indexed by location.
@@ -2065,6 +2266,7 @@ mod tests {
     #[test]
     fn test_unit_destroy_with_filter() {
         let mut world = GameWorld::test_world();
+        let mut blue_world = world.cached_world(Player::new(Team::Blue, Planet::Earth)).clone();
         let loc_a = MapLocation::new(Planet::Earth, 0, 1);
         let loc_b = MapLocation::new(Planet::Earth, 0, 2);
         let loc_c = MapLocation::new(Planet::Earth, 0, 3);
@@ -2076,8 +2278,7 @@ mod tests {
         assert!(world.load(id_a, id_b).is_ok());
 
         // Filter the world on Blue's turn.
-        assert!(world.end_turn().is_ok());
-        let mut blue_world = world.filter();
+        blue_world.start_turn(world.end_turn().expect("turn ends OK"));
 
         // Destroy the loaded rocket in the Dev engine.
         assert_eq!(world.my_planet().units.len(), 3);

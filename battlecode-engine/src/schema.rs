@@ -1,10 +1,19 @@
 //! The "schema" for battlecode: all messages that can be sent to and from the engine.
 //! Serialized to JSON using Serde. This results in message parsers that are as fast
 //! as handwritten message parsing.
+//!
+//! The mesages in a typical game between the manager and a player:
+//! Manager --StartGameMessage--> Red Earth
+//! Manager <----TurnMessage----- Red Earth
+//! Manager --StartTurnMessage--> Red Earth
+//! Manager <----TurnMessage----- Red Earth
 
+use super::id_generator::*;
 use super::location::*;
+use super::research::*;
+use super::rockets::*;
 use super::unit::*;
-use super::world::GameWorld;
+use super::world::*;
 
 /// A single, atomic "change" in the game world.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -51,18 +60,41 @@ pub enum Delta {
     Nothing,
 }
 
-/// A single game turn.
+/// The first message sent to each player by the manager.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct StartGameMessage {
+    /// The initial filtered world.
+    pub world: GameWorld,
+}
+
+/// A single game turn sent to the manager.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TurnMessage {
     /// The changes to the game world.
     pub changes: Vec<Delta>
 }
 
-/// A list of updates since the player's last turn.
+/// A list of updates since the player's last turn sent to the player.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct StartTurnMessage {
-    /// The current status of the GameWorld.
-    pub world: GameWorld
+    pub round: Rounds,
+
+    // PlanetInfo
+    pub visible_locs: Vec<Vec<bool>>,
+    pub units_changed: Vec<Unit>,
+    pub units_vanished: Vec<UnitID>,
+    pub unit_infos_changed: Vec<UnitInfo>,
+    pub unit_infos_vanished: Vec<UnitID>,
+    pub karbonite_changed: Vec<(MapLocation, u32)>,
+
+    // TeamInfo
+    pub id_generator: IDGenerator,
+    pub units_in_space_changed: Vec<Unit>,
+    pub units_in_space_vanished: Vec<UnitID>,
+    pub other_planet_array: TeamArray,
+    pub rocket_landings: RocketLandingInfo,
+    pub research: ResearchInfo,
+    pub karbonite: u32,
 }
 
 /// A description of the current game state, for the viewer.

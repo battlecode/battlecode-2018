@@ -16,6 +16,7 @@ use fnv::FnvHashMap;
 
 pub struct GameController {
     world: GameWorld,
+    old_world: GameWorld,
     config: Config,
     turn: TurnMessage,
 }
@@ -32,10 +33,10 @@ impl GameController {
 
     /// Initializes the game world and creates a new controller
     /// for a player to interact with it.
-    pub fn new() -> GameController {
+    pub fn new_player(game: StartGameMessage) -> GameController {
         GameController {
-            // TODO: load an actual map.
-            world: GameWorld::test_world(),
+            world: game.world.clone(),
+            old_world: game.world,
             config: Config::player_config(),
             turn: TurnMessage { changes: vec![] }
         }
@@ -44,14 +45,14 @@ impl GameController {
     /// Starts the current turn, by updating the player's GameWorld with changes
     /// made since the last time the player had a turn.
     pub fn start_turn(&mut self, turn: StartTurnMessage) -> Result<(), Error> {
-        self.world = turn.world;
+        self.old_world.start_turn(turn);
+        self.world = self.old_world.clone();
         self.turn = TurnMessage { changes: vec![] };
         Ok(())
     }
 
     /// Ends the current turn. Returns the list of changes made in this turn.
     pub fn end_turn(&mut self) -> Result<TurnMessage, Error> {
-        self.world.end_turn()?;
         Ok(self.turn.clone())
     }
 
@@ -710,21 +711,28 @@ impl GameController {
 
     /// Initializes the game world and creates a new controller
     /// for the manager to interact with it.
-    pub fn new_manager() -> GameController {
+    pub fn new_manager(map: GameMap) -> GameController {
+        let world = GameWorld::new(map);
         GameController {
-            // TODO: load an actual map.
-            world: GameWorld::test_world(),
+            world: world.clone(),
+            old_world: world,
             config: Config::runner_config(),
             turn: TurnMessage { changes: vec![] }
         }
     }
 
+    /// Get the first message to send to each player and initialize the world.
+    pub fn start_game(&self, player: Player) -> StartGameMessage {
+        StartGameMessage {
+            world: self.world.cached_world(player).clone(),
+        }
+    }
+
     /// Given a TurnMessage from a player, apply those changes.
+    /// Receives the StartTurnMessage for the next player.
     pub fn apply_turn(&mut self, turn: TurnMessage) -> Result<(StartTurnMessage, ViewerMessage), Error> {
-        self.world.apply_turn(&turn)?;
         // Serialize the filtered game state to send to the player
-        // TODO: filter the world somehow
-        let start_turn_message = StartTurnMessage { world: self.world.clone() };
+        let start_turn_message = self.world.apply_turn(&turn)?;
         // Serialize the game state to send to the viewer
         let viewer_message = ViewerMessage { world: self.world.clone() };
         Ok((start_turn_message, viewer_message))
@@ -738,26 +746,29 @@ mod tests {
     #[test]
     fn test_turn() {
         // NOTE: This test depends on movement working properly.
+        let red_player = Player::new(Team::Red, Planet::Earth);
+        let blue_player = Player::new(Team::Blue, Planet::Earth);
+
+        // Place some robots manually on the Earth map, for sake of testing.
+        let mut map = GameMap::test_map();
+        map.earth_map.initial_units = vec![
+            Unit::new(1, Team::Red, UnitType::Knight, 0,
+                Location::OnMap(MapLocation::new(Planet::Earth, 0, 0))).unwrap(),
+            Unit::new(2, Team::Blue, UnitType::Knight, 0,
+                Location::OnMap(MapLocation::new(Planet::Earth, 1, 0))).unwrap(),
+        ];
+
+        // Create a controller for the manager.
+        let mut manager_controller = GameController::new_manager(map);
+        let red_robot = 1;
+        let blue_robot = 2;
         
-        // Create controllers for the manager and two Earth players.
-        let mut manager_controller = GameController::new_manager();
-        let mut player_controller_red = GameController::new();
-        let mut player_controller_blue = GameController::new();
-        
-        // Place some robots manually, for sake of testing.
-        let red_robot = manager_controller.world.create_unit(
-                                                        Team::Red, 
-                                                        MapLocation::new(Planet::Earth, 0, 0), 
-                                                        UnitType::Knight).unwrap();
-        let blue_robot = manager_controller.world.create_unit(
-                                                        Team::Blue, 
-                                                        MapLocation::new(Planet::Earth, 1, 0), 
-                                                        UnitType::Knight).unwrap();
-        
-        // Manually create the first start turn message, so the first
+        // Create controllers for each Earth player, so the first
         // player can see the new robots, then start red's turn.
-        let red_start_turn_msg = StartTurnMessage { world: manager_controller.world.clone() };
-        assert![player_controller_red.start_turn(red_start_turn_msg).is_ok()];
+        let red_start_game_msg = manager_controller.start_game(red_player);
+        let blue_start_game_msg = manager_controller.start_game(blue_player);
+        let mut player_controller_red = GameController::new_player(red_start_game_msg);
+        let mut player_controller_blue = GameController::new_player(blue_start_game_msg);
 
         // Test that red can move as expected.
         assert![!player_controller_red.can_move(red_robot, Direction::East)];
