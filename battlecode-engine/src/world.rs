@@ -1030,15 +1030,23 @@ impl GameWorld {
     }
     
 
-    /// Whether the robot can attack the given unit, without taking into
-    /// account the unit's attack heat. Takes into account only the unit's
-    /// attack range, and the location of the unit.
+    /// Whether the robot can attack the given unit.
     ///
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is a healer, or not a robot.
-    pub fn can_attack(&self, _robot_id: UnitID, _target_id: UnitID) -> Result<bool, Error> {
-        unimplemented!();
+    pub fn can_attack(&self, robot_id: UnitID, target_id: UnitID) -> Result<bool, Error> {
+        if !self.is_attack_ready(robot_id)? {
+            return Ok(false);
+        }
+        let target_loc = self.get_unit(robot_id)?.location();
+        if !target_loc.on_map() {
+            return Ok(false);
+        }
+        if !self.my_unit(robot_id)?.is_within_attack_range(target_loc.map_location()?)? {
+            return Ok(false);
+        }
+        Ok(true)
     }
 
     /// Whether the robot is ready to attack. Tests whether the robot's attack
@@ -1047,8 +1055,8 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is a healer, or not a robot.
-    pub fn is_attack_ready(&self, _robot_id: UnitID) -> Result<bool, Error> {
-        unimplemented!();
+    pub fn is_attack_ready(&self, robot_id: UnitID) -> Result<bool, Error> {
+        Ok(self.my_unit(robot_id)?.is_attack_ready()?)
     }
 
     /// Attacks the robot, dealing the unit's standard amount of damage.
@@ -1057,8 +1065,13 @@ impl GameWorld {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is a healer, or not a robot.
     /// * GameError::InvalidAction - the robot cannot attack that location.
-    pub fn attack(&mut self, _robot_id: UnitID, _target_id: UnitID) -> Result<(), Error> {
-        unimplemented!();
+    pub fn attack(&mut self, robot_id: UnitID, target_id: UnitID) -> Result<(), Error> {
+        if !self.can_attack(robot_id, target_id)? {
+            Err(GameError::InvalidAction)?;
+        }
+        let damage = self.my_unit_mut(robot_id)?.use_attack()?;
+        self.get_unit_mut(target_id)?.take_damage(damage);
+        Ok(())
     }
 
     // ************************************************************************
@@ -1489,15 +1502,13 @@ impl GameWorld {
     // *************************** HEALER METHODS *****************************
     // ************************************************************************
 
-    /// Whether the healer can heal the given robot, without taking into
-    /// account the healer's attack heat. Takes into account only the healer's
-    /// attack range, and the location of the robot.
+    /// Whether the healer can heal the given robot.
     ///
     /// * GameError::NoSuchUnit - a unit does not exist.
-    /// * GameError::TeamNotAllowed - the first unit is not on the current player's team.
+    /// * GameError::TeamNotAllowed - the healer is not on the current player's team.
     /// * GameError::InappropriateUnitType - the healer or robot is not the right type.
-    pub fn can_heal(&self, _healer_id: UnitID, _robot_id: UnitID) -> Result<bool, Error> {
-        unimplemented!();
+    pub fn can_heal(&self, healer_id: UnitID, robot_id: UnitID) -> Result<bool, Error> {
+        Ok(self.can_attack(healer_id, robot_id)?)
     }
 
     /// Whether the healer is ready to heal. Tests whether the healer's attack
@@ -1506,18 +1517,18 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a healer.
-    pub fn is_heal_ready(&self, _healer_id: UnitID) -> Result<bool, Error> {
-        unimplemented!()
+    pub fn is_heal_ready(&self, healer_id: UnitID) -> Result<bool, Error> {
+        Ok(self.is_attack_ready(healer_id)?)
     }
 
-    /// Heals the robot, dealing the healer's standard amount of "damage".
+    /// Commands the healer to heal the target robot.
     ///
     /// * GameError::NoSuchUnit - a unit does not exist.
     /// * GameError::TeamNotAllowed - the first unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the healer or robot is not the right type.
     /// * GameError::InvalidAction - the healer cannot heal that unit.
-    pub fn heal(&mut self, _healer_id: UnitID, _robot_id: UnitID) -> Result<(), Error> {
-        unimplemented!();
+    pub fn heal(&mut self, healer_id: UnitID, robot_id: UnitID) -> Result<(), Error> {
+        Ok(self.attack(healer_id, robot_id)?)
     }
 
     /// Whether the healer can overcharge the given robot, without taking into
@@ -2861,5 +2872,31 @@ mod tests {
         assert!(world.can_produce_robot(factory, UnitType::Mage).unwrap());
         world.my_team_mut().karbonite = 0;
         assert!(!world.can_produce_robot(factory, UnitType::Mage).unwrap());
+    }
+
+    fn test_robot_attack_and_heal() {
+        let mut world = GameWorld::test_world();
+        let ranger = world.create_unit(Team::Red, MapLocation::new(Planet::Earth, 0, 0), UnitType::Ranger).unwrap();
+        let worker_in_range = world.create_unit(Team::Red, MapLocation::new(Planet::Earth, 5, 0), UnitType::Worker).unwrap();
+        let worker_out_of_range = world.create_unit(Team::Red, MapLocation::new(Planet::Earth, 10, 0), UnitType::Worker).unwrap();
+
+        // The ranger can attack the adjacent worker, but not the non-adjacent worker.
+        assert![world.can_attack(ranger, worker_in_range).unwrap()];
+        assert![!world.can_attack(ranger, worker_out_of_range).unwrap()];
+        assert![world.attack(ranger, worker_in_range).is_ok()];
+
+        // The worker should have taken some damage.
+        assert_eq![world.get_unit(worker_in_range).unwrap().health(), 30];
+        assert_eq![world.get_unit(worker_out_of_range).unwrap().health(), 100];
+
+        // The ranger cannot attack again.
+        assert![!world.is_attack_ready(ranger).unwrap()];
+        assert![!world.can_attack(ranger, worker_in_range).unwrap()];
+
+        // Create a healer, and use it to heal the worker.
+        let healer = world.create_unit(Team::Red, MapLocation::new(Planet::Earth, 5, 1), UnitType::Healer).unwrap();
+        assert![world.can_heal(healer, worker_in_range).unwrap()];
+        assert![world.heal(healer, worker_in_range).is_ok()];
+        assert_eq![world.get_unit(worker_in_range).unwrap().health(), 40];
     }
 }
