@@ -2934,7 +2934,7 @@ mod tests {
         assert_err![world.repair(worker, factory), GameError::StructureNotYetBuilt];
 
         // After forcibly completing the structure, we damage it.
-        world.get_unit_mut(factory).unwrap().be_built(1000);
+        world.get_unit_mut(factory).unwrap().be_built(1000).unwrap();
         assert![world.get_unit(factory).unwrap().is_built().unwrap()];
         world.get_unit_mut(factory).unwrap().take_damage(100);
         assert_eq![world.get_unit(factory).unwrap().health(), 900];
