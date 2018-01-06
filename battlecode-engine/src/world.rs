@@ -960,7 +960,6 @@ impl GameWorld {
     }
 
     fn ok_if_move_ready(&self, robot_id: UnitID) -> Result<(), Error> {
-        let unit = self.my_unit(robot_id)?;
         if !self.my_unit(robot_id)?.is_move_ready()? {
             Err(GameError::Overheated)?;
         }
@@ -1027,7 +1026,7 @@ impl GameWorld {
 
         self.damage_unit(id, damage)
     }
-    
+
     fn ok_if_can_attack(&self, robot_id: UnitID, target_id: UnitID) -> Result<(), Error> {
         let target_loc = self.unit_info(target_id)?.location;
         if !target_loc.on_map() {
@@ -1410,38 +1409,21 @@ impl GameWorld {
         self.my_unit_mut(ranger_id)?.begin_snipe(location)?;
         Ok(())
     }
-    
-    /// Whether the ranger snipe is ready to be processed.
-    /// If a ranger's snipe has reached the end of its countdown, fires
-    /// the shot and resets the attack and movement heats.
-    fn process_ranger(&mut self, ranger_id: UnitID) -> Result<(), Error> {
-        let target_location = self.get_unit_mut(ranger_id)?.process_snipe()?;
-        let damage = self.get_unit(ranger_id)?.damage()?;
-        self.damage_location(target_location.expect("ranger must have target if sniping"), damage);
-        Ok(())
-    }
 
-    fn process_snipes(&mut self) {
+    fn process_rangers(&mut self, planet: Planet) {
         let mut rangers: Vec<UnitID> = vec![];
-        for unit in &mut self.get_planet_mut(Planet::Earth).units.values_mut() {
-            if unit.unit_type() == UnitType::Ranger
-                && unit.is_sniping()
-                && unit.countdown() == 0
-                && unit.target_location().is_some() {
-                    rangers.push(unit.id());
-            }
-        }
-        for unit in &mut self.get_planet_mut(Planet::Mars).units.values_mut() {
-            if unit.unit_type() == UnitType::Ranger
-                && unit.is_sniping()
-                && unit.countdown() == 0
-                && unit.target_location().is_some() {
-                    rangers.push(unit.id());
+        for unit in self.get_planet(planet).units.values() {
+            if unit.unit_type() == UnitType::Ranger {
+                rangers.push(unit.id());
             }
         }
 
-        for ranger in rangers {
-            self.process_ranger(ranger);
+        for id in rangers {
+            let target_location = self.get_planet_mut(planet).units.get_mut(&id).unwrap().process_snipe();
+            if target_location.is_some() {
+                let damage = self.get_planet(planet).units.get(&id).unwrap().damage().unwrap();
+                self.damage_location(target_location.unwrap(), damage);
+            }
         }
     }
 
@@ -1963,7 +1945,8 @@ impl GameWorld {
         }
 
         // Process ranger snipes.
-        self.process_snipes();
+        self.process_rangers(Planet::Earth);
+        self.process_rangers(Planet::Mars);
 
         // Add produced factory robots to the garrison.
         self.process_factories();
@@ -2072,7 +2055,7 @@ impl GameWorld {
 mod tests {
     use super::*;
 
-    fn print_visible_locs(locs: &Vec<Vec<bool>>) {
+    fn _print_visible_locs(locs: &Vec<Vec<bool>>) {
         for bool_row in locs {
             let mut int_row: Vec<u8> = vec![];
             for entry in bool_row {
@@ -2365,10 +2348,10 @@ mod tests {
         let unlock_level = 3;
         let rounds = 200;
 
-        for level in 0..unlock_level {
+        for _ in 0..unlock_level {
             let my_research = world.my_research_mut();
             assert!(my_research.add_to_queue(&Branch::Knight));
-            for round in 0..rounds {
+            for _ in 0..rounds {
                 assert!(my_research.end_round().is_ok());
             }
         }
@@ -2408,10 +2391,10 @@ mod tests {
         let unlock_level = 4;
         let rounds = 200;
 
-        for level in 0..unlock_level {
+        for _ in 0..unlock_level {
             let my_research = world.my_research_mut();
             assert!(my_research.add_to_queue(&Branch::Mage));
-            for round in 0..rounds {
+            for _ in 0..rounds {
                 assert!(my_research.end_round().is_ok());
             }
         }
@@ -2447,10 +2430,10 @@ mod tests {
         let unlock_level = 3;
         let rounds = 200;
 
-        for level in 0..unlock_level {
+        for _ in 0..unlock_level {
             let my_research = world.my_research_mut();
             assert!(my_research.add_to_queue(&Branch::Ranger));
-            for round in 0..rounds {
+            for _ in 0..rounds {
                 assert!(my_research.end_round().is_ok());
             }
         }
@@ -2464,15 +2447,12 @@ mod tests {
         // Ranger should not be able to snipe target location on a different planet.
         assert!(world.begin_snipe(ranger, loc_c).is_err());
 
-        // Processing snipe should fail if ranger has not channeled for enough rounds
-        assert!(world.process_ranger(ranger).is_err());
-
         // Ranger begins to snipe a location.
         assert!(world.begin_snipe(ranger, loc_b).is_ok());
 
         // Enough rounds pass where Ranger's snipe is processed
         let rounds = 200;
-        for round in 0..rounds {
+        for _ in 0..rounds {
             assert!(world.end_round().is_ok());
         }
         
@@ -2490,10 +2470,10 @@ mod tests {
         let unlock_level = 3;
         let rounds = 200;
 
-        for level in 0..unlock_level {
+        for _ in 0..unlock_level {
             let my_research = world.my_research_mut();
             assert!(my_research.add_to_queue(&Branch::Healer));
-            for round in 0..rounds {
+            for _ in 0..rounds {
                 assert!(my_research.end_round().is_ok());
             }
         }
@@ -2502,10 +2482,10 @@ mod tests {
         let unlock_level = 3;
         let rounds = 200;
 
-        for level in 0..unlock_level {
+        for _ in 0..unlock_level {
             let my_research = world.my_research_mut();
             assert!(my_research.add_to_queue(&Branch::Knight));
-            for round in 0..rounds {
+            for _ in 0..rounds {
                 assert!(my_research.end_round().is_ok());
             }
         }
@@ -2838,7 +2818,7 @@ mod tests {
 
         // Force-research Rocketry.
         assert![world.queue_research(Branch::Rocket)];
-        for i in 0..1000 {
+        for _ in 0..1000 {
             assert![world.process_research(Team::Red).is_ok()];
         }
 
