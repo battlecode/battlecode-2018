@@ -192,7 +192,7 @@ pub struct GameWorld {
 
 impl GameWorld {
     /// Initialize a new game world with maps from both planets.
-    pub fn new(map: GameMap) -> GameWorld {
+    pub(crate) fn new(map: GameMap) -> GameWorld {
         let mut planet_states = FnvHashMap::default();
         planet_states.insert(Planet::Earth, PlanetInfo::new(&map.earth_map));
         planet_states.insert(Planet::Mars, PlanetInfo::new(&map.mars_map));
@@ -235,7 +235,8 @@ impl GameWorld {
     }
 
     /// Generate a test world with empty maps.
-    pub fn test_world() -> GameWorld {
+    #[cfg(test)]
+    pub(crate) fn test_world() -> GameWorld {
         let map = GameMap::test_map();
 
         let mut planet_states = FnvHashMap::default();
@@ -279,7 +280,7 @@ impl GameWorld {
     ///
     /// As an invariant, the game world filtered once should be the same as the
     /// game world filtered multiple times.
-    pub fn filter(&self, player: Player) -> GameWorld {
+    pub(crate) fn filter(&self, player: Player) -> GameWorld {
         let team = player.team;
         let planet = player.planet;
         let map = self.starting_map(planet);
@@ -400,9 +401,6 @@ impl GameWorld {
     /// The unit controller for the unit of this ID. Use this method to get
     /// detailed statistics on a unit in your team: heat, cooldowns, and
     /// properties of special abilities like units garrisoned in a rocket.
-    ///
-    /// Note that mutating this object does NOT have any effect on the actual
-    /// game. You MUST call the mutators in world!!
     ///
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
@@ -857,7 +855,7 @@ impl GameWorld {
 
     /// Creates and inserts a new unit into the game world, so that it can be
     /// referenced by ID. Used for testing only!!!
-    pub fn create_unit(&mut self, team: Team, location: MapLocation,
+    pub(crate) fn create_unit(&mut self, team: Team, location: MapLocation,
                        unit_type: UnitType) -> Result<UnitID, Error> {
         let id = self.id_generator.next_id();
         let level = self.get_team(team).research.get_level(&unit_type);
@@ -1112,9 +1110,6 @@ impl GameWorld {
 
     /// The research info of the current team, including what branch is
     /// currently being researched, the number of rounds left.
-    ///
-    /// Note that mutating this object by resetting or queueing research
-    /// does not have any effect. You must call the mutators on world.
     pub fn research_info(&self) -> ResearchInfo {
         self.my_research()
     }
@@ -1820,9 +1815,6 @@ impl GameWorld {
 
     /// The landing rounds and locations of rockets in space that belong to the
     /// current team.
-    ///
-    /// Note that mutating this object does NOT have any effect on the actual
-    /// game. You MUST call the mutators in world!!
     pub fn rocket_landings(&self) -> RocketLandingInfo {
         self.my_team().rocket_landings.clone()
     }
@@ -1917,7 +1909,7 @@ impl GameWorld {
     // ***************************** MANAGER API ******************************
     // ************************************************************************
 
-    pub fn cached_world(&self, player: Player) -> &GameWorld {
+    pub(crate) fn cached_world(&self, player: Player) -> &GameWorld {
         if let Some(world) = self.cached_world.get(&player) {
             world
         } else {
@@ -1931,7 +1923,7 @@ impl GameWorld {
     /// the next player to move, and whether the round was also ended.
     ///
     /// * GameError::InternalEngineError - something happened here...
-    pub fn end_turn(&mut self) -> Result<StartTurnMessage, Error> {
+    pub(crate) fn end_turn(&mut self) -> Result<StartTurnMessage, Error> {
         use self::Team::*;
         use self::Planet::*;
 
@@ -2059,7 +2051,7 @@ impl GameWorld {
     }
 
     /// Applies a single delta to this GameWorld.
-    pub fn apply(&mut self, delta: &Delta) -> Result<(), Error> {
+    pub(crate) fn apply(&mut self, delta: &Delta) -> Result<(), Error> {
         match *delta {
             Delta::Attack {robot_id, target_unit_id} => self.attack(robot_id, target_unit_id),
             Delta::BeginSnipe {ranger_id, location} => self.begin_snipe(ranger_id, location),
@@ -2087,7 +2079,7 @@ impl GameWorld {
 
     /// Applies a turn message to this GameWorld, and ends the current turn. Returns
     /// the next player to move, and whether the current round was also ended.
-    pub fn apply_turn(&mut self, turn: &TurnMessage) -> Result<StartTurnMessage, Error> {
+    pub(crate) fn apply_turn(&mut self, turn: &TurnMessage) -> Result<StartTurnMessage, Error> {
         for delta in turn.changes.iter() {
             self.apply(delta)?;
         }
@@ -2103,7 +2095,7 @@ impl GameWorld {
     ///
     /// Aside from applying the changes in the message, this function must
     /// also increment the round and reindex units by location.
-    pub fn start_turn(&mut self, turn: StartTurnMessage) {
+    pub(crate) fn start_turn(&mut self, turn: StartTurnMessage) {
         self.round = turn.round;
         self.my_planet_mut().visible_locs = turn.visible_locs;
         for unit in turn.units_changed {

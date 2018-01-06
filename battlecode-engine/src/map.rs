@@ -38,12 +38,8 @@ impl GameMap {
         Ok(())
     }
 
-    /// Whether a location is on the map of either planet.
-    pub fn on_map(&self, location: MapLocation) -> bool {
-        self.earth_map.on_map(location) || self.mars_map.on_map(location)
-    }
-
-    pub fn test_map() -> GameMap {
+    #[cfg(test)]
+    pub(crate) fn test_map() -> GameMap {
         let seed = 1;
         let mars_map = PlanetMap::test_map(Planet::Mars);
         GameMap {
@@ -204,7 +200,8 @@ impl PlanetMap {
         }
     }
 
-    pub fn test_map(planet: Planet) -> PlanetMap {
+    #[cfg(test)]
+    pub(crate) fn test_map(planet: Planet) -> PlanetMap {
         let mut map = PlanetMap {
             planet: planet,
             height: MAP_HEIGHT_MIN,

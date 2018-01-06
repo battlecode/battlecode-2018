@@ -16,7 +16,7 @@ use super::error::*;
 pub type TeamArray = Vec<i32>;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct TeamArrayInfo {
+pub(crate) struct TeamArrayInfo {
     history: FnvHashMap<Planet, VecDeque<TeamArray>>,
 }
 
