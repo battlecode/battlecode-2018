@@ -819,7 +819,7 @@ impl GameWorld {
         let rocket = self.my_planet_mut().units.remove(&rocket_id).expect("unit exists");
         self.my_planet_mut().unit_infos.remove(&rocket_id).expect("unit exists");
 
-        for id in rocket.garrison().expect("unit is a rocket") {
+        for id in rocket.structure_garrison().expect("unit is a rocket") {
             let unit = self.my_planet_mut().units.remove(&id).expect("unit exists");
             self.my_planet_mut().unit_infos.remove(&id).expect("unit exists");
             self.my_team_mut().units_in_space.insert(id, unit);
@@ -832,7 +832,7 @@ impl GameWorld {
     fn move_from_space(&mut self, rocket_id: UnitID) {
         let rocket = self.my_team_mut().units_in_space.remove(&rocket_id).expect("unit exists");
 
-        for id in rocket.garrison().expect("unit is a rocket") {
+        for id in rocket.structure_garrison().expect("unit is a rocket") {
             let unit = self.my_team_mut().units_in_space.remove(&id).expect("unit exists");
             self.my_planet_mut().unit_infos.insert(id, unit.info());
             self.my_planet_mut().units.insert(id, unit);
@@ -880,7 +880,7 @@ impl GameWorld {
             InSpace => {
                 // Units only die in space after a landing on their turn.
                 // Thus we are guaranteed that my_unit() will find the unit.
-                for utd_id in self.my_unit(id).unwrap().garrison()
+                for utd_id in self.my_unit(id).unwrap().structure_garrison()
                                   .expect("only rockets can die in space") {
                     self.my_team_mut().units_in_space.remove(&utd_id);
                 }
@@ -895,7 +895,7 @@ impl GameWorld {
             let unit_type = self.get_unit(id).unwrap().unit_type();
             if unit_type == UnitType::Rocket || unit_type == UnitType::Factory {
                 let units_to_destroy = self.get_unit_mut(id).unwrap()
-                                           .garrison().unwrap();
+                                           .structure_garrison().unwrap();
                 for utd_id in units_to_destroy.iter() {
                     self.my_planet_mut().units.remove(&utd_id);
                     self.my_planet_mut().unit_infos.remove(&utd_id);
@@ -1188,7 +1188,7 @@ impl GameWorld {
         let (harvest_loc, harvest_amount) = {
             let worker = self.my_unit_mut(worker_id)?;
             worker.worker_act()?;
-            (worker.location().map_location()?.add(direction), worker.harvest_amount()?)
+            (worker.location().map_location()?.add(direction), worker.worker_harvest_amount()?)
         };
         let amount_mined = cmp::min(self.karbonite_at(harvest_loc)?, harvest_amount);
         self.my_team_mut().karbonite += amount_mined;
@@ -1280,7 +1280,7 @@ impl GameWorld {
             Err(GameError::OutOfRange)?;
         }
         // The blueprint must be incomplete.
-        if blueprint.is_built()? {
+        if blueprint.structure_is_built()? {
             Err(GameError::StructureAlreadyBuilt)?;
         }
         Ok(())
@@ -1307,7 +1307,7 @@ impl GameWorld {
         let build_health = {
             let worker = self.my_unit_mut(worker_id)?;
             worker.worker_act()?;
-            worker.build_health()?
+            worker.worker_build_health()?
         };
         self.my_unit_mut(blueprint_id)?.be_built(build_health)?;
         Ok(())
@@ -1322,7 +1322,7 @@ impl GameWorld {
         if !worker.is_adjacent_to(structure.location()) {
             Err(GameError::OutOfRange)?;
         }
-        if !structure.is_built()? {
+        if !structure.structure_is_built()? {
             Err(GameError::StructureNotYetBuilt)?;
         }
         Ok(())
@@ -1405,7 +1405,7 @@ impl GameWorld {
         let target = self.unit_info(target_id)?;
         knight.ok_if_javelin()?;
         
-        if !knight.is_within_range(knight.ability_range(), target.location.map_location()?) {
+        if !knight.is_within_range(knight.ability_range()?, target.location.map_location()?) {
             Err(GameError::OutOfRange)?;
         }
         Ok(())
@@ -1512,7 +1512,7 @@ impl GameWorld {
         let mage = self.my_unit(mage_id)?;
         mage.ok_if_blink()?;
         
-        if !mage.is_within_range(mage.ability_range(), location) {
+        if !mage.is_within_range(mage.ability_range()?, location) {
             Err(GameError::OutOfRange)?;
         }
         if !self.is_occupiable(location)? {
@@ -1605,7 +1605,7 @@ impl GameWorld {
         healer.ok_if_overcharge()?;
         robot.ok_if_ability()?;
 
-        if !healer.is_within_range(healer.ability_range(), robot.location().map_location()?) {
+        if !healer.is_within_range(healer.ability_range()?, robot.location().map_location()?) {
             Err(GameError::OutOfRange)?;
         }
         Ok(())
@@ -1698,7 +1698,7 @@ impl GameWorld {
                         -> Result<(), Error> {
         let structure = self.my_unit(structure_id)?;
         structure.ok_if_can_unload_unit()?;
-        let robot = self.my_unit(structure.garrison()?[0])?;
+        let robot = self.my_unit(structure.structure_garrison()?[0])?;
         let loc = structure.location().map_location()?.add(direction);
         if !self.is_occupiable(loc)? {
             Err(GameError::LocationNotEmpty)?;
@@ -1825,7 +1825,7 @@ impl GameWorld {
             Err(GameError::SamePlanet)?;
         }
         let rocket = self.my_unit(rocket_id)?;
-        if rocket.is_rocket_used()? {
+        if rocket.rocket_is_used()? {
             Err(GameError::RocketUsed)?;
         }
         let map = &self.starting_map(destination.planet);
@@ -2893,7 +2893,7 @@ mod tests {
             assert![!world.can_build(worker_b, factory)];
             world.destroy_unit(worker_b);
         }
-        assert![world.get_unit(factory).unwrap().is_built().unwrap()];
+        assert![world.get_unit(factory).unwrap().structure_is_built().unwrap()];
 
         // Subsequent attempts to build the factory should fail.
         let worker_c = world.create_unit(Team::Red, factory_loc.add(Direction::North), UnitType::Worker).unwrap();
@@ -2941,7 +2941,7 @@ mod tests {
         for _ in 0..FACTORY_NUM_ROUNDS {
             assert!(world.end_round().is_ok());
         }
-        assert_eq!(world.my_unit(factory).unwrap().garrison().unwrap().len(), 1);
+        assert_eq!(world.my_unit(factory).unwrap().structure_garrison().unwrap().len(), 1);
         assert_eq!(world.my_planet().units.len(), 2);
         assert_eq!(world.my_planet().unit_infos.len(), 2);
         assert_eq!(world.my_planet().units_by_loc.len(), 1);
@@ -3032,7 +3032,7 @@ mod tests {
 
         // After forcibly completing the structure, we damage it.
         world.get_unit_mut(factory).unwrap().be_built(1000).unwrap();
-        assert![world.get_unit(factory).unwrap().is_built().unwrap()];
+        assert![world.get_unit(factory).unwrap().structure_is_built().unwrap()];
         world.get_unit_mut(factory).unwrap().take_damage(100);
         assert_eq![world.get_unit(factory).unwrap().health(), 900];
 
