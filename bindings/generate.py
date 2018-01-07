@@ -211,7 +211,7 @@ TurnApplication.member(ViewerMessage.type, 'viewer')
 
 GameController = p.struct('controller::GameController')
 GameController.constructor('new_player', [Var(StartGameMessage.type, 'game')])
-GameController.method(void.type.result(), 'start_turn', [Var(StartTurnMessage.type, 'turn')])
+GameController.method(void.type.result(), 'start_turn', [Var(StartTurnMessage.type.ref(), 'turn')])
 GameController.method(TurnMessage.type.result(), 'end_turn', [])
 GameController.method(Rounds.type, 'round', [])
 GameController.method(Planet.type, 'planet', [])

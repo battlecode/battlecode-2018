@@ -39,6 +39,7 @@ class Function(object):
         doc_hint = ''
         for a in args:
             doc_hint += f':type {a.name}: {a.type.to_python()}\n'
+        doc_hint += f':rtype: {type.to_python()}\n'
         docs = s(f"{mypy_hint}\n'''{docs}\n{doc_hint}'''\n", indent=4)
         return start + docs
 

@@ -45,7 +45,7 @@ impl GameController {
 
     /// Starts the current turn, by updating the player's GameWorld with changes
     /// made since the last time the player had a turn.
-    pub fn start_turn(&mut self, turn: StartTurnMessage) -> Result<(), Error> {
+    pub fn start_turn(&mut self, turn: &StartTurnMessage) -> Result<(), Error> {
         self.old_world.start_turn(turn);
         self.world = self.old_world.clone();
         self.turn = TurnMessage { changes: vec![] };
@@ -831,8 +831,9 @@ mod tests {
         // End red's turn, and pass the message to the manager, which
         // generates blue's start turn message and starts blue's turn.
         let red_turn_msg = player_controller_red.end_turn().unwrap();
-        let (blue_start_turn_msg, _) = manager_controller.apply_turn(&red_turn_msg).unwrap();
-        assert![player_controller_blue.start_turn(blue_start_turn_msg).is_ok()];
+        let application = manager_controller.apply_turn(&red_turn_msg).unwrap();
+        let blue_start_turn_msg = application.start_turn;
+        assert![player_controller_blue.start_turn(&blue_start_turn_msg).is_ok()];
 
         // Test that blue can move as expected. This demonstrates
         // it has received red's actions in its own state.
