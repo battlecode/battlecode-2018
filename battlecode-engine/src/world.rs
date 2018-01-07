@@ -1994,14 +1994,11 @@ impl GameWorld {
 
         // Annihilate Earth, if necessary.
         if self.round == APOCALYPSE_ROUND {
-            // This logic got real weird. Rust made me do terrible, terrible things.
-            let mut units_to_destroy: Vec<UnitID> = vec![];
-            for unit in self.get_planet(Planet::Earth).units.keys() {
-                units_to_destroy.push(*unit);
-            }
-            for unit in units_to_destroy.iter() {
-                self.destroy_unit(*unit);
-            }
+            // Destroy all units by clearing Earth's unit data structures.
+            let earth = self.get_planet_mut(Planet::Earth);
+            earth.units.clear();
+            earth.unit_infos.clear();
+            earth.units_by_loc.clear();
         }
 
         // Update unit cooldowns.
@@ -2084,6 +2081,18 @@ impl GameWorld {
                 Team::Blue => { blue_units_value += unit.unit_type().value(); },
             }
         }
+        for unit in self.get_planet(Planet::Mars).units.values() {
+            match unit.team() {
+                Team::Red => { red_units_value += unit.unit_type().value(); },
+                Team::Blue => { blue_units_value += unit.unit_type().value(); },
+            }
+        }
+        for unit in self.get_team(Team::Red).units_in_space.values() {
+            red_units_value += unit.unit_type().value();
+        }
+        for unit in self.get_team(Team::Blue).units_in_space.values() {
+            blue_units_value += unit.unit_type().value();
+        }
 
         // The game should not end if both teams still have units, and we are
         // not at the round limit.
@@ -2107,6 +2116,7 @@ impl GameWorld {
         }
 
         // 3. "RNG"
+        // TODO: create an unpredictably seeded RNG for this
         match 6147 % 2 {
             0 => Some(Team::Blue),
             1 => Some(Team::Red),
@@ -3170,7 +3180,7 @@ mod tests {
         assert_eq![world.is_game_over().unwrap(), Team::Red];
 
         // Giving blue a more expensive unit lets blue win.
-        world.create_unit(Team::Blue, MapLocation::new(Planet::Earth, 0, 0), UnitType::Factory).unwrap();
+        world.create_unit(Team::Blue, MapLocation::new(Planet::Mars, 0, 0), UnitType::Factory).unwrap();
         assert![world.is_game_over().is_some()];
         assert_eq![world.is_game_over().unwrap(), Team::Blue];
     }
