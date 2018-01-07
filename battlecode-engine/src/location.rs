@@ -243,9 +243,22 @@ impl MapLocation {
     }
 
     /// Determines whether this location is adjacent to the specified location,
-    /// including diagonally. Note that squares are not adjacent to themselves.
+    /// including diagonally. Note that squares are not adjacent to themselves,
+    /// and squares on different planets are not adjacent to each other.
     pub fn is_adjacent_to(&self, o: MapLocation) -> bool {
+        if self.planet != o.planet {
+            return false;
+        }
         self.distance_squared_to(o) <= 2
+    }
+
+    /// Whether this location is within the distance squared range of the
+    /// specified location, inclusive. False for locations on different planets.
+    pub fn is_within_range(&self, range: u32, o: MapLocation) -> bool {
+        if self.planet != o.planet {
+            return false;
+        }
+        range >= self.distance_squared_to(o)
     }
 }
 
@@ -287,6 +300,31 @@ impl Location {
             Location::OnMap(map_loc) => Ok(map_loc),
             _ => Err(GameError::UnitNotOnMap)?,
         }
+    }
+
+    /// Determines whether this location is adjacent to the specified location,
+    /// including diagonally. Note that squares are not adjacent to themselves,
+    /// and squares on different planets are not adjacent to each other. Also,
+    /// nothing is adjacent to something not on a map.
+    pub fn is_adjacent_to(&self, o: Location) -> bool {
+        if !self.on_map() || !o.on_map() {
+            return false;
+        }
+        let this_loc = self.map_location().unwrap();
+        let that_loc = o.map_location().unwrap();
+        this_loc.is_adjacent_to(that_loc)
+    }
+
+    /// Whether this location is within the distance squared range of the
+    /// specified location, inclusive. False for locations on different planets.
+    /// Note that nothing is within the range of something not on the map.
+    pub fn is_within_range(&self, range: u32, o: Location) -> bool {
+        if !self.on_map() || !o.on_map() {
+            return false;
+        }
+        let this_loc = self.map_location().unwrap();
+        let that_loc = o.map_location().unwrap();
+        this_loc.is_within_range(range, that_loc)
     }
 }
 
@@ -455,5 +493,20 @@ mod tests {
         assert!(!a.is_adjacent_to(d));
         assert!(!a.is_adjacent_to(e));
         assert!(a.is_adjacent_to(a), "a square is not adjacent to itself");
+    }
+
+    #[test]
+    fn location_is_adjacent_to() {
+        let loc_a = Location::OnMap(MapLocation::new(Planet::Earth, 0, 0));
+        let loc_b = Location::OnMap(MapLocation::new(Planet::Earth, 1, 1));
+        let loc_c = Location::OnMap(MapLocation::new(Planet::Earth, 1, 2));
+
+        // B is adjacent to both A and C, but A is not adjacent to C.
+        assert!(loc_a.is_adjacent_to(loc_b));
+        assert!(loc_b.is_adjacent_to(loc_a));
+        assert!(loc_c.is_adjacent_to(loc_b));
+        assert!(loc_b.is_adjacent_to(loc_c));
+        assert!(!loc_a.is_adjacent_to(loc_c));
+        assert!(!loc_c.is_adjacent_to(loc_a));
     }
 }

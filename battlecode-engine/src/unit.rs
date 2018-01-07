@@ -493,39 +493,17 @@ impl Unit {
         }
     }
 
-    /// Whether the unit is adjacent to the location.
-    pub(crate) fn is_adjacent_to(&self, location: Location) -> bool {
-        let loc_a = match self.location() {
-            OnMap(loc) => loc,
-            _ => { return false; },
-        };
-        let loc_b = match location {
-            OnMap(loc) => loc,
-            _ => { return false; },
-        };
-        loc_a.is_adjacent_to(loc_b)
-    }
-
-    pub(crate) fn is_within_range(&self, range: u32, location: MapLocation) -> bool {
-        let current  = match self.location() {
-            OnMap(loc) => loc,
-            _ => { return false; },
-        };
-
-        range >= current.distance_squared_to(location)
-    }
-
     /// Tests whether the robot can attack the target location.
     ///
     /// Errors if the unit is not a robot.
-    pub(crate) fn is_within_attack_range(&self, target_loc: MapLocation) -> Result<bool, Error> {
+    pub(crate) fn is_within_attack_range(&self, target_loc: Location) -> Result<bool, Error> {
         self.ok_if_robot()?;
         if self.unit_type() == UnitType::Ranger {
-            if self.is_within_range(self.cannot_attack_range, target_loc) {
+            if self.location().is_within_range(self.cannot_attack_range, target_loc) {
                 return Ok(false);
             }
         }
-        Ok(self.is_within_range(self.attack_range()?, target_loc))
+        Ok(self.location().is_within_range(self.attack_range()?, target_loc))
     }
 
     /// Whether the unit is ready to attack. The attack heat must be lower than
@@ -1189,25 +1167,6 @@ mod tests {
         assert!(unit.is_move_ready().unwrap());
         assert!(unit.move_to(loc_a).is_ok());
         assert_eq!(unit.location(), OnMap(loc_a));
-    }
-
-    #[test]
-    fn test_is_adjacent_to() {
-        let loc_a = MapLocation::new(Planet::Earth, 0, 0);
-        let loc_b = MapLocation::new(Planet::Earth, 1, 1);
-        let loc_c = MapLocation::new(Planet::Earth, 1, 2);
-
-        let unit_a = Unit::new(1, Team::Red, Ranger, 0, OnMap(loc_a)).unwrap();
-        let unit_b = Unit::new(2, Team::Red, Worker, 0, OnMap(loc_b)).unwrap();
-        let unit_c = Unit::new(3, Team::Red, Mage, 0, OnMap(loc_c)).unwrap();
-
-        // B is adjacent to both A and C, but A is not adjacent to C.
-        assert!(unit_a.is_adjacent_to(unit_b.location()));
-        assert!(unit_b.is_adjacent_to(unit_a.location()));
-        assert!(unit_c.is_adjacent_to(unit_b.location()));
-        assert!(unit_b.is_adjacent_to(unit_c.location()));
-        assert!(!unit_a.is_adjacent_to(unit_c.location()));
-        assert!(!unit_c.is_adjacent_to(unit_a.location()));
     }
 
     #[test]

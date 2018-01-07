@@ -944,18 +944,6 @@ impl GameWorld {
         }
     }
 
-    /// Whether the unit is on the same planet as the location.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist in the game.
-    pub fn is_same_planet(&self, unit_id: UnitID, location: MapLocation) 
-            -> Result<bool, Error> {
-        let unit_location = match self.unit_info(unit_id)?.location {
-            OnMap(loc) => loc,
-            _ => { return Ok(false) },
-        };
-        Ok(unit_location.planet == location.planet)
-    }
-
     fn ok_if_can_move(&self, robot_id: UnitID, direction: Direction) -> Result<(), Error> {
         let unit = self.my_unit(robot_id)?;
         let new_location = unit.location().map_location()?.add(direction);
@@ -1048,7 +1036,7 @@ impl GameWorld {
         if !target_loc.on_map() {
             Err(GameError::UnitNotOnMap)?;
         }
-        if !self.my_unit(robot_id)?.is_within_attack_range(target_loc.map_location()?)? {
+        if !self.my_unit(robot_id)?.is_within_attack_range(target_loc)? {
             Err(GameError::OutOfRange)?;
         }
         Ok(())
@@ -1276,7 +1264,7 @@ impl GameWorld {
             Err(GameError::Overheated)?;
         }
         // The worker must be adjacent to the blueprint.
-        if !worker.is_adjacent_to(blueprint.location()) {
+        if !worker.location().is_adjacent_to(blueprint.location()) {
             Err(GameError::OutOfRange)?;
         }
         // The blueprint must be incomplete.
@@ -1319,7 +1307,7 @@ impl GameWorld {
         if !worker.can_worker_act()? {
             Err(GameError::Overheated)?;
         }
-        if !worker.is_adjacent_to(structure.location()) {
+        if !worker.location().is_adjacent_to(structure.location()) {
             Err(GameError::OutOfRange)?;
         }
         if !structure.structure_is_built()? {
@@ -1405,7 +1393,7 @@ impl GameWorld {
         let target = self.unit_info(target_id)?;
         knight.ok_if_javelin()?;
         
-        if !knight.is_within_range(knight.ability_range()?, target.location.map_location()?) {
+        if !knight.location().is_within_range(knight.ability_range()?, target.location) {
             Err(GameError::OutOfRange)?;
         }
         Ok(())
@@ -1512,7 +1500,7 @@ impl GameWorld {
         let mage = self.my_unit(mage_id)?;
         mage.ok_if_blink()?;
         
-        if !mage.is_within_range(mage.ability_range()?, location) {
+        if !mage.location().is_within_range(mage.ability_range()?, OnMap(location)) {
             Err(GameError::OutOfRange)?;
         }
         if !self.is_occupiable(location)? {
@@ -1605,7 +1593,7 @@ impl GameWorld {
         healer.ok_if_overcharge()?;
         robot.ok_if_ability()?;
 
-        if !healer.is_within_range(healer.ability_range()?, robot.location().map_location()?) {
+        if !healer.location().is_within_range(healer.ability_range()?, robot.location()) {
             Err(GameError::OutOfRange)?;
         }
         Ok(())
@@ -1661,7 +1649,7 @@ impl GameWorld {
             Err(GameError::Overheated)?;
         }
         structure.ok_if_can_load()?;
-        if !structure.is_adjacent_to(robot.location()) {
+        if !structure.location().is_adjacent_to(robot.location()) {
             Err(GameError::OutOfRange)?;
         }
         Ok(())
