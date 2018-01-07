@@ -15,7 +15,7 @@ cache:
     - target
     - ~/.cache/pip
 before_install:
-  - sudo add-apt-repository ppa:jonathonf/python-3.6
+  - sudo add-apt-repository ppa:jonathonf/python-3.6 -y
   - sudo apt-get update -q
 install:
   - sudo -E apt-get -yq --no-install-suggests --no-install-recommends --force-yes install python3.6

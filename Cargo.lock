@@ -52,6 +52,7 @@ version = "0.1.0"
 dependencies = [
  "battlecode-engine 0.1.0",
  "failure 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_json 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
