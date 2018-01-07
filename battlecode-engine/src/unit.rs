@@ -490,6 +490,16 @@ impl Unit {
         Ok(self.attack_cooldown)
     }
 
+    /// Ok if the unit is on the map.
+    ///
+    /// * UnitNotOnMap - the unit is not on the map.
+    pub(crate) fn ok_if_on_map(&self) -> Result<(), Error> {
+        if !self.location().on_map() {
+            Err(GameError::UnitNotOnMap)?;
+        }
+        Ok(())
+    }
+
     /// Ok if the unit is ready to move. The movement heat must be
     /// lower than the maximum heat to attack.
     ///
