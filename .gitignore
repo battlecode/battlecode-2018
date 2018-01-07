@@ -8,4 +8,7 @@ __pycache__
 *.lib
 *.dylib
 *.d
+*.swp
+*.txt
+*.DS_Store
 .vscode
