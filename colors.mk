@@ -15,9 +15,9 @@ define test_command
 endef
 
 define magenta
-	@echo "\x1b[35m$(1)\x1b[0m"
+	@printf "\x1b[35m$(1)\x1b[0m\n"
 endef
 
 define green
-	@echo "\x1b[32m$(1)\x1b[0m"
+	@printf "\x1b[32m$(1)\x1b[0m\n"
 endef

@@ -6,7 +6,7 @@ build: src/bindings.rs
 	@$(MAKE) -wC python
 
 src/bindings.rs: *.py frankenswig/*.py
-	$(call build_command,python3 generate.py)
+	$(call build_command,python3.6 generate.py)
 
 test: build
 	@$(MAKE) -wC c test
