@@ -3,6 +3,7 @@ into python.'''
 
 import cffi
 import re
+import os
 import os.path
 import sys
 
@@ -22,14 +23,21 @@ elif sys.platform.startswith('linux'):
 else:
     raise Exception('What libraries should I link with on '+sys.platform+'?')
 
+if 'RELEASE' in os.environ:
+    library_dirs=['../../target/release/deps']
+    extra_link_args=['../../target/release/deps/libbattlecode.a']
+else:
+    library_dirs=['../../target/debug/deps']
+    extra_link_args=['../../target/debug/deps/libbattlecode.a']
+
 ffibuilder = cffi.FFI()
 ffibuilder.cdef(stripped)
 ffibuilder.set_source(
     'battlecode._bc',
     contents,
-    library_dirs=['../../target/release/deps'],
+    library_dirs=library_dirs,
     libraries=libraries,
-    extra_link_args=['../../target/release/deps/libbattlecode.a']
+    extra_link_args=extra_link_args
 )
 
 if __name__ == '__main__':

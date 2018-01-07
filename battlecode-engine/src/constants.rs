@@ -141,4 +141,4 @@ pub const ROUND_LIMIT: Rounds = 1000;
 pub const COMMUNICATION_ARRAY_LENGTH: usize = 100;
 
 /// The communication delay between planets, in rounds
-pub const COMMUNICATION_DELAY: usize = 200;
+pub const COMMUNICATION_DELAY: usize = 50;

@@ -51,7 +51,7 @@ impl RocketLandingInfo {
     }
 
     /// Add a rocket landing on this round.
-    pub fn add_landing(&mut self, round: Rounds, landing: RocketLanding) {
+    pub(crate) fn add_landing(&mut self, round: Rounds, landing: RocketLanding) {
         if !self.landings.contains_key(&round) {
             self.landings.insert(round, vec![]);
         }
@@ -62,7 +62,8 @@ impl RocketLandingInfo {
     }
 
     /// Add many rocket landings on this round.
-    pub fn add_landings(&mut self, round: Rounds, landings: Vec<RocketLanding>) {
+    #[cfg(test)]
+    pub(crate) fn add_landings(&mut self, round: Rounds, landings: Vec<RocketLanding>) {
         if !self.landings.contains_key(&round) {
             self.landings.insert(round, vec![]);
         }

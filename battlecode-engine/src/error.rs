@@ -27,6 +27,10 @@ pub enum GameError {
     #[fail(display = "You are not allowed to control units on the other team.")]
     TeamNotAllowed,
 
+    /// You cannot read outside of the bounds of the communication array.
+    #[fail(display = "You cannot read outside of the bounds of the communication array.")]
+    ArrayOutOfBounds,
+
     /// You cannot build structures on Mars.
     #[fail(display = "You cannot build structures on Mars.")]
     CannotBuildOnMars,
