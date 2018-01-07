@@ -405,12 +405,7 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     pub fn unit_controller(&self, id: UnitID) -> Result<&Unit, Error> {
-        let unit = self.unit(id)?;
-        if unit.team == self.team() {
-            self.my_unit(id)
-        } else {
-            Err(GameError::TeamNotAllowed)?
-        }
+        self.my_unit(id)
     }
 
     /// The single unit with this ID.
@@ -708,20 +703,16 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     fn my_unit(&self, id: UnitID) -> Result<&Unit, Error> {
-        let unit = {
-            if let Some(unit) = self.my_planet().units.get(&id) {
-                unit
-            } else if let Some(unit) = self.my_team().units_in_space.get(&id) {
-                unit
-            } else {
-                return Err(GameError::NoSuchUnit)?;
-            }
-        };
+        if self.unit_info(id)?.team != self.team() {
+            return Err(GameError::TeamNotAllowed)?;
+        }
 
-        if unit.team() == self.team() {
+        if let Some(unit) = self.my_planet().units.get(&id) {
+            Ok(unit)
+        } else if let Some(unit) = self.my_team().units_in_space.get(&id) {
             Ok(unit)
         } else {
-            Err(GameError::TeamNotAllowed)?
+            unreachable!();
         }
     }
 
@@ -731,21 +722,16 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     fn my_unit_mut(&mut self, id: UnitID) -> Result<&mut Unit, Error> {
-        let team = self.team();
-        let unit = {
-            if self.my_planet().units.contains_key(&id) {
-                self.my_planet_mut().units.get_mut(&id).expect("key exists")
-            } else if self.my_team().units_in_space.contains_key(&id) {
-                self.my_team_mut().units_in_space.get_mut(&id).expect("key exists")
-            } else {
-                return Err(GameError::NoSuchUnit)?;
-            }
-        };
+        if self.unit_info(id)?.team != self.team() {
+            return Err(GameError::TeamNotAllowed)?;
+        }
 
-        if unit.team() == team {
-            Ok(unit)
+        if self.my_planet().units.contains_key(&id) {
+            Ok(self.my_planet_mut().units.get_mut(&id).expect("key exists"))
+        } else if self.my_team().units_in_space.contains_key(&id) {
+            Ok(self.my_team_mut().units_in_space.get_mut(&id).expect("key exists"))
         } else {
-            Err(GameError::TeamNotAllowed)?
+            unreachable!();
         }
     }
 
