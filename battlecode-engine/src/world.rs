@@ -1105,7 +1105,7 @@ impl GameWorld {
 
     /// Update the current research and process any completed upgrades.
     fn process_research(&mut self, team: Team) -> Result<(), Error> {
-        if let Some(branch) = self.get_team_mut(team).research.end_round()? {
+        if let Some(branch) = self.get_team_mut(team).research.end_round() {
             for (_, unit) in self.get_planet_mut(Planet::Earth).units.iter_mut() {
                 if unit.unit_type() == branch {
                     unit.research()?;

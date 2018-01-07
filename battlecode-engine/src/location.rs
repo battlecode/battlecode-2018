@@ -294,7 +294,10 @@ impl Location {
         }
     }
 
-    /// The map location of the unit. Errors if the unit is not on a map.
+    /// The map location of the unit.
+    ///
+    /// * UnitNotOnMap - The unit is in a garrison or in space, and does not
+    ///   have a map location.
     pub fn map_location(&self) -> Result<MapLocation, Error> {
         match *self {
             Location::OnMap(map_loc) => Ok(map_loc),

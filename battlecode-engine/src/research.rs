@@ -35,8 +35,10 @@ pub fn max_level(branch: &Branch) -> Level {
     cost_array(branch).len() as Level - 1
 }
 
-/// Returns the cost of a level, in rounds, of a research branch. Errors if the
-/// level can't be researched i.e. not in the range [0, max_level(branch)].
+/// Returns the cost of a level, in rounds, of a research branch.
+///
+/// * ResearchLevelInvalid - errors if the research level can't be researched
+///   i.e. not in the range [0, max_level(branch)].
 pub fn cost_of(branch: &Branch, level: Level) -> Result<Rounds, Error> {
     if let Some(cost) = cost_array(branch).get(level) {
         Ok(*cost)
@@ -183,19 +185,19 @@ impl ResearchInfo {
     /// and continues work on the next upgrade in the queue.
     ///
     /// Otherwise returns None.
-    pub(crate) fn end_round(&mut self) -> Result<Option<Branch>, Error> {
+    pub(crate) fn end_round(&mut self) -> Option<Branch> {
         if let Some(rounds_left) = self.rounds_left {
             if rounds_left > 1 {
                 self.rounds_left = Some(rounds_left - 1);
-                return Ok(None);
+                return None;
             }
 
             let branch = self.queue.remove(0);
             *self.get_level_mut(&branch) += 1;
             self.reset_rounds_left();
-            Ok(Some(branch))
+            Some(branch)
         } else {
-            Ok(None)
+            None
         }
     }
 }

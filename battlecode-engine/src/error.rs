@@ -91,8 +91,8 @@ pub enum GameError {
     #[fail(display = "You are not allowed to control units on the other team.")]
     TeamNotAllowed,
 
-    /// The unit is in a structure's garrison or flying through space, and cannot perform an action.
-    #[fail(display = "The unit is in a structure's garrison or flying through space, and cannot perform an action.")]
+    /// The unit is in a structure's garrison or flying through space.
+    #[fail(display = "The unit is in a structure's garrison or flying through space.")]
     UnitNotOnMap,
 }
 

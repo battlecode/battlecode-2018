@@ -84,7 +84,8 @@ impl TeamArrayInfo {
     }
 
     /// Writes the value at the index of this planet's team array.
-    /// Errors if the array written to is accessed out of bounds.
+    ///
+    /// * ArrayOutOfBounds - the array index is accessed out of bounds.
     pub fn write(&mut self, planet: Planet, index: usize, value: i32) -> Result<(), Error> {
         let array = self.get_arrays_mut(planet).front_mut().unwrap();
         if index < array.len() {
