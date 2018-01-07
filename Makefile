@@ -6,5 +6,6 @@ build:
 
 test:
 	@$(MAKE) -wC bindings test
+	$(call test_command,cargo test)
 
 .PHONY: build test
