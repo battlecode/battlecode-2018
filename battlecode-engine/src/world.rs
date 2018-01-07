@@ -966,10 +966,12 @@ impl GameWorld {
 
     /// Moves the robot in the given direction.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a robot.
-    /// * GameError::InvalidAction - the robot cannot move in that direction.
+    /// * GameError::LocationNotEmpty - the location in the given direction is occupied.
+    /// * GameError::LocationOffMap - the location in the given direction is off the map.
+    /// * GameError::NoSuchUnit - the robot does not exist (within the vision range).
+    /// * GameError::Overheated - the robot is not ready to move again.
+    /// * GameError::TeamNotAllowed - the robot is not on the current player's team.
     pub fn move_robot(&mut self, robot_id: UnitID, direction: Direction) -> Result<(), Error> {
         self.ok_if_can_move(robot_id, direction)?;
         self.ok_if_move_ready(robot_id)?;
@@ -1047,12 +1049,14 @@ impl GameWorld {
         self.ok_if_attack_ready(robot_id).is_ok()
     }
 
-    /// Attacks the robot, dealing the unit's standard amount of damage.
+    /// Commands a robot to attack a unit, dealing the 
+    /// robot's standard amount of damage.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is a healer, or not a robot.
-    /// * GameError::InvalidAction - the robot cannot attack that location.
+    /// * GameError::InappropriateUnitType - the unit is not a robot.
+    /// * GameError::NoSuchUnit - either unit does not exist (inside the vision range).
+    /// * GameError::OutOfRange - the target does not lie within attack range of the robot.
+    /// * GameError::Overheated - the robot is not ready to attack again.
+    /// * GameError::TeamNotAllowed - the robot is not on the current player's team.
     pub fn attack(&mut self, robot_id: UnitID, target_id: UnitID) -> Result<(), Error> {
         self.ok_if_can_attack(robot_id, target_id)?;
         self.ok_if_attack_ready(robot_id)?;
@@ -1129,8 +1133,8 @@ impl GameWorld {
         unit.ok_if_can_worker_act()?;
         let harvest_loc = unit.location().map_location()?.add(direction);
         // Check to see if we can sense the harvest location, (e.g. it is on the map).
-        if !self.can_sense_location(harvest_loc) {
-            Err(GameError::LocationNotVisible)?;
+        if !self.is_on_map(harvest_loc) {
+            Err(GameError::LocationOffMap)?;
         }
         if self.karbonite_at(harvest_loc)? == 0 {
             Err(GameError::KarboniteDepositEmpty)?;
@@ -1148,11 +1152,12 @@ impl GameWorld {
     /// Harvests up to the worker's harvest amount of karbonite from the given
     /// location, adding it to the team's resource pool.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a worker.
-    /// * GameError::InvalidLocation - the location is off the map.
-    /// * GameError::InvalidAction - the worker is not ready to harvest, or there is no karbonite.
+    /// * GameError::KarboniteDepositEmpty - the location described contains no Karbonite.
+    /// * GameError::LocationOffMap - the location in the target direction is off the map.
+    /// * GameError::NoSuchUnit - the worker does not exist (within the vision range).
+    /// * GameError::Overheated - the worker has already performed an action this turn.
+    /// * GameError::TeamNotAllowed - the worker is not on the current player's team.
     pub fn harvest(&mut self, worker_id: UnitID, direction: Direction)
                    -> Result<(), Error> {
         self.ok_if_can_harvest(worker_id, direction)?;
@@ -1203,11 +1208,6 @@ impl GameWorld {
     /// can only blueprint factories, and rockets if Rocketry has been
     /// researched. The team must have sufficient karbonite in its resource
     /// pool. The worker cannot already have performed an action this round.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a worker, or the
-    ///   unit type is not a structure.
     pub fn can_blueprint(&self, worker_id: UnitID, unit_type: UnitType,
                          direction: Direction) -> bool {
         self.ok_if_can_blueprint(worker_id, unit_type, direction).is_ok()
@@ -1216,12 +1216,18 @@ impl GameWorld {
     /// Blueprints a unit of the given type in the given direction. Subtract
     /// cost of that unit from the team's resource pool.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a worker, or the
-    ///   unit type is not a factory or rocket.
-    /// * GameError::InvalidLocation - the location is off the map.
-    /// * GameError::InvalidAction - the worker is not ready to blueprint.
+    /// * GameError::CannotBuildOnMars - you cannot blueprint a structure on Mars.
+    /// * GameError::InappropriateUnitType - the unit is not a worker, or the unit type
+    ///   is not a structure.
+    /// * GameError::InsufficientKarbonite - your team does not have enough Karbonite to
+    ///   build the requested structure.
+    /// * GameError::LocationOffMap - the location in the target direction is off the map.
+    /// * GameError::LocationNotEmpty - the location in the target direction is already
+    ///   occupied.
+    /// * GameError::NoSuchUnit - the worker does not exist (within the vision range).
+    /// * GameError::Overheated - the worker has already performed an action this turn.
+    /// * GameError::ResearchNotUnlocked - you do not have the needed research to blueprint rockets.
+    /// * GameError::TeamNotAllowed - the worker is not on the current player's team.
     pub fn blueprint(&mut self, worker_id: UnitID, unit_type: UnitType,
                      direction: Direction) -> Result<(), Error> {
         self.ok_if_can_blueprint(worker_id, unit_type, direction)?;
@@ -1264,10 +1270,13 @@ impl GameWorld {
     /// amount. If raised to maximum health, the blueprint becomes a completed
     /// structure.
     ///
-    /// * GameError::NoSuchUnit - a unit does not exist.
-    /// * GameError::TeamNotAllowed - a unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit or blueprint is the wrong type.
-    /// * GameError::InvalidAction - the worker cannot build the blueprint.
+    /// * GameError::InappropriateUnitType - the unit is not a worker, or the blueprint
+    ///   is not a structure.
+    /// * GameError::NoSuchUnit - either unit does not exist (within the vision range).
+    /// * GameError::OutOfRange - the worker is not adjacent to the blueprint.
+    /// * GameError::Overheated - the worker has already performed an action this turn.
+    /// * GameError::StructureAlreadyBuilt - the blueprint has already been completed.
+    /// * GameError::TeamNotAllowed - either unit is not on the current player's team.
     pub fn build(&mut self, worker_id: UnitID, blueprint_id: UnitID)
                  -> Result<(), Error> {
         self.ok_if_can_build(worker_id, blueprint_id)?;
@@ -1302,6 +1311,14 @@ impl GameWorld {
 
     /// Commands the worker to repair a structure, repleneshing health to it. This
     /// can only be done to structures which have been fully built.
+    ///
+    /// * GameError::InappropriateUnitType - the unit is not a worker, or the target
+    ///   is not a structure.
+    /// * GameError::NoSuchUnit - either unit does not exist (within the vision range).
+    /// * GameError::OutOfRange - the worker is not adjacent to the structure.
+    /// * GameError::Overheated - the worker has already performed an action this turn.
+    /// * GameError::StructureNotYetBuilt - the structure has not been completed.
+    /// * GameError::TeamNotAllowed - either unit is not on the current player's team.
     pub fn repair(&mut self, worker_id: UnitID, structure_id: UnitID) -> Result<(), Error> {
         self.ok_if_can_repair(worker_id, structure_id)?;
         self.my_unit_mut(worker_id)?.worker_act();
@@ -1337,11 +1354,15 @@ impl GameWorld {
     /// Replicates a worker in the given direction. Subtracts the cost of the
     /// worker from the team's resource pool.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a worker.
-    /// * GameError::InvalidLocation - the location is off the map.
-    /// * GameError::InvalidAction - the worker is not ready to replicate.
+    /// * GameError::InsufficientKarbonite - your team does not have enough Karbonite for
+    ///   the worker to replicate.
+    /// * GameError::LocationOffMap - the location in the target direction is off the map.
+    /// * GameError::LocationNotEmpty - the location in the target direction is already
+    ///   occupied.
+    /// * GameError::NoSuchUnit - the worker does not exist (within the vision range).
+    /// * GameError::Overheated - the worker is not ready to replicate again.
+    /// * GameError::TeamNotAllowed - the worker is not on the current player's team.
     pub fn replicate(&mut self, worker_id: UnitID, direction: Direction)
                      -> Result<(), Error> {
         self.ok_if_can_replicate(worker_id, direction)?;
@@ -1388,13 +1409,14 @@ impl GameWorld {
        self.ok_if_javelin_ready(knight_id).is_ok()
     }
 
-    /// Javelins the robot, dealing the amount of ability damage.
+    /// Javelins the robot, dealing the knight's standard damage.
     ///
-    /// * GameError::InvalidResearchLevel - the ability has not been researched.
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a knight.
-    /// * GameError::InvalidAction - the knight cannot javelin that unit.
+    /// * GameError::NoSuchUnit - either unit does not exist (inside the vision range).
+    /// * GameError::OutOfRange - the target does not lie within ability range of the knight.
+    /// * GameError::Overheated - the knight is not ready to use javelin again.
+    /// * GameError::ResearchNotUnlocked - you do not have the needed research to use javelin.
+    /// * GameError::TeamNotAllowed - the knight is not on the current player's team.
     pub fn javelin(&mut self, knight_id: UnitID, target_id: UnitID) -> Result<(), Error> {
         self.ok_if_can_javelin(knight_id, target_id)?;
         self.ok_if_javelin_ready(knight_id)?;
@@ -1425,11 +1447,12 @@ impl GameWorld {
     /// begin the countdown at any time, including resetting the countdown
     /// to snipe a different location.
     ///
-    /// * GameError::InvalidResearchLevel - the ability has not been researched.
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a ranger.
-    /// * GameError::InvalidLocation - the location is off the map or on a different planet.
+    /// * GameError::LocationOffMap - the target location is not on this planet's map.
+    /// * GameError::NoSuchUnit - the ranger does not exist (inside the vision range).
+    /// * GameError::Overheated - the ranger is not ready to use snipe again.
+    /// * GameError::ResearchNotUnlocked - you do not have the needed research to use snipe.
+    /// * GameError::TeamNotAllowed - the sniper is not on the current player's team.
     pub fn begin_snipe(&mut self, ranger_id: UnitID, location: MapLocation)
                        -> Result<(), Error> {
         if !self.is_on_map(location) {
@@ -1494,11 +1517,14 @@ impl GameWorld {
 
     /// Blinks the mage to the given location.
     ///
-    /// * GameError::InvalidResearchLevel - the ability has not been researched.
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a mage.
-    /// * GameError::InvalidAction - the mage cannot blink to that location.
+    /// * GameError::LocationOffMap - the target location is not on this planet's map.
+    /// * GameError::LocationNotEmpty - the target location is already occupied.
+    /// * GameError::NoSuchUnit - the mage does not exist (inside the vision range).
+    /// * GameError::OutOfRange - the target does not lie within ability range of the mage.
+    /// * GameError::Overheated - the mage is not ready to use blink again.
+    /// * GameError::ResearchNotUnlocked - you do not have the needed research to use blink.
+    /// * GameError::TeamNotAllowed - the mage is not on the current player's team.
     pub fn blink(&mut self, mage_id: UnitID, location: MapLocation) -> Result<(), Error> {
         self.ok_if_can_blink(mage_id, location)?;
         self.ok_if_blink_ready(mage_id)?;
@@ -1537,9 +1563,12 @@ impl GameWorld {
 
     /// Commands the healer to heal the target robot.
     ///
-    /// * GameError::NoSuchUnit - a unit does not exist.
-    /// * GameError::TeamNotAllowed - either unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the healer or robot is not the right type.
+    /// * GameError::InappropriateUnitType - the unit is not a healer, or the target is not
+    ///   a robot.
+    /// * GameError::NoSuchUnit - either unit does not exist (inside the vision range).
+    /// * GameError::OutOfRange - the target does not lie within "attack" range of the healer.
+    /// * GameError::Overheated - the healer is not ready to heal again.
+    /// * GameError::TeamNotAllowed - either robot is not on the current player's team.
     pub fn heal(&mut self, healer_id: UnitID, robot_id: UnitID) -> Result<(), Error> {
         self.ok_if_can_heal(healer_id, robot_id)?;
         self.ok_if_heal_ready(healer_id)?;
@@ -1579,11 +1608,13 @@ impl GameWorld {
 
     /// Overcharges the robot, resetting the robot's cooldowns.
     ///
-    /// * GameError::InvalidResearchLevel - the ability has not been researched.
-    /// * GameError::NoSuchUnit - a unit does not exist.
-    /// * GameError::TeamNotAllowed - the first unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the healer or robot is not the right type.
-    /// * GameError::InvalidAction - the healer cannot overcharge that unit.
+    /// * GameError::InappropriateUnitType - the unit is not a healer, or the target is not
+    ///   a robot.
+    /// * GameError::NoSuchUnit - either unit does not exist (inside the vision range).
+    /// * GameError::OutOfRange - the target does not lie within ability range of the healer.
+    /// * GameError::Overheated - the healer is not ready to use overcharge again.
+    /// * GameError::ResearchNotUnlocked - you do not have the needed research to use overcharge.
+    /// * GameError::TeamNotAllowed - either robot is not on the current player's team.
     pub fn overcharge(&mut self, healer_id: UnitID, robot_id: UnitID)
                       -> Result<(), Error> {
         self.ok_if_can_overcharge(healer_id, robot_id)?;
@@ -1612,20 +1643,20 @@ impl GameWorld {
     /// Whether the robot can be loaded into the given structure's garrison. The robot
     /// must be ready to move and must be adjacent to the structure. The structure
     /// and the robot must be on the same team, and the structure must have space.
-    ///
-    /// * GameError::NoSuchUnit - a unit does not exist.
-    /// * GameError::TeamNotAllowed - either unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the robot or structure are the wrong type.
     pub fn can_load(&self, structure_id: UnitID, robot_id: UnitID) -> bool {
         self.ok_if_can_load(structure_id, robot_id).is_ok()
     }
 
     /// Loads the robot into the garrison of the structure.
     ///
-    /// * GameError::NoSuchUnit - a unit does not exist.
+    /// * GameError::GarrisonFull - the structure's garrison is already full.
+    /// * GameError::InappropriateUnitType - the first unit is not a structure, or the
+    ///   second unit is not a robot.
+    /// * GameError::NoSuchUnit - either unit does not exist (inside the vision range).
+    /// * GameError::Overheated - the robot is not ready to move again.
+    /// * GameError::OutOfRange - the robot is not adjacent to the structure.
     /// * GameError::TeamNotAllowed - either unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the robot or structure are the wrong type.
-    /// * GameError::InvalidAction - the robot cannot be loaded inside the structure.
+    /// * GameError::StructureNotYetBuilt - the structure has not yet been completed.
     pub fn load(&mut self, structure_id: UnitID, robot_id: UnitID)
                     -> Result<(), Error> {
         self.ok_if_can_load(structure_id, robot_id)?;
@@ -1659,11 +1690,15 @@ impl GameWorld {
     /// Unloads a robot from the garrison of the specified structure into an 
     /// adjacent space. Robots are unloaded in the order they were loaded.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * GameError::GarrisonEmpty - the structure's garrison is already empty.
     /// * GameError::InappropriateUnitType - the unit is not a structure.
-    /// * GameError::InvalidLocation - the location is off the map.
-    /// * GameError::InvalidAction - the rocket cannot degarrison a unit.
+    /// * GameError::LocationOffMap - the location in the target direction is off the map.
+    /// * GameError::LocationNotEmpty - the location in the target direction is already
+    ///   occupied.
+    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
+    /// * GameError::Overheated - the robot inside the structure is not ready to move again.
+    /// * GameError::TeamNotAllowed - either unit is not on the current player's team.
+    /// * GameError::StructureNotYetBuilt - the structure has not yet been completed.
     pub fn unload(&mut self, structure_id: UnitID, direction: Direction)
                   -> Result<(), Error> {
         self.ok_if_can_unload(structure_id, direction)?;
@@ -1701,11 +1736,14 @@ impl GameWorld {
 
     /// Starts producing the robot of the given type.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist.
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a factory, or the
-    ///   queued unit type is not a robot.
-    /// * GameError::InvalidAction - the factory cannot produce the robot.
+    /// * GameError::FactoryBusy - the factory is already producing a unit.
+    /// * GameError::InappropriateUnitType - the unit is not a factory, or the unit type
+    ///   is not a robot.
+    /// * GameError::InsufficientKarbonite - your team does not have enough Karbonite to
+    ///   produce the given robot.
+    /// * GameError::NoSuchUnit - the factory does not exist (inside the vision range).
+    /// * GameError::TeamNotAllowed - the factory is not on the current player's team.
+    /// * GameError::StructureNotYetBuilt - the factory has not yet been completed.
     pub fn produce_robot(&mut self, factory_id: UnitID, robot_type: UnitType)
                        -> Result<(), Error> {
         self.ok_if_can_produce_robot(factory_id, robot_type)?;
@@ -1787,10 +1825,14 @@ impl GameWorld {
     /// Launches the rocket into space, damaging the units adjacent to the
     /// takeoff location.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the unit is not a rocket.
-    /// * GameError::InvalidAction - the rocket cannot launch.
+    /// * GameError::LocationOffMap - the given location is off the map.
+    /// * GameError::LocationNotEmpty - the given location contains impassable terrain.
+    /// * GameError::NoSuchUnit - the rocket does not exist (inside the vision range).
+    /// * GameError::TeamNotAllowed - the rocket is not on the current player's team.
+    /// * GameError::RocketUsed - the rocket has already been used.
+    /// * GameError::SamePlanet - the rocket cannot fly to a location on the same planet.
+    /// * GameError::StructureNotYetBuilt - the rocket has not yet been completed.
     pub fn launch_rocket(&mut self, rocket_id: UnitID, destination: MapLocation)
                          -> Result<(), Error> {
         self.ok_if_can_launch_rocket(rocket_id, destination)?;
