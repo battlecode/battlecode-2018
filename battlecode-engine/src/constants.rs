@@ -46,6 +46,9 @@ pub const ORBIT_FLIGHT_MIN: u32 = 100;
 /// The maximum flight time due to the orbit.
 pub const ORBIT_FLIGHT_MAX: u32 = 400;
 
+/// At the start of this round, all units on Earth are destroyed.
+pub const APOCALYPSE_ROUND: Rounds = 750;
+
 // *********************************
 // ***** KARBONITE CONSTANTS *******
 // *********************************

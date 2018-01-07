@@ -1991,6 +1991,18 @@ impl GameWorld {
     fn end_round(&mut self) -> Result<(), Error> {
         self.round += 1;
 
+        // Annihilate Earth, if necessary.
+        if self.round == APOCALYPSE_ROUND {
+            // This logic got real weird. Rust made me do terrible, terrible things.
+            let mut units_to_destroy: Vec<UnitID> = vec![];
+            for unit in self.get_planet(Planet::Earth).units.keys() {
+                units_to_destroy.push(*unit);
+            }
+            for unit in units_to_destroy.iter() {
+                self.destroy_unit(*unit);
+            }
+        }
+
         // Update unit cooldowns.
         for unit in &mut self.get_planet_mut(Planet::Earth).units.values_mut() {
             unit.end_round();
@@ -3061,5 +3073,23 @@ mod tests {
         for victim in victims.iter() {
             assert_eq![world.unit_info(*victim).unwrap().health, 100];
         }
+    }
+
+    #[test]
+    fn test_apocalypse() {
+        let mut world = GameWorld::test_world();
+        let _ = world.create_unit(Team::Red, MapLocation::new(Planet::Earth, 0, 0), UnitType::Factory).unwrap();
+        let _ = world.create_unit(Team::Red, MapLocation::new(Planet::Mars, 0, 0), UnitType::Factory).unwrap();
+        
+        // Both units exist until round 750.
+        for _ in 1..750 {
+            assert_eq![world.get_planet(Planet::Earth).units.len(), 1];
+            assert_eq![world.get_planet(Planet::Mars).units.len(), 1];
+            assert![world.end_round().is_ok()];
+        }
+
+        // At the start of round 750, the Earth unit is destroyed.
+        assert_eq![world.get_planet(Planet::Earth).units.len(), 0];
+        assert_eq![world.get_planet(Planet::Mars).units.len(), 1];
     }
 }
