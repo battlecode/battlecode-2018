@@ -73,14 +73,14 @@ class DeriveMixins(object):
         self.methods.append(Method(
             type, self.c_name, "from_json", args,
             make_safe_call(type, f'serde_json::from_str::<{self.module}::{self.name}>', args),
-            docs=f'Deserialize a {self.name} from a JSON string',
+            docs=f'Deserialize a {self.type.to_python()} from a JSON string',
             static=True
         ))
  
         args = [Var(self.type.mut_ref(), 'this')]
         type = self.program.string.type.result()
         self.methods.append(Method(type, self.c_name, "to_json", args,
-            make_safe_call(type, 'serde_json::to_string', args), docs=f'Serialize a {self.name} to a JSON string'
+            make_safe_call(type, 'serde_json::to_string', args), docs=f'Serialize a {self.type.to_python()} to a JSON string'
         ))
 
         return self
@@ -90,14 +90,14 @@ class DeriveMixins(object):
         inner_args = [Var(_stringliteral.type, '"{:?}"')] + args
         type = self.program.string.type
         self.methods.append(Method(type, self.c_name, "debug", args,
-            make_safe_call(type, 'format!', inner_args), docs=f'Serialize a {self.name} to a JSON string',
+            make_safe_call(type, 'format!', inner_args), docs=f'Create a human-readable representation of a {self.type.to_python()}',
         pyname="__repr__"))
     
     def clone(self):
-        self.method(self.type, "clone", [], docs=f"Deep-copy a {self.name}", self_ref=True)
+        self.method(self.type, "clone", [], docs=f"Deep-copy a {self.type.to_python()}", self_ref=True)
 
     def eq(self):
-        self.method(boolean.type, "eq", [Var(self.type.ref(), "other")], docs=f"Deep-copy a {self.name}", pyname="__eq__", self_ref=True)
+        self.method(boolean.type, "eq", [Var(self.type.ref(), "other")], docs=f"Deep-copy a {self.type.to_python()}", pyname="__eq__", self_ref=True)
 
 class StructWrapper(DeriveMixins):
     def __init__(self, program, name, docs=''):
@@ -254,6 +254,7 @@ class StructWrapper(DeriveMixins):
         if self.constructor_:
             cargs = [Var(self.type, 'self')] + self.constructor_.args
             cinit = Function.pyentry(
+                self.type,
                 cargs,
                 '__init__',
                 self.constructor_.docs
@@ -263,6 +264,7 @@ class StructWrapper(DeriveMixins):
             cbody += '_check_errors()\n'
         else:
             cinit = Function.pyentry(
+                self.type,
                 [Var(self.type, 'self')],
                 '__init__',
                 'INVALID: this object cannot be constructed from Python code!'
@@ -271,7 +273,7 @@ class StructWrapper(DeriveMixins):
 
         constructor = cinit + s(cbody, indent=4) + '\n'
 
-        dinit = Function.pyentry([Var(self.type, 'self')], '__del__', 'Clean up the object.')
+        dinit = Function.pyentry(void.type, [Var(self.type, 'self')], '__del__', 'Clean up the object.')
         dbody = s(f'''\
             if hasattr(self, '_ptr'):
                 # if there was an error in the constructor, we'll have no _ptr

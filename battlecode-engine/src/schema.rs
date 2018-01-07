@@ -110,7 +110,7 @@ pub struct ViewerMessage {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ErrorMessage {
     /// The error string.
-    error: String
+    pub error: String
 }
 
 #[cfg(test)]

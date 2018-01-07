@@ -58,7 +58,7 @@ u32 = BuiltinWrapper('u32', 'uint32_t', 'int', '0')
 i32 = BuiltinWrapper('i32', 'int32_t', 'int', '0')
 u64 = BuiltinWrapper('u64', 'uint64_t', 'int', '0')
 i64 = BuiltinWrapper('i64', 'int64_t', 'int', '0')
-void = BuiltinWrapper('()', 'void', 'int', '()')
+void = BuiltinWrapper('()', 'void', 'None', '()')
 usize = BuiltinWrapper('usize', 'uintptr_t', 'int', '0')
 isize = BuiltinWrapper('isize', 'intptr_t', 'int', '0')
 
@@ -100,7 +100,7 @@ class StringType(Type):
     '''A rust String.'''
     def __init__(self, module):
         self.module = module
-        super().__init__('*const c_char', 'char*', 'char*', '0 as *const _')
+        super().__init__('*const c_char', 'char*', 'str', '0 as *const _')
     
     def wrap_c_value(self, name):
         pre = ''

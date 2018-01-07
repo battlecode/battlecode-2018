@@ -201,7 +201,9 @@ ViewerMessage = p.struct('schema::ViewerMessage')
 ViewerMessage.serialize()
 
 ErrorMessage = p.struct('schema::ErrorMessage')
+ErrorMessage.member(p.string.type, "error")
 ErrorMessage.serialize()
+ErrorMessage.debug()
 
 TurnApplication = p.struct("controller::TurnApplication")
 TurnApplication.member(StartTurnMessage.type, 'start_turn')
