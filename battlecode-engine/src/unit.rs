@@ -209,6 +209,19 @@ impl UnitType {
             _ => Err(GameError::InappropriateUnitType)?,
         }
     }
+
+    /// The value of a unit, as relevant to tiebreakers.
+    pub fn value(self) -> u32 {
+        match self {
+            UnitType::Worker => FACTORY_WORKER_COST,
+            UnitType::Knight => FACTORY_KNIGHT_COST,
+            UnitType::Ranger => FACTORY_RANGER_COST,
+            UnitType::Mage => FACTORY_MAGE_COST,
+            UnitType::Healer => FACTORY_HEALER_COST,
+            UnitType::Factory => BLUEPRINT_FACTORY_COST,
+            UnitType::Rocket => BLUEPRINT_ROCKET_COST,
+        }
+    }
 }
 
 /// A single unit in the game and all its associated properties.

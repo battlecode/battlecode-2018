@@ -3,6 +3,13 @@
 use super::world::Rounds;
 
 // *********************************
+// ****** GAME COSNTANTS ***********
+// *********************************
+
+/// After this many rounds have passed, the game ends.
+pub const MAX_GAME_LEN: Rounds = 1000;
+
+// *********************************
 // ****** MAP CONSTANTS ************
 // *********************************
 

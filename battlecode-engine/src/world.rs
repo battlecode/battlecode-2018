@@ -2,6 +2,7 @@
 
 use fnv::FnvHashMap;
 use std::cmp;
+use std::cmp::Ordering;
 use std::collections::HashMap;
 
 use super::constants::*;
@@ -2070,6 +2071,47 @@ impl GameWorld {
             self.apply(delta)?;
         }
         Ok(self.end_turn()?)
+    }
+
+    /// Determines if the game has ended, returning the winning team if so.
+    pub(crate) fn is_game_over(&self) -> Option<Team> {
+        // Calculate the value of all units.
+        let mut red_units_value = 0;
+        let mut blue_units_value = 0;
+        for unit in self.get_planet(Planet::Earth).units.values() {
+            match unit.team() {
+                Team::Red => { red_units_value += unit.unit_type().value(); },
+                Team::Blue => { blue_units_value += unit.unit_type().value(); },
+            }
+        }
+
+        // The game should not end if both teams still have units, and we are
+        // not at the round limit.
+        if self.round() <= MAX_GAME_LEN && red_units_value > 0 && blue_units_value > 0 {
+            return None;
+        }
+
+        // Tiebreakers proceed in the following order:
+        // 1. Highest combined value of all living units
+        match red_units_value.cmp(&blue_units_value) {
+            Ordering::Less => { return Some(Team::Blue); },
+            Ordering::Equal => {},
+            Ordering::Greater => { return Some(Team::Red); },
+        }
+
+        // 2. Most Karbonite
+        match self.get_team(Team::Red).karbonite.cmp(&self.get_team(Team::Blue).karbonite) {
+            Ordering::Less => { return Some(Team::Blue); },
+            Ordering::Equal => {},
+            Ordering::Greater => { return Some(Team::Red); },
+        }
+
+        // 3. "RNG"
+        match 6147 % 2 {
+            0 => Some(Team::Blue),
+            1 => Some(Team::Red),
+            _ => unreachable!(),
+        }
     }
 
     // ************************************************************************
