@@ -148,7 +148,7 @@ impl ResearchInfo {
 
     /// Resets the research queue to be empty. Returns true if the queue was
     /// not empty before, and false otherwise.
-    pub fn reset_queue(&mut self) -> bool {
+    pub(crate) fn reset_queue(&mut self) -> bool {
         let old_queue = self.queue.clone();
         let old_queue_len = old_queue.len();
         for branch in old_queue {
@@ -163,7 +163,7 @@ impl ResearchInfo {
     /// starts research if it is the first in the queue.
     ///
     /// Returns whether the branch was successfully added.
-    pub fn add_to_queue(&mut self, branch: &Branch) -> bool {
+    pub(crate) fn add_to_queue(&mut self, branch: &Branch) -> bool {
         let new_level = self.get_maybe_level(branch) + 1;
         let max_level = max_level(branch);
         if new_level > max_level {
@@ -183,7 +183,7 @@ impl ResearchInfo {
     /// and continues work on the next upgrade in the queue.
     ///
     /// Otherwise returns None.
-    pub fn end_round(&mut self) -> Result<Option<Branch>, Error> {
+    pub(crate) fn end_round(&mut self) -> Result<Option<Branch>, Error> {
         if let Some(rounds_left) = self.rounds_left {
             if rounds_left > 1 {
                 self.rounds_left = Some(rounds_left - 1);

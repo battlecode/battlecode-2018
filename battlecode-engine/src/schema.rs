@@ -1,11 +1,19 @@
 //! The "schema" for battlecode: all messages that can be sent to and from the engine.
 //! Serialized to JSON using Serde. This results in message parsers that are as fast
 //! as handwritten message parsing.
+//!
+//! The mesages in a typical game between the manager and a player:
+//! Manager --StartGameMessage--> Red Earth
+//! Manager <----TurnMessage----- Red Earth
+//! Manager --StartTurnMessage--> Red Earth
+//! Manager <----TurnMessage----- Red Earth
 
+use super::id_generator::*;
 use super::location::*;
+use super::research::*;
+use super::rockets::*;
 use super::unit::*;
-use super::world::GameWorld;
-use super::world::Team;
+use super::world::*;
 
 /// A single, atomic "change" in the game world.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -36,10 +44,10 @@ pub enum Delta {
     Move { robot_id: UnitID, direction: Direction },
     /// Commands the given healer to overcharge the specified robot.
     Overcharge { healer_id: UnitID, target_robot_id: UnitID },
+    /// Commands the given factory to produce a robot.
+    ProduceRobot { factory_id: UnitID, robot_type: UnitType },
     /// Queues the next level of the given research branch.
     QueueResearch { branch: UnitType },
-    /// Commands the given factory to enqueue production a robot.
-    QueueRobotProduction { factory_id: UnitID, robot_type: UnitType },
     /// Commands the given worker to repair the specified strucutre.
     Repair { worker_id: UnitID, structure_id: UnitID },
     /// Commands the given worker to replicate in the given direction.
@@ -48,22 +56,47 @@ pub enum Delta {
     ResetResearchQueue,
     /// Commands the given structure to unload a unit in the given direction.
     Unload { structure_id: UnitID, direction: Direction },
+    /// Writes the value at the index of this player's team array.
+    WriteTeamArray { index: usize, value: i32 },
     /// Nothing happens.
     Nothing,
 }
 
-/// A single game turn.
+/// The first message sent to each player by the manager.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct StartGameMessage {
+    /// The initial filtered world.
+    pub world: GameWorld,
+}
+
+/// A single game turn sent to the manager.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TurnMessage {
     /// The changes to the game world.
     pub changes: Vec<Delta>
 }
 
-/// A list of updates since the player's last turn.
+/// A list of updates since the player's last turn sent to the player.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct StartTurnMessage {
-    /// The current status of the GameWorld.
-    pub world: GameWorld
+    pub round: Rounds,
+
+    // PlanetInfo
+    pub visible_locs: Vec<Vec<bool>>,
+    pub units_changed: Vec<Unit>,
+    pub units_vanished: Vec<UnitID>,
+    pub unit_infos_changed: Vec<UnitInfo>,
+    pub unit_infos_vanished: Vec<UnitID>,
+    pub karbonite_changed: Vec<(MapLocation, u32)>,
+
+    // TeamInfo
+    pub id_generator: IDGenerator,
+    pub units_in_space_changed: Vec<Unit>,
+    pub units_in_space_vanished: Vec<UnitID>,
+    pub other_array_changed: Vec<(usize, i32)>,
+    pub rocket_landings: RocketLandingInfo,
+    pub research: ResearchInfo,
+    pub karbonite: u32,
 }
 
 /// A description of the current game state, for the viewer.

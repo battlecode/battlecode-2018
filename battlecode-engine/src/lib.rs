@@ -55,6 +55,9 @@ pub mod research;
 // see rockets.rs
 pub mod rockets;
 
+// see team_array.rs
+pub mod team_array;
+
 // see constants.rs
 pub mod constants;
 

@@ -17,7 +17,7 @@ use world::*;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct GameMap {
     /// Seed for random number generation.
-    pub seed: u32,
+    pub seed: u16,
     /// Earth map.
     pub earth_map: PlanetMap,
     /// Mars map.
@@ -36,11 +36,6 @@ impl GameMap {
         self.asteroids.validate()?;
         self.orbit.validate()?;
         Ok(())
-    }
-
-    /// Whether a location is on the map of either planet.
-    pub fn on_map(&self, location: MapLocation) -> bool {
-        self.earth_map.on_map(location) || self.mars_map.on_map(location)
     }
 
     pub fn test_map() -> GameMap {
@@ -204,24 +199,24 @@ impl PlanetMap {
         }
     }
 
-    pub fn test_map(planet: Planet) -> PlanetMap {
+    fn test_map(planet: Planet) -> PlanetMap {
         let mut map = PlanetMap {
             planet: planet,
             height: MAP_HEIGHT_MIN,
             width: MAP_WIDTH_MIN,
             is_passable_terrain: vec![vec![true; MAP_WIDTH_MIN]; MAP_HEIGHT_MIN],
-            initial_karbonite: vec![vec![0; MAP_WIDTH_MIN]; MAP_HEIGHT_MIN],
+            initial_karbonite: vec![vec![10; MAP_WIDTH_MIN]; MAP_HEIGHT_MIN],
             initial_units: vec![],
         };
 
         if planet == Planet::Earth {
             map.initial_units.push(Unit::new(
                 1, Team::Red, UnitType::Worker, 0,
-                MapLocation::new(planet, 1, 1)
+                Location::OnMap(MapLocation::new(planet, 1, 1))
             ).expect("invalid test unit"));
             map.initial_units.push(Unit::new(
                 2, Team::Blue, UnitType::Worker, 0,
-                MapLocation::new(planet, MAP_WIDTH_MIN as i32 - 1, MAP_HEIGHT_MIN as i32 - 1)
+                Location::OnMap(MapLocation::new(planet, MAP_WIDTH_MIN as i32 - 1, MAP_HEIGHT_MIN as i32 - 1))
             ).expect("invalid test unit"));
         };
 
@@ -280,7 +275,7 @@ impl AsteroidPattern {
     }
 
     /// Constructs a pseudorandom asteroid pattern given a map of Mars.
-    pub fn random(seed: u32, mars_map: &PlanetMap) -> AsteroidPattern {
+    pub fn random(seed: u16, mars_map: &PlanetMap) -> AsteroidPattern {
         let mut pattern: FnvHashMap<Rounds, AsteroidStrike> = FnvHashMap::default();
 
         let karbonite_gen = Range::new(ASTEROID_KARB_MIN, ASTEROID_KARB_MAX);
