@@ -5,5 +5,5 @@ import bc_build
 
 setup(
     ext_modules=[bc_build.ffibuilder.distutils_extension()],
-    test_suite = 'nose.collector',
+    test_suite = 'nose.collector',py_modules = ['battlecode']
 )
