@@ -268,7 +268,7 @@ mod tests {
     #[test]
     fn end_round_trivial() {
         let mut r = ResearchInfo::new();
-        assert_eq!(r.end_round().unwrap(), None);
+        assert_eq!(r.end_round(), None);
         assert_eq!(r.get_queue(), vec![]);
         assert_eq!(r.next_in_queue(), None);
         assert_eq!(r.rounds_left(), None);
@@ -291,16 +291,16 @@ mod tests {
         assert!(knight_cost_l2 > 1);
 
         // Proceed one round.
-        assert_eq!(r.end_round().unwrap(), None);
+        assert_eq!(r.end_round(), None);
         assert_eq!(r.rounds_left(), Some(knight_cost_l1 - 1));
         assert_eq!(r.get_level(&Branch::Knight), 0);
         assert_eq!(r.get_level(&Branch::Mage), 0);
 
         // Research the first Knight.
         for _ in 1..knight_cost_l1 - 1 {
-            assert_eq!(r.end_round().unwrap(), None);
+            assert_eq!(r.end_round(), None);
         }
-        assert_eq!(r.end_round().unwrap(), Some(Branch::Knight));
+        assert_eq!(r.end_round(), Some(Branch::Knight));
         assert_eq!(r.get_queue(), vec![Branch::Knight, Branch::Mage]);
         assert_eq!(r.rounds_left(), Some(knight_cost_l2));
         assert_eq!(r.get_level(&Branch::Knight), 1);
@@ -308,9 +308,9 @@ mod tests {
 
         // Research the second Knight.
         for _ in 1..knight_cost_l2 {
-            assert_eq!(r.end_round().unwrap(), None);
+            assert_eq!(r.end_round(), None);
         }
-        assert_eq!(r.end_round().unwrap(), Some(Branch::Knight));
+        assert_eq!(r.end_round(), Some(Branch::Knight));
         assert_eq!(r.get_queue(), vec![Branch::Mage]);
         assert_eq!(r.rounds_left(), Some(mage_cost));
         assert_eq!(r.get_level(&Branch::Knight), 2);
@@ -318,9 +318,9 @@ mod tests {
 
         // Finish researching the Mage. The queue is now empty.
         for _ in 1..mage_cost {
-            assert_eq!(r.end_round().unwrap(), None);
+            assert_eq!(r.end_round(), None);
         }
-        assert_eq!(r.end_round().unwrap(), Some(Branch::Mage));
+        assert_eq!(r.end_round(), Some(Branch::Mage));
         assert_eq!(r.rounds_left(), None);
         assert_eq!(r.get_level(&Branch::Knight), 2);
         assert_eq!(r.get_level(&Branch::Mage), 1);
@@ -340,14 +340,14 @@ mod tests {
         assert!(knight_cost > 1);
 
         // Proceed one round.
-        assert_eq!(r.end_round().unwrap(), None);
+        assert_eq!(r.end_round(), None);
         assert_eq!(r.rounds_left(), Some(knight_cost - 1));
         assert_eq!(r.get_level(&Branch::Knight), 0);
         assert_eq!(r.get_level(&Branch::Mage), 0);
 
         // Reset the queue and proceed a round.
         assert!(r.reset_queue());
-        assert_eq!(r.end_round().unwrap(), None);
+        assert_eq!(r.end_round(), None);
         assert_eq!(r.rounds_left(), None);
         assert_eq!(r.get_level(&Branch::Knight), 0);
         assert_eq!(r.get_level(&Branch::Mage), 0);
@@ -356,7 +356,7 @@ mod tests {
         assert!(r.add_to_queue(&Branch::Knight));
         assert!(r.add_to_queue(&Branch::Mage));
         for _ in 0..knight_cost + mage_cost {
-            r.end_round().unwrap();
+            r.end_round();
         }
         assert_eq!(r.rounds_left(), None);
         assert_eq!(r.get_level(&Branch::Knight), 1);

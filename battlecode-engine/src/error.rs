@@ -146,6 +146,66 @@ macro_rules! assert_lte {
     });
 }
 
+/// Asserts that $left is greater than or equal to $right. More informative
+/// than assert!(left <= right), since it'll output the $left and $right values
+/// when panicking.
+#[cfg(test)]
+macro_rules! assert_gte {
+    ($left:expr, $right:expr) => ({
+        match (&$left, &$right) {
+            (left_val, right_val) => {
+                if !(*left_val >= *right_val) {
+                    panic!(r#"assertion failed: `(left >= right)`
+  left: `{:?}`,
+ right: `{:?}`"#, left_val, right_val)
+                }
+            }
+        }
+    });
+    ($left:expr, $right:expr, $($arg:tt)+) => ({
+        match (&($left), &($right)) {
+            (left_val, right_val) => {
+                if !(*left_val >= *right_val) {
+                    panic!(r#"assertion failed: `(left >= right)`
+  left: `{:?}`,
+ right: `{:?}`: {}"#, left_val, right_val,
+                           format_args!($($arg)+))
+                }
+            }
+        }
+    });
+}
+
+/// Asserts that $left is less than $right. More informative than
+/// assert!(left <= right), since it'll output the $left and $right values
+/// when panicking.
+#[cfg(test)]
+macro_rules! assert_lt {
+    ($left:expr, $right:expr) => ({
+        match (&$left, &$right) {
+            (left_val, right_val) => {
+                if !(*left_val < *right_val) {
+                    panic!(r#"assertion failed: `(left < right)`
+  left: `{:?}`,
+ right: `{:?}`"#, left_val, right_val)
+                }
+            }
+        }
+    });
+    ($left:expr, $right:expr, $($arg:tt)+) => ({
+        match (&($left), &($right)) {
+            (left_val, right_val) => {
+                if !(*left_val < *right_val) {
+                    panic!(r#"assertion failed: `(left < right)`
+  left: `{:?}`,
+ right: `{:?}`: {}"#, left_val, right_val,
+                           format_args!($($arg)+))
+                }
+            }
+        }
+    });
+}
+
 /// Asserts that $left is greater than $right. More informative than
 /// assert!(left > right), since it'll output the $left and $right values
 /// when panicking.
