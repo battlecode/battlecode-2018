@@ -2,6 +2,7 @@
 
 use fnv::FnvHashMap;
 use std::cmp;
+use std::cmp::Ordering;
 use std::collections::HashMap;
 
 use super::constants::*;
@@ -1991,6 +1992,15 @@ impl GameWorld {
     fn end_round(&mut self) -> Result<(), Error> {
         self.round += 1;
 
+        // Annihilate Earth, if necessary.
+        if self.round == APOCALYPSE_ROUND {
+            // Destroy all units by clearing Earth's unit data structures.
+            let earth = self.get_planet_mut(Planet::Earth);
+            earth.units.clear();
+            earth.unit_infos.clear();
+            earth.units_by_loc.clear();
+        }
+
         // Update unit cooldowns.
         for unit in &mut self.get_planet_mut(Planet::Earth).units.values_mut() {
             unit.end_round();
@@ -2058,6 +2068,60 @@ impl GameWorld {
             self.apply(delta)?;
         }
         Ok(self.end_turn()?)
+    }
+
+    /// Determines if the game has ended, returning the winning team if so.
+    pub(crate) fn is_game_over(&self) -> Option<Team> {
+        // Calculate the value of all units.
+        let mut red_units_value = 0;
+        let mut blue_units_value = 0;
+        for unit in self.get_planet(Planet::Earth).units.values() {
+            match unit.team() {
+                Team::Red => { red_units_value += unit.unit_type().value(); },
+                Team::Blue => { blue_units_value += unit.unit_type().value(); },
+            }
+        }
+        for unit in self.get_planet(Planet::Mars).units.values() {
+            match unit.team() {
+                Team::Red => { red_units_value += unit.unit_type().value(); },
+                Team::Blue => { blue_units_value += unit.unit_type().value(); },
+            }
+        }
+        for unit in self.get_team(Team::Red).units_in_space.values() {
+            red_units_value += unit.unit_type().value();
+        }
+        for unit in self.get_team(Team::Blue).units_in_space.values() {
+            blue_units_value += unit.unit_type().value();
+        }
+
+        // The game should not end if both teams still have units, and we are
+        // not at the round limit.
+        if self.round() <= MAX_GAME_LEN && red_units_value > 0 && blue_units_value > 0 {
+            return None;
+        }
+
+        // Tiebreakers proceed in the following order:
+        // 1. Highest combined value of all living units
+        match red_units_value.cmp(&blue_units_value) {
+            Ordering::Less => { return Some(Team::Blue); },
+            Ordering::Equal => {},
+            Ordering::Greater => { return Some(Team::Red); },
+        }
+
+        // 2. Most Karbonite
+        match self.get_team(Team::Red).karbonite.cmp(&self.get_team(Team::Blue).karbonite) {
+            Ordering::Less => { return Some(Team::Blue); },
+            Ordering::Equal => {},
+            Ordering::Greater => { return Some(Team::Red); },
+        }
+
+        // 3. "RNG"
+        // TODO: create an unpredictably seeded RNG for this
+        match 6147 % 2 {
+            0 => Some(Team::Blue),
+            1 => Some(Team::Red),
+            _ => unreachable!(),
+        }
     }
 
     // ************************************************************************
@@ -3061,5 +3125,63 @@ mod tests {
         for victim in victims.iter() {
             assert_eq![world.unit_info(*victim).unwrap().health, 100];
         }
+    }
+
+    #[test]
+    fn test_apocalypse() {
+        let mut world = GameWorld::test_world();
+        let _ = world.create_unit(Team::Red, MapLocation::new(Planet::Earth, 0, 0), UnitType::Factory).unwrap();
+        let _ = world.create_unit(Team::Red, MapLocation::new(Planet::Mars, 0, 0), UnitType::Factory).unwrap();
+        
+        // Both units exist until round 750.
+        for _ in 1..750 {
+            assert_eq![world.get_planet(Planet::Earth).units.len(), 1];
+            assert_eq![world.get_planet(Planet::Mars).units.len(), 1];
+            assert![world.end_round().is_ok()];
+        }
+
+        // At the start of round 750, the Earth unit is destroyed.
+        assert_eq![world.get_planet(Planet::Earth).units.len(), 0];
+        assert_eq![world.get_planet(Planet::Mars).units.len(), 1];
+    }
+
+    #[test]
+    fn test_is_game_over() {
+        let mut world = GameWorld::test_world();
+
+        // Initially, neither player has units, so the game is over, but it's a tossup who won.
+        assert![world.is_game_over().is_some()];
+
+        // If we give both red and blue units, the game is not over.
+        world.create_unit(Team::Red, MapLocation::new(Planet::Earth, 0, 0), UnitType::Knight).unwrap();
+        world.create_unit(Team::Blue, MapLocation::new(Planet::Earth, 0, 0), UnitType::Knight).unwrap();
+        assert![world.is_game_over().is_none()];
+
+        // If we advance 1000 rounds, the game should be over, and it's again a tossup.
+        for _ in 0..1000 {
+            assert![world.end_round().is_ok()];
+        }
+        assert![world.is_game_over().is_some()];
+        // The apocalypse has now destroyed the preexisting units.
+
+        // Giving red some extra Karbonite means a victory for red.
+        world.get_team_mut(Team::Red).karbonite += 10;
+        assert![world.is_game_over().is_some()];
+        assert_eq![world.is_game_over().unwrap(), Team::Red];
+
+        // Giving blue even more Karbonite lets blue win.
+        world.get_team_mut(Team::Blue).karbonite += 20;
+        assert![world.is_game_over().is_some()];
+        assert_eq![world.is_game_over().unwrap(), Team::Blue];
+
+        // Giving red a unit lets red win.
+        world.create_unit(Team::Red, MapLocation::new(Planet::Earth, 0, 0), UnitType::Knight).unwrap();
+        assert![world.is_game_over().is_some()];
+        assert_eq![world.is_game_over().unwrap(), Team::Red];
+
+        // Giving blue a more expensive unit lets blue win.
+        world.create_unit(Team::Blue, MapLocation::new(Planet::Mars, 0, 0), UnitType::Factory).unwrap();
+        assert![world.is_game_over().is_some()];
+        assert_eq![world.is_game_over().unwrap(), Team::Blue];
     }
 }

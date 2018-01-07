@@ -3,6 +3,13 @@
 use super::world::Rounds;
 
 // *********************************
+// ****** GAME COSNTANTS ***********
+// *********************************
+
+/// After this many rounds have passed, the game ends.
+pub const MAX_GAME_LEN: Rounds = 1000;
+
+// *********************************
 // ****** MAP CONSTANTS ************
 // *********************************
 
@@ -45,6 +52,9 @@ pub const ORBIT_FLIGHT_MIN: u32 = 100;
 
 /// The maximum flight time due to the orbit.
 pub const ORBIT_FLIGHT_MAX: u32 = 400;
+
+/// At the start of this round, all units on Earth are destroyed.
+pub const APOCALYPSE_ROUND: Rounds = 750;
 
 // *********************************
 // ***** KARBONITE CONSTANTS *******

@@ -774,6 +774,11 @@ impl GameController {
         // Serialize the game state to send to the viewer
         let viewer_message = ViewerMessage { world: self.world.clone() };
         Ok((start_turn_message, viewer_message))
+    }    
+    
+    /// Determines if the game has ended, returning the winning team if so.
+    pub fn is_game_over(&self) -> Option<Team> {
+        self.world.is_game_over()
     }
 }
 
