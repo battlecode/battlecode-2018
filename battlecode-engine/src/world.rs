@@ -951,9 +951,7 @@ impl GameWorld {
     }
 
     fn ok_if_move_ready(&self, robot_id: UnitID) -> Result<(), Error> {
-        if !self.my_unit(robot_id)?.is_move_ready()? {
-            Err(GameError::Overheated)?;
-        }
+        self.my_unit(robot_id)?.ok_if_move_ready()?;
         Ok(())
     }
 
@@ -1023,9 +1021,7 @@ impl GameWorld {
         if !target_loc.on_map() {
             Err(GameError::UnitNotOnMap)?;
         }
-        if !self.my_unit(robot_id)?.is_within_attack_range(target_loc)? {
-            Err(GameError::OutOfRange)?;
-        }
+        self.my_unit(robot_id)?.ok_if_within_attack_range(target_loc)?;
         Ok(())
     }
 
@@ -1037,9 +1033,7 @@ impl GameWorld {
     }
 
     fn ok_if_attack_ready(&self, robot_id: UnitID) -> Result<(), Error> {
-        if !self.my_unit(robot_id)?.is_attack_ready()? {
-            Err(GameError::Overheated)?;
-        }
+        self.my_unit(robot_id)?.ok_if_attack_ready()?;
         Ok(())
     }
 
@@ -1128,9 +1122,7 @@ impl GameWorld {
 
     fn ok_if_can_harvest(&self, worker_id: UnitID, direction: Direction) -> Result<(), Error> {
         let unit = self.my_unit(worker_id)?;
-        if !unit.can_worker_act() {
-            Err(GameError::Overheated)?;
-        }
+        unit.ok_if_can_worker_act()?;
         let harvest_loc = unit.location().map_location()?.add(direction);
         // Check to see if we can sense the harvest location, (e.g. it is on the map).
         if !self.can_sense_location(harvest_loc) {
@@ -1178,9 +1170,7 @@ impl GameWorld {
             Err(GameError::InappropriateUnitType)?;
         }
         let unit = self.my_unit(worker_id)?;
-        if !unit.can_worker_act() {
-            Err(GameError::Overheated)?;
-        }
+        unit.ok_if_can_worker_act()?;
         let build_loc = unit.location().map_location()?.add(direction);
         // Check to see if we can sense the build location, (e.g. it is on the map).
         if !self.can_sense_location(build_loc) {
@@ -1247,9 +1237,7 @@ impl GameWorld {
         let worker = self.my_unit(worker_id)?;
         let blueprint = self.my_unit(blueprint_id)?;
         // The worker must be able to act.
-        if !worker.can_worker_act() {
-            Err(GameError::Overheated)?;
-        }
+        worker.ok_if_can_worker_act()?;
         // The worker must be adjacent to the blueprint.
         if !worker.location().is_adjacent_to(blueprint.location()) {
             Err(GameError::OutOfRange)?;
@@ -1284,16 +1272,14 @@ impl GameWorld {
             worker.worker_act();
             worker.worker_build_health()?
         };
-        self.my_unit_mut(blueprint_id)?.be_built(build_health)?;
+        self.my_unit_mut(blueprint_id)?.be_built(build_health);
         Ok(())
     }
 
     fn ok_if_can_repair(&self, worker_id: UnitID, structure_id: UnitID) -> Result<(), Error> {
         let worker = self.my_unit(worker_id)?;
         let structure = self.my_unit(structure_id)?;
-        if !worker.can_worker_act() {
-            Err(GameError::Overheated)?;
-        }
+        worker.ok_if_can_worker_act()?;
         if !worker.location().is_adjacent_to(structure.location()) {
             Err(GameError::OutOfRange)?;
         }
@@ -1322,12 +1308,7 @@ impl GameWorld {
     fn ok_if_can_replicate(&self, worker_id: UnitID, direction: Direction) 
                            -> Result<(), Error> {
         let worker = self.my_unit(worker_id)?;
-        if !worker.can_worker_act() {
-            Err(GameError::Overheated)?;
-        }
-        if !worker.is_ability_ready()? {
-            Err(GameError::Overheated)?;
-        }
+        worker.ok_if_ability_ready()?;
         if self.karbonite() < worker.unit_type().replicate_cost()? {
             Err(GameError::InsufficientKarbonite)?;
         }
@@ -1378,11 +1359,8 @@ impl GameWorld {
     fn ok_if_can_javelin(&self, knight_id: UnitID, target_id: UnitID) -> Result<(), Error> {
         let knight = self.my_unit(knight_id)?;
         let target = self.unit_info(target_id)?;
-        knight.ok_if_javelin()?;
-        
-        if !knight.location().is_within_range(knight.ability_range()?, target.location) {
-            Err(GameError::OutOfRange)?;
-        }
+        knight.ok_if_javelin_unlocked()?;
+        knight.ok_if_within_ability_range(target.location)?;
         Ok(())
     }
 
@@ -1395,10 +1373,8 @@ impl GameWorld {
 
     fn ok_if_javelin_ready(&self, knight_id: UnitID) -> Result<(), Error> {
         let knight = self.my_unit(knight_id)?;
-        knight.ok_if_javelin()?;
-        if !knight.is_ability_ready()? {
-            Err(GameError::Overheated)?;
-        }
+        knight.ok_if_javelin_unlocked()?;
+        knight.ok_if_ability_ready()?;
         Ok(())
     }
 
@@ -1429,10 +1405,8 @@ impl GameWorld {
 
     fn ok_if_begin_snipe_ready(&self, ranger_id: UnitID) -> Result<(), Error> {
        let ranger = self.my_unit(ranger_id)?;
-       ranger.ok_if_snipe()?;
-       if !ranger.is_ability_ready()? {
-           Err(GameError::Overheated)?;
-       }
+       ranger.ok_if_snipe_unlocked()?;
+       ranger.ok_if_ability_ready()?;
        Ok(())
     }
 
@@ -1485,11 +1459,8 @@ impl GameWorld {
     
     fn ok_if_can_blink(&self, mage_id: UnitID, location: MapLocation) -> Result<(), Error> {
         let mage = self.my_unit(mage_id)?;
-        mage.ok_if_blink()?;
-        
-        if !mage.location().is_within_range(mage.ability_range()?, OnMap(location)) {
-            Err(GameError::OutOfRange)?;
-        }
+        mage.ok_if_blink_unlocked()?;
+        mage.ok_if_within_ability_range(OnMap(location))?;
         if !self.is_occupiable(location)? {
             Err(GameError::LocationNotEmpty)?;
         }
@@ -1506,10 +1477,8 @@ impl GameWorld {
 
     fn ok_if_blink_ready(&self, mage_id: UnitID) -> Result<(), Error> {
         let mage = self.my_unit(mage_id)?;
-        mage.ok_if_blink()?;
-        if !mage.is_ability_ready()? {
-            Err(GameError::Overheated)?;
-        }
+        mage.ok_if_blink_unlocked()?;
+        mage.ok_if_ability_ready()?;
         Ok(())
     }
 
@@ -1540,7 +1509,9 @@ impl GameWorld {
     // ************************************************************************
 
     fn ok_if_can_heal(&self, healer_id: UnitID, robot_id: UnitID) -> Result<(), Error> {
-        Ok(self.ok_if_can_attack(healer_id, robot_id)?)
+        self.ok_if_can_attack(healer_id, robot_id)?;
+        self.my_unit(robot_id)?.ok_if_robot()?;
+        Ok(())
     }
 
     /// Whether the healer can heal the given robot, without taking into
@@ -1563,9 +1534,8 @@ impl GameWorld {
     /// Commands the healer to heal the target robot.
     ///
     /// * GameError::NoSuchUnit - a unit does not exist.
-    /// * GameError::TeamNotAllowed - the first unit is not on the current player's team.
+    /// * GameError::TeamNotAllowed - either unit is not on the current player's team.
     /// * GameError::InappropriateUnitType - the healer or robot is not the right type.
-    /// * GameError::InvalidAction - the healer cannot heal that unit.
     pub fn heal(&mut self, healer_id: UnitID, robot_id: UnitID) -> Result<(), Error> {
         self.ok_if_can_heal(healer_id, robot_id)?;
         self.ok_if_heal_ready(healer_id)?;
@@ -1577,12 +1547,9 @@ impl GameWorld {
                             -> Result<(), Error> {
         let healer = self.my_unit(healer_id)?;
         let robot = self.my_unit(robot_id)?;
-        healer.ok_if_overcharge()?;
-        robot.ok_if_ability()?;
-
-        if !healer.location().is_within_range(healer.ability_range()?, robot.location()) {
-            Err(GameError::OutOfRange)?;
-        }
+        healer.ok_if_overcharge_unlocked()?;
+        healer.ok_if_within_ability_range(robot.location())?;
+        robot.ok_if_robot()?;
         Ok(())
     }
 
@@ -1595,10 +1562,8 @@ impl GameWorld {
 
     fn ok_if_overcharge_ready(&self, healer_id: UnitID) -> Result<(), Error> {
         let healer = self.my_unit(healer_id)?;
-        healer.ok_if_overcharge()?;
-        if !healer.is_ability_ready()? {
-            Err(GameError::Overheated)?;
-        }
+        healer.ok_if_overcharge_unlocked()?;
+        healer.ok_if_ability_ready()?;
         Ok(())
     }
 
@@ -1620,7 +1585,7 @@ impl GameWorld {
         self.ok_if_can_overcharge(healer_id, robot_id)?;
         self.ok_if_overcharge_ready(healer_id)?;
         self.my_unit_mut(healer_id)?.overcharge();
-        self.my_unit_mut(robot_id)?.reset_ability_cooldown()?;
+        self.my_unit_mut(robot_id)?.reset_all_cooldowns();
         Ok(())
     }
 
@@ -1632,9 +1597,7 @@ impl GameWorld {
                       -> Result<(), Error> {
         let robot = self.my_unit(robot_id)?;
         let structure = self.my_unit(structure_id)?;
-        if !robot.is_move_ready()? {
-            Err(GameError::Overheated)?;
-        }
+        robot.ok_if_move_ready()?;
         structure.ok_if_can_load()?;
         if !structure.location().is_adjacent_to(robot.location()) {
             Err(GameError::OutOfRange)?;
@@ -1663,7 +1626,7 @@ impl GameWorld {
                     -> Result<(), Error> {
         self.ok_if_can_load(structure_id, robot_id)?;
         self.remove_unit(robot_id);
-        self.my_unit_mut(structure_id)?.load(robot_id)?;
+        self.my_unit_mut(structure_id)?.load(robot_id);
         self.my_unit_mut(robot_id)?.board_rocket(structure_id);
         self.place_unit(robot_id);
         Ok(())
@@ -1678,9 +1641,7 @@ impl GameWorld {
         if !self.is_occupiable(loc)? {
             Err(GameError::LocationNotEmpty)?;
         }
-        if !robot.is_move_ready()? {
-            Err(GameError::Overheated)?;
-        }
+        robot.ok_if_move_ready()?;
         Ok(())
     }
 
@@ -1704,7 +1665,7 @@ impl GameWorld {
         self.ok_if_can_unload(structure_id, direction)?;
         let (robot_id, structure_loc) = {
             let structure = self.my_unit_mut(structure_id)?;
-            (structure.unload_unit()?, structure.location().map_location()?)
+            (structure.unload_unit(), structure.location().map_location()?)
         };
         let robot_loc = structure_loc.add(direction);
         self.my_unit_mut(robot_id)?.move_to(robot_loc);
@@ -1780,7 +1741,7 @@ impl GameWorld {
 
             self.get_planet_mut(planet).unit_infos.insert(id, new_unit.info());
             self.get_planet_mut(planet).units.insert(id, new_unit);
-            self.get_unit_mut(factory_id).unwrap().load(id).expect("unit can load");
+            self.get_unit_mut(factory_id).unwrap().load(id);
         }
     }
 
@@ -1800,9 +1761,7 @@ impl GameWorld {
             Err(GameError::SamePlanet)?;
         }
         let rocket = self.my_unit(rocket_id)?;
-        if rocket.rocket_is_used()? {
-            Err(GameError::RocketUsed)?;
-        }
+        rocket.ok_if_can_launch_rocket()?;
         let map = &self.starting_map(destination.planet);
         if !map.on_map(destination) {
             Err(GameError::LocationOffMap)?;

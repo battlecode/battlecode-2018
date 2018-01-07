@@ -405,7 +405,9 @@ impl Unit {
     // ************************************************************************
 
     /// Ok if the unit is a robot. Errors otherwise.
-    fn ok_if_robot(&self) -> Result<(), Error> {
+    ///
+    /// * InappropriateUnitType - the unit is not a robot.
+    pub(crate) fn ok_if_robot(&self) -> Result<(), Error> {
         if self.unit_type.is_robot() {
             Ok(())
         } else {
@@ -414,7 +416,9 @@ impl Unit {
     }
 
     /// Ok if the unit is a structure. Errors otherwise.
-    fn ok_if_structure(&self) -> Result<(), Error> {
+    ///
+    /// * InappropriateUnitType - the unit is not a structure.
+    pub(crate) fn ok_if_structure(&self) -> Result<(), Error> {
         if self.unit_type.is_structure() {
             Ok(())
         } else {
@@ -423,7 +427,9 @@ impl Unit {
     }
 
     /// Ok if the unit is the given type. Errors otherwise.
-    fn ok_if_unit_type(&self, unit_type: UnitType) -> Result<(), Error> {
+    ///
+    /// * InappropriateUnitType - the unit is not the specified type.
+    pub(crate) fn ok_if_unit_type(&self, unit_type: UnitType) -> Result<(), Error> {
         if self.unit_type == unit_type {
             Ok(())
         } else {
@@ -437,7 +443,7 @@ impl Unit {
 
     /// The damage inflicted by the robot during a normal attack.
     ///
-    /// Errors if the unit is not a robot.
+    /// * InappropriateUnitType - the unit is not a robot.
     pub fn damage(&self) -> Result<i32, Error> {
         self.ok_if_robot()?;
         Ok(self.damage)
@@ -445,7 +451,7 @@ impl Unit {
 
     /// The attack range.
     ///
-    /// Errors if the unit is not a robot.
+    /// * InappropriateUnitType - the unit is not a robot.
     pub fn attack_range(&self) -> Result<u32, Error> {
         self.ok_if_robot()?;
         Ok(self.attack_range)
@@ -453,7 +459,7 @@ impl Unit {
 
     /// The movement heat.
     ///
-    /// Errors if the unit is not a robot.
+    /// * InappropriateUnitType - the unit is not a robot.
     pub fn movement_heat(&self) -> Result<u32, Error> {
         self.ok_if_robot()?;
         Ok(self.movement_heat)
@@ -461,7 +467,7 @@ impl Unit {
 
     /// The attack heat.
     ///
-    /// Errors if the unit is not a robot.
+    /// * InappropriateUnitType - the unit is not a robot.
     pub fn attack_heat(&self) -> Result<u32, Error> {
         self.ok_if_robot()?;
         Ok(self.attack_heat)
@@ -469,7 +475,7 @@ impl Unit {
 
     /// The movement cooldown.
     ///
-    /// Errors if the unit is not a robot.
+    /// * InappropriateUnitType - the unit is not a robot.
     pub fn movement_cooldown(&self) -> Result<u32, Error> {
         self.ok_if_robot()?;
         Ok(self.movement_cooldown)
@@ -477,48 +483,58 @@ impl Unit {
 
     /// The attack cooldown.
     ///
-    /// Errors if the unit is not a robot.
+    /// * InappropriateUnitType - the unit is not a robot.
     pub fn attack_cooldown(&self) -> Result<u32, Error> {
         self.ok_if_robot()?;
         Ok(self.attack_cooldown)
     }
 
-    /// Whether the unit is ready to move. The movement heat must be lower than
-    /// the maximum heat to attack.
+    /// Ok if the unit is ready to move. The movement heat must be
+    /// lower than the maximum heat to attack.
     ///
-    /// Errors if the unit is not a robot.
-    pub(crate) fn is_move_ready(&self) -> Result<bool, Error> {
-        Ok(self.movement_heat()? < MAX_HEAT_TO_ACT)
+    /// * InappropriateUnitType - the unit is not a robot.
+    /// * Overheated - the unit is not ready to move.
+    pub(crate) fn ok_if_move_ready(&self) -> Result<(), Error> {
+        if self.movement_heat()? >= MAX_HEAT_TO_ACT {
+            Err(GameError::Overheated)?;
+        }
+        Ok(())
     }
 
     /// Updates the unit's location as it if has moved, and increases the
     /// movement heat.
-    /// 
-    /// Errors if the unit is not a robot, or not ready to move.
     pub(crate) fn move_to(&mut self, location: MapLocation) {
         self.movement_heat += self.movement_cooldown;
         self.location = OnMap(location);
     }
 
-    /// Tests whether the robot can attack the target location.
+    /// Ok if the robot can attack the target location.
     ///
-    /// Errors if the unit is not a robot.
-    pub(crate) fn is_within_attack_range(&self, target_loc: Location) -> Result<bool, Error> {
+    /// * InappropriateUnitType - the unit is not a robot.
+    /// * OutOfRange - the target location is not in range.
+    pub(crate) fn ok_if_within_attack_range(&self, target_loc: Location) -> Result<(), Error> {
         self.ok_if_robot()?;
         if self.unit_type() == UnitType::Ranger {
             if self.location().is_within_range(self.cannot_attack_range, target_loc) {
-                return Ok(false);
+                Err(GameError::OutOfRange)?;
             }
         }
-        Ok(self.location().is_within_range(self.attack_range()?, target_loc))
+        if !self.location().is_within_range(self.attack_range()?, target_loc) {
+            Err(GameError::OutOfRange)?;
+        }
+        Ok(())
     }
 
-    /// Whether the unit is ready to attack. The attack heat must be lower than
+    /// Ok if the unit is ready to attack. The attack heat must be lower than
     /// the maximum heat to act.
     ///
-    /// Errors if the unit is not a robot.
-    pub(crate) fn is_attack_ready(&self) -> Result<bool, Error> {
-        Ok(self.attack_heat()? < MAX_HEAT_TO_ACT)
+    /// * InappropriateUnitType - the unit is not a robot.
+    /// * Overheated - the unit is not ready to attack.
+    pub(crate) fn ok_if_attack_ready(&self) -> Result<(), Error> {
+        if self.attack_heat()? >= MAX_HEAT_TO_ACT {
+            Err(GameError::Overheated)?;
+        }
+        Ok(())        
     }
 
     /// Updates the unit as if it has attacked, and increases the attack heat.
@@ -549,13 +565,20 @@ impl Unit {
         self.health == self.max_health
     }
 
+    /// Resets a unit's move, attack, and ability cooldowns.
+    pub(crate) fn reset_all_cooldowns(&mut self) {
+        self.movement_heat = MIN_HEAT;
+        self.attack_heat = MIN_HEAT;
+        self.ability_heat = MIN_HEAT;
+    }
+
     // ************************************************************************
     // *************************** ABILITY METHODS *****************************
     // ************************************************************************
     
     /// Whether the active ability is unlocked.
     ///
-    /// Errors if the unit is not a robot.
+    /// * InappropriateUnitType - the unit is not a robot.
     pub fn is_ability_unlocked(&self) -> Result<bool, Error> {
         self.ok_if_robot()?;
         Ok(self.is_ability_unlocked)
@@ -563,7 +586,7 @@ impl Unit {
 
     /// The active ability heat.
     ///
-    /// Errors if the unit is not a robot.
+    /// * InappropriateUnitType - the unit is not a robot.
     pub fn ability_heat(&self) -> Result<u32, Error>{
         self.ok_if_robot()?;
         Ok(self.ability_heat)
@@ -571,51 +594,53 @@ impl Unit {
 
     /// The active ability cooldown.
     ///
-    /// Errors if the unit is not a robot.
+    /// * InappropriateUnitType - the unit is not a robot.
     pub fn ability_cooldown(&self) -> Result<u32, Error>{
         self.ok_if_robot()?;
         Ok(self.ability_cooldown)
     }
 
     /// The active ability range.
-    /// 
-    /// Errors if the unit is not a robot.
+    ///
+    /// * InappropriateUnitType - the unit is not a robot.
     pub fn ability_range(&self) -> Result<u32, Error> {
         self.ok_if_robot()?;
         Ok(self.ability_range)
     }
 
-    /// Ok if unit can use ability.
+    /// Ok if unit has unlocked its ability.
     ///
-    /// Errors if the unit is not a robot, has insufficient research level
-    /// or if unit is a worker.
-    pub(crate) fn ok_if_ability(&self) -> Result<(), Error> {
+    /// * InappropriateUnitType - the unit is not a robot.
+    /// * ResearchNotUnlocked - the ability is not researched. 
+    pub(crate) fn ok_if_ability_unlocked(&self) -> Result<(), Error> {
         self.ok_if_robot()?;
         if !self.is_ability_unlocked()? {
             Err(GameError::ResearchLevelInvalid)?
         }
-
-        if self.unit_type == Worker {
-            Err(GameError::InappropriateUnitType)?
-        }
-
         Ok(())
     }
 
-    /// Whether the unit can use its ability. The unit's ability heat must 
+    /// Ok if unit can use its ability. The unit's ability heat must 
     /// be lower than the maximum heat to act. 
     ///
-    /// Errors if the unit is not a robot
-    pub(crate) fn is_ability_ready(&self) -> Result<bool, Error> {
-        Ok(self.ability_heat()? < MAX_HEAT_TO_ACT)
+    /// * InappropriateUnitType - the unit is not a robot.
+    /// * Overheated - the unit is not ready to use its ability.
+    pub(crate) fn ok_if_ability_ready(&self) -> Result<(), Error> {
+        if self.ability_heat()? >= MAX_HEAT_TO_ACT {
+            Err(GameError::Overheated)?;
+        }
+        Ok(())
     }
 
-    /// Resets a unit's ability cooldown.
-    /// 
-    /// Errors if the unit is not a robot. 
-    pub(crate) fn reset_ability_cooldown(&mut self) -> Result<(), Error> {
-        self.ok_if_robot()?; 
-        self.ability_heat = MIN_HEAT;
+    /// Ok if the robot can use its ability on the target location.
+    ///
+    /// * InappropriateUnitType - the unit is not a robot.
+    /// * OutOfRange - the target location is not in range.
+    pub(crate) fn ok_if_within_ability_range(&self, target_loc: Location) -> Result<(), Error> {
+        self.ok_if_robot()?;
+        if !self.location().is_within_range(self.ability_range()?, target_loc) {
+            Err(GameError::OutOfRange)?;
+        }
         Ok(())
     }
 
@@ -626,7 +651,7 @@ impl Unit {
     /// Whether the worker has already acted (harveted, blueprinted, built, or
     /// repaired) this round.
     ///
-    /// Errors if the unit is not a worker.
+    /// * InappropriateUnitType - the unit is not a worker.
     pub fn worker_has_acted(&self) -> Result<bool, Error> {
         self.ok_if_unit_type(Worker)?;
         Ok(self.has_worker_acted)
@@ -634,7 +659,7 @@ impl Unit {
 
     /// The health restored when building or repairing a structure.
     ///
-    /// Errors if the unit is not a worker.
+    /// * InappropriateUnitType - the unit is not a worker.
     pub fn worker_build_health(&self) -> Result<u32, Error> {
         self.ok_if_unit_type(Worker)?;
         Ok(self.build_health)
@@ -642,16 +667,21 @@ impl Unit {
 
     /// The maximum amount of karbonite harvested from a deposit in one turn.
     ///
-    /// Errors if the unit is not a worker.
+    /// * InappropriateUnitType - the unit is not a worker.
     pub fn worker_harvest_amount(&self) -> Result<u32, Error> {
         self.ok_if_unit_type(Worker)?;
         Ok(self.harvest_amount)
     }
 
-    /// Whether the worker can perform a worker action (building, blueprinting,
+    /// Ok if the worker can perform a worker action (building, blueprinting,
     /// harvesting, or replicating).
-    pub(crate) fn can_worker_act(&self) -> bool {
-        !self.has_worker_acted
+    ///
+    /// * Overheated - the worker is not ready to perform a worker action.
+    pub(crate) fn ok_if_can_worker_act(&self) -> Result<(), Error> {
+        if self.has_worker_acted {
+            Err(GameError::Overheated)?;
+        }
+        Ok(())
     }
 
     /// Updates the unit as if it has performed a worker action.
@@ -671,18 +701,20 @@ impl Unit {
 
     /// The amount of damage resisted by a knight when attacked.
     ///
-    /// Errors if the unit is not a knight.
+    /// * InappropriateUnitType - the unit is not a knight.
     pub fn knight_defense(&self) -> Result<u32, Error> {
         self.ok_if_unit_type(Knight)?;
         Ok(self.defense)
     }
 
     /// Ok if the unit can javelin. 
-    /// 
-    /// Errors if the unit is not a knight, or has insufficient research level
-    pub(crate) fn ok_if_javelin(&self) -> Result<(), Error> {
+    ///
+    /// * InappropriateUnitType - the unit is not a knight.
+    /// * ResearchNotUnlocked - the required technology is not unlocked.
+    pub(crate) fn ok_if_javelin_unlocked(&self) -> Result<(), Error> {
         self.ok_if_unit_type(Knight)?;
-        Ok(self.ok_if_ability()?)
+        self.ok_if_ability_unlocked()?;
+        Ok(())
     }
 
     /// Updates the unit as if it has javelined, and returns the damage done.
@@ -697,7 +729,7 @@ impl Unit {
 
     /// The range within a ranger cannot attack.
     ///
-    /// Errors if the unit is not a ranger.
+    /// * InappropriateUnitType - the unit is not a ranger.
     pub fn ranger_cannot_attack_range(&self) -> Result<u32, Error> {
         self.ok_if_unit_type(Ranger)?;
         Ok(self.cannot_attack_range)
@@ -705,7 +737,7 @@ impl Unit {
 
     /// The countdown for ranger's snipe.
     ///
-    /// Errors if the unit is not a ranger.
+    /// * InappropriateUnitType - the unit is not a ranger.
     pub fn ranger_countdown(&self) -> Result<u32, Error> {
         self.ok_if_unit_type(Ranger)?;
         Ok(self.countdown)
@@ -713,7 +745,7 @@ impl Unit {
 
     /// The target location for ranger's snipe.
     ///
-    /// Errors if the unit is not a ranger.
+    /// * InappropriateUnitType - the unit is not a ranger.
     pub fn ranger_target_location(&self) -> Result<Option<MapLocation>, Error> {
         self.ok_if_unit_type(Ranger)?;
         Ok(self.target_location)
@@ -721,23 +753,23 @@ impl Unit {
 
     /// Whether the ranger is sniping.
     ///
-    /// Errors if the unit is not a ranger.
+    /// * InappropriateUnitType - the unit is not a ranger.
     pub fn ranger_is_sniping(&self) -> Result<bool, Error> {
         self.ok_if_unit_type(Ranger)?;
         Ok(self.is_sniping)
     }
 
-    /// Ok if the unit can snipe
-    /// 
-    /// Errors if the unit is not a ranger, or has insufficient research level
-    pub(crate) fn ok_if_snipe(&self) -> Result<(), Error> {
+    /// Ok if the unit can snipe.
+    ///
+    /// * InappropriateUnitType - the unit is not a ranger.
+    /// * ResearchNotUnlocked - the required technology is not unlocked.
+    pub(crate) fn ok_if_snipe_unlocked(&self) -> Result<(), Error> {
         self.ok_if_unit_type(Ranger)?;
-        Ok(self.ok_if_ability()?)
+        self.ok_if_ability_unlocked()?;
+        Ok(())
     }
 
     /// Whether the unit is ready to process sniping.
-    ///
-    /// Errors if the unit is not ready to snipe.
     fn is_process_snipe_ready(&self) -> bool {
         self.is_sniping
         && self.countdown == 0
@@ -772,11 +804,12 @@ impl Unit {
     // ************************************************************************
 
     /// Ok if the unit can blink.
-    /// 
-    /// Errors if the unit is not a mage, or insufficient research level. 
-    pub(crate) fn ok_if_blink(&self) -> Result<(), Error> {
+    ///
+    /// * InappropriateUnitType - the unit is not a mage.
+    /// * ResearchNotUnlocked - the required technology is not unlocked.
+    pub(crate) fn ok_if_blink_unlocked(&self) -> Result<(), Error> {
         self.ok_if_unit_type(Mage)?;
-        Ok(self.ok_if_ability()?)
+        Ok(self.ok_if_ability_unlocked()?)
     }
 
     /// Updates the unit as if it has blinked.
@@ -791,18 +824,19 @@ impl Unit {
 
     /// The amount of health passively restored to itself each round.
     ///
-    /// Errors if the unit is not a healer.
+    /// * InappropriateUnitType - the unit is not a healer.
     pub fn healer_self_heal_amount(&self) -> Result<u32, Error> {
         self.ok_if_unit_type(Healer)?;
         Ok(self.self_heal_amount)
     }
 
-    /// Ok if the unit can overcharge
-    /// 
-    /// Errors if the unit is not a healer.
-    pub(crate) fn ok_if_overcharge(&self) -> Result<(), Error> {
+    /// Ok if the unit can overcharge.
+    ///
+    /// * InappropriateUnitType - the unit is not a healer.
+    /// * ResearchNotUnlocked - the required technology is not unlocked.
+    pub(crate) fn ok_if_overcharge_unlocked(&self) -> Result<(), Error> {
         self.ok_if_unit_type(Healer)?;
-        Ok(self.ok_if_ability()?)
+        Ok(self.ok_if_ability_unlocked()?)
     }
 
     /// Updates the unit as if it has overcharged.
@@ -816,7 +850,7 @@ impl Unit {
 
     /// Whether this structure has been built.
     ///
-    /// Errors if the unit is not a structure.
+    /// * InappropriateUnitType - the unit is not a structure.
     pub fn structure_is_built(&self) -> Result<bool, Error> {
         self.ok_if_structure()?;
         Ok(self.is_built)
@@ -824,7 +858,7 @@ impl Unit {
 
     /// The max capacity of a structure.
     ///
-    /// Errors if the unit is not a structure.
+    /// * InappropriateUnitType - the unit is not a structure.
     pub fn structure_max_capacity(&self) -> Result<usize, Error> {
         self.ok_if_structure()?;
         Ok(self.max_capacity)
@@ -832,19 +866,26 @@ impl Unit {
 
     /// Returns the units in the structure's garrison.
     ///
-    /// Errors if the unit is not a structure.
+    /// * InappropriateUnitType - the unit is not a structure.
     pub fn structure_garrison(&self) -> Result<Vec<UnitID>, Error> {
         self.ok_if_structure()?;
         Ok(self.garrison.clone())
     }
 
-    /// Updates this structure as though a worker has just built it. Only errors
-    /// if the unit is not a structure (i.e. does not check that structure is
-    /// incomplete).
-    pub(crate) fn be_built(&mut self, build_health: u32) -> Result<(), Error> {
-        self.ok_if_structure()?;
+    /// Updates this structure as though a worker has just built it.
+    pub(crate) fn be_built(&mut self, build_health: u32) {
         if self.be_healed(build_health) {
             self.is_built = true;
+        }
+    }
+
+    /// Ok if the structure has been built.
+    ///
+    /// * InappropriateUnitType - the unit is not a structure.
+    /// * StructureNotYetBuilt - the structure has not yet been built.
+    pub(crate) fn ok_if_structure_built(&self) -> Result<(), Error> {
+        if !self.structure_is_built()? {
+            Err(GameError::StructureNotYetBuilt)?;
         }
         Ok(())
     }
@@ -852,9 +893,11 @@ impl Unit {
     /// Returns OK if the structure can load a unit. The structure 
     /// must have enough space.
     ///
-    /// Errors if the action is not possible.
+    /// * GarrisonFull - the unit's garrison is already full.
+    /// * InappropriateUnitType - the unit is not a structure.
+    /// * StructureNotYetBuilt - the structure has not yet been built.
     pub(crate) fn ok_if_can_load(&self) -> Result<(), Error> {
-        self.ok_if_structure()?;
+        self.ok_if_structure_built()?;
         if self.structure_garrison()?.len() == self.structure_max_capacity()? {
             Err(GameError::GarrisonFull)?;
         }
@@ -863,21 +906,20 @@ impl Unit {
 
     /// Updates the structure as if it has loaded a unit inside its garrison.
     /// Adds the unit ID to the garrison.
-    ///
-    /// Errors if this unit is not a structure, or it cannot load.
-    pub(crate) fn load(&mut self, id: UnitID) -> Result<(), Error> {
-        self.ok_if_can_load()?;
-        self.ok_if_structure()?;
+    pub(crate) fn load(&mut self, id: UnitID) {
         self.garrison.push(id);
-        Ok(())
     }
 
     /// Returns OK if the structure can unload a unit. The structure must be on
     /// a planet and it must have at least one unit to unload. Does not check
     /// whether the unit is ready to move.
     ///
-    /// Returns if the action is not possible.
+    /// * GarrisonEmpty - the unit's garrison is already empty.
+    /// * InappropriateUnitType - the unit is not a structure.
+    /// * StructureNotYetBuilt - the structure has not yet been built.
+    /// * UnitNotOnMap - the structure is currently in space.
     pub(crate) fn ok_if_can_unload_unit(&self) -> Result<(), Error> {
+        self.ok_if_structure_built()?;
         match self.location() {
             OnMap(_) => {
                 if self.structure_garrison()?.len() == 0 {
@@ -891,11 +933,8 @@ impl Unit {
 
     /// Updates the structure as if it has unloaded a single unit from the
     /// structure, returning the unit ID.
-    ///
-    /// Errors if the unit is not a structure, or it cannot unload.
-    pub(crate) fn unload_unit(&mut self) -> Result<UnitID, Error> {
-        self.ok_if_can_unload_unit()?;
-        Ok(self.garrison.remove(0))
+    pub(crate) fn unload_unit(&mut self) -> UnitID {
+        self.garrison.remove(0)
     }
 
     // ************************************************************************
@@ -905,7 +944,7 @@ impl Unit {
     /// The unit type currently being produced by the factory, or None if the
     /// factory is not producing a unit.
     ///
-    /// Errors if the unit is not a factory
+    /// * InappropriateUnitType - the unit is not a factory.
     pub fn factory_unit_type(&self) -> Result<Option<UnitType>, Error> {
         self.ok_if_unit_type(Factory)?;
         Ok(self.factory_unit_type)
@@ -914,7 +953,7 @@ impl Unit {
     /// The number of rounds left to produce a robot in this factory. Returns
     /// None if no unit is currently being produced.
     ///
-    /// Errors if the unit is not a factory.
+    /// * InappropriateUnitType - the unit is not a factory.
     pub fn factory_rounds_left(&self) -> Result<Option<Rounds>, Error> {
         self.ok_if_unit_type(Factory)?;
         Ok(self.factory_rounds_left)
@@ -922,13 +961,16 @@ impl Unit {
 
     /// Returns OK if the factory can produce a robot of this type.
     ///
-    /// Errors if the action is not possible.
+    /// * FactoryBusy - the factory is already producing a unit.
+    /// * InappropriateUnitType - the unit is not a factory.
+    /// * StructureNotYetBuilt - the structure has not yet been built.
     pub(crate) fn ok_if_can_produce_robot(&self, unit_type: UnitType) -> Result<(), Error> {
         self.ok_if_unit_type(Factory)?;
+        self.ok_if_structure_built()?;
         if !unit_type.is_robot() {
             Err(GameError::InappropriateUnitType)?;
         }
-        if !self.factory_unit_type.is_none() {
+        if self.factory_unit_type.is_some() {
             Err(GameError::FactoryBusy)?;
         }
         Ok(())
@@ -975,7 +1017,7 @@ impl Unit {
 
     /// Whether the rocket has already been used.
     ///
-    /// Errors if the unit is not a rocket.
+    /// * InappropriateUnitType - the unit is not a rocket.
     pub fn rocket_is_used(&self) -> Result<bool, Error> {
         self.ok_if_unit_type(Rocket)?;
         Ok(self.is_used)
@@ -984,21 +1026,24 @@ impl Unit {
     /// The number of rounds the rocket travel time is reduced by compared
     /// to the travel time determined by the orbit of the planets.
     ///
-    /// Errors if the unit is not a rocket.
+    /// * InappropriateUnitType - the unit is not a rocket.
     pub fn rocket_travel_time_decrease(&self) -> Result<u32, Error> {
         self.ok_if_unit_type(Rocket)?;
         Ok(self.travel_time_decrease)
     }
 
-    /// Whether the rocket can launch. It must not be used and it must
-    /// currently be on a planet.
+    /// Ok if the rocket can launch. It must be built, and it must have
+    /// not been used yet.
     ///
-    /// Errors if the unit is not a rocket.
-    pub(crate) fn can_launch_rocket(&self) -> Result<bool, Error> {
-        match self.location {
-            OnMap(_) => Ok(!self.rocket_is_used()?),
-            _ => Ok(false),
+    /// * InappropriateUnitType - the unit is not a rocket.
+    /// * RocketUsed - the rocket has already been used.
+    /// * StructureNotYetBuilt - the rocket has not yet been built.
+    pub(crate) fn ok_if_can_launch_rocket(&self) -> Result<(), Error> {
+        self.ok_if_structure_built()?;
+        if !self.rocket_is_used()? {
+            Err(GameError::RocketUsed)?;
         }
+        Ok(())
     }
 
     /// Updates the rocket as if it has launched by changing its location and
