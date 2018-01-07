@@ -1,9 +1,9 @@
 # setup.py (requires CFFI to be installed first)
 from setuptools import setup
 
-import engine_build
+import bc_build
 
 setup(
-    ext_modules=[engine_build.ffibuilder.distutils_extension()],
+    ext_modules=[bc_build.ffibuilder.distutils_extension()],
     test_suite = 'nose.collector',
 )

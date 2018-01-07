@@ -24,8 +24,8 @@ pub type Rounds = u32;
 /// There are two teams in Battlecode: Red and Blue.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub enum Team {
-    Red,
-    Blue,
+    Red = 0,
+    Blue = 1,
 }
 
 impl Team {
