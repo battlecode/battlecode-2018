@@ -1,7 +1,6 @@
 from .helpers import *
 from .type import Type
 from .function import Function, Method
-from .struct import StructWrapper
 
 class CEnum(object):
     '''A c-style enum.'''
@@ -15,7 +14,7 @@ class CEnum(object):
         return self
 
     def to_rust(self):
-        start = f'#[repr(C)]\npub enum {self.c_name} {{\n'
+        start = f'#[repr(C)]\n#[derive(Copy, Clone)]\npub enum {self.c_name} {{\n'
         internal = '\n'.join(f'{name} = {val},' for (name, val) in self.variants)
         end = '\n}\n'
 
@@ -59,10 +58,11 @@ class CEnumWrapperType(Type):
 class CEnumWrapper(CEnum):
     '''A wrapper for a rust c-style enum, that is, an enum with integer values.'''
 
-    def __init__(self, module, rust_name, docs=''):
-        self.type = CEnumWrapperType(module, rust_name)
-        super().__init__(module, self.type.san_name)
-        self.module = module
+    def __init__(self, program, rust_name, docs=''):
+        self.program = program
+        self.type = CEnumWrapperType(program.module, rust_name)
+        super().__init__(program.module, self.type.san_name)
+        self.module = program.module
         self.docs = docs
         self.methods = []
     
@@ -122,11 +122,3 @@ class CEnumWrapper(CEnum):
     def to_python(self):
         methods = '\n'.join(m.to_python() for m in self.methods)
         return super().to_python() + s(methods, indent=4)
-
-class EnumWrapper(StructWrapper):
-    def __init__(self, module, name, docs=''):
-        super().__init__(module, name, docs)
-        self.cenum = CEnum(module, name)
-
-    def variant(self, name, attributes):
-        pass

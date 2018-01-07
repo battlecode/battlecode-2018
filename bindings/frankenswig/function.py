@@ -22,7 +22,7 @@ class Function(object):
         result = s(f'''\
             #[no_mangle]
             pub extern "C" fn {self.name}({', '.join(a.to_rust() for a in self.args)}) -> {self.type.rust} {{
-                const default: {self.type.rust} = {self.type.default};
+                let default: {self.type.rust} = {self.type.default};
             '''
         )
         result += s(self.body, indent=4)
@@ -88,6 +88,7 @@ class Method(Function):
         return pre + Function.pyentry(args, self.pyname, self.docs) + s(body, indent=4)
 
 class FunctionWrapper(Function):
-    def __init__(self, module, type, name, args):
-        body = make_safe_call(type, f'{module}::{name}', args)
+    def __init__(self, program, type, name, args):
+        self.program = program
+        body = make_safe_call(type, f'{program.module}::{name}', args)
         super(FunctionWrapper, self).__init__(type, name, args, body)

@@ -4,9 +4,9 @@ p = Program(module='bc', crate='battlecode_engine', docs='''Battlecode engine.
 
 Woo.''')
 
-Planet = p.c_enum('location::Planet', docs='The planets in the Battlecode world.')\
-    .variant('Earth', 0)\
-    .variant('Mars', 1)
+Planet = p.c_enum('location::Planet', docs='The planets in the Battlecode world.')
+Planet.variant('Earth', 0)
+Planet.variant('Mars', 1)
 
 Direction = p.c_enum('location::Direction', docs='''Represents a direction from one MapLocation to another.
 
@@ -15,37 +15,36 @@ of the diagonals (northwest, southwest, northeast, southeast). There is
 also a "center" direction, representing no direction.
 
 Coordinates increase in the north and east directions.
-''')\
-    .variant('North', 0)\
-    .variant('Northeast', 1)\
-    .variant('East', 2)\
-    .variant('Southeast', 3)\
-    .variant('South', 4)\
-    .variant('Southwest', 5)\
-    .variant('West', 6)\
-    .variant('Northwest', 7)\
-    .variant('Center', 8)
-
+''')
+Direction.variant('North', 0)
+Direction.variant('Northeast', 1)
+Direction.variant('East', 2)
+Direction.variant('Southeast', 3)
+Direction.variant('South', 4)
+Direction.variant('Southwest', 5)
+Direction.variant('West', 6)
+Direction.variant('Northwest', 7)
+Direction.variant('Center', 8)
 Direction.method(Direction.type, 'opposite', [])
 Direction.method(Direction.type, 'rotate_left', [])
 Direction.method(Direction.type, 'rotate_right', [])
 
 MapLocation = p.struct('location::MapLocation',
-    'Represents two-dimensional coordinates in the Battlecode world. Naive of which planet it is on.')\
-    .constructor('new', [Var(Planet.type, 'planet'), Var(i32.type, 'x'), Var(i32.type, 'y')],
-        docs='Create a new MapLocation.')\
-    .member(Planet.type, 'planet', docs='The planet lol.')\
-    .member(i32.type, 'x', docs='The x coordinate of the map location.')\
-    .member(i32.type, 'y', docs='The y coordinate of the map location.')
+    'Represents two-dimensional coordinates in the Battlecode world. Naive of which planet it is on.')
+MapLocation.constructor('new', [Var(Planet.type, 'planet'), Var(i32.type, 'x'), Var(i32.type, 'y')],
+        docs='Create a new MapLocation.')
+MapLocation.member(Planet.type, 'planet', docs='The planet lol.')
+MapLocation.member(i32.type, 'x', docs='The x coordinate of the map location.')
+MapLocation.member(i32.type, 'y', docs='The y coordinate of the map location.')
 
 MapLocation.method(MapLocation.type, 'add', [Var(Direction.type, 'direction')])
 
 UnitID = p.typedef('unit::UnitID', u16.type)
 Rounds = p.typedef('world::Rounds', u32.type)
 
-Team = p.c_enum('world::Team')\
-    .variant('Red', 0)\
-    .variant('Blue', 1)
+Team = p.c_enum('world::Team')
+Team.variant('Red', 0)
+Team.variant('Blue', 1)
 
 Player = p.struct('world::Player')
 Player.constructor('new', [Var(Team.type, 'team'), Var(Planet.type, 'planet')])
@@ -54,20 +53,31 @@ Player.member(Planet.type, 'planet')
 
 GameMap = p.struct('map::GameMap')
 GameMap.method(GameMap.type, 'test_map', [], static=True)
+GameMap.serializeable()
 
 Delta = p.struct('schema::Delta')
+Delta.serializeable()
+
 StartGameMessage = p.struct('schema::StartGameMessage')
+StartGameMessage.serializeable()
+
 TurnMessage = p.struct('schema::TurnMessage')
+TurnMessage.serializeable()
+
 StartTurnMessage = p.struct('schema::StartTurnMessage')
 StartTurnMessage.member(Rounds.type, 'round')
+StartTurnMessage.serializeable()
+
 ViewerMessage = p.struct('schema::ViewerMessage')
+ViewerMessage.serializeable()
+
 ErrorMessage = p.struct('schema::ErrorMessage')
+ErrorMessage.serializeable()
 
 GameController = p.struct('controller::GameController')
 GameController.constructor('new_player', [Var(StartGameMessage.type, 'game')])
 GameController.method(void.type.result(), 'start_turn', [Var(StartTurnMessage.type, 'turn')])
-# TODO: Result checking fucks up on ptrs
-#GameController.method(TurnMessage.type.result(), 'end_turn', [])
+GameController.method(TurnMessage.type.result(), 'end_turn', [])
 GameController.method(Rounds.type, 'round', [])
 GameController.method(Planet.type, 'planet', [])
 GameController.method(Team.type, 'team', [])

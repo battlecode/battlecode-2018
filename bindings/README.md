@@ -2,6 +2,21 @@
 
 This folder contains the bindings generation system for Battlecode 2018.
 To build the bindings, run `make`.
+Strictly speaking, we only support Linux. (Mac should work too, and Windows might work if you're using cygwin / mingw.)
+
+## FAQ
+### Do I need to understand this to play Battlecode?
+No, not at all. This is just an implementation detail of the python / java / etc. library you're using.
+
+### This is horrifying
+yeah, well
+
+### Can I use this for my own Rust project?
+This system isn't intended for general use; it's somewhat specific, and needs a lot more polish before being released as e.g. an open source library. We're thinking we might try to do that at some point this year.
+
+If you really want to use the code, just copy this directory wholesale, modify Cargo.toml to point to your projects, and hack until things work. It should be general enough to bind a lot of libraries, and cross-platform assuming you can get the Makefiles to work on Windows. You might want to check out our .travis.yml file for how we run tests on CI.
+
+Also, keep reading to learn how the system works.
 
 ## How it works
 The script `generate.py` contains a description of the Battlecode API using the `frankenswig` python library. `generate.py` spits out a bunch of files:
@@ -53,7 +68,7 @@ Color.member(u8.type, 'b')
 Banana = p.struct('Banana')
 Banana.constructor('new', [Var(u32.type, 'age'), Var(u8.type, 'species')])
 Banana.member(u32.type, 'age')
-Banana.member(color.type, 'color')
+Banana.member(Color.type, 'color')
 Banana.method(boolean.type, 'is_edible', [])
 
 print(p.to_rust())
@@ -503,3 +518,4 @@ Hopefully you're getting a sense of how the system works. The bindings generated
 You can see that the rust code treats objects passed through the language barrier as being owned by the language runtime that is calling into rust. In addition, objects passed out of rust are forbidden from holding references, and must be threadsafe. This is because we can't trust other language runtimes to respect rust's invariants around borrows and such. If you really need to bind an object graph, use `Arc<Mutex<T>>`.
 
 It is, of course, still possible for there to be an ABI mismatch between the generated rust and the generated c header, if there is a bug in frankenswig. For this reason it's a good idea to write tests for languages that aren't rust.
+

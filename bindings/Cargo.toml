@@ -10,5 +10,6 @@ crate-type = ["cdylib", "staticlib"]
 [dependencies]
 battlecode-engine = {path = "../battlecode-engine"}
 failure = "0.1.1"
+serde_json = "1.0.6"
 
 [build_dependencies]

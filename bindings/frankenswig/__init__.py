@@ -63,10 +63,11 @@ from .helpers import *
 from .type import *
 from .function import FunctionWrapper
 from .struct import StructWrapper
-from .enums import EnumWrapper, CEnumWrapper
+from .enums import CEnumWrapper
 
 RUST_HEADER = '''/// GENERATED RUST, DO NOT EDIT
 extern crate {crate};
+extern crate serde_json;
 
 use {crate} as {module};
 
@@ -279,8 +280,9 @@ def _check_errors():
 PYTHON_FOOTER = ''
 
 class TypedefWrapper(object):
-    def __init__(self, module, rust_name, c_type):
-        self.type = Type(f'{module}::{rust_name}', c_type.swig, c_type.python, c_type.default)
+    def __init__(self, program, rust_name, c_type):
+        self.program = program
+        self.type = Type(f'{program.module}::{rust_name}', c_type.swig, c_type.python, c_type.default)
     
     to_rust = to_c = to_swig = to_python = lambda self: ''
 
@@ -322,27 +324,22 @@ class Program(object):
             + self.format(PYTHON_FOOTER)
 
     def struct(self, *args, **kwargs):
-        result = StructWrapper(self.module, *args, **kwargs)
+        result = StructWrapper(self, *args, **kwargs)
         self.elements.append(result)
         return result
 
     def function(self, *args, **kwargs):
-        result = FunctionWrapper(self.module, *args, **kwargs)
+        result = FunctionWrapper(self, *args, **kwargs)
         self.elements.append(result)
         return result
 
     def typedef(self, rust_name, c_type):
-        result = TypedefWrapper(self.module, rust_name, c_type)
-        self.elements.append(result)
-        return result
-
-    def enum(self, *args, **kwargs):
-        result = EnumWrapper(self.module, *args, **kwargs)
+        result = TypedefWrapper(self, rust_name, c_type)
         self.elements.append(result)
         return result
 
     def c_enum(self, *args, **kwargs):
-        result = CEnumWrapper(self.module, *args, **kwargs)
+        result = CEnumWrapper(self, *args, **kwargs)
         self.elements.append(result)
         return result
 

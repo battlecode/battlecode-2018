@@ -84,7 +84,11 @@ class ResultType(Type):
         raise Exception("Results can only be returned")
     
     def unwrap_rust_value(self, value):
-        return self.wrapped.unwrap_rust_value(f'check_result!({value}, default)')
+        v = self.wrapped.unwrap_rust_value('v')
+        return f'check_result!({value}.map(|v| {v}), default)'
+
+    def python_postfix(self):
+        return self.wrapped.python_postfix()
 
 # TODO: make sure this works with utf-8 stuff in python 2, java, etc.
 class StringType(Type):

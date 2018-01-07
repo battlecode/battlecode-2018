@@ -63,11 +63,31 @@ class StructType(Type):
             result = _result
         ''')
 
-class StructWrapper(object):
-    def __init__(self, module, name, docs=''):
-        self.module = module
+class DeriveMixins(object):
+    '''Helpers for easily bindings #[derive]'d methods.'''
+    def serializeable(self):
+        '''Add "from_json" and "to_json" methods.'''
+
+        args = [Var(self.program.strref.type, "s")]
+        type = self.type.result()
+        self.methods.append(Method(type, self.c_name, "from_json", args,
+            make_safe_call(type, 'serde_json::from_str', args), docs=f'Deserialize a {self.name} from a JSON string',
+        static=True))
+ 
+        args = [Var(self.type.mut_ref(), 'this')]
+        type = self.program.string.type.result()
+        self.methods.append(Method(type, self.c_name, "to_json", args,
+            make_safe_call(type, 'serde_json::to_string', args), docs=f'Serialize a {self.name} to a JSON string'
+        ))
+
+        return self
+
+class StructWrapper(DeriveMixins):
+    def __init__(self, program, name, docs=''):
+        self.program = program
+        self.module = program.module
         self.name = name
-        self.c_name = f'{module}_{sanitize_rust_name(self.name)}'
+        self.c_name = f'{self.module}_{sanitize_rust_name(self.name)}'
         self.members = []
         self.member_docs = []
         self.methods = []
