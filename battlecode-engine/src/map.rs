@@ -38,8 +38,7 @@ impl GameMap {
         Ok(())
     }
 
-    #[cfg(test)]
-    pub(crate) fn test_map() -> GameMap {
+    pub fn test_map() -> GameMap {
         let seed = 1;
         let mars_map = PlanetMap::test_map(Planet::Mars);
         GameMap {
@@ -200,8 +199,7 @@ impl PlanetMap {
         }
     }
 
-    #[cfg(test)]
-    pub(crate) fn test_map(planet: Planet) -> PlanetMap {
+    fn test_map(planet: Planet) -> PlanetMap {
         let mut map = PlanetMap {
             planet: planet,
             height: MAP_HEIGHT_MIN,

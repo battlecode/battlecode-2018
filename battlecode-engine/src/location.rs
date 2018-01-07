@@ -16,16 +16,16 @@ use super::unit::UnitID;
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Direction {
     North = 0,
-    Northeast,
-    East,
-    Southeast,
-    South,
-    Southwest,
-    West,
-    Northwest,
+    Northeast = 1,
+    East = 2,
+    Southeast = 3,
+    South = 4,
+    Southwest = 5,
+    West = 6,
+    Northwest = 7,
 
     // No direction
-    Center,
+    Center = 8,
 }
 
 impl Direction {
@@ -82,31 +82,31 @@ impl Direction {
     }
 
     /// Returns the direction opposite this one, or Center if it's Center.
-    pub fn opposite(&self) -> Direction {
-        if *self == Center {
+    pub fn opposite(self) -> Direction {
+        if self == Center {
             return Center;
         }
-        let new_dir = ((self.clone() as u8) + 4) % 8;
+        let new_dir = ((self as u8) + 4) % 8;
         Direction::num_to_direction(new_dir)
     }
 
     /// Returns the direction 45 degrees to the left (counter-clockwise) of
     /// this one, or Center if it's Center.
-    pub fn rotate_left(&self) -> Direction {
-        if *self == Center {
+    pub fn rotate_left(self) -> Direction {
+        if self == Center {
             return Center;
         }
-        let new_dir = ((self.clone() as u8) + 7) % 8;
+        let new_dir = ((self as u8) + 7) % 8;
         Direction::num_to_direction(new_dir)
     }
 
     /// Returns the direction 45 degrees to the right (clockwise) of this one,
     /// or Center if it's Center.
-    pub fn rotate_right(&self) -> Direction {
-        if *self == Center {
+    pub fn rotate_right(self) -> Direction {
+        if self == Center {
             return Center;
         }
-        let new_dir = ((self.clone() as u8) + 1) % 8;
+        let new_dir = ((self as u8) + 1) % 8;
         Direction::num_to_direction(new_dir)
     }
 }
@@ -114,8 +114,8 @@ impl Direction {
 /// The planets in the Battlecode world.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub enum Planet {
-    Earth,
-    Mars,
+    Earth = 0,
+    Mars = 1,
 }
 
 impl Planet {
