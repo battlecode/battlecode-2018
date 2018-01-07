@@ -1641,7 +1641,7 @@ impl GameWorld {
         self.ok_if_can_overcharge(healer_id, robot_id)?;
         self.ok_if_overcharge_ready(healer_id)?;
         self.my_unit_mut(healer_id)?.overcharge();
-        self.my_unit_mut(robot_id)?.reset_all_cooldowns();
+        self.my_unit_mut(robot_id)?.be_overcharged();
         Ok(())
     }
 

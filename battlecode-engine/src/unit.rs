@@ -80,6 +80,7 @@ impl UnitType {
                 movement_cooldown: 20,
                 attack_cooldown: 0,
                 ability_cooldown: 50,
+                ability_range: 2,
                 is_ability_unlocked: true,
                 ..Default::default()
             },
@@ -106,7 +107,7 @@ impl UnitType {
                 movement_cooldown: 20,
                 attack_cooldown: 20,
                 ability_cooldown: 150,
-                ability_range: 10,
+                ability_range: u32::max_value(),
                 ..Default::default()
             },
             Mage => Unit {
@@ -178,7 +179,7 @@ impl UnitType {
 
     /// The cost of the unit in a factory.
     ///
-    /// Errors if the unit cannot be produced in a factory.
+    /// * InappropriateUnitType - the unit type cannot be produced in a factory.
     pub fn factory_cost(self) -> Result<u32, Error> {
         match self {
             UnitType::Worker => Ok(FACTORY_WORKER_COST),
@@ -192,7 +193,7 @@ impl UnitType {
 
     /// The cost to blueprint the unit.
     ///
-    /// Errors if the unit cannot be blueprinted.
+    /// * InappropriateUnitType - the unit type cannot be blueprinted.
     pub fn blueprint_cost(self) -> Result<u32, Error> {
         match self {
             UnitType::Factory => Ok(BLUEPRINT_FACTORY_COST),
@@ -203,7 +204,7 @@ impl UnitType {
 
     /// The cost to replicate the unit.
     ///
-    /// Errors if the unit cannot be replicated.
+    /// * InappropriateUnitType - the unit type is not a worker.
     pub fn replicate_cost(self) -> Result<u32, Error> {
         match self {
             UnitType::Worker => Ok(FACTORY_WORKER_COST),
@@ -265,7 +266,6 @@ pub struct Unit {
     cannot_attack_range: u32,
     countdown: u32,
     target_location: Option<MapLocation>,
-    is_sniping: bool,
 
     // Healer special ability.
     self_heal_amount: u32,
@@ -318,7 +318,6 @@ impl Default for Unit {
             cannot_attack_range: 10,
             countdown: 0,
             target_location: None,
-            is_sniping: false,
             self_heal_amount: 1,
             factory_unit_type: None,
             factory_rounds_left: None,
@@ -330,6 +329,9 @@ impl Default for Unit {
 
 impl Unit {
     /// Create a new unit of the given type.
+    ///
+    /// * ResearchLevelInvalid - the research level does not exist for this
+    ///   unit type.
     pub(crate) fn new(id: UnitID,
                team: Team,
                unit_type: UnitType,
@@ -530,7 +532,7 @@ impl Unit {
                 Err(GameError::OutOfRange)?;
             }
         }
-        if !self.location().is_within_range(self.attack_range()?, target_loc) {
+        if !self.location().is_within_range(self.attack_range, target_loc) {
             Err(GameError::OutOfRange)?;
         }
         Ok(())
@@ -576,13 +578,6 @@ impl Unit {
         self.health == self.max_health
     }
 
-    /// Resets a unit's move, attack, and ability cooldowns.
-    pub(crate) fn reset_all_cooldowns(&mut self) {
-        self.movement_heat = MIN_HEAT;
-        self.attack_heat = MIN_HEAT;
-        self.ability_heat = MIN_HEAT;
-    }
-
     // ************************************************************************
     // *************************** ABILITY METHODS *****************************
     // ************************************************************************
@@ -611,7 +606,9 @@ impl Unit {
         Ok(self.ability_cooldown)
     }
 
-    /// The active ability range.
+    /// The active ability range. This is the range in which: workers can
+    /// replicate, knights can javelin, rangers can snipe, mages can blink,
+    /// and healers can overcharge.
     ///
     /// * InappropriateUnitType - the unit is not a robot.
     pub fn ability_range(&self) -> Result<u32, Error> {
@@ -624,7 +621,6 @@ impl Unit {
     /// * InappropriateUnitType - the unit is not a robot.
     /// * ResearchNotUnlocked - the ability is not researched. 
     pub(crate) fn ok_if_ability_unlocked(&self) -> Result<(), Error> {
-        self.ok_if_robot()?;
         if !self.is_ability_unlocked()? {
             Err(GameError::ResearchNotUnlocked)?
         }
@@ -648,7 +644,6 @@ impl Unit {
     /// * InappropriateUnitType - the unit is not a robot.
     /// * OutOfRange - the target location is not in range.
     pub(crate) fn ok_if_within_ability_range(&self, target_loc: Location) -> Result<(), Error> {
-        self.ok_if_robot()?;
         if !self.location().is_within_range(self.ability_range()?, target_loc) {
             Err(GameError::OutOfRange)?;
         }
@@ -746,15 +741,19 @@ impl Unit {
         Ok(self.cannot_attack_range)
     }
 
-    /// The countdown for ranger's snipe.
+    /// The countdown for ranger's snipe, or None if the ranger is not sniping.
     ///
     /// * InappropriateUnitType - the unit is not a ranger.
-    pub fn ranger_countdown(&self) -> Result<u32, Error> {
-        self.ok_if_unit_type(Ranger)?;
-        Ok(self.countdown)
+    pub fn ranger_countdown(&self) -> Result<Option<u32>, Error> {
+        if self.ranger_is_sniping()? {
+            Ok(Some(self.countdown))
+        } else {
+            Ok(None)
+        }
     }
 
-    /// The target location for ranger's snipe.
+    /// The target location for ranger's snipe, or None if the ranger is not
+    /// sniping.
     ///
     /// * InappropriateUnitType - the unit is not a ranger.
     pub fn ranger_target_location(&self) -> Result<Option<MapLocation>, Error> {
@@ -767,7 +766,7 @@ impl Unit {
     /// * InappropriateUnitType - the unit is not a ranger.
     pub fn ranger_is_sniping(&self) -> Result<bool, Error> {
         self.ok_if_unit_type(Ranger)?;
-        Ok(self.is_sniping)
+        Ok(self.target_location.is_some())
     }
 
     /// Ok if the unit can snipe.
@@ -780,13 +779,6 @@ impl Unit {
         Ok(())
     }
 
-    /// Whether the unit is ready to process sniping.
-    fn is_process_snipe_ready(&self) -> bool {
-        self.is_sniping
-        && self.countdown == 0
-        && self.target_location.is_some()
-    }
-
     /// Updates the unit as if it has begun sniping. The unit's ability heat 
     /// does not increase until it has sniped.
     pub(crate) fn begin_snipe(&mut self, location: MapLocation) {
@@ -794,17 +786,23 @@ impl Unit {
         self.attack_heat = u32::max_value();
         self.target_location = Some(location);
         self.countdown = MAX_RANGER_COUNTDOWN;
-        self.is_sniping = true;
     }
 
-    /// Updates the unit as if it has sniped.
+    /// Updates the unit as if it has sniped and returns the target location
+    /// if it has finished sniping.
     pub(crate) fn process_snipe(&mut self) -> Option<MapLocation> {
-        if self.is_process_snipe_ready() {
-            self.attack_heat = MIN_HEAT;
-            self.movement_heat = MIN_HEAT;
+        if self.target_location.is_some() {
+            self.countdown -= COUNTDOWN_PER_ROUND;
+            if self.countdown > 0 {
+                return None;
+            }
+
+            let target = self.target_location.unwrap();
+            self.attack_heat = 0;
+            self.movement_heat = 0;
+            self.target_location = None;
             self.ability_heat += self.ability_cooldown;
-            self.is_sniping = false;
-            self.target_location
+            Some(target)
         } else {
             None
         }
@@ -853,6 +851,13 @@ impl Unit {
     /// Updates the unit as if it has overcharged.
     pub(crate) fn overcharge(&mut self) {
         self.ability_heat += self.ability_cooldown;
+    }
+
+    /// Resets a unit's move, attack, and ability cooldowns.
+    pub(crate) fn be_overcharged(&mut self) {
+        self.movement_heat = 0;
+        self.attack_heat = 0;
+        self.ability_heat = 0;
     }
 
     // ************************************************************************
@@ -909,7 +914,7 @@ impl Unit {
     /// * StructureNotYetBuilt - the structure has not yet been built.
     pub(crate) fn ok_if_can_load(&self) -> Result<(), Error> {
         self.ok_if_structure_built()?;
-        if self.structure_garrison()?.len() == self.structure_max_capacity()? {
+        if self.garrison.len() == self.max_capacity {
             Err(GameError::GarrisonFull)?;
         }
         Ok(())
@@ -933,7 +938,7 @@ impl Unit {
         self.ok_if_structure_built()?;
         match self.location() {
             OnMap(_) => {
-                if self.structure_garrison()?.len() == 0 {
+                if self.garrison.len() == 0 {
                     Err(GameError::GarrisonEmpty)?;
                 }
                 Ok(())
@@ -973,7 +978,8 @@ impl Unit {
     /// Returns OK if the factory can produce a robot of this type.
     ///
     /// * FactoryBusy - the factory is already producing a unit.
-    /// * InappropriateUnitType - the unit is not a factory.
+    /// * InappropriateUnitType - the unit is not a factory or the unit type
+    ///   is not a robot.
     /// * StructureNotYetBuilt - the structure has not yet been built.
     pub(crate) fn ok_if_can_produce_robot(&self, unit_type: UnitType) -> Result<(), Error> {
         self.ok_if_unit_type(Factory)?;
@@ -1051,7 +1057,7 @@ impl Unit {
     /// * StructureNotYetBuilt - the rocket has not yet been built.
     pub(crate) fn ok_if_can_launch_rocket(&self) -> Result<(), Error> {
         self.ok_if_structure_built()?;
-        if self.rocket_is_used()? {
+        if self.is_used {
             Err(GameError::RocketUsed)?;
         }
         Ok(())
@@ -1132,8 +1138,12 @@ impl Unit {
         self.movement_heat -= cmp::min(HEAT_LOSS_PER_ROUND, self.movement_heat);
         self.attack_heat -= cmp::min(HEAT_LOSS_PER_ROUND, self.attack_heat);
         self.ability_heat -= cmp::min(HEAT_LOSS_PER_ROUND, self.ability_heat);
-        self.countdown -= cmp::min(COUNTDOWN_PER_ROUND, self.countdown);
         self.has_worker_acted = false;
+
+        if self.unit_type == Healer {
+            let self_heal_amount = self.self_heal_amount;
+            self.be_healed(self_heal_amount);
+        }
     }
 }
 
@@ -1248,9 +1258,9 @@ mod tests {
         ranger.begin_snipe(loc_b);
 
         // Process sniping
-        let rounds = 200;
-        for _ in 0..rounds {
-            ranger.end_round();
+        let rounds = MAX_RANGER_COUNTDOWN;
+        for _ in 1..rounds {
+            assert!(ranger.process_snipe().is_none());
         }
         assert!(ranger.process_snipe().is_some());
     }
