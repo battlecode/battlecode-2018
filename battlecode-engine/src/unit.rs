@@ -12,9 +12,6 @@ use super::world::*;
 use unit::UnitType::*;
 use unit::Location::*;
 
-/// Percentage.
-pub type Percent = u32;
-
 /// The ID of an unit is assigned when the unit is spawned.
 pub type UnitID = u16;
 
@@ -281,7 +278,7 @@ pub struct Unit {
 
     // Rocket special ability.
     is_used: bool,
-    travel_time_decrease: Percent,
+    travel_time_decrease: Rounds,
 }
 
 impl Default for Unit {
@@ -322,7 +319,7 @@ impl Default for Unit {
             factory_unit_type: None,
             factory_rounds_left: None,
             is_used: false,
-            travel_time_decrease: 100,
+            travel_time_decrease: 0,
         }
     }
 }
@@ -1123,7 +1120,7 @@ impl Unit {
             Rocket => match self.level {
                 // TODO: rocket unlocking
                 0 => { self.is_ability_unlocked = true; },
-                1 => { self.travel_time_decrease -= 20; },
+                1 => { self.travel_time_decrease += 20; },
                 2 => { self.max_capacity += 4; },
                 _ => Err(GameError::ResearchNotUnlocked)?,
             },
