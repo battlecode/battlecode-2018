@@ -1099,7 +1099,7 @@ impl GameWorld {
 
     /// Update the current research and process any completed upgrades.
     fn process_research(&mut self, team: Team) -> Result<(), Error> {
-        if let Some(branch) = self.get_team_mut(team).research.end_round()? {
+        if let Some(branch) = self.get_team_mut(team).research.end_round() {
             for (_, unit) in self.get_planet_mut(Planet::Earth).units.iter_mut() {
                 if unit.unit_type() == branch {
                     unit.research()?;
@@ -2306,7 +2306,7 @@ mod tests {
 
         // Red cannot see the Blue worker, but it can see the Blue mage.
         assert_err!(red_world.sense_unit_at_location(
-            MapLocation::new(Planet::Earth, 29, 29)), GameError::InvalidLocation);
+            MapLocation::new(Planet::Earth, 29, 29)), GameError::LocationNotVisible);
         assert!(red_world.sense_unit_at_location(
             MapLocation::new(Planet::Earth, 11, 10)).unwrap().is_some());
     }
@@ -2438,7 +2438,7 @@ mod tests {
             let my_research = world.my_research_mut();
             assert!(my_research.add_to_queue(&Branch::Knight));
             for _ in 0..rounds {
-                assert!(my_research.end_round().is_ok());
+                my_research.end_round();
             }
         }
 
@@ -2481,7 +2481,7 @@ mod tests {
             let my_research = world.my_research_mut();
             assert!(my_research.add_to_queue(&Branch::Mage));
             for _ in 0..rounds {
-                assert!(my_research.end_round().is_ok());
+                my_research.end_round();
             }
         }
 
@@ -2520,7 +2520,7 @@ mod tests {
             let my_research = world.my_research_mut();
             assert!(my_research.add_to_queue(&Branch::Ranger));
             for _ in 0..rounds {
-                assert!(my_research.end_round().is_ok());
+                my_research.end_round();
             }
         }
 
@@ -2560,7 +2560,7 @@ mod tests {
             let my_research = world.my_research_mut();
             assert!(my_research.add_to_queue(&Branch::Healer));
             for _ in 0..rounds {
-                assert!(my_research.end_round().is_ok());
+                my_research.end_round();
             }
         }
 
@@ -2572,7 +2572,7 @@ mod tests {
             let my_research = world.my_research_mut();
             assert!(my_research.add_to_queue(&Branch::Knight));
             for _ in 0..rounds {
-                assert!(my_research.end_round().is_ok());
+                my_research.end_round();
             }
         }
 
@@ -2662,7 +2662,7 @@ mod tests {
         assert![!world.can_launch_rocket(rocket_a, earth_loc_b)];
         assert_err![world.launch_rocket(rocket_a, earth_loc_b), GameError::SamePlanet];
         assert![!world.can_launch_rocket(rocket_a, mars_loc_off_map)];
-        assert_err![world.launch_rocket(rocket_a, mars_loc_off_map), GameError::InvalidLocation];
+        assert_err![world.launch_rocket(rocket_a, mars_loc_off_map), GameError::LocationOffMap];
         assert![!world.can_launch_rocket(rocket_a, mars_loc_impassable)];
         assert_err![world.launch_rocket(rocket_a, mars_loc_impassable), GameError::LocationNotEmpty];
 
@@ -2734,7 +2734,7 @@ mod tests {
         // ... but not beyond their capacity.
         let invalid_boarder_rocket_full = world.create_unit(Team::Red, takeoff_loc.add(Direction::East), UnitType::Knight).unwrap();
         assert![!world.can_load(rocket, invalid_boarder_rocket_full)];
-        assert_err![world.load(rocket, invalid_boarder_rocket_full), GameError::NotEnoughSpace];
+        assert_err![world.load(rocket, invalid_boarder_rocket_full), GameError::GarrisonFull];
 
         // A unit should not be able to board another team's rocket.
         let blue_takeoff_loc = MapLocation::new(Planet::Earth, 5, 5);
@@ -2787,7 +2787,7 @@ mod tests {
 
         // Error unloading off the map.
         assert![!world.can_unload(rocket, Direction::South)];
-        assert_err![world.unload(rocket, Direction::South), GameError::InvalidLocation];
+        assert_err![world.unload(rocket, Direction::South), GameError::LocationOffMap];
 
         // Error unloading not a rocket.
         let robot_loc = MapLocation::new(Planet::Mars, 10, 10);
@@ -2986,7 +2986,7 @@ mod tests {
 
         // The worker cannot replicate to the west, because that space is off the map.
         assert![!world.can_replicate(worker, Direction::West)];
-        assert_err![world.replicate(worker, Direction::West), GameError::InvalidLocation];
+        assert_err![world.replicate(worker, Direction::West), GameError::LocationOffMap];
 
         // The worker cannot replicate to the east, because that space is obstructed.
         assert![!world.can_replicate(worker, Direction::East)];

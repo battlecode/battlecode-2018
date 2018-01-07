@@ -91,8 +91,8 @@ pub enum GameError {
     #[fail(display = "You are not allowed to control units on the other team.")]
     TeamNotAllowed,
 
-    /// The unit is in a structure's garrison or flying through space, and cannot perform an action.
-    #[fail(display = "The unit is in a structure's garrison or flying through space, and cannot perform an action.")]
+    /// The unit is in a structure's garrison or flying through space.
+    #[fail(display = "The unit is in a structure's garrison or flying through space.")]
     UnitNotOnMap,
 }
 
@@ -137,6 +137,66 @@ macro_rules! assert_lte {
             (left_val, right_val) => {
                 if !(*left_val <= *right_val) {
                     panic!(r#"assertion failed: `(left <= right)`
+  left: `{:?}`,
+ right: `{:?}`: {}"#, left_val, right_val,
+                           format_args!($($arg)+))
+                }
+            }
+        }
+    });
+}
+
+/// Asserts that $left is greater than or equal to $right. More informative
+/// than assert!(left <= right), since it'll output the $left and $right values
+/// when panicking.
+#[cfg(test)]
+macro_rules! assert_gte {
+    ($left:expr, $right:expr) => ({
+        match (&$left, &$right) {
+            (left_val, right_val) => {
+                if !(*left_val >= *right_val) {
+                    panic!(r#"assertion failed: `(left >= right)`
+  left: `{:?}`,
+ right: `{:?}`"#, left_val, right_val)
+                }
+            }
+        }
+    });
+    ($left:expr, $right:expr, $($arg:tt)+) => ({
+        match (&($left), &($right)) {
+            (left_val, right_val) => {
+                if !(*left_val >= *right_val) {
+                    panic!(r#"assertion failed: `(left >= right)`
+  left: `{:?}`,
+ right: `{:?}`: {}"#, left_val, right_val,
+                           format_args!($($arg)+))
+                }
+            }
+        }
+    });
+}
+
+/// Asserts that $left is less than $right. More informative than
+/// assert!(left <= right), since it'll output the $left and $right values
+/// when panicking.
+#[cfg(test)]
+macro_rules! assert_lt {
+    ($left:expr, $right:expr) => ({
+        match (&$left, &$right) {
+            (left_val, right_val) => {
+                if !(*left_val < *right_val) {
+                    panic!(r#"assertion failed: `(left < right)`
+  left: `{:?}`,
+ right: `{:?}`"#, left_val, right_val)
+                }
+            }
+        }
+    });
+    ($left:expr, $right:expr, $($arg:tt)+) => ({
+        match (&($left), &($right)) {
+            (left_val, right_val) => {
+                if !(*left_val < *right_val) {
+                    panic!(r#"assertion failed: `(left < right)`
   left: `{:?}`,
  right: `{:?}`: {}"#, left_val, right_val,
                            format_args!($($arg)+))

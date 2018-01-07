@@ -249,7 +249,8 @@ impl MapLocation {
         if self.planet != o.planet {
             return false;
         }
-        self.distance_squared_to(o) <= 2
+        let dist_squared = self.distance_squared_to(o);
+        dist_squared <= 2 && dist_squared != 0
     }
 
     /// Whether this location is within the distance squared range of the
@@ -294,7 +295,10 @@ impl Location {
         }
     }
 
-    /// The map location of the unit. Errors if the unit is not on a map.
+    /// The map location of the unit.
+    ///
+    /// * UnitNotOnMap - The unit is in a garrison or in space, and does not
+    ///   have a map location.
     pub fn map_location(&self) -> Result<MapLocation, Error> {
         match *self {
             Location::OnMap(map_loc) => Ok(map_loc),
@@ -387,7 +391,7 @@ mod tests {
     }
 
     #[test]
-    fn map_location_add() {
+    fn test_map_location_add_subtract() {
         let loc = MapLocation::new(Earth, 0, 0);
         assert_eq!(loc.add(North),     MapLocation::new(Earth, 0, 1));
         assert_eq!(loc.add(Northeast), MapLocation::new(Earth, 1, 1));
@@ -418,7 +422,7 @@ mod tests {
     }
 
     #[test]
-    fn map_location_distance_squared_to() {
+    fn test_map_location_distance_squared_to() {
         let a = MapLocation::new(Earth, 4, 4);
         let b = MapLocation::new(Earth, 4, 6);
         let c = MapLocation::new(Earth, 7, 4);
@@ -432,7 +436,7 @@ mod tests {
     }
 
     #[test]
-    fn map_location_direction_to() {
+    fn test_map_location_direction_to() {
         let origin = MapLocation::new(Mars, 0, 0);
         let nn = MapLocation::new(Mars, 0, 2);
         let ne = MapLocation::new(Mars, 2, 2);
@@ -480,7 +484,7 @@ mod tests {
     }
 
     #[test]
-    fn map_location_is_adjacent_to() {
+    fn test_is_adjacent_to() {
         let a = MapLocation::new(Earth, 4, 4);
         let b = MapLocation::new(Earth, 4, 5);
         let c = MapLocation::new(Earth, 5, 5);
@@ -492,11 +496,38 @@ mod tests {
         assert!(d.is_adjacent_to(c));
         assert!(!a.is_adjacent_to(d));
         assert!(!a.is_adjacent_to(e));
-        assert!(a.is_adjacent_to(a), "a square is not adjacent to itself");
+        assert!(!a.is_adjacent_to(a), "a square is not adjacent to itself");
+
+        assert!(Location::OnMap(a).is_adjacent_to(Location::OnMap(c)));
+        assert!(Location::OnMap(d).is_adjacent_to(Location::OnMap(c)));
+        assert!(!Location::OnMap(a).is_adjacent_to(Location::OnMap(d)));
+        assert!(!Location::OnMap(a).is_adjacent_to(Location::OnMap(e)));
+        assert!(!Location::OnMap(a).is_adjacent_to(Location::OnMap(a)));
     }
 
     #[test]
-    fn location_is_adjacent_to() {
+    fn test_is_within_range() {
+        let a = MapLocation::new(Earth, 4, 4);
+        let b = MapLocation::new(Earth, 6, 5);
+        let c = MapLocation::new(Mars, 4, 5);
+
+        assert!(!a.is_within_range(10, c), "different planets");
+        assert!(a.is_within_range(10, a), "location to itself");
+        assert!(a.is_within_range(10, b), "location is within range");
+        assert!(a.is_within_range(5, b), "location is on the border");
+
+        assert!(!Location::OnMap(a).is_within_range(10, Location::OnMap(c)),
+            "different planets");
+        assert!(Location::OnMap(a).is_within_range(10, Location::OnMap(a)),
+            "location to itself");
+        assert!(Location::OnMap(a).is_within_range(10, Location::OnMap(b)),
+            "location is within range");
+        assert!(Location::OnMap(a).is_within_range(5, Location::OnMap(b)),
+            "location is on the border");
+    }
+
+    #[test]
+    fn test_location_is_adjacent_to() {
         let loc_a = Location::OnMap(MapLocation::new(Planet::Earth, 0, 0));
         let loc_b = Location::OnMap(MapLocation::new(Planet::Earth, 1, 1));
         let loc_c = Location::OnMap(MapLocation::new(Planet::Earth, 1, 2));
@@ -508,5 +539,33 @@ mod tests {
         assert!(loc_b.is_adjacent_to(loc_c));
         assert!(!loc_a.is_adjacent_to(loc_c));
         assert!(!loc_c.is_adjacent_to(loc_a));
+    }
+
+    #[test]
+    fn test_location_not_on_map() {
+        let loc = Location::OnMap(MapLocation::new(Planet::Mars, 10, 10));
+        let garrison = Location::InGarrison(1);
+        let space = Location::InSpace;
+
+        assert!(loc.on_planet(Planet::Mars));
+        assert!(!loc.on_planet(Planet::Earth));
+        assert!(!garrison.on_planet(Planet::Mars));
+        assert!(!space.on_planet(Planet::Mars));
+
+        assert!(loc.on_map());
+        assert!(!garrison.on_map());
+        assert!(!space.on_map());
+
+        assert!(loc.map_location().is_ok());
+        assert_err!(garrison.map_location(), GameError::UnitNotOnMap);
+        assert_err!(space.map_location(), GameError::UnitNotOnMap);
+
+        assert!(!loc.is_adjacent_to(garrison));
+        assert!(!garrison.is_adjacent_to(space));
+        assert!(!space.is_adjacent_to(loc));
+
+        assert!(!loc.is_within_range(100, garrison));
+        assert!(!garrison.is_within_range(100, space));
+        assert!(!space.is_within_range(100, loc));
     }
 }
