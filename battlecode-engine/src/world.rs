@@ -914,6 +914,9 @@ impl GameWorld {
     ///
     /// * GameError::InvalidLocation - the location is outside the vision range.
     pub fn is_occupiable(&self, location: MapLocation) -> Result<bool, Error> {
+        if !self.is_on_map(location) {
+            return Err(GameError::LocationOffMap)?;
+        }
         if !self.can_sense_location(location) {
             return Err(GameError::LocationNotVisible)?;
         }
@@ -969,6 +972,7 @@ impl GameWorld {
     /// * GameError::InvalidAction - the robot cannot move in that direction.
     pub fn move_robot(&mut self, robot_id: UnitID, direction: Direction) -> Result<(), Error> {
         self.ok_if_can_move(robot_id, direction)?;
+        self.ok_if_move_ready(robot_id)?;
         let dest = match self.my_unit(robot_id)?.location() {
             OnMap(loc) => loc.add(direction),
             _ => unreachable!(),
@@ -2261,7 +2265,8 @@ mod tests {
             is_passable_terrain: vec![vec![true; 30]; 30],
             initial_karbonite: vec![vec![0; 30]; 30],
         };
-        let world = GameWorld::new(map);
+        let mut world = GameWorld::new(map);
+        world.get_unit_mut(3).unwrap().be_built(1000);
 
         // Red can see 4 units initially on Earth.
         let mut red_world = world.filter(world.player_to_move);
@@ -2340,6 +2345,7 @@ mod tests {
         let loc_b = MapLocation::new(Planet::Earth, 0, 2);
         let loc_c = MapLocation::new(Planet::Earth, 0, 3);
         let id_a = world.create_unit(Team::Red, loc_a, UnitType::Rocket).unwrap();
+        world.get_unit_mut(id_a).unwrap().be_built(1000);
         let id_b = world.create_unit(Team::Red, loc_b, UnitType::Knight).unwrap();
         world.create_unit(Team::Blue, loc_c, UnitType::Knight).unwrap();
 
@@ -2597,12 +2603,12 @@ mod tests {
         let loc_d = MapLocation::new(Planet::Earth, 0, 2);
         assert!(world.move_to(robot_b, loc_d).is_ok());
         assert!(world.javelin(robot_a, robot_b).is_ok());
-        assert!(!world.get_unit(robot_a).unwrap().is_ability_ready().unwrap());
+        assert!(!world.get_unit(robot_a).unwrap().ok_if_ability_ready().is_ok());
 
 
         // Healer uses overcharge to reset robot's ablity cooldown
         assert!(world.overcharge(healer, robot_a).is_ok());
-        assert!(world.get_unit(robot_a).unwrap().is_ability_ready().unwrap());
+        assert!(world.get_unit(robot_a).unwrap().ok_if_ability_ready().is_ok());
     }
 
     #[test]
@@ -2612,6 +2618,7 @@ mod tests {
         let earth_loc = MapLocation::new(Planet::Earth, 5, 5);
         let mars_loc = MapLocation::new(Planet::Mars, 5, 5);
         let rocket = world.create_unit(Team::Red, earth_loc, UnitType::Rocket).unwrap();
+        world.get_unit_mut(rocket).unwrap().be_built(1000);
 
         // Create units around the target location.
         let mut earth_bystanders: Vec<UnitID> = vec![];
@@ -2654,7 +2661,9 @@ mod tests {
         let mars_loc_knight = MapLocation::new(Planet::Mars, 0, 1);
         let mars_loc_factory = MapLocation::new(Planet::Mars, 0, 2);
         let rocket_a = world.create_unit(Team::Red, earth_loc_a, UnitType::Rocket).unwrap();
+        world.get_unit_mut(rocket_a).unwrap().be_built(1000);
         let rocket_b = world.create_unit(Team::Red, earth_loc_b, UnitType::Rocket).unwrap();
+        world.get_unit_mut(rocket_b).unwrap().be_built(1000);
         let knight = world.create_unit(Team::Blue, mars_loc_knight, UnitType::Knight).unwrap();
         let factory = world.create_unit(Team::Blue, mars_loc_factory, UnitType::Factory).unwrap();
 
@@ -2697,6 +2706,7 @@ mod tests {
         let mut world = GameWorld::test_world();
         let takeoff_loc = MapLocation::new(Planet::Earth, 10, 10);        
         let rocket = world.create_unit(Team::Red, takeoff_loc, UnitType::Rocket).unwrap();
+        world.get_unit_mut(rocket).unwrap().be_built(1000);
 
         // Correct loading.
         let valid_boarder = world.create_unit(Team::Red, takeoff_loc.add(Direction::North), UnitType::Knight).unwrap();
@@ -2750,6 +2760,7 @@ mod tests {
         let mut world = GameWorld::test_world();
         let takeoff_loc = MapLocation::new(Planet::Earth, 10, 10);        
         let rocket = world.create_unit(Team::Red, takeoff_loc, UnitType::Rocket).unwrap();
+        world.get_unit_mut(rocket).unwrap().be_built(1000);
         
         // Load the rocket with robots.
         for _ in 0..2 {
@@ -2925,6 +2936,7 @@ mod tests {
         let mut world = GameWorld::test_world();
         let loc = MapLocation::new(Planet::Earth, 10, 10);
         let factory = world.create_unit(Team::Red, loc, UnitType::Factory).unwrap();
+        world.get_unit_mut(factory).unwrap().be_built(1000);
         let mage_cost = UnitType::Mage.factory_cost().unwrap();
 
         // The factory can produce a robot only if it's not already busy.
@@ -3028,7 +3040,7 @@ mod tests {
         assert_err![world.repair(worker, factory), GameError::StructureNotYetBuilt];
 
         // After forcibly completing the structure, we damage it.
-        world.get_unit_mut(factory).unwrap().be_built(1000).unwrap();
+        world.get_unit_mut(factory).unwrap().be_built(1000);
         assert![world.get_unit(factory).unwrap().structure_is_built().unwrap()];
         world.get_unit_mut(factory).unwrap().take_damage(100);
         assert_eq![world.get_unit(factory).unwrap().health(), 900];

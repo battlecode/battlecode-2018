@@ -80,6 +80,7 @@ impl UnitType {
                 movement_cooldown: 20,
                 attack_cooldown: 0,
                 ability_cooldown: 50,
+                is_ability_unlocked: true,
                 ..Default::default()
             },
             Knight => Unit {
@@ -615,7 +616,7 @@ impl Unit {
     pub(crate) fn ok_if_ability_unlocked(&self) -> Result<(), Error> {
         self.ok_if_robot()?;
         if !self.is_ability_unlocked()? {
-            Err(GameError::ResearchLevelInvalid)?
+            Err(GameError::ResearchNotUnlocked)?
         }
         Ok(())
     }
@@ -1040,7 +1041,7 @@ impl Unit {
     /// * StructureNotYetBuilt - the rocket has not yet been built.
     pub(crate) fn ok_if_can_launch_rocket(&self) -> Result<(), Error> {
         self.ok_if_structure_built()?;
-        if !self.rocket_is_used()? {
+        if self.rocket_is_used()? {
             Err(GameError::RocketUsed)?;
         }
         Ok(())
@@ -1137,7 +1138,7 @@ mod tests {
         let mut unit = Unit::new(1, Team::Red, Healer, 0, OnMap(loc_a)).unwrap();
         assert_eq!(unit.location(), OnMap(loc_a));
         assert_gt!(unit.movement_cooldown().unwrap(), 0);
-        assert!(unit.is_move_ready().unwrap());
+        assert!(unit.ok_if_move_ready().is_ok());
         assert_eq!(unit.location(), OnMap(loc_a));
         assert_eq!(unit.movement_heat().unwrap(), 0);
 
@@ -1145,17 +1146,17 @@ mod tests {
         unit.move_to(loc_b);
         assert_eq!(unit.location(), OnMap(loc_b));
         assert_gt!(unit.movement_heat().unwrap(), 0);
-        assert!(!unit.is_move_ready().unwrap());
+        assert_err!(unit.ok_if_move_ready(), GameError::Overheated);
 
         // Wait one round, and the unit is still not ready to move.
         unit.end_round();
         assert_gte!(unit.movement_heat().unwrap(), MAX_HEAT_TO_ACT);
-        assert!(!unit.is_move_ready().unwrap());
+        assert_err!(unit.ok_if_move_ready(), GameError::Overheated);
 
         // Wait one more round, and succesfully move.
         unit.end_round();
         assert_lt!(unit.movement_heat().unwrap(), MAX_HEAT_TO_ACT);
-        assert!(unit.is_move_ready().unwrap());
+        assert!(unit.ok_if_move_ready().is_ok());
         unit.move_to(loc_a);
         assert_gt!(unit.movement_heat().unwrap(), 0);
         assert_eq!(unit.location(), OnMap(loc_a));
@@ -1164,13 +1165,12 @@ mod tests {
     #[test]
     fn test_movement_error() {
         let loc = MapLocation::new(Planet::Earth, 0, 0);
-        let adjacent_loc = MapLocation::new(Planet::Earth, 1, 0);
 
-        let mut factory = Unit::new(1, Team::Red, Factory, 0, OnMap(loc)).unwrap();
+        let factory = Unit::new(1, Team::Red, Factory, 0, OnMap(loc)).unwrap();
         assert!(factory.movement_heat().is_err());
         assert!(factory.movement_cooldown().is_err());
 
-        let mut rocket = Unit::new(1, Team::Red, Rocket, 0, OnMap(loc)).unwrap();
+        let rocket = Unit::new(1, Team::Red, Rocket, 0, OnMap(loc)).unwrap();
         assert!(rocket.movement_heat().is_err());
         assert!(rocket.movement_cooldown().is_err());
     }
@@ -1183,29 +1183,30 @@ mod tests {
     fn test_special_abilities() {
         let loc = MapLocation::new(Planet::Earth, 0, 0); 
 
-        // Worker and Rocket cannot use ability
-        let worker = Unit::new(1, Team::Red, Worker, 0, OnMap(loc)).unwrap();
-        assert!(worker.ok_if_ability().is_err());
-        let rocket = Unit::new(1, Team::Red, Worker, 0, OnMap(loc)).unwrap();
-        assert!(rocket.ok_if_ability().is_err());
-
+        // Factory and Rocket cannot use ability
+        let factory = Unit::new(1, Team::Red, Factory, 0, OnMap(loc)).unwrap();
+        assert_err!(factory.ok_if_ability_unlocked(), GameError::InappropriateUnitType);
+        let rocket = Unit::new(1, Team::Red, Rocket, 0, OnMap(loc)).unwrap();
+        assert_err!(rocket.ok_if_ability_unlocked(), GameError::InappropriateUnitType);
 
         // Other units can use ability.
+        let worker = Unit::new(1, Team::Red, Worker, 0, OnMap(loc)).unwrap();
+        assert!(worker.ok_if_ability_unlocked().is_ok());
         let knight = Unit::new(1, Team::Red, Knight, 3, OnMap(loc)).unwrap();
-        assert!(knight.ok_if_ability().is_ok());
+        assert!(knight.ok_if_ability_unlocked().is_ok());
         let ranger = Unit::new(1, Team::Red, Knight, 3, OnMap(loc)).unwrap();
-        assert!(ranger.ok_if_ability().is_ok());
+        assert!(ranger.ok_if_ability_unlocked().is_ok());
         let mage = Unit::new(1, Team::Red, Knight, 3, OnMap(loc)).unwrap();
-        assert!(mage.ok_if_ability().is_ok());
+        assert!(mage.ok_if_ability_unlocked().is_ok());
         let healer = Unit::new(1, Team::Red, Knight, 3, OnMap(loc)).unwrap();
-        assert!(healer.ok_if_ability().is_ok());
+        assert!(healer.ok_if_ability_unlocked().is_ok());
 
         // Unit cannot use ability when ability heat >= max heat to act 
         let mut ranger = Unit::new(1, Team::Red, Ranger, 3, OnMap(loc)).unwrap();
         ranger.ability_heat = MAX_HEAT_TO_ACT;
-        assert!(!ranger.is_ability_ready().unwrap());
+        assert_err!(ranger.ok_if_ability_ready(), GameError::Overheated);
         ranger.ability_heat = MAX_HEAT_TO_ACT + 10;
-        assert!(!ranger.is_ability_ready().unwrap());
+        assert_err!(ranger.ok_if_ability_ready(), GameError::Overheated);
     }
 
     #[test]
@@ -1213,9 +1214,8 @@ mod tests {
         let loc = MapLocation::new(Planet::Earth, 0, 0);
 
         // Javelin should fail if unit is not a knight
-        let mut worker = Unit::new(1, Team::Red, Worker, 0, OnMap(loc)).unwrap();
-        assert!(worker.ok_if_javelin().is_err());
-        // assert!(worker.javelin().is_err());
+        let worker = Unit::new(1, Team::Red, Worker, 0, OnMap(loc)).unwrap();
+        assert_err!(worker.ok_if_javelin_unlocked(), GameError::InappropriateUnitType);
     }
 
     #[test]
@@ -1225,17 +1225,17 @@ mod tests {
 
         // Sniping should fail if unit is not a ranger
         let worker = Unit::new(1, Team::Red, Worker, 0, OnMap(loc_a)).unwrap();
-        assert!(worker.ok_if_snipe().is_err());
+        assert_err!(worker.ok_if_snipe_unlocked(), GameError::InappropriateUnitType);
 
         // Begin sniping
         let mut ranger = Unit::new(1, Team::Red, Ranger, 3, OnMap(loc_a)).unwrap();
-        assert!(ranger.ok_if_snipe().is_ok());
-        // assert!(ranger.begin_snipe(loc_b).is_ok());
+        assert!(ranger.ok_if_snipe_unlocked().is_ok());
+        ranger.begin_snipe(loc_b);
         assert!(ranger.process_snipe().is_none());
         assert_eq!(ranger.ranger_target_location().unwrap().unwrap(), loc_b);
 
         // Ranger can begin sniping at anytime as long as ability heat < max heat to act
-        // assert!(ranger.begin_snipe(loc_b).is_ok());
+        ranger.begin_snipe(loc_b);
 
         // Process sniping
         let rounds = 200;
@@ -1261,18 +1261,16 @@ mod tests {
         let loc = MapLocation::new(Planet::Earth, 0, 0);
 
         // Overcharging should fail if unit is not a healer
-        let mut worker = Unit::new(1, Team::Red, Worker, 0, OnMap(loc)).unwrap();
-        assert!(worker.ok_if_overcharge().is_err());
-        // assert!(worker.overcharge().is_err());
-
+        let worker = Unit::new(1, Team::Red, Worker, 0, OnMap(loc)).unwrap();
+        assert_err!(worker.ok_if_overcharge_unlocked(), GameError::InappropriateUnitType);
+        
         // Healer canfnot overcharge if it has insufficient research level.
         let healer = Unit::new(1, Team::Red, Healer, 0, OnMap(loc)).unwrap();
-        assert!(healer.ok_if_overcharge().is_err());
+        assert_err!(healer.ok_if_overcharge_unlocked(), GameError::ResearchNotUnlocked);
 
         // Healer can overcharge if it has unlocked ability.
-        let mut healer = Unit::new(1, Team::Red, Healer, 3, OnMap(loc)).unwrap();
-        assert!(healer.ok_if_overcharge().is_ok());
-        // assert!(healer.overcharge().is_ok());
+        let healer = Unit::new(1, Team::Red, Healer, 3, OnMap(loc)).unwrap();
+        assert!(healer.ok_if_overcharge_unlocked().is_ok());
     }
 
     #[test]
@@ -1284,6 +1282,7 @@ mod tests {
 
         // A factory cannot produce a structure, but it can produce a mage.
         let mut factory = Unit::new(1, Team::Red, Factory, 0, OnMap(loc)).unwrap();
+        factory.is_built = true;
         assert_eq!(factory.factory_rounds_left().unwrap(), None);
         assert_err!(factory.ok_if_can_produce_robot(Factory), GameError::InappropriateUnitType);
         assert_err!(factory.ok_if_can_produce_robot(Rocket), GameError::InappropriateUnitType);
@@ -1303,7 +1302,7 @@ mod tests {
 
         // Fill the factory to its max capacity.
         for id in 0..factory.structure_max_capacity().expect("unit has a capacity") {
-            assert!(factory.load(id as UnitID).is_ok());
+            factory.load(id as UnitID);
         }
 
         // The factory can produce one more robot, but it won't go in its garrison.
@@ -1316,7 +1315,7 @@ mod tests {
 
         // After unloading the units, the factory will work again.
         for id in 0..factory.structure_max_capacity().expect("unit has a capacity") {
-            assert_eq!(factory.unload_unit().unwrap(), id as UnitID);
+            assert_eq!(factory.unload_unit(), id as UnitID);
         }
         assert_eq!(factory.process_factory_round(), Some(Mage));
         assert!(factory.ok_if_can_produce_robot(Mage).is_ok());
@@ -1329,18 +1328,15 @@ mod tests {
         let mars_loc = MapLocation::new(Planet::Mars, 0, 0);
 
         let mut rocket = Unit::new(1, Team::Red, Rocket, 0, OnMap(loc)).unwrap();
+        rocket.is_built = true;
         let mut robot = Unit::new(2, Team::Red, Mage, 0, OnMap(adjacent_loc)).unwrap();
 
         // Rocket accessor methods should fail on a robot.
         assert!(robot.structure_max_capacity().is_err());
         assert!(robot.rocket_is_used().is_err());
         assert!(robot.structure_garrison().is_err());
-        assert!(robot.load(0).is_err());
-        assert!(robot.can_launch_rocket().is_err());
-        robot.launch_rocket();
-        robot.land_rocket(loc);
+        assert_err!(robot.ok_if_can_launch_rocket(), GameError::InappropriateUnitType);
         assert!(robot.ok_if_can_unload_unit().is_err());
-        assert!(robot.unload_unit().is_err());
 
         // Check accessor methods on the rocket.
         assert!(rocket.structure_max_capacity().unwrap() > 0);
@@ -1348,13 +1344,10 @@ mod tests {
         assert_eq!(rocket.structure_garrison().unwrap().len(), 0);
         assert!(rocket.ok_if_can_load().is_ok());
         assert!(rocket.ok_if_can_unload_unit().is_err());
-        assert!(rocket.can_launch_rocket().unwrap());
-
-        // The rocket cannot land.
-        // assert!(rocket.land_rocket(mars_loc).is_err());
+        assert!(rocket.ok_if_can_launch_rocket().is_ok());
 
         // Load a unit and launch into space.
-        assert!(rocket.load(robot.id()).is_ok());
+        rocket.load(robot.id());
         assert_eq!(rocket.structure_garrison().unwrap(), vec![robot.id()]);
         assert!(rocket.ok_if_can_unload_unit().is_ok());
 
@@ -1370,16 +1363,15 @@ mod tests {
 
         // Unload the unit.
         assert!(rocket.ok_if_can_unload_unit().is_ok());
-        assert_eq!(rocket.unload_unit().unwrap(), robot.id());
+        assert_eq!(rocket.unload_unit(), robot.id());
         assert!(!rocket.ok_if_can_unload_unit().is_ok());
 
         // Load too many units
         for i in 0..rocket.structure_max_capacity().unwrap() {
             assert!(rocket.ok_if_can_load().is_ok(), "failed to load unit {}", i);
-            assert!(rocket.load(0).is_ok());
+            rocket.load(0);
         }
         assert!(rocket.ok_if_can_load().is_err());
-        assert!(rocket.load(0).is_err());
     }
 
     #[test]
