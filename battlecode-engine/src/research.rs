@@ -41,7 +41,7 @@ pub fn cost_of(branch: &Branch, level: Level) -> Result<Rounds, Error> {
     if let Some(cost) = cost_array(branch).get(level) {
         Ok(*cost)
     } else {
-        Err(GameError::InvalidResearchLevel)?
+        Err(GameError::ResearchLevelInvalid)?
     }
 }
 

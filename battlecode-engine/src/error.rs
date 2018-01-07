@@ -3,30 +3,6 @@
 /// Detailed game errors.
 #[derive(Debug, Fail, PartialEq, Eq)]
 pub enum GameError {
-    /// The given unit does not have a type appropriate for the given action.
-    #[fail(display = "The given unit does not have a type appropriate for the given action.")]
-    InappropriateUnitType,
-
-    /// The engine encountered a problem. Report this to the devs.
-    #[fail(display = "The engine encountered a problem. Report this to the devs.")]
-    InternalEngineError,
-
-    /// The action you attempted to perform is not allowed. Did you check `can_action()` before performing `action()`?
-    #[fail(display = "The action you attempted to perform is not allowed. Did you check can_action() before performing action()?")]
-    InvalidAction,
-
-    /// The map-related object is invalid.
-    #[fail(display = "The map-related object is invalid.")]
-    InvalidMapObject,
-
-    /// The location is off the map or otherwise outside your vision range.
-    #[fail(display = "The location is off the map or otherwise outside your vision range.")]
-    InvalidLocation,
-
-    /// You are not allowed to control units on the other team.
-    #[fail(display = "You are not allowed to control units on the other team.")]
-    TeamNotAllowed,
-
     /// You cannot read outside of the bounds of the communication array.
     #[fail(display = "You cannot read outside of the bounds of the communication array.")]
     ArrayOutOfBounds,
@@ -43,13 +19,21 @@ pub enum GameError {
     #[fail(display = "The structure's garrison is empty.")]
     GarrisonEmpty,
 
+    /// The structure's garrison is full.
+    #[fail(display = "The structure's garrison is full.")]
+    GarrisonFull,
+
+    /// The given unit does not have a type appropriate for the given action.
+    #[fail(display = "The given unit does not have a type appropriate for the given action.")]
+    InappropriateUnitType,
+
+    /// The map-related object is invalid.
+    #[fail(display = "The map-related object is invalid.")]
+    InvalidMapObject,
+
     /// Your team does not have enough Karbonite to perform the requested action.
     #[fail(display = "Your team does not have enough Karbonite to perform the requested action.")]
     InsufficientKarbonite,
-
-    /// The level of research may not exist, or has not been unlocked by your team.
-    #[fail(display = "The level of research may not exist, or has not been unlocked by your team.")]
-    InvalidResearchLevel,
 
     /// The Karbonite deposit is empty and cannot be harvested further.
     #[fail(display = "The Karbonite deposit is empty and cannot be harvested further.")]
@@ -59,9 +43,13 @@ pub enum GameError {
     #[fail(display = "The location corresponding to the requested action is not empty.")]
     LocationNotEmpty,
 
-    /// The structure's garrison is full.
-    #[fail(display = "The structure's garrison is full.")]
-    NotEnoughSpace,
+    /// The location is outside your vision range.
+    #[fail(display = "The location is outside your vision range.")]
+    LocationNotVisible,
+
+    /// The location is off the map of the current planet.
+    #[fail(display = "The location is off the map of the current planet.")]
+    LocationOffMap,
 
     /// The specified unit does not exist, at least within your vision range.
     #[fail(display = "The specified unit does not exist, at least within your vision range.")]
@@ -74,6 +62,14 @@ pub enum GameError {
     /// The unit's heat is not low enough to perform the requested action.
     #[fail(display = "The unit's heat is not low enough to perform the requested action.")]
     Overheated,
+
+    /// The level of research does not exist for this branch.
+    #[fail(display = "The level of research does not exist for this branch.")]
+    ResearchLevelInvalid,
+
+    /// The level of research has not been unlocked by your team.
+    #[fail(display = "The level of research has not been unlocked by your team.")]
+    ResearchNotUnlocked,
 
     /// The rocket has already been used.
     #[fail(display = "The rocket has already been used.")]
@@ -91,13 +87,13 @@ pub enum GameError {
     #[fail(display = "The structure has not yet been completed, and cannot perform actions yet.")]
     StructureNotYetBuilt,
 
-    /// The unit is not on the map.
-    #[fail(display = "The unit is not on the map")]
-    UnitNotOnMap,
+    /// You are not allowed to control units on the other team.
+    #[fail(display = "You are not allowed to control units on the other team.")]
+    TeamNotAllowed,
 
-    /// The argument to this function does not conform to the specs.
-    #[fail(display = "The argument to this function does not conform to the specs.")]
-    IllegalArgument,
+    /// The unit is in a structure's garrison or flying through space, and cannot perform an action.
+    #[fail(display = "The unit is in a structure's garrison or flying through space, and cannot perform an action.")]
+    UnitNotOnMap,
 }
 
 /// Asserts that $left is an Err whose unwrapped value is the game error

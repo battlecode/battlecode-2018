@@ -450,7 +450,7 @@ impl GameWorld {
         if self.can_sense_location(location) {
             Ok(self.my_planet().karbonite[location.y as usize][location.x as usize])
         } else {
-            Err(GameError::InvalidLocation)?
+            Err(GameError::LocationNotVisible)?
         }
     }
 
@@ -549,7 +549,7 @@ impl GameWorld {
             let unit_id = self.my_planet().units_by_loc.get(&location);
             Ok(unit_id.map(|id| self.unit_info(*id).expect("unit exists")))
         } else {
-            Err(GameError::InvalidLocation)?
+            Err(GameError::LocationNotVisible)?
         }
     }
 
@@ -915,7 +915,7 @@ impl GameWorld {
     /// * GameError::InvalidLocation - the location is outside the vision range.
     pub fn is_occupiable(&self, location: MapLocation) -> Result<bool, Error> {
         if !self.can_sense_location(location) {
-            return Err(GameError::InvalidLocation)?;
+            return Err(GameError::LocationNotVisible)?;
         }
 
         let planet_map = &self.starting_map(location.planet);
@@ -935,7 +935,7 @@ impl GameWorld {
         let unit = self.my_unit(robot_id)?;
         let new_location = unit.location().map_location()?.add(direction);
         if !self.starting_map(new_location.planet).on_map(new_location) {
-            Err(GameError::InvalidLocation)?;
+            Err(GameError::LocationOffMap)?;
         }
         if !self.is_occupiable(new_location)? {
             Err(GameError::LocationNotEmpty)?;
@@ -973,14 +973,14 @@ impl GameWorld {
         self.ok_if_can_move(robot_id, direction)?;
         let dest = match self.my_unit(robot_id)?.location() {
             OnMap(loc) => loc.add(direction),
-            _ => Err(GameError::InvalidAction)?,
+            _ => unreachable!(),
         };
         self.move_to(robot_id, dest)
     }
 
     fn move_to(&mut self, _robot_id: UnitID, _location: MapLocation) -> Result<(), Error> {
         self.remove_unit(_robot_id);
-        self.my_unit_mut(_robot_id)?.move_to(_location)?;
+        self.my_unit_mut(_robot_id)?.move_to(_location);
         self.place_unit(_robot_id);
         Ok(())
     }
@@ -1058,7 +1058,7 @@ impl GameWorld {
     pub fn attack(&mut self, robot_id: UnitID, target_id: UnitID) -> Result<(), Error> {
         self.ok_if_can_attack(robot_id, target_id)?;
         self.ok_if_attack_ready(robot_id)?;
-        let damage = self.my_unit_mut(robot_id)?.use_attack()?;
+        let damage = self.my_unit_mut(robot_id)?.use_attack();
         if self.my_unit(robot_id)?.unit_type() == UnitType::Mage {
             let epicenter = self.unit_info(target_id)?.location.map_location()?;
             for direction in Direction::all().iter() {
@@ -1128,13 +1128,13 @@ impl GameWorld {
 
     fn ok_if_can_harvest(&self, worker_id: UnitID, direction: Direction) -> Result<(), Error> {
         let unit = self.my_unit(worker_id)?;
-        if !unit.can_worker_act()? {
+        if !unit.can_worker_act() {
             Err(GameError::Overheated)?;
         }
         let harvest_loc = unit.location().map_location()?.add(direction);
         // Check to see if we can sense the harvest location, (e.g. it is on the map).
         if !self.can_sense_location(harvest_loc) {
-            Err(GameError::InvalidLocation)?;
+            Err(GameError::LocationNotVisible)?;
         }
         if self.karbonite_at(harvest_loc)? == 0 {
             Err(GameError::KarboniteDepositEmpty)?;
@@ -1162,7 +1162,7 @@ impl GameWorld {
         self.ok_if_can_harvest(worker_id, direction)?;
         let (harvest_loc, harvest_amount) = {
             let worker = self.my_unit_mut(worker_id)?;
-            worker.worker_act()?;
+            worker.worker_act();
             (worker.location().map_location()?.add(direction), worker.worker_harvest_amount()?)
         };
         let amount_mined = cmp::min(self.karbonite_at(harvest_loc)?, harvest_amount);
@@ -1178,13 +1178,13 @@ impl GameWorld {
             Err(GameError::InappropriateUnitType)?;
         }
         let unit = self.my_unit(worker_id)?;
-        if !unit.can_worker_act()? {
+        if !unit.can_worker_act() {
             Err(GameError::Overheated)?;
         }
         let build_loc = unit.location().map_location()?.add(direction);
         // Check to see if we can sense the build location, (e.g. it is on the map).
         if !self.can_sense_location(build_loc) {
-            Err(GameError::InvalidLocation)?;
+            Err(GameError::LocationNotVisible)?;
         }
         // The build location must be unoccupied.
         if !self.is_occupiable(build_loc)? {
@@ -1196,7 +1196,7 @@ impl GameWorld {
         }
         // If building a rocket, Rocketry must be unlocked.
         if unit_type == UnitType::Rocket && self.my_research().get_level(&unit_type) < 1 {
-            Err(GameError::InvalidResearchLevel)?;
+            Err(GameError::ResearchNotUnlocked)?;
         }
         // Finally, the team must have sufficient karbonite.
         if self.karbonite() < unit_type.blueprint_cost()? {
@@ -1233,7 +1233,7 @@ impl GameWorld {
         self.ok_if_can_blueprint(worker_id, unit_type, direction)?;
         let build_loc = {
             let worker = self.my_unit_mut(worker_id)?;
-            worker.worker_act()?;
+            worker.worker_act();
             worker.location().map_location()?.add(direction)
         };
         let team = self.team();
@@ -1247,7 +1247,7 @@ impl GameWorld {
         let worker = self.my_unit(worker_id)?;
         let blueprint = self.my_unit(blueprint_id)?;
         // The worker must be able to act.
-        if !worker.can_worker_act()? {
+        if !worker.can_worker_act() {
             Err(GameError::Overheated)?;
         }
         // The worker must be adjacent to the blueprint.
@@ -1281,7 +1281,7 @@ impl GameWorld {
         self.ok_if_can_build(worker_id, blueprint_id)?;
         let build_health = {
             let worker = self.my_unit_mut(worker_id)?;
-            worker.worker_act()?;
+            worker.worker_act();
             worker.worker_build_health()?
         };
         self.my_unit_mut(blueprint_id)?.be_built(build_health)?;
@@ -1291,7 +1291,7 @@ impl GameWorld {
     fn ok_if_can_repair(&self, worker_id: UnitID, structure_id: UnitID) -> Result<(), Error> {
         let worker = self.my_unit(worker_id)?;
         let structure = self.my_unit(structure_id)?;
-        if !worker.can_worker_act()? {
+        if !worker.can_worker_act() {
             Err(GameError::Overheated)?;
         }
         if !worker.location().is_adjacent_to(structure.location()) {
@@ -1314,7 +1314,7 @@ impl GameWorld {
     /// can only be done to structures which have been fully built.
     pub fn repair(&mut self, worker_id: UnitID, structure_id: UnitID) -> Result<(), Error> {
         self.ok_if_can_repair(worker_id, structure_id)?;
-        self.my_unit_mut(worker_id)?.worker_act()?;
+        self.my_unit_mut(worker_id)?.worker_act();
         self.my_unit_mut(structure_id)?.be_healed(WORKER_REPAIR_AMOUNT);
         Ok(())
     }
@@ -1322,7 +1322,7 @@ impl GameWorld {
     fn ok_if_can_replicate(&self, worker_id: UnitID, direction: Direction) 
                            -> Result<(), Error> {
         let worker = self.my_unit(worker_id)?;
-        if !worker.can_worker_act()? {
+        if !worker.can_worker_act() {
             Err(GameError::Overheated)?;
         }
         if !worker.is_ability_ready()? {
@@ -1333,7 +1333,7 @@ impl GameWorld {
         }
         let replicate_loc = worker.location().map_location()?.add(direction);
         if !self.is_on_map(replicate_loc) {
-            Err(GameError::InvalidLocation)?;
+            Err(GameError::LocationOffMap)?;
         }
         if !self.is_occupiable(replicate_loc)? {
             Err(GameError::LocationNotEmpty)?;
@@ -1360,7 +1360,7 @@ impl GameWorld {
     pub fn replicate(&mut self, worker_id: UnitID, direction: Direction)
                      -> Result<(), Error> {
         self.ok_if_can_replicate(worker_id, direction)?;
-        self.my_unit_mut(worker_id)?.worker_act()?;
+        self.my_unit_mut(worker_id)?.worker_act();
         self.my_unit_mut(worker_id)?.replicate();
         let (team, location) = {
             let worker = self.my_unit(worker_id)?;
@@ -1418,7 +1418,7 @@ impl GameWorld {
     pub fn javelin(&mut self, knight_id: UnitID, target_id: UnitID) -> Result<(), Error> {
         self.ok_if_can_javelin(knight_id, target_id)?;
         self.ok_if_javelin_ready(knight_id)?;
-        let damage = self.my_unit_mut(knight_id)?.javelin()?;
+        let damage = self.my_unit_mut(knight_id)?.javelin();
         self.damage_unit(target_id, damage);
         Ok(())
     }
@@ -1455,10 +1455,10 @@ impl GameWorld {
     pub fn begin_snipe(&mut self, ranger_id: UnitID, location: MapLocation)
                        -> Result<(), Error> {
         if !self.is_on_map(location) {
-            Err(GameError::InvalidLocation)?
+            Err(GameError::LocationOffMap)?
         }
         self.ok_if_begin_snipe_ready(ranger_id)?;
-        self.my_unit_mut(ranger_id)?.begin_snipe(location)?;
+        self.my_unit_mut(ranger_id)?.begin_snipe(location);
         Ok(())
     }
 
@@ -1619,7 +1619,7 @@ impl GameWorld {
                       -> Result<(), Error> {
         self.ok_if_can_overcharge(healer_id, robot_id)?;
         self.ok_if_overcharge_ready(healer_id)?;
-        self.my_unit_mut(healer_id)?.overcharge()?;
+        self.my_unit_mut(healer_id)?.overcharge();
         self.my_unit_mut(robot_id)?.reset_ability_cooldown()?;
         Ok(())
     }
@@ -1664,7 +1664,7 @@ impl GameWorld {
         self.ok_if_can_load(structure_id, robot_id)?;
         self.remove_unit(robot_id);
         self.my_unit_mut(structure_id)?.load(robot_id)?;
-        self.my_unit_mut(robot_id)?.board_rocket(structure_id)?;
+        self.my_unit_mut(robot_id)?.board_rocket(structure_id);
         self.place_unit(robot_id);
         Ok(())
     }
@@ -1707,7 +1707,7 @@ impl GameWorld {
             (structure.unload_unit()?, structure.location().map_location()?)
         };
         let robot_loc = structure_loc.add(direction);
-        self.my_unit_mut(robot_id)?.move_to(robot_loc)?;
+        self.my_unit_mut(robot_id)?.move_to(robot_loc);
         self.place_unit(robot_id);
         Ok(())
     }
@@ -1805,7 +1805,7 @@ impl GameWorld {
         }
         let map = &self.starting_map(destination.planet);
         if !map.on_map(destination) {
-            Err(GameError::InvalidLocation)?;
+            Err(GameError::LocationOffMap)?;
         }
         if !map.is_passable_terrain_at(destination)? {
             Err(GameError::LocationNotEmpty)?;
@@ -1836,7 +1836,7 @@ impl GameWorld {
             self.damage_location(takeoff_loc.add(dir), ROCKET_BLAST_DAMAGE);
         }
         self.move_to_space(rocket_id);
-        self.my_unit_mut(rocket_id)?.launch_rocket()?;
+        self.my_unit_mut(rocket_id)?.launch_rocket();
 
         let landing_round = self.round + self.orbit.duration(self.round);
         self.my_team_mut().rocket_landings.add_landing(
@@ -1861,7 +1861,7 @@ impl GameWorld {
             }
             self.destroy_unit(victim_id);
         } else {
-            self.my_unit_mut(rocket_id)?.land_rocket(destination)?;
+            self.my_unit_mut(rocket_id)?.land_rocket(destination);
             self.move_from_space(rocket_id);
         }
 

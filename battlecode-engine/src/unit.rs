@@ -495,15 +495,9 @@ impl Unit {
     /// movement heat.
     /// 
     /// Errors if the unit is not a robot, or not ready to move.
-    pub(crate) fn move_to(&mut self, location: MapLocation)
-                   -> Result<(), Error> {
-        if self.is_move_ready()? {
-            self.movement_heat += self.movement_cooldown;
-            self.location = OnMap(location);
-            Ok(())
-        } else {
-            Err(GameError::InvalidAction)?
-        }
+    pub(crate) fn move_to(&mut self, location: MapLocation) {
+        self.movement_heat += self.movement_cooldown;
+        self.location = OnMap(location);
     }
 
     /// Tests whether the robot can attack the target location.
@@ -529,15 +523,9 @@ impl Unit {
 
     /// Updates the unit as if it has attacked, and increases the attack heat.
     /// Returns the damage done.
-    ///
-    /// Errors if the unit is not a robot, or not ready to attack.
-    pub(crate) fn use_attack(&mut self) -> Result<i32, Error> {
-        if self.is_attack_ready()? {
-            self.attack_heat += self.attack_cooldown;
-            Ok(self.damage)
-        } else {
-            Err(GameError::InvalidAction)?
-        }
+    pub(crate) fn use_attack(&mut self) -> i32 {
+        self.attack_heat += self.attack_cooldown;
+        self.damage
     }
 
     /// Take the amount of damage given, returning true if the unit has died.
@@ -604,7 +592,7 @@ impl Unit {
     pub(crate) fn ok_if_ability(&self) -> Result<(), Error> {
         self.ok_if_robot()?;
         if !self.is_ability_unlocked()? {
-            Err(GameError::InvalidResearchLevel)?
+            Err(GameError::ResearchLevelInvalid)?
         }
 
         if self.unit_type == Worker {
@@ -660,25 +648,15 @@ impl Unit {
         Ok(self.harvest_amount)
     }
 
-    /// Whether the unit can perform a worker action (building, blueprinting, 
+    /// Whether the worker can perform a worker action (building, blueprinting,
     /// harvesting, or replicating).
-    ///
-    /// Errors if the unit is not a worker.
-    pub(crate) fn can_worker_act(&self) -> Result<bool, Error> {
-        self.ok_if_unit_type(Worker)?;
-        Ok(!self.has_worker_acted)
+    pub(crate) fn can_worker_act(&self) -> bool {
+        !self.has_worker_acted
     }
 
     /// Updates the unit as if it has performed a worker action.
-    ///
-    /// Errors if the unit is not a worker, or has already acted.
-    pub(crate) fn worker_act(&mut self) -> Result<(), Error> {
-        if self.can_worker_act()? {
-            self.has_worker_acted = true;
-            Ok(())
-        } else {
-            Err(GameError::InvalidAction)?
-        }
+    pub(crate) fn worker_act(&mut self) {
+        self.has_worker_acted = true;
     }
 
     /// Updates the worker as though it has replicated. In reality,
@@ -707,17 +685,10 @@ impl Unit {
         Ok(self.ok_if_ability()?)
     }
 
-    /// Updates the unit as if it has javelined.
-    /// 
-    /// Errors if the unit is not a knight, or not ready to javelin.
-    pub(crate) fn javelin(&mut self) -> Result<(i32), Error> {
-        self.ok_if_javelin()?;
-        if self.is_ability_ready()? {
-            self.ability_heat += self.ability_cooldown;
-            Ok(self.damage)
-        } else {
-            Err(GameError::InvalidAction)?
-        }
+    /// Updates the unit as if it has javelined, and returns the damage done.
+    pub(crate) fn javelin(&mut self) -> i32 {
+        self.ability_heat += self.ability_cooldown;
+        self.damage
     }
 
     // ************************************************************************
@@ -775,20 +746,12 @@ impl Unit {
 
     /// Updates the unit as if it has begun sniping. The unit's ability heat 
     /// does not increase until it has sniped.
-    ///
-    /// Errors if the unit is not a ranger, or not ready to begin sniping. 
-    pub(crate) fn begin_snipe(&mut self, location: MapLocation) -> Result<(), Error> {
-        self.ok_if_snipe()?;
-        if self.is_ability_ready()? {
-            self.movement_heat = u32::max_value();
-            self.attack_heat = u32::max_value();
-            self.target_location = Some(location);
-            self.countdown = MAX_RANGER_COUNTDOWN;
-            self.is_sniping = true;
-            Ok(())
-        } else {
-            Err(GameError::InvalidAction)?
-        }
+    pub(crate) fn begin_snipe(&mut self, location: MapLocation) {
+        self.movement_heat = u32::max_value();
+        self.attack_heat = u32::max_value();
+        self.target_location = Some(location);
+        self.countdown = MAX_RANGER_COUNTDOWN;
+        self.is_sniping = true;
     }
 
     /// Updates the unit as if it has sniped.
@@ -843,16 +806,8 @@ impl Unit {
     }
 
     /// Updates the unit as if it has overcharged.
-    /// 
-    /// Errors if the unit is not a healer, or not ready to overcharge.
-    pub(crate) fn overcharge(&mut self) -> Result<(), Error> {
-        self.ok_if_overcharge()?;
-        if  self.is_ability_ready()? {
-            self.ability_heat += self.ability_cooldown;
-            Ok(())
-        } else {
-            Err(GameError::InvalidAction)?
-        }
+    pub(crate) fn overcharge(&mut self) {
+        self.ability_heat += self.ability_cooldown;
     }
 
     // ************************************************************************
@@ -901,7 +856,7 @@ impl Unit {
     pub(crate) fn ok_if_can_load(&self) -> Result<(), Error> {
         self.ok_if_structure()?;
         if self.structure_garrison()?.len() == self.structure_max_capacity()? {
-            Err(GameError::NotEnoughSpace)?;
+            Err(GameError::GarrisonFull)?;
         }
         Ok(())
     }
@@ -1048,40 +1003,20 @@ impl Unit {
 
     /// Updates the rocket as if it has launched by changing its location and
     /// marking it as used.
-    ///
-    /// Errors if the unit is not a rocket.
-    pub(crate) fn launch_rocket(&mut self) -> Result<(), Error> {
-        if self.can_launch_rocket()? {
-            self.location = InSpace;
-            self.is_used = true;
-            Ok(())
-        } else {
-            Err(GameError::InvalidAction)?
-        }
+    pub(crate) fn launch_rocket(&mut self) {
+        self.location = InSpace;
+        self.is_used = true;
     }
 
     /// Updates the rocket's location as if it has landed.
-    ///
-    /// Errors if the unit is not a rocket, or if it cannot be landed.
-    pub(crate) fn land_rocket(&mut self, location: MapLocation) -> Result<(), Error> {
-        if self.location == InSpace {
-            self.ok_if_unit_type(Rocket)?;
-            self.location = OnMap(location);
-            Ok(())
-        } else {
-            Err(GameError::InvalidAction)?
-        }
+    pub(crate) fn land_rocket(&mut self, location: MapLocation) {
+        self.location = OnMap(location);
     }
 
     /// Boards a rocket. The unit must be ready to move.
-    pub(crate) fn board_rocket(&mut self, rocket_id: UnitID) -> Result<(), Error> {
-        if self.is_move_ready()? {
-            self.movement_heat += self.movement_cooldown;
-            self.location = InGarrison(rocket_id);
-            Ok(())
-        } else {
-            Err(GameError::InvalidAction)?
-        }
+    pub(crate) fn board_rocket(&mut self, rocket_id: UnitID) {
+        self.movement_heat += self.movement_cooldown;
+        self.location = InGarrison(rocket_id);
     }
 
     // ************************************************************************
@@ -1096,41 +1031,41 @@ impl Unit {
                 1 => { self.build_health += 1; },
                 2 => { self.build_health += 1; },
                 3 => { self.build_health += 3; },
-                _ => Err(GameError::InvalidResearchLevel)?,
+                _ => Err(GameError::ResearchNotUnlocked)?,
             },
             Knight => match self.level {
                 0 => { self.defense += 5; },
                 1 => { self.defense += 5; },
                 2 => { self.is_ability_unlocked = true; },
-                _ => Err(GameError::InvalidResearchLevel)?,
+                _ => Err(GameError::ResearchNotUnlocked)?,
             },
             Ranger => match self.level {
                 0 => { self.movement_cooldown -= 5; },
                 1 => { self.vision_range += 30; },
                 2 => { self.is_ability_unlocked = true; },
-                _ => Err(GameError::InvalidResearchLevel)?,
+                _ => Err(GameError::ResearchNotUnlocked)?,
             },
             Mage => match self.level {
                 0 => { self.damage += 15; },
                 1 => { self.damage += 15; },
                 2 => { self.damage += 15; },
                 3 => { self.is_ability_unlocked = true; },
-                _ => Err(GameError::InvalidResearchLevel)?,
+                _ => Err(GameError::ResearchNotUnlocked)?,
             },
             Healer => match self.level {
                 0 => { self.damage -= 2; },
                 1 => { self.damage -= 5; },
                 2 => { self.is_ability_unlocked = true; },
-                _ => Err(GameError::InvalidResearchLevel)?,
+                _ => Err(GameError::ResearchNotUnlocked)?,
             },
             Rocket => match self.level {
                 // TODO: rocket unlocking
                 0 => { self.is_ability_unlocked = true; },
                 1 => { self.travel_time_decrease -= 20; },
                 2 => { self.max_capacity += 4; },
-                _ => Err(GameError::InvalidResearchLevel)?,
+                _ => Err(GameError::ResearchNotUnlocked)?,
             },
-            Factory => Err(GameError::InvalidResearchLevel)?,
+            Factory => Err(GameError::ResearchNotUnlocked)?,
         }
         self.level += 1;
         Ok(())
