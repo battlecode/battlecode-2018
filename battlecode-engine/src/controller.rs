@@ -768,18 +768,28 @@ impl GameController {
 
     /// Given a TurnMessage from a player, apply those changes.
     /// Receives the StartTurnMessage for the next player.
-    pub fn apply_turn(&mut self, turn: TurnMessage) -> Result<(StartTurnMessage, ViewerMessage), Error> {
+    pub fn apply_turn(&mut self, turn: &TurnMessage) -> Result<TurnApplication, Error> {
         // Serialize the filtered game state to send to the player
-        let start_turn_message = self.world.apply_turn(&turn)?;
+        let start_turn = self.world.apply_turn(&turn)?;
         // Serialize the game state to send to the viewer
-        let viewer_message = ViewerMessage { world: self.world.clone() };
-        Ok((start_turn_message, viewer_message))
+        let viewer = ViewerMessage { world: self.world.clone() };
+        Ok(TurnApplication {
+            start_turn, viewer
+        })
     }    
     
     /// Determines if the game has ended, returning the winning team if so.
     pub fn is_game_over(&self) -> Option<Team> {
         self.world.is_game_over()
     }
+}
+
+/// Returned from apply_turn.
+/// This struct only exists because the bindings don't do tuples yet.
+#[derive(Debug, Clone)]
+pub struct TurnApplication {
+    pub start_turn: StartTurnMessage,
+    pub viewer: ViewerMessage
 }
 
 #[cfg(test)]
@@ -821,7 +831,7 @@ mod tests {
         // End red's turn, and pass the message to the manager, which
         // generates blue's start turn message and starts blue's turn.
         let red_turn_msg = player_controller_red.end_turn().unwrap();
-        let (blue_start_turn_msg, _) = manager_controller.apply_turn(red_turn_msg).unwrap();
+        let (blue_start_turn_msg, _) = manager_controller.apply_turn(&red_turn_msg).unwrap();
         assert![player_controller_blue.start_turn(blue_start_turn_msg).is_ok()];
 
         // Test that blue can move as expected. This demonstrates

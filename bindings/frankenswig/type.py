@@ -59,6 +59,8 @@ i32 = BuiltinWrapper('i32', 'int32_t', 'int', '0')
 u64 = BuiltinWrapper('u64', 'uint64_t', 'int', '0')
 i64 = BuiltinWrapper('i64', 'int64_t', 'int', '0')
 void = BuiltinWrapper('()', 'void', 'int', '()')
+usize = BuiltinWrapper('usize', 'uintptr_t', 'int', '0')
+isize = BuiltinWrapper('isize', 'intptr_t', 'int', '0')
 
 # boolean's an odd case.
 # it's size isn't actually defined by C, so we can't return it from rust.
@@ -69,6 +71,9 @@ boolean.type.wrap_c_value = lambda name: ('', f'{name} as bool', '')
 boolean.type.unwrap_rust_value = lambda name: f'{name} as u8'
 boolean.type.python_postfix = lambda: 'result = bool(result)\n'
 boolean.type.wrap_python_value = lambda name: f'int({name})'
+
+# hack used in "debug" impl
+_stringliteral = BuiltinWrapper('&str', 'INVALID', 'INVALID', '""')
 
 class ResultType(Type):
     '''A Result<T, failure::Error>.'''

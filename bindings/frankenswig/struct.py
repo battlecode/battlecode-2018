@@ -1,5 +1,5 @@
 from .helpers import *
-from .type import Type, void
+from .type import Type, void, boolean, _stringliteral
 from .function import Function, Method
 
 class StructType(Type):
@@ -65,14 +65,17 @@ class StructType(Type):
 
 class DeriveMixins(object):
     '''Helpers for easily bindings #[derive]'d methods.'''
-    def serializeable(self):
+    def serialize(self):
         '''Add "from_json" and "to_json" methods.'''
 
         args = [Var(self.program.strref.type, "s")]
         type = self.type.result()
-        self.methods.append(Method(type, self.c_name, "from_json", args,
-            make_safe_call(type, 'serde_json::from_str', args), docs=f'Deserialize a {self.name} from a JSON string',
-        static=True))
+        self.methods.append(Method(
+            type, self.c_name, "from_json", args,
+            make_safe_call(type, f'serde_json::from_str::<{self.module}::{self.name}>', args),
+            docs=f'Deserialize a {self.name} from a JSON string',
+            static=True
+        ))
  
         args = [Var(self.type.mut_ref(), 'this')]
         type = self.program.string.type.result()
@@ -81,6 +84,20 @@ class DeriveMixins(object):
         ))
 
         return self
+
+    def debug(self):
+        args = [Var(self.type.mut_ref(), 'this')]
+        inner_args = [Var(_stringliteral.type, '"{:?}"')] + args
+        type = self.program.string.type
+        self.methods.append(Method(type, self.c_name, "debug", args,
+            make_safe_call(type, 'format!', inner_args), docs=f'Serialize a {self.name} to a JSON string',
+        pyname="__repr__"))
+    
+    def clone(self):
+        self.method(self.type, "clone", [], docs=f"Deep-copy a {self.name}", self_ref=True)
+
+    def eq(self):
+        self.method(boolean.type, "eq", [Var(self.type.ref(), "other")], docs=f"Deep-copy a {self.name}", pyname="__eq__", self_ref=True)
 
 class StructWrapper(DeriveMixins):
     def __init__(self, program, name, docs=''):
@@ -127,7 +144,7 @@ class StructWrapper(DeriveMixins):
 
         getter = Method(type, self.c_name, f"{name}_get", [Var(self.type, 'this')],
             pre +
-            '\nlet result = ' + type.unwrap_rust_value(arg + '.' + name) + ';\n' +
+            '\nlet result = ' + type.unwrap_rust_value(arg + '.' + name + '.clone()') + ';\n' +
             post +
             '\nresult',
             docs=docs,
@@ -149,7 +166,7 @@ class StructWrapper(DeriveMixins):
 
         return self
 
-    def method(self, type, name, args, docs='', static=False):
+    def method(self, type, name, args, docs='', static=False, pyname=None, self_ref=True, getter=False):
         # we use the "Universal function call syntax"
         # Type::method(&mut self, arg1, arg2)
         # which is equivalent to:
@@ -158,11 +175,17 @@ class StructWrapper(DeriveMixins):
         if static:
             actual_args = args
         else:
-            actual_args = [Var(self.type.mut_ref(), 'this')] + args
+            if self_ref:
+                actual_args = [Var(self.type.mut_ref(), 'this')] + args
+            else:
+                actual_args = [Var(self.type, 'this')] + args
+        
+        if pyname is None:
+            pyname = name
 
         self.methods.append(Method(type, self.c_name, name, actual_args,
             make_safe_call(type, original, actual_args), docs=docs
-        , pyname=name, static=static))
+        , pyname=pyname, static=static, getter=getter))
         return self
 
     def to_c(self):

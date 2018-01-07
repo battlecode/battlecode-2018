@@ -38,19 +38,19 @@ pub struct UnitInfo {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum UnitType {
     /// Workers are the foundation of the civilization.
-    Worker,
+    Worker = 0,
     /// Knights are a melee unit that is strong in numbers.
-    Knight,
+    Knight = 1,
     /// Rangers are a ranged unit with good all-around combat.
-    Ranger,
+    Ranger = 2,
     /// Mages are a fragile but specialized ranged unit for large areas.
-    Mage,
+    Mage = 3,
     /// Healers are a suport unit that can heal other units.
-    Healer,
+    Healer = 4,
     /// Factories are the hub for producing combative robots.
-    Factory,
+    Factory = 5,
     /// Rockets are the only unit that can move between planets.
-    Rocket,
+    Rocket = 6,
 }
 
 impl UnitType {
@@ -150,8 +150,8 @@ impl UnitType {
     }
 
     /// Whether the unit type is a robot.
-    pub fn is_robot(&self) -> bool {
-        match *self {
+    pub fn is_robot(self) -> bool {
+        match self {
             Worker => true,
             Knight => true,
             Ranger => true,
@@ -163,8 +163,8 @@ impl UnitType {
     }
 
     /// Whether the unit type is a structure.
-    pub fn is_structure(&self) -> bool {
-        match *self {
+    pub fn is_structure(self) -> bool {
+        match self {
             Worker => false,
             Knight => false,
             Ranger => false,

@@ -56,7 +56,7 @@ class Function(object):
 
 class Method(Function):
     '''A function contained within some type.'''
-    def __init__(self, type, container, method_name, args, body='', docs='', pyname=None, static=False):
+    def __init__(self, type, container, method_name, args, body='', docs='', pyname=None, static=False, getter=False):
         self.container = container
         self.method_name = method_name
         self.static = static
@@ -65,6 +65,7 @@ class Method(Function):
             self.pyname = self.method_name
         else:
             self.pyname = pyname
+        self.getter = getter
 
     def to_swig(self):
         result = s(f'''\
@@ -84,7 +85,12 @@ class Method(Function):
         body += '_check_errors()\n'
         body += self.type.python_postfix()
         body += 'return result\n'
-        pre = '@staticmethod\n' if self.static else ''
+        if self.static:
+            pre = '@staticmethod\n'
+        elif self.getter:
+            pre = '@property\n'
+        else:
+            pre = ''
         return pre + Function.pyentry(args, self.pyname, self.docs) + s(body, indent=4)
 
 class FunctionWrapper(Function):
