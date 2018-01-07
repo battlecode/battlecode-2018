@@ -3134,4 +3134,44 @@ mod tests {
         assert_eq![world.get_planet(Planet::Earth).units.len(), 0];
         assert_eq![world.get_planet(Planet::Mars).units.len(), 1];
     }
+
+    #[test]
+    fn test_is_game_over() {
+        let mut world = GameWorld::test_world();
+
+        // Initially, neither player has units, so the game is over, but it's a tossup who won.
+        assert![world.is_game_over().is_some()];
+
+        // If we give both red and blue units, the game is not over.
+        world.create_unit(Team::Red, MapLocation::new(Planet::Earth, 0, 0), UnitType::Knight).unwrap();
+        world.create_unit(Team::Blue, MapLocation::new(Planet::Earth, 0, 0), UnitType::Knight).unwrap();
+        assert![world.is_game_over().is_none()];
+
+        // If we advance 1000 rounds, the game should be over, and it's again a tossup.
+        for _ in 0..1000 {
+            assert![world.end_round().is_ok()];
+        }
+        assert![world.is_game_over().is_some()];
+        // The apocalypse has now destroyed the preexisting units.
+
+        // Giving red some extra Karbonite means a victory for red.
+        world.get_team_mut(Team::Red).karbonite += 10;
+        assert![world.is_game_over().is_some()];
+        assert_eq![world.is_game_over().unwrap(), Team::Red];
+
+        // Giving blue even more Karbonite lets blue win.
+        world.get_team_mut(Team::Blue).karbonite += 20;
+        assert![world.is_game_over().is_some()];
+        assert_eq![world.is_game_over().unwrap(), Team::Blue];
+
+        // Giving red a unit lets red win.
+        world.create_unit(Team::Red, MapLocation::new(Planet::Earth, 0, 0), UnitType::Knight).unwrap();
+        assert![world.is_game_over().is_some()];
+        assert_eq![world.is_game_over().unwrap(), Team::Red];
+
+        // Giving blue a more expensive unit lets blue win.
+        world.create_unit(Team::Blue, MapLocation::new(Planet::Earth, 0, 0), UnitType::Factory).unwrap();
+        assert![world.is_game_over().is_some()];
+        assert_eq![world.is_game_over().unwrap(), Team::Blue];
+    }
 }
