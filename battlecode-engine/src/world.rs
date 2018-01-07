@@ -192,7 +192,7 @@ pub struct GameWorld {
 
 impl GameWorld {
     /// Initialize a new game world with maps from both planets.
-    pub fn new(map: GameMap) -> GameWorld {
+    pub(crate) fn new(map: GameMap) -> GameWorld {
         let mut planet_states = FnvHashMap::default();
         planet_states.insert(Planet::Earth, PlanetInfo::new(&map.earth_map));
         planet_states.insert(Planet::Mars, PlanetInfo::new(&map.mars_map));
@@ -235,7 +235,8 @@ impl GameWorld {
     }
 
     /// Generate a test world with empty maps.
-    pub fn test_world() -> GameWorld {
+    #[cfg(test)]
+    pub(crate) fn test_world() -> GameWorld {
         let map = GameMap::test_map();
 
         let mut planet_states = FnvHashMap::default();
@@ -279,7 +280,7 @@ impl GameWorld {
     ///
     /// As an invariant, the game world filtered once should be the same as the
     /// game world filtered multiple times.
-    pub fn filter(&self, player: Player) -> GameWorld {
+    pub(crate) fn filter(&self, player: Player) -> GameWorld {
         let team = player.team;
         let planet = player.planet;
         let map = self.starting_map(planet);
@@ -401,18 +402,10 @@ impl GameWorld {
     /// detailed statistics on a unit in your team: heat, cooldowns, and
     /// properties of special abilities like units garrisoned in a rocket.
     ///
-    /// Note that mutating this object does NOT have any effect on the actual
-    /// game. You MUST call the mutators in world!!
-    ///
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     pub fn unit_controller(&self, id: UnitID) -> Result<&Unit, Error> {
-        let unit = self.unit(id)?;
-        if unit.team == self.team() {
-            self.my_unit(id)
-        } else {
-            Err(GameError::TeamNotAllowed)?
-        }
+        self.my_unit(id)
     }
 
     /// The single unit with this ID.
@@ -710,20 +703,16 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     fn my_unit(&self, id: UnitID) -> Result<&Unit, Error> {
-        let unit = {
-            if let Some(unit) = self.my_planet().units.get(&id) {
-                unit
-            } else if let Some(unit) = self.my_team().units_in_space.get(&id) {
-                unit
-            } else {
-                return Err(GameError::NoSuchUnit)?;
-            }
-        };
+        if self.unit_info(id)?.team != self.team() {
+            return Err(GameError::TeamNotAllowed)?;
+        }
 
-        if unit.team() == self.team() {
+        if let Some(unit) = self.my_planet().units.get(&id) {
+            Ok(unit)
+        } else if let Some(unit) = self.my_team().units_in_space.get(&id) {
             Ok(unit)
         } else {
-            Err(GameError::TeamNotAllowed)?
+            unreachable!();
         }
     }
 
@@ -733,21 +722,16 @@ impl GameWorld {
     /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     fn my_unit_mut(&mut self, id: UnitID) -> Result<&mut Unit, Error> {
-        let team = self.team();
-        let unit = {
-            if self.my_planet().units.contains_key(&id) {
-                self.my_planet_mut().units.get_mut(&id).expect("key exists")
-            } else if self.my_team().units_in_space.contains_key(&id) {
-                self.my_team_mut().units_in_space.get_mut(&id).expect("key exists")
-            } else {
-                return Err(GameError::NoSuchUnit)?;
-            }
-        };
+        if self.unit_info(id)?.team != self.team() {
+            return Err(GameError::TeamNotAllowed)?;
+        }
 
-        if unit.team() == team {
-            Ok(unit)
+        if self.my_planet().units.contains_key(&id) {
+            Ok(self.my_planet_mut().units.get_mut(&id).expect("key exists"))
+        } else if self.my_team().units_in_space.contains_key(&id) {
+            Ok(self.my_team_mut().units_in_space.get_mut(&id).expect("key exists"))
         } else {
-            Err(GameError::TeamNotAllowed)?
+            unreachable!();
         }
     }
 
@@ -821,7 +805,7 @@ impl GameWorld {
         let rocket = self.my_planet_mut().units.remove(&rocket_id).expect("unit exists");
         self.my_planet_mut().unit_infos.remove(&rocket_id).expect("unit exists");
 
-        for id in rocket.garrison().expect("unit is a rocket") {
+        for id in rocket.structure_garrison().expect("unit is a rocket") {
             let unit = self.my_planet_mut().units.remove(&id).expect("unit exists");
             self.my_planet_mut().unit_infos.remove(&id).expect("unit exists");
             self.my_team_mut().units_in_space.insert(id, unit);
@@ -834,7 +818,7 @@ impl GameWorld {
     fn move_from_space(&mut self, rocket_id: UnitID) {
         let rocket = self.my_team_mut().units_in_space.remove(&rocket_id).expect("unit exists");
 
-        for id in rocket.garrison().expect("unit is a rocket") {
+        for id in rocket.structure_garrison().expect("unit is a rocket") {
             let unit = self.my_team_mut().units_in_space.remove(&id).expect("unit exists");
             self.my_planet_mut().unit_infos.insert(id, unit.info());
             self.my_planet_mut().units.insert(id, unit);
@@ -857,7 +841,7 @@ impl GameWorld {
 
     /// Creates and inserts a new unit into the game world, so that it can be
     /// referenced by ID. Used for testing only!!!
-    pub fn create_unit(&mut self, team: Team, location: MapLocation,
+    pub(crate) fn create_unit(&mut self, team: Team, location: MapLocation,
                        unit_type: UnitType) -> Result<UnitID, Error> {
         let id = self.id_generator.next_id();
         let level = self.get_team(team).research.get_level(&unit_type);
@@ -882,7 +866,7 @@ impl GameWorld {
             InSpace => {
                 // Units only die in space after a landing on their turn.
                 // Thus we are guaranteed that my_unit() will find the unit.
-                for utd_id in self.my_unit(id).unwrap().garrison()
+                for utd_id in self.my_unit(id).unwrap().structure_garrison()
                                   .expect("only rockets can die in space") {
                     self.my_team_mut().units_in_space.remove(&utd_id);
                 }
@@ -897,7 +881,7 @@ impl GameWorld {
             let unit_type = self.get_unit(id).unwrap().unit_type();
             if unit_type == UnitType::Rocket || unit_type == UnitType::Factory {
                 let units_to_destroy = self.get_unit_mut(id).unwrap()
-                                           .garrison().unwrap();
+                                           .structure_garrison().unwrap();
                 for utd_id in units_to_destroy.iter() {
                     self.my_planet_mut().units.remove(&utd_id);
                     self.my_planet_mut().unit_infos.remove(&utd_id);
@@ -944,18 +928,6 @@ impl GameWorld {
         } else {
             false
         }
-    }
-
-    /// Whether the unit is on the same planet as the location.
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist in the game.
-    pub fn is_same_planet(&self, unit_id: UnitID, location: MapLocation) 
-            -> Result<bool, Error> {
-        let unit_location = match self.unit_info(unit_id)?.location {
-            OnMap(loc) => loc,
-            _ => { return Ok(false) },
-        };
-        Ok(unit_location.planet == location.planet)
     }
 
     fn ok_if_can_move(&self, robot_id: UnitID, direction: Direction) -> Result<(), Error> {
@@ -1050,7 +1022,7 @@ impl GameWorld {
         if !target_loc.on_map() {
             Err(GameError::UnitNotOnMap)?;
         }
-        if !self.my_unit(robot_id)?.is_within_attack_range(target_loc.map_location()?)? {
+        if !self.my_unit(robot_id)?.is_within_attack_range(target_loc)? {
             Err(GameError::OutOfRange)?;
         }
         Ok(())
@@ -1112,9 +1084,6 @@ impl GameWorld {
 
     /// The research info of the current team, including what branch is
     /// currently being researched, the number of rounds left.
-    ///
-    /// Note that mutating this object by resetting or queueing research
-    /// does not have any effect. You must call the mutators on world.
     pub fn research_info(&self) -> ResearchInfo {
         self.my_research()
     }
@@ -1193,7 +1162,7 @@ impl GameWorld {
         let (harvest_loc, harvest_amount) = {
             let worker = self.my_unit_mut(worker_id)?;
             worker.worker_act()?;
-            (worker.location().map_location()?.add(direction), worker.harvest_amount()?)
+            (worker.location().map_location()?.add(direction), worker.worker_harvest_amount()?)
         };
         let amount_mined = cmp::min(self.karbonite_at(harvest_loc)?, harvest_amount);
         self.my_team_mut().karbonite += amount_mined;
@@ -1281,11 +1250,11 @@ impl GameWorld {
             Err(GameError::Overheated)?;
         }
         // The worker must be adjacent to the blueprint.
-        if !worker.is_adjacent_to(blueprint.location()) {
+        if !worker.location().is_adjacent_to(blueprint.location()) {
             Err(GameError::OutOfRange)?;
         }
         // The blueprint must be incomplete.
-        if blueprint.is_built()? {
+        if blueprint.structure_is_built()? {
             Err(GameError::StructureAlreadyBuilt)?;
         }
         Ok(())
@@ -1312,7 +1281,7 @@ impl GameWorld {
         let build_health = {
             let worker = self.my_unit_mut(worker_id)?;
             worker.worker_act()?;
-            worker.build_health()?
+            worker.worker_build_health()?
         };
         self.my_unit_mut(blueprint_id)?.be_built(build_health)?;
         Ok(())
@@ -1324,10 +1293,10 @@ impl GameWorld {
         if !worker.can_worker_act()? {
             Err(GameError::Overheated)?;
         }
-        if !worker.is_adjacent_to(structure.location()) {
+        if !worker.location().is_adjacent_to(structure.location()) {
             Err(GameError::OutOfRange)?;
         }
-        if !structure.is_built()? {
+        if !structure.structure_is_built()? {
             Err(GameError::StructureNotYetBuilt)?;
         }
         Ok(())
@@ -1410,7 +1379,7 @@ impl GameWorld {
         let target = self.unit_info(target_id)?;
         knight.ok_if_javelin()?;
         
-        if !knight.is_within_range(knight.ability_range(), target.location.map_location()?) {
+        if !knight.location().is_within_range(knight.ability_range()?, target.location) {
             Err(GameError::OutOfRange)?;
         }
         Ok(())
@@ -1517,7 +1486,7 @@ impl GameWorld {
         let mage = self.my_unit(mage_id)?;
         mage.ok_if_blink()?;
         
-        if !mage.is_within_range(mage.ability_range(), location) {
+        if !mage.location().is_within_range(mage.ability_range()?, OnMap(location)) {
             Err(GameError::OutOfRange)?;
         }
         if !self.is_occupiable(location)? {
@@ -1610,7 +1579,7 @@ impl GameWorld {
         healer.ok_if_overcharge()?;
         robot.ok_if_ability()?;
 
-        if !healer.is_within_range(healer.ability_range(), robot.location().map_location()?) {
+        if !healer.location().is_within_range(healer.ability_range()?, robot.location()) {
             Err(GameError::OutOfRange)?;
         }
         Ok(())
@@ -1666,7 +1635,7 @@ impl GameWorld {
             Err(GameError::Overheated)?;
         }
         structure.ok_if_can_load()?;
-        if !structure.is_adjacent_to(robot.location()) {
+        if !structure.location().is_adjacent_to(robot.location()) {
             Err(GameError::OutOfRange)?;
         }
         Ok(())
@@ -1703,7 +1672,7 @@ impl GameWorld {
                         -> Result<(), Error> {
         let structure = self.my_unit(structure_id)?;
         structure.ok_if_can_unload_unit()?;
-        let robot = self.my_unit(structure.garrison()?[0])?;
+        let robot = self.my_unit(structure.structure_garrison()?[0])?;
         let loc = structure.location().map_location()?.add(direction);
         if !self.is_occupiable(loc)? {
             Err(GameError::LocationNotEmpty)?;
@@ -1820,9 +1789,6 @@ impl GameWorld {
 
     /// The landing rounds and locations of rockets in space that belong to the
     /// current team.
-    ///
-    /// Note that mutating this object does NOT have any effect on the actual
-    /// game. You MUST call the mutators in world!!
     pub fn rocket_landings(&self) -> RocketLandingInfo {
         self.my_team().rocket_landings.clone()
     }
@@ -1833,7 +1799,7 @@ impl GameWorld {
             Err(GameError::SamePlanet)?;
         }
         let rocket = self.my_unit(rocket_id)?;
-        if rocket.is_rocket_used()? {
+        if rocket.rocket_is_used()? {
             Err(GameError::RocketUsed)?;
         }
         let map = &self.starting_map(destination.planet);
@@ -1917,7 +1883,7 @@ impl GameWorld {
     // ***************************** MANAGER API ******************************
     // ************************************************************************
 
-    pub fn cached_world(&self, player: Player) -> &GameWorld {
+    pub(crate) fn cached_world(&self, player: Player) -> &GameWorld {
         if let Some(world) = self.cached_world.get(&player) {
             world
         } else {
@@ -1931,7 +1897,7 @@ impl GameWorld {
     /// the next player to move, and whether the round was also ended.
     ///
     /// * GameError::InternalEngineError - something happened here...
-    pub fn end_turn(&mut self) -> Result<StartTurnMessage, Error> {
+    pub(crate) fn end_turn(&mut self) -> Result<StartTurnMessage, Error> {
         use self::Team::*;
         use self::Planet::*;
 
@@ -2059,7 +2025,7 @@ impl GameWorld {
     }
 
     /// Applies a single delta to this GameWorld.
-    pub fn apply(&mut self, delta: &Delta) -> Result<(), Error> {
+    pub(crate) fn apply(&mut self, delta: &Delta) -> Result<(), Error> {
         match *delta {
             Delta::Attack {robot_id, target_unit_id} => self.attack(robot_id, target_unit_id),
             Delta::BeginSnipe {ranger_id, location} => self.begin_snipe(ranger_id, location),
@@ -2087,7 +2053,7 @@ impl GameWorld {
 
     /// Applies a turn message to this GameWorld, and ends the current turn. Returns
     /// the next player to move, and whether the current round was also ended.
-    pub fn apply_turn(&mut self, turn: &TurnMessage) -> Result<StartTurnMessage, Error> {
+    pub(crate) fn apply_turn(&mut self, turn: &TurnMessage) -> Result<StartTurnMessage, Error> {
         for delta in turn.changes.iter() {
             self.apply(delta)?;
         }
@@ -2103,7 +2069,7 @@ impl GameWorld {
     ///
     /// Aside from applying the changes in the message, this function must
     /// also increment the round and reindex units by location.
-    pub fn start_turn(&mut self, turn: StartTurnMessage) {
+    pub(crate) fn start_turn(&mut self, turn: StartTurnMessage) {
         self.round = turn.round;
         self.my_planet_mut().visible_locs = turn.visible_locs;
         for unit in turn.units_changed {
@@ -2901,7 +2867,7 @@ mod tests {
             assert![!world.can_build(worker_b, factory)];
             world.destroy_unit(worker_b);
         }
-        assert![world.get_unit(factory).unwrap().is_built().unwrap()];
+        assert![world.get_unit(factory).unwrap().structure_is_built().unwrap()];
 
         // Subsequent attempts to build the factory should fail.
         let worker_c = world.create_unit(Team::Red, factory_loc.add(Direction::North), UnitType::Worker).unwrap();
@@ -2949,7 +2915,7 @@ mod tests {
         for _ in 0..FACTORY_NUM_ROUNDS {
             assert!(world.end_round().is_ok());
         }
-        assert_eq!(world.my_unit(factory).unwrap().garrison().unwrap().len(), 1);
+        assert_eq!(world.my_unit(factory).unwrap().structure_garrison().unwrap().len(), 1);
         assert_eq!(world.my_planet().units.len(), 2);
         assert_eq!(world.my_planet().unit_infos.len(), 2);
         assert_eq!(world.my_planet().units_by_loc.len(), 1);
@@ -3040,7 +3006,7 @@ mod tests {
 
         // After forcibly completing the structure, we damage it.
         world.get_unit_mut(factory).unwrap().be_built(1000).unwrap();
-        assert![world.get_unit(factory).unwrap().is_built().unwrap()];
+        assert![world.get_unit(factory).unwrap().structure_is_built().unwrap()];
         world.get_unit_mut(factory).unwrap().take_damage(100);
         assert_eq![world.get_unit(factory).unwrap().health(), 900];
 
