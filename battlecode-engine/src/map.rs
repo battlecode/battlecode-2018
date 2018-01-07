@@ -40,7 +40,6 @@ impl GameMap {
         Ok(())
     }
 
-    #[cfg(test)]
     pub fn test_map() -> GameMap {
         let seed = 1;
         let mars_map = PlanetMap::test_map(Planet::Mars);
@@ -205,7 +204,6 @@ impl PlanetMap {
         }
     }
 
-    #[cfg(test)]
     fn test_map(planet: Planet) -> PlanetMap {
         let mut map = PlanetMap {
             planet: planet,
