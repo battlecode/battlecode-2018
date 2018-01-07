@@ -14,5 +14,6 @@ test: build
 
 clean:
 	-rm src/bindings.rs
+	@$(MAKE) -wC python clean
 
 .PHONY: build test clean

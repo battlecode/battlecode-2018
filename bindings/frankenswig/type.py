@@ -1,3 +1,5 @@
+from .helpers import *
+
 class Type(object):
     '''The type of a variable / return value.'''
 
@@ -74,7 +76,6 @@ class ResultType(Type):
     def __init__(self, wrapped):
         super().__init__(wrapped.rust, wrapped.swig, wrapped.python, wrapped.default)
         self.wrapped = wrapped
-
     
     def wrap_c_value(self, value):
         raise Exception("Results can only be returned")
@@ -84,3 +85,40 @@ class ResultType(Type):
     
     def unwrap_rust_value(self, value):
         return self.wrapped.unwrap_rust_value(f'check_result!({value}, default)')
+
+# TODO: make sure this works with utf-8 stuff in python 2, java, etc.
+class StringType(Type):
+    '''A rust String.'''
+    def __init__(self, module):
+        self.module = module
+        super().__init__('*const c_char', 'char*', 'char*', '0 as *const _')
+    
+    def wrap_c_value(self, name):
+        pre = ''
+        value = f'(unsafe{{CStr::from_ptr({name})}}).to_string_lossy().to_string()'
+        post = ''
+        return (pre, value, post)
+
+    def unwrap_rust_value(self, value):
+        return f'check_result!(CString::new({value}).map(|s| s.into_raw()), default)'
+
+    def wrap_python_value(self, value):
+        return f'_ffi.new("char[]", {value})'
+
+    def python_postfix(self):
+        return s(f'''\
+            _result = _ffi.string(result)
+            _lib.{self.module}_free_string(result)
+            result = _result
+        ''')
+
+class StrRefType(StringType):
+    '''The &str type.
+    Note that a copy will be made when passing over the ffi boundary even when using &str instead of
+    String.'''
+    def __init__(self, module):
+        super().__init__(module)
+
+    def wrap_c_value(self, name):
+        value = f'&*(unsafe{{CStr::from_ptr({name})}}).to_string_lossy()'
+        return ('', value, '')

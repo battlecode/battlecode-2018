@@ -1,6 +1,6 @@
 from frankenswig import *
 
-p = Program(name='bc', crate='battlecode_engine', docs='''Battlecode engine.
+p = Program(module='bc', crate='battlecode_engine', docs='''Battlecode engine.
 
 Woo.''')
 

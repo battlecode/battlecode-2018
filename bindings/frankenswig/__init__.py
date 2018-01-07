@@ -72,7 +72,7 @@ use {crate} as {module};
 
 use std::os::raw::c_char;
 use std::cell::RefCell;
-use std::ffi::CString;
+use std::ffi::{{CStr, CString}};
 use std::panic;
 use std::ptr;
 use std::mem;
@@ -147,7 +147,7 @@ pub unsafe extern "C" fn {module}_get_last_err(result: *mut *mut c_char) -> i8 {
 }}
 // called from c
 #[no_mangle]
-pub unsafe extern "C" fn {module}_free_err(err: *mut c_char) {{
+pub unsafe extern "C" fn {module}_free_string(err: *mut c_char) {{
     if err != ptr::null_mut() {{
         CString::from_raw(err);
     }}
@@ -196,7 +196,6 @@ macro_rules! check_result {{
         }}
     }};
 }}
-
 '''
 RUST_FOOTER = ''
 
@@ -210,7 +209,7 @@ extern "C" {{
 #include <stdint.h>
 uint8_t {module}_has_err();
 int8_t {module}_get_last_err(char** result);
-int8_t {module}_free_err(char* err);
+int8_t {module}_free_string(char* err);
 '''
 
 C_FOOTER = '''#ifdef __cplusplus
@@ -249,7 +248,7 @@ SWIG_HEADER = '''%module {module}
     int8_t code;
     if (unlikely((code = {module}_get_last_err(&err)))) {{
         SWIG_exception(code, err);
-        {module}_free_err(err);
+        {module}_free_string(err);
     }}
 }}
 
@@ -273,7 +272,7 @@ def _check_errors():
         _lasterror = _ffi.new('char**')
         err = _lib.{module}_get_last_err(_lasterror)
         errtext = _ffi.string(_lasterror[0])
-        _lib.{module}_free_err(_lasterror[0])
+        _lib.{module}_free_string(_lasterror[0])
         raise Exception(errtext)
 
 '''
@@ -286,17 +285,21 @@ class TypedefWrapper(object):
     to_rust = to_c = to_swig = to_python = lambda self: ''
 
 class Program(object):
-    def __init__(self, name, crate, docs=''):
-        self.name = name
+    def __init__(self, module, crate, docs=''):
+        self.module = module
         self.crate = crate
         self.docs = docs
         self.elements = []
+
+        # maintaining the "thing.type" idiom
+        self.string = namedtuple('String', ['type'])(StringType(self.module))
+        self.strref = namedtuple('StrRef', ['type'])(StrRefType(self.module))
 
     def add(self, elem):
         return self
 
     def format(self, header):
-        return header.format(crate=self.crate, module=self.name, docs=self.docs)
+        return header.format(crate=self.crate, module=self.module, docs=self.docs)
 
     def to_rust(self):
         return self.format(RUST_HEADER)\
@@ -319,27 +322,27 @@ class Program(object):
             + self.format(PYTHON_FOOTER)
 
     def struct(self, *args, **kwargs):
-        result = StructWrapper(self.name, *args, **kwargs)
+        result = StructWrapper(self.module, *args, **kwargs)
         self.elements.append(result)
         return result
 
     def function(self, *args, **kwargs):
-        result = FunctionWrapper(self.name, *args, **kwargs)
+        result = FunctionWrapper(self.module, *args, **kwargs)
         self.elements.append(result)
         return result
 
     def typedef(self, rust_name, c_type):
-        result = TypedefWrapper(self.name, rust_name, c_type)
+        result = TypedefWrapper(self.module, rust_name, c_type)
         self.elements.append(result)
         return result
 
     def enum(self, *args, **kwargs):
-        result = EnumWrapper(self.name, *args, **kwargs)
+        result = EnumWrapper(self.module, *args, **kwargs)
         self.elements.append(result)
         return result
 
     def c_enum(self, *args, **kwargs):
-        result = CEnumWrapper(self.name, *args, **kwargs)
+        result = CEnumWrapper(self.module, *args, **kwargs)
         self.elements.append(result)
         return result
 
