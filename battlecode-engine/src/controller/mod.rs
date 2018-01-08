@@ -1127,6 +1127,5 @@ mod tests {
         //println!("{}", to_string(&c.start_game(Player::new(Team::Red, Planet::Earth))
             //.world.planet_states[&Planet::Earth]).unwrap());
         println!("{}", to_string(&c.start_game(Player::new(Team::Red, Planet::Earth))).unwrap());
-        assert!(false);
     }
 }
