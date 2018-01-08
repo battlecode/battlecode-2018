@@ -33,6 +33,10 @@ def make_safe_call(type, rust_function, args):
 def javadoc(docs):
     return '/**\n' + '\n *'.join(docs.split('\n')) + '\n */'
 
+def doxygen(docs):
+    sp = docs.split('\n')
+    return '/// ' + '\n/// '.join(docs.split('\n')) + '\n'
+
 def sanitize_rust_name(name):
     if '<' in name:
         first = name.find('<')

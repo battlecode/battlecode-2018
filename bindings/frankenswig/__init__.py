@@ -1,8 +1,6 @@
 '''This module can be used to easily generate interfaces to Rust from many other languages,
 by generating a thin SWIG wrapper, as well as a CFFI wrapper for python.
 
-TODO: %newobject, makefiles, enums, results, javadocs
-
 To use it, create a Program() and then call .struct() and .function().
 The rust struct:
     struct Banana {
@@ -340,14 +338,14 @@ class Program(object):
         # maintaining the "thing.type" idiom
         self.string = namedtuple('String', ['type'])(StringType(self.module))
         self.strref = namedtuple('StrRef', ['type'])(StrRefType(self.module))
-    
+
     def vec(self, type):
         vec = self.struct(f"vec::Vec::<{type.orig_rust()}>", module="std", docs=f"An immutable list of {type.orig_rust()} objects")
         vec.debug()
         vec.clone()
-        vec.method(usize.type, "len", [], pyname="__len__")
+        vec.method(usize.type, "len", [], pyname="__len__", docs="The length of the vector.")
         # TODO impl option and use .get() instead
-        vec.method(type.ref(), "index", [Var(usize.type, "index")], pyname="__getitem__")
+        vec.method(type.ref(), "index", [Var(usize.type, "index")], pyname="__getitem__", docs="Copy an element out of the vector.")
         return vec
 
     def add(self, elem):

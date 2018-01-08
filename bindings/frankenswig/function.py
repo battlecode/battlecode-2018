@@ -10,13 +10,12 @@ class Function(object):
 
     def to_swig(self):
         result = s(f'''\
-            %feature("docstring", "{self.docs}");
             {self.type.to_swig()} {self.name}({', '.join(a.to_swig() for a in self.args)});
         ''')
         return result
 
     def to_c(self):
-        return f'''{self.type.to_c()} {self.name}({', '.join(a.to_c() for a in self.args)});\n'''
+        return f'''{doxygen(self.docs)}{self.type.to_c()} {self.name}({', '.join(a.to_c() for a in self.args)});\n'''
 
     def to_rust(self):
         result = s(f'''\

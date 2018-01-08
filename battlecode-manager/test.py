@@ -43,7 +43,6 @@ def send_message(conn, obj: object) -> None:
         None
     '''
 
-
     send_socket = conn
 
     message = json.dumps(obj) + "\n"

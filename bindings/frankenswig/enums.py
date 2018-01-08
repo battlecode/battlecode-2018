@@ -22,7 +22,7 @@ class CEnum(object):
         return start + s(internal, indent=4) + end
 
     def to_c(self):
-        start = f'typedef enum {self.c_name} {{\n'
+        start = f'{doxygen(self.docs)}typedef enum {self.c_name} {{\n'
         internal = '\n'.join(f'{name} = {val},' for (name, val) in self.variants)
         end = f'\n}} {self.c_name};\n'
 
@@ -154,7 +154,7 @@ class CEnumWrapper(CEnum, DeriveMixins):
         for method in self.methods:
             statics += super(Method, method).to_swig() + '\n'
 
-        return f'{enum}\n{statics}\n'
+        return f'{doxygen(self.docs)}{enum}\n{statics}\n'
 
 
     def to_python(self):

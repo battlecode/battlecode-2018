@@ -101,7 +101,7 @@ class DeriveMixins(object):
         self.method(self.type, "clone", [], docs=f"Deep-copy a {self.type.to_python()}", self_ref=True)
 
     def eq(self):
-        self.method(boolean.type, "eq", [Var(self.type.ref(), "other")], docs=f"Deep-copy a {self.type.to_python()}", pyname="__eq__", self_ref=True)
+        self.method(boolean.type, "eq", [Var(self.type.ref(), "other")], docs=f"Compare two {self.type.to_python()}s for deep equality.", pyname="__eq__", self_ref=True)
 
 class StructWrapper(DeriveMixins):
     def __init__(self, program, name, docs='', module=None):
@@ -201,7 +201,8 @@ class StructWrapper(DeriveMixins):
         return self
 
     def to_c(self):
-        definition = 'typedef struct {0.c_name} {0.c_name};\n'.format(self)
+        definition = doxygen(self.docs)
+        definition += 'typedef struct {0.c_name} {0.c_name};\n'.format(self)
         if self.constructor_:
             definition += self.constructor_.to_c()
         definition += self.destructor.to_c()

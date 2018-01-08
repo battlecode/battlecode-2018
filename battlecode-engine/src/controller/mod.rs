@@ -1124,8 +1124,9 @@ mod tests {
     fn test_serialization() {
         use serde_json::to_string;
         let mut c = GameController::new_manager(GameMap::test_map());
-        println!("{}", to_string(&c.start_game(Player::new(Team::Red, Planet::Earth))
-            .world.planet_states[&Planet::Earth]).unwrap());
+        //println!("{}", to_string(&c.start_game(Player::new(Team::Red, Planet::Earth))
+            //.world.planet_states[&Planet::Earth]).unwrap());
         println!("{}", to_string(&c.start_game(Player::new(Team::Red, Planet::Earth))).unwrap());
+        assert!(false);
     }
 }
