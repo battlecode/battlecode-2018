@@ -67,9 +67,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         self.manager = bc.GameController.new_manager(self.map)
         for player in self.players:
             player['start_message'] = self.manager.start_game(player['player'])
-            print(player['start_message'])
             player['start_message'] = player['start_message'].to_json()
-            print(player['start_message'])
         self.viewer_messages = []
         self.last_message = self.manager.initial_start_turn_message().start_turn.to_json()
         # deal with self.manager.initial_start_turn_message().viewer

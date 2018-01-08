@@ -36,6 +36,8 @@ def run_game(game, dockers, args, sock_file):
 
     # Wait until all the code is done then clean up
     while not GAME.game_over:
+        for player_key in DOCKERS:
+            print(DOCKERS[player_key].get_logs(stdout=True, stderr=True, timestamps=False, stream=False))
         time.sleep(1)
 
 def cleanup(dockers, args, sock_file):
