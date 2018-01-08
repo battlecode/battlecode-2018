@@ -120,17 +120,18 @@ pub struct ViewerUnitInfo {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ViewerDelta {
     AsteroidStrike { location: MapLocation },
-    RocketLanding { rocket_id: UnitID, location: MapLocation },
     RangerSnipe { ranger_id: UnitID, target_location: MapLocation },
+    RocketLanding { rocket_id: UnitID, location: MapLocation },
 }
 
 /// A description of the current game state, for the viewer.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ViewerMessage {
-    /// The current status of the GameWorld.
     pub changes: Vec<Delta>,
     pub units: Vec<ViewerUnitInfo>,
     pub additional_changes: Vec<ViewerDelta>,
+    /// the amount of karbonite at the end of this player's turn.
+    pub karbonite: u32,
 }
 
 /// An error message in response to some error.
