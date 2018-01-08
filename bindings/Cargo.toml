@@ -1,0 +1,15 @@
+[package]
+name = "battlecode-frankenstein"
+version = "0.1.0"
+authors = ["James Gilles <jhgilles@mit.edu>"]
+
+[lib]
+name = "battlecode"
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+battlecode-engine = {path = "../battlecode-engine"}
+failure = "0.1.1"
+serde_json = "1.0.6"
+
+[build_dependencies]

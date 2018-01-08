@@ -8,22 +8,27 @@ addons:
     apt:
         packages:
             - libssl-dev
-            - python3-pip
+            - python-pip
 cache:
   - cargo
   - directories:
     - target
     - ~/.cache/pip
+before_install:
+  - sudo add-apt-repository ppa:jonathonf/python-3.6 -y
+  - sudo add-apt-repository ppa:openjdk-r/ppa -y
+  - sudo apt-get update -q
 install:
-  - python3 -m pip install -r battlecode-engine-py/requirements.txt --user
+  - sudo -E apt-get -yq --no-install-suggests --no-install-recommends --force-yes install python3.6 openjdk-8-jdk swig
+  - python -m pip install -r bindings/python/requirements.txt --user
 
 script:
-  - cargo build --verbose --all
-  - bash ./run_all_tests.sh
+  - ls /usr/lib/jvm
+  - make test
   - |
     if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
       bash <(curl https://raw.githubusercontent.com/xd009642/tarpaulin/master/travis-install.sh)
-      cargo tarpaulin --coveralls tXbFAsGMIvTHknGnhtBBNfqFjLitR9nTr --skip-clean --verbose
+      cargo tarpaulin --coveralls tXbFAsGMIvTHknGnhtBBNfqFjLitR9nTr --skip-clean --verbose -e battlecode-frankenstein
     fi
   
 notifications:

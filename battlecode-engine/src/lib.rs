@@ -27,14 +27,18 @@ extern crate fnv;
 // Provides SmallVec, a type that reduces allocations for small vectors.
 extern crate smallvec;
 
+// see error.rs
+#[macro_use]
+pub mod error;
+
+// see controller.rs
+pub mod controller;
+
 // see schema.rs
 pub mod schema;
 
 // see world.rs
 pub mod world;
-
-// see error.rs
-pub mod error;
 
 // see location.rs
 pub mod location;
@@ -42,19 +46,26 @@ pub mod location;
 // see map.rs
 pub mod map;
 
-// see id_generator.rs
-pub mod id_generator;
-
 // see unit.rs
 pub mod unit;
 
 // see research.rs
 pub mod research;
 
+// see rockets.rs
+pub mod rockets;
+
+// see team_array.rs
+pub mod team_array;
+
 // see constants.rs
 pub mod constants;
 
+// see spatialhashmap.rs
 pub mod spatialhashmap;
+
+// see id_generator.rs
+mod id_generator;
 
 #[cfg(test)]
 mod tests {

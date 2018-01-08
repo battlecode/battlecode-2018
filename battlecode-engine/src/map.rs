@@ -10,33 +10,46 @@ use rand::distributions::range::Range;
 use constants::*;
 use error::GameError;
 use location::*;
-use unit::Unit;
+use unit::*;
+use world::*;
 
 /// The map defining the starting state for an entire game.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct GameMap {
     /// Seed for random number generation.
-    pub seed: u32,
+    pub seed: u16,
     /// Earth map.
     pub earth_map: PlanetMap,
     /// Mars map.
     pub mars_map: PlanetMap,
-    /// Weather pattern.
-    pub weather: WeatherPattern,
+    /// The asteroid strike pattern on Mars.
+    pub asteroids: AsteroidPattern,
+    /// The orbit pattern that determines a rocket's flight duration.
+    pub orbit: OrbitPattern,
 }
 
 impl GameMap {
     /// Validate the game map.
+    ///
+    /// * InvalidMapObject - the game map is invalid.
     pub fn validate(&self) -> Result<(), Error> {
         self.earth_map.validate()?;
         self.mars_map.validate()?;
-        self.weather.validate()?;
+        self.asteroids.validate()?;
+        self.orbit.validate()?;
         Ok(())
     }
 
-    /// Whether a location is on the map.
-    pub fn on_map(&self, location: &MapLocation) -> bool {
-        self.earth_map.on_map(location) || self.mars_map.on_map(location)
+    pub fn test_map() -> GameMap {
+        let seed = 1;
+        let mars_map = PlanetMap::test_map(Planet::Mars);
+        GameMap {
+            seed: seed,
+            earth_map: PlanetMap::test_map(Planet::Earth),
+            mars_map: mars_map.clone(),
+            asteroids: AsteroidPattern::random(seed, &mars_map),
+            orbit: OrbitPattern::new(100, 100, 300),
+        }
     }
 }
 
@@ -48,18 +61,20 @@ pub struct PlanetMap {
     pub planet: Planet,
 
     /// The height of this map, in squares. Must be in the range
-    /// [constants::MAP_HEIGHT_MIN, constants::MAP_HEIGHT_MAX], inclusive.
+    /// [[`MAP_HEIGHT_MIN`](../constants/constant.MAP_HEIGHT_MIN.html),
+    /// [`MAP_HEIGHT_MAX`](../constants/constant.MAP_HEIGHT_MAX.html)],
+    /// inclusive.
     pub height: usize,
 
-    /// The width of this map, in squares. Must be in the range
-    /// [constants::MAP_WIDTH_MIN, constants::MAP_WIDTH_MAX], inclusive.
+    /// The height of this map, in squares. Must be in the range
+    /// [[`MAP_WIDTH_MIN`](../constants/constant.MAP_WIDTH_MIN.html),
+    /// [`MAP_WIDTH_MAX`](../constants/constant.MAP_WIDTH_MAX.html)],
+    /// inclusive.
     pub width: usize,
 
-    /// The coordinates of the bottom-left corner. Essentially, the
-    /// minimum x and y coordinates for this map. Each lies within
-    /// [constants::MAP_COORDINATE_MIN, constants::MAP_COORDINATE_MAX],
-    /// inclusive.
-    pub origin: MapLocation,
+    /// The initial units on the map. Each team starts with 1 to 3 Workers
+    /// on Earth.
+    pub initial_units: Vec<Unit>,
 
     /// Whether the specified square contains passable terrain. Is only
     /// false when the square contains impassable terrain (distinct from
@@ -67,7 +82,7 @@ pub struct PlanetMap {
     ///
     /// Stored as a two-dimensional array, where the first index 
     /// represents a square's y-coordinate, and the second index its 
-    /// x-coordinate. These coordinates are *relative to the origin*.
+    /// x-coordinate.
     ///
     /// Earth is always symmetric by either a rotation or a reflection.
     pub is_passable_terrain: Vec<Vec<bool>>,
@@ -76,30 +91,20 @@ pub struct PlanetMap {
     ///
     /// Stored as a two-dimensional array, where the first index 
     /// represents a square's y-coordinate, and the second index its 
-    /// x-coordinate. These coordinates are *relative to the origin*.
+    /// x-coordinate.
+    ///
+    /// Earth is always symmetric by either a rotation or a reflection.
     pub initial_karbonite: Vec<Vec<u32>>,
-
-    /// The initial units on the map. Each team starts with 1 to 3 Workers
-    /// on Earth. The coordinates of the units are absolute (NOT relative to
-    /// the origin).
-    pub initial_units: Vec<Unit>,
 }
 
 impl PlanetMap {
     /// Validates the map and checks some invariants are followed.
+    ///
+    /// * InvalidMapObject - the planet map is invalid.
     pub fn validate(&self) -> Result<(), Error> {
         // The width and height are of valid dimensions.
         if !(self.height >= MAP_HEIGHT_MIN && self.height <= MAP_HEIGHT_MAX &&
              self.width >= MAP_WIDTH_MIN && self.width <= MAP_WIDTH_MAX) {
-            Err(GameError::InvalidMapObject)?
-        }
-
-        // The origin is valid.
-        if !(self.origin.x >= MAP_COORDINATE_MIN &&
-             self.origin.x <= MAP_COORDINATE_MAX &&
-             self.origin.y >= MAP_COORDINATE_MIN &&
-             self.origin.y <= MAP_COORDINATE_MAX &&
-             self.origin.planet == self.planet) {
             Err(GameError::InvalidMapObject)?
         }
 
@@ -147,9 +152,10 @@ impl PlanetMap {
             }
         }
         for ref unit in &self.initial_units {
-            let location = unit.location.ok_or(GameError::InvalidMapObject)?;
-            let x = (location.x - self.origin.x) as usize;
-            let y = (location.y - self.origin.y) as usize;
+            let location = unit.location().map_location()
+                               .or(Err(GameError::InvalidMapObject))?;
+            let x = location.x as usize;
+            let y = location.y as usize;
             if location.planet != self.planet {
                 Err(GameError::InvalidMapObject)?
             }
@@ -166,24 +172,60 @@ impl PlanetMap {
     }
 
     /// Whether a location is on the map.
-    pub fn on_map(&self, location: &MapLocation) -> bool {
+    pub fn on_map(&self, location: MapLocation) -> bool {
         self.planet == location.planet
-            && location.x >= self.origin.x
-            && location.y >= self.origin.y
-            && location.x < self.origin.x + self.width as i32
-            && location.y < self.origin.y + self.height as i32
+            && location.x >= 0
+            && location.y >= 0
+            && location.x < self.width as i32
+            && location.y < self.height as i32
     }
 
-    pub fn test_map(planet: Planet) -> PlanetMap {
-        PlanetMap {
+    /// Whether the location on the map contains passable terrain. Is only
+    /// false when the square contains impassable terrain (distinct from
+    /// containing a building, for instance).
+    ///
+    /// * LocationOffMap - the location is off the map.
+    pub fn is_passable_terrain_at(&self, location: MapLocation) -> Result<bool, Error> {
+        if self.on_map(location) {
+            Ok(self.is_passable_terrain[location.y as usize][location.x as usize])
+        } else {
+            Err(GameError::LocationOffMap)?
+        }
+    }
+
+    /// The amount of Karbonite initially deposited at the given location.
+    ///
+    /// * LocationOffMap - the location is off the map.
+    pub fn initial_karbonite_at(&self, location: MapLocation) -> Result<u32, Error> {
+        if self.on_map(location) {
+            Ok(self.initial_karbonite[location.y as usize][location.x as usize])
+        } else {
+            Err(GameError::LocationOffMap)?
+        }
+    }
+
+    fn test_map(planet: Planet) -> PlanetMap {
+        let mut map = PlanetMap {
             planet: planet,
             height: MAP_HEIGHT_MIN,
             width: MAP_WIDTH_MIN,
-            origin: MapLocation::new(planet, 0, 0),
             is_passable_terrain: vec![vec![true; MAP_WIDTH_MIN]; MAP_HEIGHT_MIN],
-            initial_karbonite: vec![vec![0; MAP_WIDTH_MIN]; MAP_HEIGHT_MIN],
+            initial_karbonite: vec![vec![10; MAP_WIDTH_MIN]; MAP_HEIGHT_MIN],
             initial_units: vec![],
-        }
+        };
+
+        if planet == Planet::Earth {
+            map.initial_units.push(Unit::new(
+                1, Team::Red, UnitType::Worker, 0,
+                Location::OnMap(MapLocation::new(planet, 1, 1))
+            ).expect("invalid test unit"));
+            map.initial_units.push(Unit::new(
+                2, Team::Blue, UnitType::Worker, 0,
+                Location::OnMap(MapLocation::new(planet, MAP_WIDTH_MIN as i32 - 1, MAP_HEIGHT_MIN as i32 - 1))
+            ).expect("invalid test unit"));
+        };
+
+        map
     }
 }
 
@@ -196,22 +238,27 @@ pub struct AsteroidStrike {
     pub location: MapLocation,
 }
 
-/// The round number to an asteroid strike.
+/// The asteroid pattern, defined by the timing and contents of each asteroid
+/// strike.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AsteroidPattern {
-    pattern: FnvHashMap<u32, AsteroidStrike>,
+    pattern: FnvHashMap<Rounds, AsteroidStrike>,
 }
 
 /// The orbit pattern that determines a rocket's flight duration. This pattern
 /// is a sinusoidal function y=a*sin(bx)+c.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct OrbitPattern {
-    /// Amplitude of the orbit, in rounds.
-    pub amplitude: i32,
-    /// The period of the orbit, in rounds.
-    pub period: i32,
-    /// The center of the orbit, in rounds.
-    pub center: i32,
+    /// Amplitude of the orbit.
+    pub amplitude: Rounds,
+    /// The period of the orbit.
+    pub period: Rounds,
+    /// The center of the orbit.
+    pub center: Rounds,
+
+    amplitude_s: i32,
+    period_s: i32,
+    center_s: i32,
 }
 
 impl AsteroidStrike {
@@ -226,20 +273,20 @@ impl AsteroidStrike {
 
 impl AsteroidPattern {
     /// Constructs a new asteroid pattern from a map of round number to strike.
-    pub fn new(pattern: &FnvHashMap<u32, AsteroidStrike>) -> AsteroidPattern {
+    pub fn new(pattern: &FnvHashMap<Rounds, AsteroidStrike>) -> AsteroidPattern {
         AsteroidPattern {
             pattern: pattern.clone(),
         }
     }
 
     /// Constructs a pseudorandom asteroid pattern given a map of Mars.
-    pub fn random(seed: u32, mars_map: &PlanetMap) -> AsteroidPattern {
-        let mut pattern: FnvHashMap<u32, AsteroidStrike> = FnvHashMap::default();
+    pub fn random(seed: u16, mars_map: &PlanetMap) -> AsteroidPattern {
+        let mut pattern: FnvHashMap<Rounds, AsteroidStrike> = FnvHashMap::default();
 
         let karbonite_gen = Range::new(ASTEROID_KARB_MIN, ASTEROID_KARB_MAX);
         let round_gen = Range::new(ASTEROID_ROUND_MIN, ASTEROID_ROUND_MAX);
-        let x_gen = Range::new(mars_map.origin.x, mars_map.origin.x + mars_map.width as i32);
-        let y_gen = Range::new(mars_map.origin.y, mars_map.origin.y + mars_map.height as i32);
+        let x_gen = Range::new(0, mars_map.width as i32);
+        let y_gen = Range::new(0, mars_map.height as i32);
 
         let seed: &[_] = &[seed as usize];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
@@ -265,6 +312,8 @@ impl AsteroidPattern {
     }
 
     /// Validates the asteroid pattern.
+    ///
+    /// * InvalidMapObject - the asteroid pattern is invalid.
     pub fn validate(&self) -> Result<(), Error> {
         // The Karbonite on each asteroid is in the range
         // [ASTEROID_KARB_MIN, ASTEROID_KARB_MAX], inclusive.
@@ -283,9 +332,9 @@ impl AsteroidPattern {
 
         // An asteroid strikes every [ASTEROID_ROUND_MIN,
         // ASTEROID_ROUND_MAX] rounds, inclusive.
-        let mut rounds: Vec<&u32> = self.pattern.keys().collect();
+        let mut rounds: Vec<&Rounds> = self.pattern.keys().collect();
         rounds.sort();
-        if rounds[0] - 1 > ASTEROID_ROUND_MAX {
+        if *rounds[0] > ASTEROID_ROUND_MAX {
             Err(GameError::InvalidMapObject)?
         }
         if ROUND_LIMIT - rounds[rounds.len() - 1] > ASTEROID_ROUND_MAX {
@@ -301,12 +350,12 @@ impl AsteroidPattern {
     }
 
     /// Get the asteroid strike at the given round.
-    pub fn get_asteroid(&self, round: u32) -> Option<&AsteroidStrike> {
+    pub fn asteroid(&self, round: Rounds) -> Option<&AsteroidStrike> {
         self.pattern.get(&round)
     }
 
     /// Get a map of round numbers to asteroid strikes.
-    pub fn get_asteroid_map(&self) -> FnvHashMap<u32, AsteroidStrike> {
+    pub fn asteroid_map(&self) -> FnvHashMap<Rounds, AsteroidStrike> {
         self.pattern.clone()
     }
 }
@@ -314,18 +363,23 @@ impl AsteroidPattern {
 impl OrbitPattern {
     /// Construct a new orbit pattern. This pattern is a sinusoidal function
     /// y=a*sin(bx)+c, where the x-axis is the round number of takeoff and the
-    /// the y-axis is the flight of duration to the nearest integer.
+    /// the y-axis is the duration of flight to the nearest integer.
     ///
     /// The amplitude, period, and center are measured in rounds.
-    pub fn new(amplitude: i32, period: i32, center: i32) -> OrbitPattern {
+    pub fn new(amplitude: Rounds, period: Rounds, center: Rounds) -> OrbitPattern {
         OrbitPattern {
             amplitude: amplitude,
             period: period,
             center: center,
+            amplitude_s: amplitude as i32,
+            period_s: period as i32,
+            center_s: center as i32,
         }
     }
 
     /// Validates the orbit pattern.
+    ///
+    /// * InvalidMapObject - the orbit pattern is invalid.
     pub fn validate(&self) -> Result<(), Error> {
         // The flight times are within [ORIBIT_FLIGHT_MIN, ORBIT_FLIGHT_MAX].
         if self.center - self.amplitude < ORBIT_FLIGHT_MIN {
@@ -339,57 +393,27 @@ impl OrbitPattern {
 
     /// Get the duration of flight if the rocket were to take off from either
     /// planet on the given round.
-    pub fn get_duration(&self, round: i32) -> i32 {
-        let arg = 2. * f32::consts::PI / self.period as f32 * round as f32;
-        ((self.amplitude as f32) * f32::sin(arg)) as i32 + self.center
-    }
-}
-
-/// The weather patterns defined in the game world.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WeatherPattern {
-    /// The asteroid strike pattern on Mars.
-    pub asteroids: AsteroidPattern,
-    /// The orbit pattern that determines a rocket's flight duration.
-    pub orbit: OrbitPattern,
-}
-
-impl WeatherPattern {
-    /// Construct a new weather pattern.
-    pub fn new(asteroids: AsteroidPattern, orbit: OrbitPattern) -> WeatherPattern {
-        WeatherPattern {
-            asteroids: asteroids,
-            orbit: orbit,
-        }
-    }
-
-    /// Validate the weather pattern.
-    pub fn validate(&self) -> Result<(), Error> {
-        self.asteroids.validate()?;
-        self.orbit.validate()?;
-        Ok(())
+    pub fn duration(&self, round: Rounds) -> Rounds {
+        let arg = 2. * f32::consts::PI / self.period_s as f32 * round as f32;
+        let sin = ((self.amplitude_s as f32) * f32::sin(arg)) as i32;
+        (sin + self.center_s) as Rounds
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use fnv::FnvHashMap;
+    use super::*;
 
-    use super::AsteroidPattern;
-    use super::AsteroidStrike;
-    use super::OrbitPattern;
-    use super::super::constants::*;
-    use super::super::location::*;
-
-    fn insert_and_err(pattern: &FnvHashMap<u32, AsteroidStrike>,
-                      round: u32, karbonite: u32, location: MapLocation) {
+    fn insert_and_err(pattern: &FnvHashMap<Rounds, AsteroidStrike>,
+                      round: Rounds, karbonite: u32, location: MapLocation) {
         let mut invalid = pattern.clone();
         invalid.insert(round, AsteroidStrike::new(karbonite, location));
-        assert!(AsteroidPattern::new(&invalid).validate().is_err());
+        assert_err!(AsteroidPattern::new(&invalid).validate(), GameError::InvalidMapObject);
     }
 
-    fn gen_asteroid_map(start_round: u32, skip_round: u32) -> FnvHashMap<u32, AsteroidStrike> {
-        let mut asteroid_map: FnvHashMap<u32, AsteroidStrike> = FnvHashMap::default();
+    fn gen_asteroid_map(start_round: Rounds, skip_round: Rounds)
+                        -> FnvHashMap<Rounds, AsteroidStrike> {
+        let mut asteroid_map: FnvHashMap<Rounds, AsteroidStrike> = FnvHashMap::default();
         let mut round = start_round;
         let default_loc = MapLocation::new(Planet::Mars, 0, 0);
         let default_strike = AsteroidStrike::new(ASTEROID_KARB_MIN, default_loc);
@@ -409,12 +433,12 @@ mod tests {
         }
 
         // Generate an asteroid pattern from a map.
-        let asteroid_map = AsteroidPattern::random(0, mars_map).get_asteroid_map();
+        let asteroid_map = AsteroidPattern::random(0, mars_map).asteroid_map();
         let asteroids = AsteroidPattern::new(&asteroid_map);
-        asteroids.validate().is_ok();
+        assert!(asteroids.validate().is_ok());
 
         let mut asteroid_map = gen_asteroid_map(1, ASTEROID_ROUND_MAX);
-        AsteroidPattern::new(&asteroid_map).validate().is_ok();
+        assert!(AsteroidPattern::new(&asteroid_map).validate().is_ok());
 
         // Invalid asteroid strikes.
         let loc = MapLocation::new(Planet::Mars, 0, 0);
@@ -426,43 +450,43 @@ mod tests {
 
         // Invalid strike pattern.
         insert_and_err(&asteroid_map, 2, ASTEROID_KARB_MIN, loc);
-        asteroid_map.remove(&ASTEROID_ROUND_MIN);
-        AsteroidPattern::new(&asteroid_map).validate().is_err();
+        asteroid_map.remove(&1);
+        assert_err!(AsteroidPattern::new(&asteroid_map).validate(), GameError::InvalidMapObject);
     }
 
     #[test]
     fn validate_orbit() {
-        assert!(OrbitPattern::new(150, 200, 200).validate().is_err());
-        assert!(OrbitPattern::new(150, 200, 300).validate().is_err());
+        assert_err!(OrbitPattern::new(150, 200, 200).validate(), GameError::InvalidMapObject);
+        assert_err!(OrbitPattern::new(150, 200, 300).validate(), GameError::InvalidMapObject);
         assert!(OrbitPattern::new(150, 200, 250).validate().is_ok());
     }
 
     #[test]
-    fn get_asteroid() {
+    fn test_asteroid() {
         let asteroid_map = gen_asteroid_map(ASTEROID_ROUND_MAX, ASTEROID_ROUND_MAX);
         let asteroids = AsteroidPattern::new(&asteroid_map);
         for round in 1..ROUND_LIMIT {
             if round % ASTEROID_ROUND_MAX == 0 {
-                assert!(asteroids.get_asteroid(round).is_some());
+                assert!(asteroids.asteroid(round).is_some());
             } else {
-                assert!(asteroids.get_asteroid(round).is_none());
+                assert!(asteroids.asteroid(round).is_none());
             }
         }
     }
 
     #[test]
-    fn get_duration() {
+    fn test_duration() {
         let period = 200;
         let orbit = OrbitPattern::new(150, period, 250);
         for i in 0..5 {
             let base = period * i;
-            assert_eq!(250, orbit.get_duration(base));
-            assert_eq!(400, orbit.get_duration(base + period / 4));
-            assert_eq!(250, orbit.get_duration(base + period / 2));
-            assert_eq!(100, orbit.get_duration(base + period * 3 / 4));
-            assert_eq!(250, orbit.get_duration(base + period));
+            assert_eq!(250, orbit.duration(base));
+            assert_eq!(400, orbit.duration(base + period / 4));
+            assert_eq!(250, orbit.duration(base + period / 2));
+            assert_eq!(100, orbit.duration(base + period * 3 / 4));
+            assert_eq!(250, orbit.duration(base + period));
 
-            let duration = orbit.get_duration(base + period / 8);
+            let duration = orbit.duration(base + period / 8);
             assert!(duration > 250 && duration < 400);
         }
     }

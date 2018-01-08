@@ -1,5 +1,24 @@
 //! Defines constants that affect gameplay.
 
+use super::world::Rounds;
+
+// *********************************
+// ******* GAME CONSTANTS **********
+// *********************************
+
+/// The round at which the game is forced to end
+pub const ROUND_LIMIT: Rounds = 1000;
+
+// *********************************
+// *** COMMUNICATION CONSTANTS *****
+// *********************************
+
+/// The length of the communication array, in bytes
+pub const COMMUNICATION_ARRAY_LENGTH: usize = 100;
+
+/// The communication delay between planets, in rounds
+pub const COMMUNICATION_DELAY: usize = 50;
+
 // *********************************
 // ****** MAP CONSTANTS ************
 // *********************************
@@ -16,12 +35,6 @@ pub const MAP_WIDTH_MIN: usize = 20;
 /// The maxiumum possible map width.
 pub const MAP_WIDTH_MAX: usize = 50;
 
-/// The minimum x or y-coordinate.
-pub const MAP_COORDINATE_MIN: i32 = -10000;
-
-/// The maximum x or y-coordinate.
-pub const MAP_COORDINATE_MAX: i32 = 10000;
-
 /// The minimum starting Karbonite deposit on Earth.
 pub const MAP_KARBONITE_MIN: u32 = 0;
 
@@ -33,10 +46,10 @@ pub const MAP_KARBONITE_MAX: u32 = 50;
 // *********************************
 
 /// The minimum number of rounds since the last asteroid strike.
-pub const ASTEROID_ROUND_MIN: u32 = 2;
+pub const ASTEROID_ROUND_MIN: Rounds = 2;
 
 /// The maximum number of rounds since the last asteroid strike.
-pub const ASTEROID_ROUND_MAX: u32 = 20;
+pub const ASTEROID_ROUND_MAX: Rounds = 20;
 
 /// The minimum karbonite in an asteroid strike.
 pub const ASTEROID_KARB_MIN: u32 = 20;
@@ -45,30 +58,79 @@ pub const ASTEROID_KARB_MIN: u32 = 20;
 pub const ASTEROID_KARB_MAX: u32 = 200;
 
 /// The minimum flight time due to the orbit.
-pub const ORBIT_FLIGHT_MIN: i32 = 100;
+pub const ORBIT_FLIGHT_MIN: u32 = 100;
 
 /// The maximum flight time due to the orbit.
-pub const ORBIT_FLIGHT_MAX: i32 = 400;
+pub const ORBIT_FLIGHT_MAX: u32 = 400;
+
+/// At the start of this round, all units on Earth are destroyed.
+pub const APOCALYPSE_ROUND: Rounds = 750;
 
 // *********************************
-// ****** UNIT CONSTANTS ***********
+// ***** KARBONITE CONSTANTS *******
+// *********************************
+
+/// The starting amount of karbonite per team.
+pub const KARBONITE_STARTING: u32 = 100;
+/// The base amount of karbonite gained per turn.
+pub const KARBONITE_PER_ROUND: u32 = 5;
+/// The karbonite per round is decreased by 1 karbonite for every
+/// KARBONITE_DECREASE_RATIO karbonite in the stockpile.
+pub const KARBONITE_DECREASE_RATIO: u32 = 100;
+
+// *********************************
+// ****** RESEARCH CONSTANTS *******
+// *********************************
+
+/// The cost of each level of research on the Worker branch.
+pub const RESEARCH_WORKER_COST: [Rounds; 5] = [0, 25, 75, 75, 75];
+
+/// The cost of each level of research on the Knight branch.
+pub const RESEARCH_KNIGHT_COST: [Rounds; 4] = [0, 25, 75, 150];
+
+/// The cost of each level of research on the Ranger branch.
+pub const RESEARCH_RANGER_COST: [Rounds; 4] = [0, 25, 100, 200];
+
+/// The cost of each level of research on the Mage branch.
+pub const RESEARCH_MAGE_COST: [Rounds; 5] = [0, 25, 75, 100, 200];
+
+/// The cost of each level of research on the Healer branch.
+pub const RESEARCH_HEALER_COST: [Rounds; 4] = [0, 25, 100, 200];
+
+/// The cost of each level of research on the Factory branch.
+pub const RESEARCH_FACTORY_COST: [Rounds; 1] = [0];
+
+/// The cost of each level of research on the Rocket branch.
+pub const RESEARCH_ROCKET_COST: [Rounds; 4] = [0, 100, 100, 100];
+
+// *********************************
+// ****** HEAT CONSTANTS ***********
 // *********************************
 
 /// The heat each robot dissipates per round.
 pub const HEAT_LOSS_PER_ROUND: u32 = 10;
 
-/// The damage a rocket deals to adjacent units upon landing.
-pub const ROCKET_BLAST_DAMAGE: u32 = 50;
+/// The robot must have less than this amount of heat to perform
+/// actions corresponding to that heat.
+pub const MAX_HEAT_TO_ACT: u32 = 10;
 
 // *********************************
-// ****** GAME PARAMETERS **********
+// ********** UNIT COSTS ***********
 // *********************************
 
-/// The round at which the game is forced to end
-pub const ROUND_LIMIT: u32 = 1000;
-
-/// The length of the communication array, in bytes
-pub const COMMUNICATION_ARRAY_LENGTH: usize = 100;
-
-/// The communication delay between planets, in rounds
-pub const COMMUNICATION_DELAY: usize = 200;
+/// The cost of a worker in a factory.
+pub const FACTORY_WORKER_COST: u32 = 25;
+/// The cost of a knight in a factory.
+pub const FACTORY_KNIGHT_COST: u32 = 20;
+/// The cost of a ranger in a factory.
+pub const FACTORY_RANGER_COST: u32 = 20;
+/// The cost of a mage in a factory.
+pub const FACTORY_MAGE_COST: u32 = 20;
+/// The cost of a healer in a factory.
+pub const FACTORY_HEALER_COST: u32 = 20;
+/// The cost to blueprint a factory.
+pub const BLUEPRINT_FACTORY_COST: u32 = 100;
+/// The cost to blueprint a rocket.
+pub const BLUEPRINT_ROCKET_COST: u32 = 75;
+/// The cost to replicate a worker.
+pub const REPLICATE_WORKER_COST: u32 = 15;
