@@ -10,9 +10,14 @@ use schema::*;
 use team_array::*;
 use unit::*;
 use world::*;
-
+    
 use failure::Error;
 use fnv::FnvHashMap;
+use std::env;
+use std::mem;
+
+mod streams;
+use self::streams::Streams;
 
 /// Configuration for the game controller.
 pub struct Config {
@@ -45,9 +50,145 @@ pub struct GameController {
     old_world: GameWorld,
     config: Config,
     turn: TurnMessage,
+    stream: Option<Streams>,
+    player_key: Option<String>
 }
 
+fn check_message<T>(msg: ReceivedMessage<T>, player_key: &str) -> Result<T, Error> {
+    let ReceivedMessage {
+        logged_in,
+        client_id,
+        error,
+        message
+    } = msg;
+    if !logged_in {
+        bail!("Not logged in?");
+    }
+    if &client_id[..] != player_key {
+        bail!("Wrong client_id: should be '{}', is '{}'", player_key, client_id);
+    }
+    if let Some(error) = error {
+        bail!("Error from manager: '{}'", error);
+    }
+    if let Some(message) = message {
+        Ok(message)
+    } else {
+        bail!("No message sent?")
+    }
+}
+
+
 impl GameController {
+
+    // ************************************************************************
+    // ************************************************************************
+    // ************************************************************************
+    // **************************** PLAYER API ********************************
+    // ************************************************************************
+    // ************************************************************************
+    // ************************************************************************
+
+    /// Connect to a manager using environment variables.
+    /// You should call this method if you're running inside the player docker container.
+    /// It will connect to the manager and block until it's your turn. (Don't worry, you'll be
+    /// paused during the blocking anyway.)
+    pub fn new_player_env() -> Result<GameController, Error> {
+        let socket_file = env::var("SOCKET_FILE")?;
+        let player_key = env::var("PLAYER_KEY")?;
+
+        // send login
+        let mut stream = Streams::new(socket_file)?;
+        stream.write(&LoginMessage {
+            client_id: player_key.clone()
+        })?;
+
+        // wait for response with empty string in message field
+        let msg = stream.read::<ReceivedMessage<String>>()?;
+        let s = check_message(msg, &player_key[..])?;
+        if &s[..] != "" {
+            bail!("Non-empty login response: {}", s);
+        }
+
+        // block, and eventually receive the start game message
+        let msg = stream.read::<ReceivedMessage<StartGameMessage>>()?;
+        let StartGameMessage { mut world } = check_message(msg, &player_key[..])?;
+
+        // then the start turn message
+        let msg = stream.read::<ReceivedMessage<StartTurnMessage>>()?;
+        let turn = check_message(msg, &player_key[..])?;
+        world.start_turn(&turn);
+
+        // now return and let the player do their thing on the first turn :)
+        Ok(GameController {
+            old_world: world.clone(),
+            world,
+            config: Config::player_config(),
+            turn: TurnMessage { changes: vec![] },
+            stream: Some(stream),
+            player_key: Some(player_key)
+        })
+    }
+
+    /// Submit your current turn and wait for your next turn. Blocks. Don't worry, you'll be
+    /// paused during the blocking anyway.
+    pub fn next_turn(&mut self) -> Result<(), Error> {
+        if let None = self.stream {
+            bail!("Controller is not in env mode, has no stream, can't call next_turn()");
+        }
+        if let None = self.player_key {
+            bail!("No player key??");
+        }
+
+        // extract our previous turn, replacing it with an empty one
+        let mut turn_message = TurnMessage { changes: vec![] };
+        mem::swap(&mut self.turn, &mut turn_message);
+
+        // send off our previous turn
+        self.stream.as_mut().unwrap().write(&SentMessage {
+            client_id: self.player_key.as_ref().unwrap().clone(),
+            turn_message
+        })?;
+
+        // block and receive the state for our next turn
+        let msg = self.stream.as_mut().unwrap().read::<ReceivedMessage<StartTurnMessage>>()?;
+        let start_turn = check_message(msg, &self.player_key.as_ref().unwrap()[..])?;
+
+        // setup the world state
+        self.old_world.start_turn(&start_turn);
+        self.world = self.old_world.clone();
+
+        // yield control to the player
+        Ok(())
+    }
+
+    /// Initializes the game world and creates a new controller
+    /// for a player to interact with it.
+    /// Mainly for testing purposes.
+    pub fn new_player(game: StartGameMessage) -> GameController {
+        GameController {
+            world: game.world.clone(),
+            old_world: game.world,
+            config: Config::player_config(),
+            turn: TurnMessage { changes: vec![] },
+            stream: None,
+            player_key: None
+        }
+    }
+
+    /// Starts the current turn, by updating the player's GameWorld with changes
+    /// made since the last time the player had a turn.
+    pub fn start_turn(&mut self, turn: &StartTurnMessage) {
+        self.old_world.start_turn(turn);
+        self.world = self.old_world.clone();
+        self.turn = TurnMessage { changes: vec![] };
+    }
+
+    /// Ends the current turn. Returns the list of changes made in this turn.
+    /// Mainly for testing purposes; use next_turn().
+    pub fn end_turn(&mut self) -> TurnMessage {
+        self.world.flush_viewer_changes();
+        self.turn.clone()
+    }
 
     // ************************************************************************
     // ************************** GENERAL METHODS *****************************
@@ -103,7 +244,13 @@ impl GameController {
 
     /// All the units within the vision range, in no particular order.
     /// Does not include units in space.
-    pub fn units(&self) -> Vec<&UnitInfo> {
+    pub fn units_ref(&self) -> Vec<&UnitInfo> {
+        self.world.units_ref()
+    }
+
+    /// All the units within the vision range, in no particular order.
+    /// Does not include units in space.
+    pub fn units(&self) -> Vec<UnitInfo> {
         self.world.units()
     }
 
@@ -834,39 +981,6 @@ impl GameController {
     // ************************************************************************
     // ************************************************************************
     // ************************************************************************
-    // **************************** PLAYER API ********************************
-    // ************************************************************************
-    // ************************************************************************
-    // ************************************************************************
-
-    /// Initializes the game world and creates a new controller
-    /// for a player to interact with it.
-    pub fn new_player(game: StartGameMessage) -> GameController {
-        GameController {
-            world: game.world.clone(),
-            old_world: game.world,
-            config: Config::player_config(),
-            turn: TurnMessage { changes: vec![] }
-        }
-    }
-
-    /// Starts the current turn, by updating the player's GameWorld with changes
-    /// made since the last time the player had a turn.
-    pub fn start_turn(&mut self, turn: StartTurnMessage) {
-        self.old_world.start_turn(turn);
-        self.world = self.old_world.clone();
-        self.turn = TurnMessage { changes: vec![] };
-    }
-
-    /// Ends the current turn. Returns the list of changes made in this turn.
-    pub fn end_turn(&mut self) -> TurnMessage {
-        self.world.flush_viewer_changes();
-        self.turn.clone()
-    }
-
-    // ************************************************************************
-    // ************************************************************************
-    // ************************************************************************
     // *************************** MANAGER API ********************************
     // ************************************************************************
     // ************************************************************************
@@ -880,7 +994,9 @@ impl GameController {
             world: world.clone(),
             old_world: world,
             config: Config::runner_config(),
-            turn: TurnMessage { changes: vec![] }
+            turn: TurnMessage { changes: vec![] },
+            stream: None,
+            player_key: None
         }
     }
 
@@ -888,9 +1004,11 @@ impl GameController {
     /// only be called on Round 1, and should only be sent to Red Earth.
     ///
     /// Panics if we're past Round 1...
-    pub fn initial_start_turn_message(&self) -> (StartTurnMessage, ViewerKeyframe) {
-        (self.world.initial_start_turn_message(), 
-         ViewerKeyframe { world: self.world.clone() })
+    pub fn initial_start_turn_message(&self) -> InitialTurnApplication {
+        InitialTurnApplication {
+            start_turn: self.world.initial_start_turn_message(), 
+            viewer: ViewerKeyframe { world: self.world.clone() }
+        }
     }
 
     /// Get the first message to send to each player and initialize the world.
@@ -902,22 +1020,51 @@ impl GameController {
 
     /// Given a TurnMessage from a player, apply those changes.
     /// Receives the StartTurnMessage for the next player.
-    pub fn apply_turn(&mut self, turn: TurnMessage) -> (StartTurnMessage, ViewerMessage) {
+   pub fn apply_turn(&mut self, turn: &TurnMessage) -> TurnApplication {
         // Serialize the filtered game state to send to the player
-        let start_turn_message = self.world.apply_turn(&turn);
+        let start_turn = self.world.apply_turn(turn);
         // Serialize the game state to send to the viewer
-        let viewer_message = ViewerMessage { 
+        let viewer = ViewerMessage { 
             changes: turn.changes.clone(),
             units: self.world.get_viewer_units(),
             additional_changes: self.world.flush_viewer_changes(),
         };
-        (start_turn_message, viewer_message)
+        TurnApplication {
+            start_turn, viewer
+        }
     }    
     
     /// Determines if the game has ended, returning the winning team if so.
     pub fn is_game_over(&self) -> Option<Team> {
         self.world.is_game_over()
     }
+
+    pub fn is_over(&self) -> bool {
+        self.is_game_over().is_some()
+    }
+
+    pub fn winning_team(&self) -> Result<Team, Error> {
+        if let Some(team) = self.is_game_over() {
+            Ok(team)
+        } else {
+            bail!("Game is not finished");
+        }
+    }
+}
+
+/// Returned from apply_turn.
+/// This struct only exists because the bindings don't do tuples yet.
+#[derive(Debug, Clone)]
+pub struct TurnApplication {
+    pub start_turn: StartTurnMessage,
+    pub viewer: ViewerMessage
+}
+
+/// Returned from initial_start_turn_message.
+#[derive(Debug, Clone)]
+pub struct InitialTurnApplication {
+    pub start_turn: StartTurnMessage,
+    pub viewer: ViewerKeyframe
 }
 
 #[cfg(test)]
@@ -952,8 +1099,8 @@ mod tests {
         let mut player_controller_blue = GameController::new_player(blue_start_game_msg);
 
         // Send the first STM to red and test that red can move as expected.
-        let (initial_start_turn_msg, _) = manager_controller.initial_start_turn_message();
-        player_controller_red.start_turn(initial_start_turn_msg);
+        let initial_start_turn_msg = manager_controller.initial_start_turn_message();
+        player_controller_red.start_turn(&initial_start_turn_msg.start_turn);
         assert![!player_controller_red.can_move(red_robot, Direction::East)];
         assert![player_controller_red.can_move(red_robot, Direction::Northeast)];
         assert![player_controller_red.move_robot(red_robot, Direction::Northeast).is_ok()];
@@ -961,8 +1108,9 @@ mod tests {
         // End red's turn, and pass the message to the manager, which
         // generates blue's start turn message and starts blue's turn.
         let red_turn_msg = player_controller_red.end_turn();
-        let (blue_start_turn_msg, _) = manager_controller.apply_turn(red_turn_msg);
-        player_controller_blue.start_turn(blue_start_turn_msg);
+        let application = manager_controller.apply_turn(&red_turn_msg);
+        let blue_start_turn_msg = application.start_turn;
+        player_controller_blue.start_turn(&blue_start_turn_msg);
 
         // Test that blue can move as expected. This demonstrates
         // it has received red's actions in its own state.
