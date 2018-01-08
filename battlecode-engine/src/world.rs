@@ -153,6 +153,11 @@ impl Player {
             Player::new(Team::Blue, Planet::Mars),
         ]
     }
+
+    /// The first player to move.
+    pub fn first_to_move() -> Player {
+        Player::new(Team::Red, Planet::Earth)
+    }
 }
 
 /// The full world of the Battlecode game.
@@ -189,6 +194,10 @@ pub struct GameWorld {
     /// Cached game worlds per player, to calculate start turn messages.
     /// These worlds were filtered at the start of the turn.
     cached_world: HashMap<Player, GameWorld>,
+
+    /// A list of additional messages to be sent to the viewer. Flushed
+    /// at the end of each round.
+    viewer_changes: Vec<ViewerDelta>,
 }
 
 impl GameWorld {
@@ -216,6 +225,7 @@ impl GameWorld {
             planet_states: planet_states,
             team_states: team_states,
             cached_world: HashMap::default(),
+            viewer_changes: Vec::new(),
         };
 
         // Insert initial units.
@@ -262,6 +272,7 @@ impl GameWorld {
             planet_states: planet_states,
             team_states: team_states,
             cached_world: HashMap::default(),
+            viewer_changes: Vec::new(),
         };
 
         // Cache the initial filtered states.
@@ -357,6 +368,7 @@ impl GameWorld {
             planet_states: planet_states,
             team_states: team_states,
             cached_world: HashMap::default(),
+            viewer_changes: Vec::new(),
         }
     }
 
@@ -584,6 +596,7 @@ impl GameWorld {
                 let asteroid = self.asteroids.asteroid(self.round).unwrap();
                 (asteroid.location, asteroid.karbonite)
             };
+            self.viewer_changes.push(ViewerDelta::AsteroidStrike { location });
             let planet_info = self.get_planet_mut(location.planet);
             planet_info.karbonite[location.y as usize][location.x as usize] += karbonite;
         }
@@ -1138,21 +1151,18 @@ impl GameWorld {
     }
 
     /// Update the current research and process any completed upgrades.
-    fn process_research(&mut self, team: Team) -> Result<(), Error> {
+    fn process_research(&mut self, team: Team) {
         if let Some(branch) = self.get_team_mut(team).research.end_round() {
             for (_, unit) in self.get_planet_mut(Planet::Earth).units.iter_mut() {
                 if unit.unit_type() == branch {
-                    unit.research()?;
+                    unit.research().expect("research level is valid");
                 }
             }
             for (_, unit) in self.get_planet_mut(Planet::Mars).units.iter_mut() {
                 if unit.unit_type() == branch {
-                    unit.research()?;
+                    unit.research().expect("research level is valid");
                 }
             }
-            Ok(())
-        } else {
-            Ok(())
         }
     }
 
@@ -1531,6 +1541,10 @@ impl GameWorld {
             if target_location.is_some() {
                 let damage = self.get_planet(planet).units.get(&id).unwrap().damage().unwrap();
                 self.damage_location(target_location.unwrap(), damage);
+                self.viewer_changes.push(ViewerDelta::RangerSnipe { 
+                    ranger_id: id, 
+                    target_location: target_location.unwrap(), 
+                });
             }
         }
     }
@@ -1928,12 +1942,11 @@ impl GameWorld {
 
     /// Lands the rocket, damaging the units in adjacent squares. The rocket
     /// is destroyed if it lands on a factory, rocket, or impassable terrain.
-    fn land_rocket(&mut self, rocket_id: UnitID, destination: MapLocation)
-                   -> Result<(), Error> {
-        let blast_damage = self.my_unit(rocket_id)?.rocket_blast_damage()?;
+    fn land_rocket(&mut self, rocket_id: UnitID, destination: MapLocation) {
+        let blast_damage = self.my_unit(rocket_id).unwrap().rocket_blast_damage().unwrap();
         if self.my_planet().units_by_loc.contains_key(&destination) {
             let victim_id = *self.my_planet().units_by_loc.get(&destination).unwrap();
-            let should_destroy_rocket = match self.unit_info(victim_id)?.unit_type {
+            let should_destroy_rocket = match self.unit_info(victim_id).unwrap().unit_type {
                 UnitType::Rocket => true,
                 UnitType::Factory => true,
                 _ => false,
@@ -1943,23 +1956,24 @@ impl GameWorld {
             }
             self.destroy_unit(victim_id);
         } else {
-            self.my_unit_mut(rocket_id)?.land_rocket(destination);
+            self.my_unit_mut(rocket_id).unwrap().land_rocket(destination);
             self.move_from_space(rocket_id);
         }
 
         for dir in Direction::all() {
             self.damage_location(destination.add(dir), blast_damage);
         }
-
-        Ok(())
     }
 
-    fn process_rockets(&mut self, team: Team) -> Result<(), Error> {
+    fn process_rockets(&mut self, team: Team) {
         let landings = self.get_team(team).rocket_landings.landings_on(self.round);
         for landing in landings.iter() {
-            self.land_rocket(landing.rocket_id, landing.destination)?;
+            self.land_rocket(landing.rocket_id, landing.destination);
+            self.viewer_changes.push(ViewerDelta::RocketLanding { 
+                rocket_id: landing.rocket_id, 
+                location: landing.destination 
+            });
         }
-        Ok(())
     }
 
     // ************************************************************************
@@ -1974,13 +1988,36 @@ impl GameWorld {
         }
     }
 
+    pub(crate) fn initial_start_turn_message(&self) -> StartTurnMessage {
+        let initial_player = Player::first_to_move();
+        let world = self.cached_world(initial_player);
+        if world.round != 1 {
+            panic!("You should only get the initial STM on round 1.");
+        }
+
+        StartTurnMessage {
+            round: world.round,
+            visible_locs: world.my_planet().visible_locs.clone(),
+            units_changed: vec![],
+            units_vanished: vec![],
+            unit_infos_changed: vec![],
+            unit_infos_vanished: vec![],
+            karbonite_changed: vec![],
+            id_generator: world.id_generator.clone(),
+            units_in_space_changed: vec![],
+            units_in_space_vanished: vec![],
+            other_array_changed: vec![],
+            rocket_landings: world.my_team().rocket_landings.clone(),
+            research: world.my_team().research.clone(),
+            karbonite: world.my_team().karbonite,
+        }
+    }
+
     /// Updates the current player in the game. If a round of four turns has
     /// finished, also processes the end of the round. This includes updating
     /// unit cooldowns, rocket landings, asteroid strikes, research, etc. Returns 
     /// the next player to move, and whether the round was also ended.
-    ///
-    /// * GameError::InternalEngineError - something happened here...
-    pub(crate) fn end_turn(&mut self) -> Result<StartTurnMessage, Error> {
+    pub(crate) fn end_turn(&mut self) -> StartTurnMessage {
         use self::Team::*;
         use self::Planet::*;
 
@@ -1990,7 +2027,7 @@ impl GameWorld {
             Player { team: Red, planet: Mars } => Player::new(Blue, Mars),
             Player { team: Blue, planet: Mars } => {
                 // This is the last player to move, so we can advance to the next round.
-                self.end_round()?;
+                self.end_round();
                 Player::new(Red, Earth)
             },
         };
@@ -2068,10 +2105,10 @@ impl GameWorld {
         }
         self.cached_world.insert(player, world);
 
-        Ok(stm)
+        stm
     }
 
-    fn end_round(&mut self) -> Result<(), Error> {
+    fn end_round(&mut self) {
         self.round += 1;
 
         // Annihilate Earth, if necessary.
@@ -2103,17 +2140,15 @@ impl GameWorld {
         self.process_factories();
 
         // Land rockets.
-        self.process_rockets(Team::Red)?;
-        self.process_rockets(Team::Blue)?;
+        self.process_rockets(Team::Red);
+        self.process_rockets(Team::Blue);
 
         // Process any potential asteroid impacts.
         self.process_asteroids();
 
         // Update the current research and process any completed upgrades.
-        self.process_research(Team::Red)?;
-        self.process_research(Team::Blue)?;
-
-        Ok(())
+        self.process_research(Team::Red);
+        self.process_research(Team::Blue);
     }
 
     /// Applies a single delta to this GameWorld.
@@ -2145,11 +2180,11 @@ impl GameWorld {
 
     /// Applies a turn message to this GameWorld, and ends the current turn. Returns
     /// the next player to move, and whether the current round was also ended.
-    pub(crate) fn apply_turn(&mut self, turn: &TurnMessage) -> Result<StartTurnMessage, Error> {
+    pub(crate) fn apply_turn(&mut self, turn: &TurnMessage) -> StartTurnMessage {
         for delta in turn.changes.iter() {
-            self.apply(delta)?;
+            self.apply(delta).unwrap();
         }
-        Ok(self.end_turn()?)
+        self.end_turn()
     }
 
     /// Determines if the game has ended, returning the winning team if so.
@@ -2204,6 +2239,52 @@ impl GameWorld {
             1 => Some(Team::Red),
             _ => unreachable!(),
         }
+    }
+
+    /// Get the additional changes that have been generated for the viewer
+    /// since this function was last called.
+    pub(crate) fn flush_viewer_changes(&mut self) -> Vec<ViewerDelta> {
+        let changes = self.viewer_changes.clone();
+        self.viewer_changes = Vec::new();
+        changes
+    }
+
+    /// Get the list of units, with some info truncated, to send to the viewer.
+    pub(crate) fn get_viewer_units(&self) -> Vec<ViewerUnitInfo> {
+        let mut units = Vec::new();
+        for unit in self.get_planet(Planet::Earth).units.values() {
+            units.push(ViewerUnitInfo {
+                id: unit.id(),
+                unit_type: unit.unit_type(),
+                health: unit.health(),
+                location: unit.location(),
+            });
+        }
+        for unit in self.get_planet(Planet::Mars).units.values() {
+            units.push(ViewerUnitInfo {
+                id: unit.id(),
+                unit_type: unit.unit_type(),
+                health: unit.health(),
+                location: unit.location(),
+            });
+        }
+        for unit in self.get_team(Team::Red).units_in_space.values() {
+            units.push(ViewerUnitInfo {
+                id: unit.id(),
+                unit_type: unit.unit_type(),
+                health: unit.health(),
+                location: unit.location(),
+            });
+        }
+        for unit in self.get_team(Team::Blue).units_in_space.values() {
+            units.push(ViewerUnitInfo {
+                id: unit.id(),
+                unit_type: unit.unit_type(),
+                health: unit.health(),
+                location: unit.location(),
+            });
+        }
+        units
     }
 
     // ************************************************************************
@@ -2300,7 +2381,7 @@ mod tests {
         // There should be no changes in each of the first four turns between
         // the initial filtered map and the next turn's filtered map.
         for i in 0..4 {
-            let stm = world.end_turn().expect("turn ends OK");
+            let stm = world.end_turn();
             assert_eq!(stm.round, new_rounds[i]);
             assert_eq!(stm.visible_locs, old_worlds[i].my_planet().visible_locs);
             assert_eq!(stm.units_changed.len(), 0);
@@ -2357,7 +2438,7 @@ mod tests {
         assert_err!(red_world.unit_controller(5), GameError::NoSuchUnit);
 
         // The Blue Earth engine cannot see 1, which is not in range.
-        blue_world.start_turn(world.end_turn().expect("turn ends OK"));
+        blue_world.start_turn(world.end_turn());
         assert_err!(blue_world.unit_controller(1), GameError::NoSuchUnit);
         assert_err!(blue_world.unit_controller(2), GameError::TeamNotAllowed);
         assert_err!(blue_world.unit_controller(3), GameError::TeamNotAllowed);
@@ -2472,7 +2553,7 @@ mod tests {
         assert!(world.load(id_a, id_b).is_ok());
 
         // Filter the world on Blue's turn.
-        blue_world.start_turn(world.end_turn().expect("turn ends OK"));
+        blue_world.start_turn(world.end_turn());
 
         // Destroy the loaded rocket in the Dev engine.
         assert_eq!(world.my_planet().units.len(), 3);
@@ -2541,7 +2622,7 @@ mod tests {
         assert![!world.is_move_ready(a)];
         assert![world.can_move(a, Direction::South)];
         assert![world.move_robot(a, Direction::South).is_err()];
-        assert![world.end_round().is_ok()];
+        world.end_round();
 
         // Finally, let's test that A cannot move back to its old square.
         assert![world.is_move_ready(a)];
@@ -2664,7 +2745,7 @@ mod tests {
         // Enough rounds pass where Ranger's snipe is processed
         let rounds = 200;
         for _ in 0..rounds {
-            assert!(world.end_round().is_ok());
+            world.end_round();
         }
         
         // Robot at sniped location should take damage
@@ -2756,11 +2837,11 @@ mod tests {
         }
 
         // Go forward two turns so that we're on Mars.
-        assert![world.end_turn().is_ok()];
-        assert![world.end_turn().is_ok()];
+        world.end_turn();
+        world.end_turn();
 
         // Force land the rocket.
-        world.land_rocket(rocket, mars_loc).unwrap();
+        world.land_rocket(rocket, mars_loc);
         assert_eq![world.my_unit(rocket).unwrap().location(), OnMap(mars_loc)];
             for id in mars_bystanders.iter() {
             assert_eq![world.my_unit(*id).unwrap().health(), damaged_knight_health];
@@ -2796,24 +2877,24 @@ mod tests {
         // Rocket landing on a robot should destroy the robot.
         assert![world.can_launch_rocket(rocket_a, mars_loc_knight)];
         assert![world.launch_rocket(rocket_a, mars_loc_knight).is_ok()];
-        assert![world.end_turn().is_ok()];
-        assert![world.end_turn().is_ok()];
-        assert![world.land_rocket(rocket_a, mars_loc_knight).is_ok()];
+        world.end_turn();
+        world.end_turn();
+        world.land_rocket(rocket_a, mars_loc_knight);
         assert![world.my_unit(rocket_a).is_ok()];
-        assert![world.end_turn().is_ok()];
+        world.end_turn();
         assert_err![world.my_unit(knight), GameError::NoSuchUnit];
 
         // Launch the rocket on Earth.
-        assert![world.end_turn().is_ok()];
+        world.end_turn();
         assert![world.can_launch_rocket(rocket_b, mars_loc_factory)];
         assert![world.launch_rocket(rocket_b, mars_loc_factory).is_ok()];
 
         // Go forward two turns so that we're on Mars.
-        assert![world.end_turn().is_ok()];
-        assert![world.end_turn().is_ok()];
+        world.end_turn();
+        world.end_turn();
 
         // Rocket landing on a factory should destroy both units.
-        assert![world.land_rocket(rocket_b, mars_loc_factory).is_ok()];
+        world.land_rocket(rocket_b, mars_loc_factory);
         assert_err![world.my_unit(rocket_b), GameError::NoSuchUnit];
         assert_err![world.my_unit(factory), GameError::NoSuchUnit];
     }
@@ -2892,14 +2973,14 @@ mod tests {
         assert![world.launch_rocket(rocket, landing_loc).is_ok()];
 
         // Go forward two turns so that we're on Mars.
-        assert![world.end_turn().is_ok()];
-        assert![world.end_turn().is_ok()];
-        assert![world.land_rocket(rocket, landing_loc).is_ok()];
+        world.end_turn();
+        world.end_turn();
+        world.land_rocket(rocket, landing_loc);
 
         // Cannot unload in the same round. But can after one turn.
         assert![!world.can_unload(rocket, Direction::North)];
         assert_err![world.unload(rocket, Direction::North), GameError::Overheated];
-        assert![world.end_round().is_ok()];
+        world.end_round();
 
         // Correct unloading.
         assert![world.can_unload(rocket, Direction::North)];
@@ -3034,7 +3115,7 @@ mod tests {
         // Force-research Rocketry.
         assert![world.queue_research(Branch::Rocket)];
         for _ in 0..1000 {
-            assert![world.process_research(Team::Red).is_ok()];
+            world.process_research(Team::Red);
         }
 
         // Rockets can now be built!
@@ -3042,8 +3123,8 @@ mod tests {
         assert![world.blueprint(worker_d, UnitType::Rocket, Direction::South).is_ok()];
 
         // Blueprinting is never possible on Mars.
-        assert![world.end_turn().is_ok()];
-        assert![world.end_turn().is_ok()];
+        world.end_turn();
+        world.end_turn();
         let mars_factory_loc = MapLocation::new(Planet::Mars, 0, 0);
         let worker_e = world.create_unit(Team::Red, mars_factory_loc.add(Direction::North), UnitType::Worker).unwrap();
         assert![!world.can_blueprint(worker_e, UnitType::Factory, Direction::South)];
@@ -3066,7 +3147,7 @@ mod tests {
 
         // After a few rounds, the mage is added to the world.
         for _ in 0..world.my_unit(factory).unwrap().factory_max_rounds_left().unwrap() {
-            assert!(world.end_round().is_ok());
+            world.end_round();
         }
         assert_eq!(world.my_unit(factory).unwrap().structure_garrison().unwrap().len(), 1);
         assert_eq!(world.my_planet().units.len(), 2);
@@ -3153,7 +3234,7 @@ mod tests {
         assert_err![world.replicate(child, Direction::East), GameError::Overheated];
 
         // Even after ending the round, the child cannot replicate immediately again.
-        assert![world.end_round().is_ok()];
+        world.end_round();
         assert![!world.can_replicate(child, Direction::East)];
         assert_err![world.replicate(child, Direction::East), GameError::Overheated];
     }
@@ -3184,7 +3265,7 @@ mod tests {
         assert_err![world.repair(worker, factory), GameError::Overheated];
 
         // After force-ending the round, the worker can repair again.
-        assert![world.end_round().is_ok()];
+        world.end_round();
         assert![world.can_repair(worker, factory)];
 
         // If the worker moves away, it cannot repair the factory.
@@ -3237,7 +3318,7 @@ mod tests {
         for _ in 1..750 {
             assert_eq![world.get_planet(Planet::Earth).units.len(), 1];
             assert_eq![world.get_planet(Planet::Mars).units.len(), 1];
-            assert![world.end_round().is_ok()];
+            world.end_round();
         }
 
         // At the start of round 750, the Earth unit is destroyed.
@@ -3259,7 +3340,7 @@ mod tests {
 
         // If we advance 1000 rounds, the game should be over, and it's again a tossup.
         for _ in 0..1000 {
-            assert![world.end_round().is_ok()];
+            world.end_round();
         }
         assert![world.is_game_over().is_some()];
         // The apocalypse has now destroyed the preexisting units.

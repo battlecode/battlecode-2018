@@ -69,6 +69,14 @@ pub struct StartGameMessage {
     pub world: GameWorld,
 }
 
+/// A message sent to the viewer which contains all the information needed
+/// to initialize or reinitialize the viewer's state.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ViewerKeyframe {
+    /// A full copy of the initial game state.
+    pub world: GameWorld,
+}
+
 /// A single game turn sent to the manager.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TurnMessage {
@@ -99,11 +107,30 @@ pub struct StartTurnMessage {
     pub karbonite: u32,
 }
 
+/// The truncated unit info needed by the viewer.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ViewerUnitInfo {
+    pub id: UnitID,
+    pub unit_type: UnitType,
+    pub health: u32,
+    pub location: Location,
+}
+
+/// Additional information that the viewer may need.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum ViewerDelta {
+    AsteroidStrike { location: MapLocation },
+    RocketLanding { rocket_id: UnitID, location: MapLocation },
+    RangerSnipe { ranger_id: UnitID, target_location: MapLocation },
+}
+
 /// A description of the current game state, for the viewer.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ViewerMessage {
     /// The current status of the GameWorld.
-    pub world: GameWorld
+    pub changes: Vec<Delta>,
+    pub units: Vec<ViewerUnitInfo>,
+    pub additional_changes: Vec<ViewerDelta>,
 }
 
 /// An error message in response to some error.
