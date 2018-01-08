@@ -113,6 +113,25 @@ pub struct ErrorMessage {
     pub error: String
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct LoginMessage {
+    pub client_id: String
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ReceivedMessage<T> {
+    pub logged_in: bool,
+    pub client_id: String,
+    pub error: Option<String>,
+    pub message: Option<T>
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SentMessage {
+    pub client_id: String,
+    pub turn_message: TurnMessage
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
