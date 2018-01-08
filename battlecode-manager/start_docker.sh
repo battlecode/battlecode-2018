@@ -1,6 +1,10 @@
+ls /
+
 nohup dockerd-entrypoint.sh &
 
 sleep 3
 
-docker pull $SANDBOX
+docker load -i /sandbox
+docker pull gcr.io/battlecode18/sandbox
+
 python3 battlecode_cli.py

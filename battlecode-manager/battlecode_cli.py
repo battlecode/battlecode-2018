@@ -10,6 +10,7 @@ import os
 import logging
 from sandbox import Sandbox
 import server
+import battlecode as bc
 
 # TODO port number
 PORT = 808
@@ -77,7 +78,7 @@ def create_game(args):
 
     # Load the Game state info
     game = server.Game(logging_level=logging.ERROR,
-                       map=args['map'])
+                       game_map=args['map'])
 
     # Find a good filename to use as socket file
     for index in range(10000):
