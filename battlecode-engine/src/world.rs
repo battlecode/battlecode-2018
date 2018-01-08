@@ -446,7 +446,7 @@ impl GameWorld {
         self.my_planet().units_by_loc.clone()
     }
 
-    /// All the units visible in space.
+    /// All the units of this team that are in space.
     pub fn units_in_space(&self) -> Vec<UnitInfo> {
         let mut units = vec![];
         for unit in self.my_team().units_in_space.values().into_iter() {
@@ -942,14 +942,6 @@ impl GameWorld {
             !self.my_planet().units_by_loc.contains_key(&location))
     }
 
-    pub fn is_on_map(&self, location: MapLocation) -> bool {
-        if let Some(map) = self.planet_maps.get(&self.planet()) {
-            map.on_map(location)
-        } else {
-            false
-        }
-    }
-
     /// * NoSuchUnit - the robot does not exist (within the vision range).
     /// * TeamNotAllowed - the robot is not on the current player's team.
     /// * UnitNotOnMap - the robot is not on the map.
@@ -1067,8 +1059,8 @@ impl GameWorld {
     }
 
     /// Whether the robot can attack the given unit, without taking into
-    /// account the unit's attack heat. Takes into account only the unit's
-    /// attack range, and the location of the unit.
+    /// account the robot's attack heat. Takes into account only the robot's
+    /// attack range, and the location of the robot and target.
     ///
     /// Healers cannot attack, and should use `can_heal()` instead.
     pub fn can_attack(&self, robot_id: UnitID, target_id: UnitID) -> bool {
@@ -1644,9 +1636,9 @@ impl GameWorld {
     ///
     /// * NoSuchUnit - either unit does not exist (inside the vision range).
     /// * InappropriateUnitType - the unit is not a healer, or the target is not
+    ///   a robot.
     /// * TeamNotAllowed - either robot is not on the current player's team.
     /// * UnitNotOnMap - the healer is not on the map.
-    ///   a robot.
     /// * OutOfRange - the target does not lie within "attack" range of the healer.
     /// * Overheated - the healer is not ready to heal again.
     pub fn heal(&mut self, healer_id: UnitID, robot_id: UnitID) -> Result<(), Error> {
