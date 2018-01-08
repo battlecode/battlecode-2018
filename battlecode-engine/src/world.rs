@@ -419,6 +419,12 @@ impl GameWorld {
         self.my_team().karbonite
     }
 
+    fn process_karbonite(&mut self, team: Team) {
+        let karbonite_current: u32 = self.get_team(team).karbonite;
+        let karbonite_lost: u32 = cmp::min(KARBONITE_PER_ROUND, karbonite_current / KARBONITE_DECREASE_RATIO);
+        self.get_team_mut(team).karbonite += KARBONITE_PER_ROUND - karbonite_lost;
+    }
+
     // ************************************************************************
     // ************************** SENSING METHODS *****************************
     // ************************************************************************
@@ -2084,6 +2090,10 @@ impl GameWorld {
         self.get_team_mut(Team::Red).team_arrays.end_round();
         self.get_team_mut(Team::Blue).team_arrays.end_round();
 
+        // Passive karbonite production.
+        self.process_karbonite(Team::Red);
+        self.process_karbonite(Team::Blue);
+
         // Process ranger snipes.
         self.process_rangers(Planet::Earth);
         self.process_rangers(Planet::Mars);
@@ -2311,9 +2321,9 @@ mod tests {
         ];
         let new_rounds = [1, 1, 1, 2];
 
-        // There should be no changes in each of the first four turns between
+        // There should be no changes in each of the first two turns between
         // the initial filtered map and the next turn's filtered map.
-        for i in 0..4 {
+        for i in 0..3 {
             let stm = world.end_turn();
             assert_eq!(stm.round, new_rounds[i]);
             assert_eq!(stm.visible_locs, old_worlds[i].my_planet().visible_locs);
@@ -3232,6 +3242,24 @@ mod tests {
         for victim in victims.iter() {
             assert_eq![world.get_unit(*victim).unwrap().health(), 15];
         }
+    }
+
+    #[test]
+    fn test_karbonite_production() {
+        let mut world = GameWorld::test_world();
+        assert_eq!(world.karbonite(), 100);
+        world.end_round();
+        assert_eq!(world.karbonite(), 108);
+        world.end_round();
+        assert_eq!(world.karbonite(), 116);
+        world.end_round();
+        assert_eq!(world.karbonite(), 124);
+        world.end_round();
+        assert_eq!(world.karbonite(), 131);
+        world.end_round();
+        assert_eq!(world.karbonite(), 138);
+        world.end_round();
+        assert_eq!(world.karbonite(), 145);
     }
 
     #[test]

@@ -73,10 +73,10 @@ pub const APOCALYPSE_ROUND: Rounds = 750;
 /// The starting amount of karbonite per team.
 pub const KARBONITE_STARTING: u32 = 100;
 /// The base amount of karbonite gained per turn.
-pub const KARBONITE_PER_ROUND: u32 = 5;
+pub const KARBONITE_PER_ROUND: u32 = 10;
 /// The karbonite per round is decreased by 1 karbonite for every
 /// KARBONITE_DECREASE_RATIO karbonite in the stockpile.
-pub const KARBONITE_DECREASE_RATIO: u32 = 100;
+pub const KARBONITE_DECREASE_RATIO: u32 = 40;
 
 // *********************************
 // ****** RESEARCH CONSTANTS *******
