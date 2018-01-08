@@ -430,8 +430,14 @@ impl GameWorld {
 
     /// All the units within the vision range, in no particular order.
     /// Does not include units in space.
-    pub fn units(&self) -> Vec<&UnitInfo> {
+    pub fn units_ref(&self) -> Vec<&UnitInfo> {
         self.my_planet().unit_infos.values().collect::<Vec<&UnitInfo>>()
+    }
+
+    /// All the units within the vision range, in no particular order.
+    /// Does not include units in space.
+    pub fn units(&self) -> Vec<UnitInfo> {
+        self.my_planet().unit_infos.values().map(|u| u.clone()).collect()
     }
 
     /// All the units within the vision range, by ID.
@@ -2246,39 +2252,39 @@ impl GameWorld {
     ///
     /// Aside from applying the changes in the message, this function must
     /// also increment the round and reindex units by location.
-    pub(crate) fn start_turn(&mut self, turn: StartTurnMessage) {
+    pub(crate) fn start_turn(&mut self, turn: &StartTurnMessage) {
         self.round = turn.round;
-        self.my_planet_mut().visible_locs = turn.visible_locs;
-        for unit in turn.units_changed {
-            self.my_planet_mut().units.insert(unit.id(), unit);
+        self.my_planet_mut().visible_locs = turn.visible_locs.clone();
+        for unit in &turn.units_changed {
+            self.my_planet_mut().units.insert(unit.id(), unit.clone());
         }
-        for unit_id in turn.units_vanished {
-            self.my_planet_mut().units.remove(&unit_id);
+        for unit_id in &turn.units_vanished {
+            self.my_planet_mut().units.remove(unit_id);
         }
-        for unit in turn.unit_infos_changed {
-            self.my_planet_mut().unit_infos.insert(unit.id, unit);
+        for unit in &turn.unit_infos_changed {
+            self.my_planet_mut().unit_infos.insert(unit.id, unit.clone());
         }
-        for unit_id in turn.unit_infos_vanished {
-            self.my_planet_mut().unit_infos.remove(&unit_id);
+        for unit_id in &turn.unit_infos_vanished {
+            self.my_planet_mut().unit_infos.remove(unit_id);
         }
-        for (location, karbonite) in turn.karbonite_changed {
+        for &(location, karbonite) in &turn.karbonite_changed {
             let x = location.x as usize;
             let y = location.y as usize;
             self.my_planet_mut().karbonite[y][x] = karbonite;
         }
-        for unit in turn.units_in_space_changed {
-            self.my_team_mut().units_in_space.insert(unit.id(), unit);
+        for unit in &turn.units_in_space_changed {
+            self.my_team_mut().units_in_space.insert(unit.id(), unit.clone());
         }
-        for unit_id in turn.units_in_space_vanished {
-            self.my_team_mut().units_in_space.remove(&unit_id);
+        for unit_id in &turn.units_in_space_vanished {
+            self.my_team_mut().units_in_space.remove(unit_id);
         }
         let planet = self.planet().other();
-        for (index, value) in turn.other_array_changed {
+        for &(index, value) in &turn.other_array_changed {
             self.my_team_mut().team_arrays.write(planet, index, value).unwrap();
         }
-        self.id_generator = turn.id_generator;
-        self.my_team_mut().rocket_landings = turn.rocket_landings;
-        self.my_team_mut().research = turn.research;
+        self.id_generator = turn.id_generator.clone();
+        self.my_team_mut().rocket_landings = turn.rocket_landings.clone();
+        self.my_team_mut().research = turn.research.clone();
         self.my_team_mut().karbonite = turn.karbonite;
 
         let mut units_by_loc = FnvHashMap::default();
@@ -2388,7 +2394,7 @@ mod tests {
         assert_err!(red_world.unit_controller(5), GameError::NoSuchUnit);
 
         // The Blue Earth engine cannot see 1, which is not in range.
-        blue_world.start_turn(world.end_turn());
+        blue_world.start_turn(&world.end_turn());
         assert_err!(blue_world.unit_controller(1), GameError::NoSuchUnit);
         assert_err!(blue_world.unit_controller(2), GameError::TeamNotAllowed);
         assert_err!(blue_world.unit_controller(3), GameError::TeamNotAllowed);
@@ -2503,7 +2509,7 @@ mod tests {
         assert!(world.load(id_a, id_b).is_ok());
 
         // Filter the world on Blue's turn.
-        blue_world.start_turn(world.end_turn());
+        blue_world.start_turn(&world.end_turn());
 
         // Destroy the loaded rocket in the Dev engine.
         assert_eq!(world.my_planet().units.len(), 3);
