@@ -20,22 +20,27 @@ RUN pip3 install \
 # Install rust
 RUN apk add --update --no-cache \
     libffi-dev \
-    rust cargo
+    rust cargo \
+    curl gzip
+
+#WORKDIR /
+#RUN curl https://storage.cloud.google.com/sandbox_prod/sandbox.gz --output sandbox.gz
+#RUN gunzip sandbox.gz
 
 # Install battlecode bindings
-ADD . /battlecode
+ADD bindings/ /battlecode/bindings
+ADD battlecode-engine/ /battlecode/battlecode-engine
+ADD Cargo.lock Cargo.toml Makefile /battlecode/
 
 WORKDIR /battlecode/bindings
 RUN python3 generate.py
 
 WORKDIR /battlecode/bindings/python
 RUN pip3 install -r requirements.txt
-RUN rustc --version
-RUN cargo build #--release
+RUN cargo build
 RUN python3 setup.py install
 
-EXPOSE 80
-
+ADD battlecode-manager /battlecode/battlecode-manager
 WORKDIR /battlecode/battlecode-manager
 
 CMD ["sh", "start_docker.sh"]

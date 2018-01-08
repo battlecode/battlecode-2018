@@ -48,7 +48,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         self.times = {}
 
         # Initialize the player_ids
-        for _ in range(NUM_PLAYERS):
+        for index in range(NUM_PLAYERS):
             new_id = random.randrange(65536)
             self.players.append({'id':new_id})
             self.players[-1]['player'] = bc.Player(bc.Team.Red if index < 2 else bc.Team.Blue, bc.Planet.Earth if index % 2 == 0 else bc.Planet.Mars)
@@ -66,7 +66,8 @@ class Game(object): # pylint: disable=too-many-instance-attributes
 
         self.manager = bc.GameController.new_manager(self.map)
         for player in self.players:
-            player['start_message'] = self.manager.start_game(player['player']).to_json()
+            player['start_message'] = self.manager.start_game(player['player'])
+            player['start_message'] = player['start_message'].to_json()
         self.viewer_messages = []
         self.last_message = self.manager.initial_start_turn_message().start_turn.to_json()
         # deal with self.manager.initial_start_turn_message().viewer
