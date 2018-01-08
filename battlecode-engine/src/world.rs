@@ -2114,11 +2114,11 @@ impl GameWorld {
 
     /// Applies a turn message to this GameWorld, and ends the current turn. Returns
     /// the next player to move, and whether the current round was also ended.
-    pub(crate) fn apply_turn(&mut self, turn: &TurnMessage) -> Result<StartTurnMessage, Error> {
+    pub(crate) fn apply_turn(&mut self, turn: &TurnMessage) -> StartTurnMessage {
         for delta in turn.changes.iter() {
-            self.apply(delta)?;
+            self.apply(delta).unwrap();
         }
-        Ok(self.end_turn())
+        self.end_turn()
     }
 
     /// Determines if the game has ended, returning the winning team if so.
