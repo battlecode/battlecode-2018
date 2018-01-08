@@ -1051,7 +1051,8 @@ impl GameWorld {
 
         let should_destroy_unit = {
             let unit_info = self.unit_info_mut(unit_id).expect("unit exists");
-            unit_info.health = ((unit_info.health as i32) - damage) as u32;
+            let damage_to_take = cmp::min(unit_info.health as i32, damage);
+            unit_info.health = ((unit_info.health as i32) - damage_to_take) as u32;
             unit_info.health == 0
         };
 
@@ -2689,7 +2690,7 @@ mod tests {
 
         // Javelin target. 
         let robot_max_health = 250;
-        let robot_damaged_health = 165; 
+        let robot_damaged_health = 205; 
         assert_eq!(world.get_unit(robot_a).unwrap().health(), robot_max_health);
         assert!(world.javelin(knight, robot_a).is_ok());
         assert_eq!(world.get_unit(robot_a).unwrap().health(), robot_damaged_health);
@@ -2771,7 +2772,7 @@ mod tests {
         }
         
         // Robot at sniped location should take damage
-        let robot_damaged_health = 185;
+        let robot_damaged_health = 215;
         assert_eq!(world.get_unit(robot).unwrap().health(), robot_damaged_health);
     }
 
@@ -3086,6 +3087,7 @@ mod tests {
         assert![!world.can_blueprint(worker_a, UnitType::Knight, Direction::South)];
 
         // A factory cannot be blueprinted yet, because there are not enough resources.
+        world.get_team_mut(Team::Red).karbonite = 0;
         assert![!world.can_blueprint(worker_a, UnitType::Factory, Direction::South)];
 
         // After adding more resources to the team pool, blueprinting a factory is possible.
@@ -3102,8 +3104,8 @@ mod tests {
         assert![!world.can_build(worker_a, factory)];
         world.destroy_unit(worker_a);
 
-        // It takes 150 build actions, with default research, to complete a factory.
-        for i in 0..150 {
+        // It takes 45 build actions, with default research, to complete a factory.
+        for i in 0..45 {
             // Create a worker two squares north of the factory blueprint.
             let worker_b = world.create_unit(Team::Red, 
                                              factory_loc.add(Direction::North).add(Direction::North), 
@@ -3116,7 +3118,7 @@ mod tests {
             // The worker is now able to build the factory.
             assert![world.can_build(worker_b, factory)];
             assert![world.build(worker_b, factory).is_ok()];
-            assert_eq![world.get_unit(factory).unwrap().health(), 255 + 5*i];
+            assert_eq![world.get_unit(factory).unwrap().health(), 80 + 5*i];
 
             // The worker has already acted, and cannot build again.
             assert![!world.can_build(worker_b, factory)];
@@ -3195,7 +3197,7 @@ mod tests {
         assert![world.attack(ranger, worker_in_range).is_ok()];
 
         // The worker should have taken some damage.
-        assert_eq![world.get_unit(worker_in_range).unwrap().health(), 30];
+        assert_eq![world.get_unit(worker_in_range).unwrap().health(), 60];
         assert_eq![world.get_unit(worker_out_of_range).unwrap().health(), 100];
 
         // The ranger cannot attack again.
@@ -3219,7 +3221,7 @@ mod tests {
         // Use the healer to heal the worker.
         assert![world.can_heal(healer, worker_in_range)];
         assert![world.heal(healer, worker_in_range).is_ok()];
-        assert_eq![world.get_unit(worker_in_range).unwrap().health(), 40];
+        assert_eq![world.get_unit(worker_in_range).unwrap().health(), 70];
     }
 
     #[test]
@@ -3239,7 +3241,7 @@ mod tests {
         // The worker can replicate to the north.
         assert![world.can_replicate(worker, Direction::North)];
         assert![world.replicate(worker, Direction::North).is_ok()];
-        assert_eq![world.karbonite(), 60];
+        assert_eq![world.karbonite(), 85];
 
         // The child cannot replicate when there isn't enough Karbonite.
         world.my_team_mut().karbonite = 0;
@@ -3276,12 +3278,12 @@ mod tests {
         world.get_unit_mut(factory).unwrap().be_built(1000);
         assert![world.get_unit(factory).unwrap().structure_is_built().unwrap()];
         world.get_unit_mut(factory).unwrap().take_damage(100);
-        assert_eq![world.get_unit(factory).unwrap().health(), 900];
+        assert_eq![world.get_unit(factory).unwrap().health(), 200];
 
         // The factory can now be repaired.
         assert![world.can_repair(worker, factory)];
         assert![world.repair(worker, factory).is_ok()];
-        assert_eq![world.get_unit(factory).unwrap().health(), 910];
+        assert_eq![world.get_unit(factory).unwrap().health(), 210];
 
         // The worker cannot repair again this turn.
         assert![!world.can_repair(worker, factory)];
@@ -3323,11 +3325,11 @@ mod tests {
 
         // After attacking the middle factory, all factories should be damaged.
         for victim in victims.iter() {
-            assert_eq![world.unit_info(*victim).unwrap().health, 250];
+            assert_eq![world.unit_info(*victim).unwrap().health, 75];
         }
         assert![world.attack(mage, victims[4]).is_ok()];
         for victim in victims.iter() {
-            assert_eq![world.unit_info(*victim).unwrap().health, 100];
+            assert_eq![world.unit_info(*victim).unwrap().health, 15];
         }
     }
 
