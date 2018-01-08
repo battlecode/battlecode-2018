@@ -20,7 +20,7 @@ import battlecode as bc
 
 INIT_TIME = 250
 TIME_PER_TURN = 10
-
+NUM_PLAYERS = 4
 
 class Game(object): # pylint: disable=too-many-instance-attributes
     '''
@@ -48,7 +48,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         self.times = {}
 
         # Initialize the player_ids
-        for _ in range(4):
+        for _ in range(NUM_PLAYERS):
             new_id = random.randrange(65536)
             self.players.append({'id':new_id})
             self.players[-1]['player'] = bc.Player(bc.Team.Red if index < 2 else bc.Team.Blue, bc.Planet.Earth if index % 2 == 0 else bc.Planet.Mars)
