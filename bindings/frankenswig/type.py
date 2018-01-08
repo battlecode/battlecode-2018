@@ -45,9 +45,32 @@ class Type(object):
     def result(self):
         return ResultType(self)
 
+    def orig_rust(self):
+        return self.rust
+
+class BuiltinType(Type):
+    def __init__(self, rust, swig, python, default="!!no default!!", is_ref=False):
+        super().__init__(rust, swig, python, default=default)
+        self.is_ref = is_ref
+    
+    def ref(self):
+        return BuiltinType(self.rust, self.swig, self.python, default=self.default, is_ref=True)
+
+    def wrap_c_value(self, value):
+        if self.is_ref:
+            return '&' + value
+        else:
+            return ('', value, '')
+
+    def unwrap_rust_value(self, value):
+        if self.is_ref:
+            return '*' + value
+        else:
+            return value
+
 class BuiltinWrapper(object):
     def __init__(self, *args):
-        self.type = Type(*args)
+        self.type = BuiltinType(*args)
 
 char = BuiltinWrapper('char', 'c_char', 'int', '0')
 u8 = BuiltinWrapper('u8', 'uint8_t', 'int', '0')
@@ -120,6 +143,9 @@ class StringType(Type):
             _lib.{self.module}_free_string(result)
             result = _result
         ''')
+    
+    def orig_rust(self):
+        return 'String'
 
 class StrRefType(StringType):
     '''The &str type.
@@ -131,3 +157,6 @@ class StrRefType(StringType):
     def wrap_c_value(self, name):
         value = f'&*(unsafe{{CStr::from_ptr({name})}}).to_string_lossy()'
         return ('', value, '')
+
+    def orig_rust(self):
+        return '&str'

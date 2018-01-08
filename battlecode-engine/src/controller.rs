@@ -114,7 +114,13 @@ impl GameController {
 
     /// All the units within the vision range, in no particular order.
     /// Does not include units in space.
-    pub fn units(&self) -> Vec<&UnitInfo> {
+    pub fn units_ref(&self) -> Vec<&UnitInfo> {
+        self.world.units_ref()
+    }
+
+    /// All the units within the vision range, in no particular order.
+    /// Does not include units in space.
+    pub fn units(&self) -> Vec<UnitInfo> {
         self.world.units()
     }
 

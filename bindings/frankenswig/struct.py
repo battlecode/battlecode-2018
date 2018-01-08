@@ -62,6 +62,9 @@ class StructType(Type):
             _result._ptr = result
             result = _result
         ''')
+    
+    def orig_rust(self):
+        return f'{"&" if self.kind == StructType.RUST_MUT_REF else ""}{self.wrapper.module}::{self.wrapper.name}'
 
 class DeriveMixins(object):
     '''Helpers for easily bindings #[derive]'d methods.'''
@@ -100,9 +103,12 @@ class DeriveMixins(object):
         self.method(boolean.type, "eq", [Var(self.type.ref(), "other")], docs=f"Deep-copy a {self.type.to_python()}", pyname="__eq__", self_ref=True)
 
 class StructWrapper(DeriveMixins):
-    def __init__(self, program, name, docs=''):
+    def __init__(self, program, name, docs='', module=None):
         self.program = program
-        self.module = program.module
+        if module is None:
+            self.module = program.module
+        else:
+            self.module = module
         self.name = name
         self.c_name = f'{self.module}_{sanitize_rust_name(self.name)}'
         self.members = []

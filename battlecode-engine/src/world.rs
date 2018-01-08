@@ -418,8 +418,14 @@ impl GameWorld {
 
     /// All the units within the vision range, in no particular order.
     /// Does not include units in space.
-    pub fn units(&self) -> Vec<&UnitInfo> {
+    pub fn units_ref(&self) -> Vec<&UnitInfo> {
         self.my_planet().unit_infos.values().collect::<Vec<&UnitInfo>>()
+    }
+
+    /// All the units within the vision range, in no particular order.
+    /// Does not include units in space.
+    pub fn units(&self) -> Vec<UnitInfo> {
+        self.my_planet().unit_infos.values().map(|u| u.clone()).collect()
     }
 
     /// All the units within the vision range, by ID.

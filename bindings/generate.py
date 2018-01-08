@@ -74,10 +74,10 @@ Level = p.typedef('research::Level', usize.type)
 
 Percent = p.typedef('unit::Percent', u32.type)
 UnitID = p.typedef('unit::UnitID', u16.type)
+UnitIDVec = p.vec(UnitID.type)
 
 UnitType = p.c_enum("unit::UnitType",
     docs="The different unit types, which include factories, rockets, and the robots.")
-#UnitType.serialize()
 UnitType.variant('Worker', 0, docs="Workers are the foundation of the civilization.")
 UnitType.variant('Knight', 1, docs="Knights are a melee unit that is strong in numbers.")
 UnitType.variant('Ranger', 2, docs="Rangers are a ranged unit with good all-around combat.")
@@ -85,6 +85,7 @@ UnitType.variant('Mage', 3, docs="Mages are a fragile but specialized ranged uni
 UnitType.variant('Healer', 4, docs="Healers are a suport unit that can heal other units.")
 UnitType.variant('Factory', 5, docs="Factories are the hub for producing combative robots.")
 UnitType.variant('Rocket', 6, docs="Rockets are the only unit that can move between planets.")
+UnitType.serialize()
 UnitType.method(boolean.type, "is_robot", [], docs="Whether the unit type is a robot.")
 UnitType.method(boolean.type, "is_structure", [], docs="Whether the unit type is a structure.")
 UnitType.method(u32.type.result(), "factory_cost", [], docs="""The cost of the unit in a factory.
@@ -94,6 +95,7 @@ Errors if the unit cannot be blueprinted.""")
 UnitType.method(u32.type.result(), "replicate_cost", [], docs="""The cost to replicate the unit.
 Errors if the unit cannot be replicated.""")
 UnitType.method(u32.type, "value", [], docs="The value of a unit, as relevant to tiebreakers.")
+UnitTypeVec = p.vec(UnitType.type)
 
 UnitInfo = p.struct('unit::UnitInfo',
     docs='''The public version of the unit. Contains all the unit's stats but none of
@@ -107,7 +109,7 @@ UnitInfo.member(Team.type, 'team', docs="The team the unit is on.")
 UnitInfo.member(UnitType.type, 'unit_type', docs="The type of the unit.")
 UnitInfo.member(Location.type, 'location', docs="The current location of the unit.")
 UnitInfo.member(u32.type, 'health', docs="The current health of the unit.")
-#UnitInfo.method(UnitType.type.vec(), "all", (), docs="List all the unit types.", staticmethod=True)
+UnitInfoVec = p.vec(UnitInfo.type)
 
 Unit = p.struct("unit::Unit", docs="A single unit in the game and all its associated properties.")
 Unit.debug()
@@ -165,7 +167,7 @@ Unit.method(boolean.type.result(), "structure_is_built", [], docs="""Whether thi
 Errors if the unit is not a structure.""", getter=True)
 Unit.method(usize.type.result(), "structure_max_capacity", [], docs="""The max capacity of a structure.
 Errors if the unit is not a structure.""", getter=True)
-#Unit.method(Vec<UnitID>.type, "structure_garrison", [], docs="""Returns the units in the structure's garrison.
+Unit.method(UnitIDVec.type.result(), "structure_garrison", [], docs="""Returns the units in the structure's garrison.
 #Errors if the unit is not a structure.""")
 #Unit.method(Option<UnitType>.type, "factory_unit_type", [], docs="""The unit type currently being produced by the factory, or None if the
 #factory is not producing a unit.
@@ -264,10 +266,10 @@ GameController.method(UnitInfo.type.result(), "unit", [Var(UnitID.type, "id")], 
 
 * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
 """)
-#GameController.method(Vec<&UnitInfo>.type, "units", [], docs="""All the units within the vision range, in no particular order.
-#Does not include units in space.
-#""")
-#GameController.method(Vec<UnitInfo>.type, "units_in_space", [], docs="""All the units of this team that are in space.""")
+GameController.method(UnitInfoVec.type, "units", [], docs="""All the units within the vision range, in no particular order.
+Does not include units in space.
+""")
+GameController.method(UnitInfoVec.type, "units_in_space", [], docs="""All the units of this team that are in space.""")
 GameController.method(u32.type.result(), "karbonite_at", [Var(MapLocation.type, "location")], docs="""The karbonite at the given location.
 """)
 GameController.method(boolean.type, "can_sense_location", [Var(MapLocation.type, "location")], docs="""
@@ -277,17 +279,17 @@ Whether the location is within the vision range.
 """)
 GameController.method(boolean.type, "can_sense_unit", [Var(UnitID.type, "id")], docs="""Whether there is a unit with this ID within the vision range.
 """)
-#GameController.method(Vec<UnitInfo>.type, "sense_nearby_units", [Var(MapLocation.type, "location"), Var(u.type, "radius")32], docs="""Sense units near the location within the given radius, inclusive, in
-#distance squared. The units are within the vision range.
-#""")
-#GameController.method(Vec<UnitInfo>.type, "sense_nearby_units_by_team", [Var(MapLocation.type, "location"),Var(u.type, "radius")32, Var(Team.type, "team")], docs="""Sense units near the location within the given radius, inclusive, in
-#distance squared. The units are within the vision range. Additionally
-#filters the units by team.
-#""")
-#GameController.method(Vec<UnitInfo>.type, "sense_nearby_units_by_type", [Var(MapLocation.type, "location"),Var(u.type, "radius")32, Var(UnitType.type, "unit_type")], docs="""Sense units near the location within the given radius, inclusive, in
-#distance squared. The units are within the vision range. Additionally
-#filters the units by unit type.
-#""")
+GameController.method(UnitInfoVec.type, "sense_nearby_units", [Var(MapLocation.type, "location"), Var(u32.type, "radius")], docs="""Sense units near the location within the given radius, inclusive, in
+distance squared. The units are within the vision range.
+""")
+GameController.method(UnitInfoVec.type, "sense_nearby_units_by_team", [Var(MapLocation.type, "location"),Var(u32.type, "radius"), Var(Team.type, "team")], docs="""Sense units near the location within the given radius, inclusive, in
+distance squared. The units are within the vision range. Additionally
+filters the units by team.
+""")
+GameController.method(UnitInfoVec.type, "sense_nearby_units_by_type", [Var(MapLocation.type, "location"),Var(u32.type, "radius"), Var(UnitType.type, "unit_type")], docs="""Sense units near the location within the given radius, inclusive, in
+distance squared. The units are within the vision range. Additionally
+filters the units by unit type.
+""")
 #GameController.method(Option<UnitInfo>.type.result(), "sense_unit_at_location", [Var(MapLocation.type, "location")], docs="""The unit at the location, if it exists.
 #* GameError::InvalidLocation - the location is outside the vision range.
 #""")

@@ -52,6 +52,14 @@ class CEnumWrapperType(Type):
     def ref(self):
         return CEnumWrapperType(self.wrapper, is_ref=True)
 
+    @property
+    def default(self):
+        return f'{self.c_name}::{self.wrapper.variants[0][0]}'
+
+    @default.setter
+    def default(self, v):
+        pass
+
     def mut_ref(self):
         return self.ref()
     
@@ -62,13 +70,17 @@ class CEnumWrapperType(Type):
         return ('', value, '')
 
     def unwrap_rust_value(self, name):
-        value = f'Into::<{self.c_name}>::into({name})'
         if self.is_ref:
-            value = f'(&{value})'
+            value = f'Into::<{self.c_name}>::into(*{name})'
+        else:
+            value = f'Into::<{self.c_name}>::into({name})'
         return value
 
     def python_postfix(self):
         return f'result = {self.to_python()}(result)\n'
+
+    def orig_rust(self):
+        return f'{"&" if self.is_ref else ""}{self.wrapper.module}::{self.wrapper.name}'
 
 class CEnumWrapper(CEnum, DeriveMixins):
     '''A wrapper for a rust c-style enum, that is, an enum with integer values.'''
@@ -85,9 +97,6 @@ class CEnumWrapper(CEnum, DeriveMixins):
     def variant(self, name, value, docs=''):
         # TODO: docs
         super().variant(name, value)
-        # this is.. unfortunate, but necessary due to builder pattern
-        if self.type.default is None:
-            self.type.default = f'{self.c_name}::{name}'
         return self
 
     def method(self, type, name, args, docs='', pyname=None, self_ref=False):
