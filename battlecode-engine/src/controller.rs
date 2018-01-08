@@ -220,10 +220,11 @@ impl GameController {
     ///   bounds. It must be within [0, COMMUNICATION_ARRAY_LENGTH).
     pub fn write_team_array(&mut self, index: usize, value: i32) -> Result<(), Error> {
         let delta = Delta::WriteTeamArray { index, value };
+        self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
-            self.turn.changes.push(delta.clone());
+            self.turn.changes.push(delta);
         }
-        Ok(self.world.apply(&delta)?)
+        Ok(())
     }
 
     // ************************************************************************
@@ -237,10 +238,11 @@ impl GameController {
     /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
     pub fn disintegrate_unit(&mut self, unit_id: UnitID) -> Result<(), Error> {
         let delta = Delta::Disintegrate { unit_id };
+        self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
-            self.turn.changes.push(delta.clone());
+            self.turn.changes.push(delta);
         }
-        Ok(self.world.apply(&delta)?)
+        Ok(())
     }
 
     // ************************************************************************
@@ -276,10 +278,11 @@ impl GameController {
     /// * GameError::InvalidAction - the robot cannot move in that direction.
     pub fn move_robot(&mut self, robot_id: UnitID, direction: Direction) -> Result<(), Error> {
         let delta = Delta::Move { robot_id, direction };
+        self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
-            self.turn.changes.push(delta.clone());
+            self.turn.changes.push(delta);
         }
-        Ok(self.world.apply(&delta)?)
+        Ok(())
     }
 
     // ************************************************************************
@@ -312,10 +315,11 @@ impl GameController {
     /// * GameError::InvalidAction - the robot cannot attack that location.
     pub fn attack(&mut self, robot_id: UnitID, target_unit_id: UnitID) -> Result<(), Error> {
         let delta = Delta::Attack { robot_id, target_unit_id };
+        self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
-            self.turn.changes.push(delta.clone());
+            self.turn.changes.push(delta);
         }
-        Ok(self.world.apply(&delta)?)
+        Ok(())
     }
 
     // ************************************************************************
@@ -375,10 +379,11 @@ impl GameController {
     pub fn harvest(&mut self, worker_id: UnitID, direction: Direction)
                    -> Result<(), Error> {
         let delta = Delta::Harvest { worker_id, direction };
+        self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
-            self.turn.changes.push(delta.clone());
+            self.turn.changes.push(delta);
         }
-        Ok(self.world.apply(&delta)?)
+        Ok(())
     }
 
     /// Whether the worker can blueprint a unit of the given type. The worker
@@ -402,10 +407,11 @@ impl GameController {
     pub fn blueprint(&mut self, worker_id: UnitID, structure_type: UnitType,
                      direction: Direction) -> Result<(), Error> {
         let delta = Delta::Blueprint { worker_id, structure_type, direction };
+        self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
-            self.turn.changes.push(delta.clone());
+            self.turn.changes.push(delta);
         }
-        Ok(self.world.apply(&delta)?)
+        Ok(())
     }
 
     /// Whether the worker can build a blueprint with the given ID. The worker
@@ -426,10 +432,11 @@ impl GameController {
     pub fn build(&mut self, worker_id: UnitID, blueprint_id: UnitID)
                  -> Result<(), Error> {
         let delta = Delta::Build { worker_id, blueprint_id };
+        self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
-            self.turn.changes.push(delta.clone());
+            self.turn.changes.push(delta);
         }
-        Ok(self.world.apply(&delta)?)
+        Ok(())
     }
 
     /// Whether the given worker can repair the given strucutre. Tests that the worker
@@ -443,10 +450,11 @@ impl GameController {
     /// can only be done to structures which have been fully built.
     pub fn repair(&mut self, worker_id: UnitID, structure_id: UnitID) -> Result<(), Error> {
         let delta = Delta::Repair { worker_id, structure_id };
+        self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
-            self.turn.changes.push(delta.clone());
+            self.turn.changes.push(delta);
         }
-        Ok(self.world.apply(&delta)?)
+        Ok(())
     }
 
     /// Whether the worker is ready to replicate. Tests that the worker's
@@ -468,10 +476,11 @@ impl GameController {
     pub fn replicate(&mut self, worker_id: UnitID, direction: Direction)
                      -> Result<(), Error> {
         let delta = Delta::Replicate { worker_id, direction };
+        self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
-            self.turn.changes.push(delta.clone());
+            self.turn.changes.push(delta);
         }
-        Ok(self.world.apply(&delta)?)
+        Ok(())
     }
 
     // ************************************************************************
@@ -500,10 +509,11 @@ impl GameController {
     /// * GameError::InvalidAction - the knight cannot javelin that unit.
     pub fn javelin(&mut self, knight_id: UnitID, target_unit_id: UnitID) -> Result<(), Error> {
         let delta = Delta::Javelin { knight_id, target_unit_id };
+        self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
-            self.turn.changes.push(delta.clone());
+            self.turn.changes.push(delta);
         }
-        Ok(self.world.apply(&delta)?)
+        Ok(())
     }
 
     // ************************************************************************
@@ -523,10 +533,11 @@ impl GameController {
     pub fn begin_snipe(&mut self, ranger_id: UnitID, location: MapLocation)
                        -> Result<(), Error> {
         let delta = Delta::BeginSnipe { ranger_id, location };
+        self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
-            self.turn.changes.push(delta.clone());
+            self.turn.changes.push(delta);
         }
-        Ok(self.world.apply(&delta)?)
+        Ok(())
     }
 
     // ************************************************************************
@@ -561,10 +572,11 @@ impl GameController {
     /// * GameError::InvalidAction - the mage cannot blink to that location.
     pub fn blink(&mut self, mage_id: UnitID, location: MapLocation) -> Result<(), Error> {
         let delta = Delta::Blink { mage_id, location };
+        self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
-            self.turn.changes.push(delta.clone());
+            self.turn.changes.push(delta);
         }
-        Ok(self.world.apply(&delta)?)
+        Ok(())
     }
 
     // ************************************************************************
@@ -592,10 +604,11 @@ impl GameController {
     /// * GameError::InvalidAction - the healer cannot heal that unit.
     pub fn heal(&mut self, healer_id: UnitID, target_robot_id: UnitID) -> Result<(), Error> {
         let delta = Delta::Heal { healer_id, target_robot_id };
+        self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
-            self.turn.changes.push(delta.clone());
+            self.turn.changes.push(delta);
         }
-        Ok(self.world.apply(&delta)?)
+        Ok(())
     }
 
     /// Whether the healer can overcharge the given robot, without taking into
@@ -621,10 +634,11 @@ impl GameController {
     pub fn overcharge(&mut self, healer_id: UnitID, target_robot_id: UnitID)
                       -> Result<(), Error> {
         let delta = Delta::Overcharge { healer_id, target_robot_id };
+        self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
-            self.turn.changes.push(delta.clone());
+            self.turn.changes.push(delta);
         }
-        Ok(self.world.apply(&delta)?)
+        Ok(())
     }
 
     // ************************************************************************
@@ -647,10 +661,11 @@ impl GameController {
     pub fn load(&mut self, structure_id: UnitID, robot_id: UnitID)
                     -> Result<(), Error> {
         let delta = Delta::Load { structure_id, robot_id };
+        self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
-            self.turn.changes.push(delta.clone());
+            self.turn.changes.push(delta);
         }
-        Ok(self.world.apply(&delta)?)
+        Ok(())
     }
 
     /// Tests whether the given structure is able to unload a unit in the
@@ -671,10 +686,11 @@ impl GameController {
     pub fn unload(&mut self, structure_id: UnitID, direction: Direction)
                       -> Result<(), Error> {
         let delta = Delta::Unload { structure_id, direction };
+        self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
-            self.turn.changes.push(delta.clone());
+            self.turn.changes.push(delta);
         }
-        Ok(self.world.apply(&delta)?)
+        Ok(())
     }
 
     // ************************************************************************
@@ -698,10 +714,11 @@ impl GameController {
     pub fn produce_robot(&mut self, factory_id: UnitID, robot_type: UnitType)
                        -> Result<(), Error> {
         let delta = Delta::ProduceRobot { factory_id, robot_type };
+        self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
-            self.turn.changes.push(delta.clone());
+            self.turn.changes.push(delta);
         }
-        Ok(self.world.apply(&delta)?)
+        Ok(())
     }
 
     // ************************************************************************
@@ -733,10 +750,11 @@ impl GameController {
     pub fn launch_rocket(&mut self, rocket_id: UnitID, location: MapLocation)
                          -> Result<(), Error> {
         let delta = Delta::LaunchRocket { rocket_id, location };
+        self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
-            self.turn.changes.push(delta.clone());
+            self.turn.changes.push(delta);
         }
-        Ok(self.world.apply(&delta)?)
+        Ok(())
     }
 
     // ************************************************************************
