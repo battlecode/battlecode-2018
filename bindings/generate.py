@@ -201,6 +201,8 @@ StartTurnMessage.serialize()
 
 ViewerMessage = p.struct('schema::ViewerMessage')
 ViewerMessage.serialize()
+ViewerKeyframe = p.struct('schema::ViewerKeyframe')
+ViewerKeyframe.serialize()
 
 ErrorMessage = p.struct('schema::ErrorMessage')
 ErrorMessage.member(p.string.type, "error")
@@ -210,6 +212,10 @@ ErrorMessage.debug()
 TurnApplication = p.struct("controller::TurnApplication")
 TurnApplication.member(StartTurnMessage.type, 'start_turn')
 TurnApplication.member(ViewerMessage.type, 'viewer')
+
+InitialTurnApplication = p.struct("controller::InitialTurnApplication")
+InitialTurnApplication.member(StartTurnMessage.type, 'start_turn')
+InitialTurnApplication.member(ViewerKeyframe.type, 'viewer')
 
 AsteroidStrike = p.struct("map::AsteroidStrike")
 AsteroidStrike.constructor("new", [Var(u32.type, "karbonite"), Var(MapLocation.type, "location")])
@@ -246,9 +252,8 @@ RocketLandingInfo = p.struct("rockets::RocketLandingInfo")
 GameController = p.struct('controller::GameController')
 GameController.constructor("new_player_env", [], docs="Use environment variables to connect to the manager.", result=True)
 GameController.method(void.type.result(), "next_turn", [], docs="Send the moves from the current turn and wait for the next turn.")
-GameController.method(GameController.type, 'new_player', [Var(StartGameMessage.type, 'game')], static=True)
-GameController.method(void.type.result(), 'start_turn', [Var(StartTurnMessage.type.ref(), 'turn')])
-GameController.method(TurnMessage.type.result(), 'end_turn', [])
+
+
 GameController.method(Rounds.type, 'round', [])
 GameController.method(Planet.type, 'planet', [])
 GameController.method(Team.type, 'team', [])
@@ -548,9 +553,13 @@ the other planet, the rocket flies off, never to be seen again.
 * GameError::InappropriateUnitType - the unit is not a rocket.
 * GameError::InvalidAction - the rocket cannot launch.
 """)
+GameController.method(GameController.type, 'new_player', [Var(StartGameMessage.type, 'game')], static=True)
+GameController.method(void.type, 'start_turn', [Var(StartTurnMessage.type.ref(), 'turn')])
+GameController.method(TurnMessage.type, 'end_turn', [])
 GameController.method(GameController.type, 'new_manager', [Var(GameMap.type, 'map')], static=True)
 GameController.method(StartGameMessage.type, 'start_game', [Var(Player.type, 'player')])
-GameController.method(TurnApplication.type.result(), 'apply_turn', [Var(TurnMessage.type.ref(), 'turn')])
+GameController.method(TurnApplication.type, 'apply_turn', [Var(TurnMessage.type.ref(), 'turn')])
+GameController.method(InitialTurnApplication.type, 'initial_start_turn_message', [])
 
 print('Generating...')
 with open("src/bindings.rs", "w+") as f:
