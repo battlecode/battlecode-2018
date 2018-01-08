@@ -1,4 +1,0 @@
-REPLAY_BUCKET_NAME = "battlecode-2018-submissions-test"
-
-PLAYER_MEM_LIMIT = "256m"
-PLAYER_CPU_PERCENT = 40

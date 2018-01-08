@@ -41,15 +41,14 @@ RUN apk add --update --no-cache \
     rust cargo
 
 # Install battlecode bindings
-ADD . /battlecode-dev
+ADD . /battlecode
 
-WORKDIR /battlecode-dev/bindings
-ADD bindings .
+WORKDIR /battlecode/bindings
 RUN python3 generate.py
 
-WORKDIR /battlecode-dev/bindings/python
+WORKDIR /battlecode/bindings/python
 RUN pip3 install -r requirements.txt
 RUN rustc --version
 RUN cargo build #--release
-RUN ls /battlecode-dev/battlecode-engine
+RUN ls /battlecode/battlecode-engine
 RUN python3 setup.py install
