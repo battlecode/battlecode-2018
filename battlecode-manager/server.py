@@ -49,7 +49,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         # Dict taking player id and giving amount of time left as float
         self.times = {}
 
-        # Initialize the player_ids
+        # Initialize the players
         for index in range(NUM_PLAYERS):
             new_id = random.randrange(65536)
             self.players.append({'id':new_id})
@@ -101,7 +101,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         client_id = unpacked_data['client_id']
 
         # Check if they are in our list of clients
-        if client_id not in self.player_ids:
+        if client_id not in [player['id'] for player in self.players]:
             return "Client id Mismatch"
 
         # Check if they logged in already
@@ -139,9 +139,13 @@ class Game(object): # pylint: disable=too-many-instance-attributes
 
 
         # Increment to the next player
-        index = self.player_ids.index(self.this_turn_pid)
-        index = (index + 1) % len(self.player_ids)
-        self.this_turn_pid = self.player_ids[index]
+        index = -1
+        for i, player in enumerate(self.players):
+            if player['id'] == self.this_turn_pid:
+                index = i
+
+        index = (index + 1) % len(self.players)
+        self.this_turn_pid = self.players[index]['id']
 
         self.running_lock.release()
 

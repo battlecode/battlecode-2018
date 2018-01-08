@@ -53,8 +53,8 @@ class Sandbox:
         working_dir = '/code'
         command = 'sh run.sh'
         env = {'PLAYER_KEY':self.player_key,'SOCKET_FILE':'/tmp/battlecode-socket'}
-
-        self.container = self.docker.containers.run('gcr.io/battlecode18/sandbox',command,privileged=False,detach=True,mem_limit=os.environ['PLAYER_MEM_LIMIT'],memswap_limit=os.environ['PLAYER_MEM_LIMIT'],stdout=True,stderr=True,volumes=volumes,working_dir=working_dir,environment=env)
+        #mem_limit=os.environ['PLAYER_MEM_LIMIT'],memswap_limit=os.environ['PLAYER_MEM_LIMIT']
+        self.container = self.docker.containers.run('gcr.io/battlecode18/sandbox',command,privileged=False,detach=True,stdout=True,stderr=True,volumes=volumes,working_dir=working_dir,environment=env)
 
     def pause(self):
         if self.container.status == 'running':

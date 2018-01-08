@@ -1,5 +1,6 @@
 #!/bin/sh
 echo 'running'
+pip3 install pympler
 ls
 pwd
 ls -alt /tmp
