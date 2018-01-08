@@ -10,8 +10,8 @@ import time
 import random
 import sys
 import logging
-import ujson as json
 import os.path
+import ujson as json
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../bindings/python')))
 import battlecode as bc
 
@@ -71,8 +71,9 @@ class Game(object): # pylint: disable=too-many-instance-attributes
             player['start_message'] = self.manager.start_game(player['player'])
             player['start_message'] = player['start_message'].to_json()
         self.viewer_messages = []
-        self.last_message = self.manager.initial_start_turn_message().start_turn.to_json()
-        # deal with self.manager.initial_start_turn_message().viewer
+        manager_start_message = self.manager.initial_start_turn_message()
+        self.last_message = manager_start_message.start_turn.to_json()
+        self.viewer_messages.append(manager_start_message.viewer.to_json())
         self.initialized = False
 
     @property
@@ -199,11 +200,9 @@ class Game(object): # pylint: disable=too-many-instance-attributes
 
         '''
         # interact with the engine
-        # TODO add to viewer_messages
-        self.viewer_messages.append("")
         application = self.manager.apply_turn(turn_message)
         self.last_message = application.start_turn.to_json()
-        # handle application.viewer.to_json()
+        self.viewer_messages.append(application.viewer.to_json())
         self.times[client_id] -= diff_time
         return
 
