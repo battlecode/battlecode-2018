@@ -908,6 +908,18 @@ impl GameController {
     pub fn is_game_over(&self) -> Option<Team> {
         self.world.is_game_over()
     }
+
+    pub fn is_over(&self) -> bool {
+        self.is_game_over().is_some()
+    }
+
+    pub fn winning_team(&self) -> Result<Team, Error> {
+        if let Some(team) = self.is_game_over() {
+            Ok(team)
+        } else {
+            bail!("Game is not finished");
+        }
+    }
 }
 
 /// Returned from apply_turn.

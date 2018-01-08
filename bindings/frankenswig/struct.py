@@ -59,7 +59,8 @@ class StructType(Type):
         pyname = sanitize_rust_name(self.wrapper.name)
         return s(f'''\
             _result = {pyname}.__new__({pyname})
-            _result._ptr = result
+            if result != _ffi.NULL:
+                _result._ptr = result
             result = _result
         ''')
     
@@ -126,16 +127,17 @@ class StructWrapper(DeriveMixins):
             pre + f'\nunsafe {{ Box::from_raw({arg}); }}' + post
         )
 
-    def constructor(self, rust_method, args, docs=''):
+    def constructor(self, rust_method, args, docs='', result=False):
         assert self.constructor_ is None
 
         method = f'{self.module}::{self.name}::{rust_method}'
+        ret = self.type.result() if result else self.type
 
         self.constructor_ = Function(
-            self.type,
+            ret,
             f'new_{self.c_name}',
             args,
-            make_safe_call(self.type, method, args),
+            make_safe_call(ret, method, args),
             docs=docs
         )
 
@@ -266,7 +268,8 @@ class StructWrapper(DeriveMixins):
                 self.constructor_.docs
                 )
             cpyargs = ', '.join(a.type.wrap_python_value(a.name) for a in cargs[1:])
-            cbody = f'self._ptr = _lib.{self.constructor_.name}({cpyargs})\n'
+            cbody = f'ptr = _lib.{self.constructor_.name}({cpyargs})\n'
+            cbody += 'if ptr != _ffi.NULL: self._ptr = ptr\n'
             cbody += '_check_errors()\n'
         else:
             cinit = Function.pyentry(

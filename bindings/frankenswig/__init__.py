@@ -277,6 +277,17 @@ def _check_errors():
         _lib.{module}_free_string(_lasterror[0])
         raise Exception(errtext)
 
+def game_turns():
+    """Usage:
+    for controller in game_turns():
+        #controller is a GameController; do things with it
+        print(controller.round)
+    """
+    controller = GameController()
+    while not controller.is_over():
+        yield controller
+        controller.next_turn()
+
 '''
 PYTHON_FOOTER = ''
 
