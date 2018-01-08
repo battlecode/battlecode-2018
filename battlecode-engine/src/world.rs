@@ -153,6 +153,11 @@ impl Player {
             Player::new(Team::Blue, Planet::Mars),
         ]
     }
+
+    /// The first player to move.
+    pub fn first_to_move() -> Player {
+        Player::new(Team::Red, Planet::Earth)
+    }
 }
 
 /// The full world of the Battlecode game.
@@ -1921,6 +1926,31 @@ impl GameWorld {
             world
         } else {
             unreachable!();
+        }
+    }
+
+    pub(crate) fn initial_start_turn_message(&self) -> StartTurnMessage {
+        let initial_player = Player::first_to_move();
+        let world = self.cached_world(initial_player);
+        if world.round != 1 {
+            panic!("You should only get the initial STM on round 1.");
+        }
+
+        StartTurnMessage {
+            round: world.round,
+            visible_locs: world.my_planet().visible_locs.clone(),
+            units_changed: vec![],
+            units_vanished: vec![],
+            unit_infos_changed: vec![],
+            unit_infos_vanished: vec![],
+            karbonite_changed: vec![],
+            id_generator: world.id_generator.clone(),
+            units_in_space_changed: vec![],
+            units_in_space_vanished: vec![],
+            other_array_changed: vec![],
+            rocket_landings: world.my_team().rocket_landings.clone(),
+            research: world.my_team().research.clone(),
+            karbonite: world.my_team().karbonite,
         }
     }
 
