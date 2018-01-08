@@ -604,6 +604,12 @@ impl GameWorld {
                 (asteroid.location, asteroid.karbonite)
             };
             self.viewer_changes.push(ViewerDelta::AsteroidStrike { location });
+            if let Some(id) = self.get_planet(location.planet).units_by_loc.get(&location) {
+                if self.unit_info(*id).unwrap().unit_type.is_structure() {
+                    return;
+                }
+            }
+
             let planet_info = self.get_planet_mut(location.planet);
             planet_info.karbonite[location.y as usize][location.x as usize] += karbonite;
         }
@@ -1255,7 +1261,8 @@ impl GameWorld {
     }
 
     /// Blueprints a unit of the given type in the given direction. Subtract
-    /// cost of that unit from the team's resource pool.
+    /// cost of that unit from the team's resource pool, and removes the
+    /// Karbonite at that location from the map.
     ///
     /// * NoSuchUnit - the worker does not exist (within the vision range).
     /// * TeamNotAllowed - the worker is not on the current player's team.
@@ -1282,6 +1289,7 @@ impl GameWorld {
         let team = self.team();
         self.create_unit(team, build_loc, unit_type).unwrap();
         self.my_team_mut().karbonite -= unit_type.blueprint_cost().unwrap();
+        self.my_planet_mut().karbonite[build_loc.y as usize][build_loc.x as usize] = 0;
         Ok(())
     }
 
@@ -1942,6 +1950,9 @@ impl GameWorld {
 
     /// Lands the rocket, damaging the units in adjacent squares. The rocket
     /// is destroyed if it lands on a factory, rocket, or impassable terrain.
+    ///
+    /// Also resets the amount of karbonite at that location if the rocket
+    /// successfully lands.
     fn land_rocket(&mut self, rocket_id: UnitID, destination: MapLocation) {
         let blast_damage = self.my_unit(rocket_id).unwrap().rocket_blast_damage().unwrap();
         if self.my_planet().units_by_loc.contains_key(&destination) {
@@ -1953,11 +1964,14 @@ impl GameWorld {
             };
             if should_destroy_rocket {
                 self.destroy_unit(rocket_id);
+            } else {
+                self.my_planet_mut().karbonite[destination.y as usize][destination.x as usize] = 0;
             }
             self.destroy_unit(victim_id);
         } else {
             self.my_unit_mut(rocket_id).unwrap().land_rocket(destination);
             self.move_from_space(rocket_id);
+            self.my_planet_mut().karbonite[destination.y as usize][destination.x as usize] = 0;
         }
 
         for dir in Direction::all() {
