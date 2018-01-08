@@ -560,6 +560,8 @@ GameController.method(GameController.type, 'new_manager', [Var(GameMap.type, 'ma
 GameController.method(StartGameMessage.type, 'start_game', [Var(Player.type, 'player')])
 GameController.method(TurnApplication.type, 'apply_turn', [Var(TurnMessage.type.ref(), 'turn')])
 GameController.method(InitialTurnApplication.type, 'initial_start_turn_message', [])
+GameController.method(boolean.type, "is_over", [])
+GameController.method(Team.type.result(), "winning_team", [])
 
 print('Generating...')
 with open("src/bindings.rs", "w+") as f:

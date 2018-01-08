@@ -23,6 +23,7 @@ install:
   - python -m pip install -r bindings/python/requirements.txt --user
 
 script:
+  - ls /usr/lib/jvm
   - make test
   - |
     if [[ "$TRAVIS_RUST_VERSION" == stable ]]; then
