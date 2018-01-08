@@ -1028,6 +1028,7 @@ impl GameController {
             changes: turn.changes.clone(),
             units: self.world.get_viewer_units(),
             additional_changes: self.world.flush_viewer_changes(),
+            karbonite: self.world.karbonite(),
         };
         TurnApplication {
             start_turn, viewer
