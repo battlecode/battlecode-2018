@@ -24,6 +24,14 @@ impl Streams {
     }
 
     pub(crate) fn read<T: DeserializeOwned>(&mut self) -> Result<T, Error> {
+        let newline = self.buf.iter().position(|&b| b == b'\n');
+        if let Some(idx) = newline {
+            println!("early newline: {}", idx);
+            let t = from_slice(&self.buf[..idx]);
+            self.buf.drain(..idx+1);
+            return Ok(t?);
+        }
+
         println!("reading");
         let mut buf: [u8; 256] = unsafe { mem::uninitialized() };
 
@@ -94,6 +102,12 @@ mod tests {
         a.write(&27u8).unwrap();
         assert_eq!(b.read::<u8>().unwrap(), 27u8);
         a.write(&("hello".to_string(), 35i32, "banana".to_string())).unwrap();
+        assert_eq!(b.read::<(String, i32, String)>().unwrap(), ("hello".to_string(), 35i32, "banana".to_string()));
+        a.write(&("hello".to_string(), 35i32, "banana".to_string())).unwrap();
+        a.write(&("hello".to_string(), 35i32, "banana".to_string())).unwrap();
+        a.write(&("hello".to_string(), 35i32, "banana".to_string())).unwrap();
+        assert_eq!(b.read::<(String, i32, String)>().unwrap(), ("hello".to_string(), 35i32, "banana".to_string()));
+        assert_eq!(b.read::<(String, i32, String)>().unwrap(), ("hello".to_string(), 35i32, "banana".to_string()));
         assert_eq!(b.read::<(String, i32, String)>().unwrap(), ("hello".to_string(), 35i32, "banana".to_string()));
         b.write(&35usize).unwrap();
         assert_eq!(a.read::<usize>().unwrap(), 35usize);
