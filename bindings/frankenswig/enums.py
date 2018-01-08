@@ -148,8 +148,14 @@ class CEnumWrapper(CEnum, DeriveMixins):
         return super().to_c() + methods
 
     def to_swig(self):
-        methods = '\n'.join(m.to_swig() for m in self.methods)
-        return super().to_swig() + methods
+        enum = super().to_swig()
+
+        statics = ''
+        for method in self.methods:
+            statics += super(Method, method).to_swig() + '\n'
+
+        return f'{enum}\n{statics}\n'
+
 
     def to_python(self):
         methods = '\n'.join(m.to_python() for m in self.methods)

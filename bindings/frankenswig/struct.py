@@ -118,7 +118,13 @@ class StructWrapper(DeriveMixins):
         self.getters = []
         self.setters = []
         self.type = StructType(self)
-        self.constructor_ = None
+        self.constructor_ = Function(
+            self.type,
+            f'new_{self.c_name}',
+            [],
+            'set_error(SwigError::Type, "Type cannot be constructed".into());\n0 as *mut _',
+            docs=docs
+        )
         self.docs = docs
 
         pre, arg, post = self.type.mut_ref().wrap_c_value('this')
@@ -128,8 +134,6 @@ class StructWrapper(DeriveMixins):
         )
 
     def constructor(self, rust_method, args, docs='', result=False):
-        assert self.constructor_ is None
-
         method = f'{self.module}::{self.name}::{rust_method}'
         ret = self.type.result() if result else self.type
 
@@ -208,9 +212,8 @@ class StructWrapper(DeriveMixins):
 
     def to_swig(self):
         '''Generate a SWIG interface for this struct.'''
-        definition = '%feature("docstring", "{}");\n'.format(self.docs)
         # luckily, swig treats all structs as pointers anyway
-        definition += 'typedef struct {0.c_name} {{}} {0.c_name};\n'.format(self)
+        definition = 'typedef struct {0.c_name} {{}} {0.c_name};\n'.format(self)
         # see:
         # http://www.swig.org/Doc3.0/Arguments.html#Arguments_nn4
         # note: this prints "Can't apply (sp_Apple *INPUT). No typemaps are defined."
@@ -227,18 +230,24 @@ class StructWrapper(DeriveMixins):
 
         body = ''
         if self.constructor_:
-            body += f'%feature("docstring", "{self.constructor_.docs}");\n'
             body += f'''{self.c_name}({", ".join(a.to_swig() for a in self.constructor_.args)});\n'''
-            body += f'~{self.c_name}();\n'
+
+        body += f'~{self.c_name}();\n'
         for method in self.methods:
-            body += method.to_swig()
-        for member, member_docs in zip(self.members, self.member_docs):
-            body += f'%feature("docstring", "{member_docs}");\n{member.to_swig()};\n'
+            if not method.static:
+                body += method.to_swig()
+        for member in self.members:
+            body += f'\n{member.to_swig()};\n'
 
         body = s(body, indent=4)
-        extra = f'%extend {self.c_name} {{\n{body}}}\n'
+        extra = f'%extend {self.c_name} {{\n{body}}}'
 
-        return f'{definition}\n{extra}'
+        statics = ''
+        for method in self.methods:
+            if method.static:
+                statics += super(Method, method).to_swig() + '\n'
+
+        return f'{definition}\n{extra}\n{statics}\n'
 
     def to_rust(self):
         '''Generate a rust implementation for this struct.'''

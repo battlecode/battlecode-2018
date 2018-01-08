@@ -90,6 +90,7 @@ fn borrow_check<T: 'static + Send>(val: T) -> T {{ val }}
 // Runtime error checking
 
 // see https://github.com/swig/swig/blob/master/Lib/swigerrors.swg
+#[derive(Clone, Copy, PartialEq)]
 #[repr(i8)]
 enum SwigError {{
     NoError         = 0,
@@ -111,7 +112,9 @@ enum SwigError {{
 thread_local! {{
     // this can be replaced with UnsafeCell / pointers and flags
     // if we're really hurting for performance
-    static ERROR: RefCell<Option<(SwigError, String)>> = RefCell::new(None);
+    static ERROR: RefCell<Option<(SwigError, String)>> = {{
+        RefCell::new(None)
+    }};
 }}
 // only usable from rust
 fn set_error(code: SwigError, err: String) {{
@@ -227,7 +230,7 @@ SWIG_HEADER = '''%module {module}
 #include "{module}.h"
 
 #ifdef __GNUC__
-    #define unlikely(expr)  __builtin_expect(!(expr),  0)
+    #define unlikely(expr)  __builtin_expect(!!(expr),  0)
 #else
     #define unlikely(expr) (expr)
 #endif
@@ -246,17 +249,32 @@ SWIG_HEADER = '''%module {module}
 // This code is inserted around every method call.
 %exception {{
     $action
-    char *err;
-    int8_t code;
-    if (unlikely((code = {module}_get_last_err(&err)))) {{
-        SWIG_exception(code, err);
-        {module}_free_string(err);
+    if (unlikely({module}_has_err())) {{
+        char *result;
+        int8_t error = {module}_get_last_err(&result);
+        SWIG_exception(error, result);
     }}
 }}
 
 // We generate code with the prefix "{module}_".
 // This will strip it out.
+#ifdef SWIGJAVA
+%rename("%(lowercamelcase)s", %$isfunction) "";
+%rename("%(strip:[{module}_])s", %$isclass) "";
+%rename("%(strip:[{module}_])s", %$isenum) "";
+%rename("toString", match$name="debug") "";
+
+// we don't rename enums because it will make things inconsistent:
+//   MapLocation x = new MapLocation(Planet.EARTH, 0, 1);
+//   System.out.println(x);
+// -> MapLocation { planet: Earth, x: 0, y: 1 }
+// %rename("%(uppercase)s", %$isenumitem) "";
+#else
 %rename("%(strip:[{module}_])s") "";
+#endif
+
+// Free newly allocated char pointers with the following code
+%typemap(newfree) char * "{module}_free_string($1);";
 
 '''
 SWIG_FOOTER = ''

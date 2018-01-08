@@ -45,7 +45,7 @@ class Function(object):
 
     def to_swig(self):
         result = s(f'''\
-            %feature("docstring", "{self.docs}");
+            %newobject {self.name};
             {self.type.to_swig()} {self.name}({', '.join(a.to_swig() for a in self.args)});
         ''')
         return result
@@ -76,8 +76,8 @@ class Method(Function):
 
     def to_swig(self):
         result = s(f'''\
-            %feature("docstring", "{self.docs}");{'ERROR BROKEN STATIC METHODS' if self.static else ''}
-            {self.type.to_swig()} {self.method_name}({', '.join(a.to_swig() for a in self.args)});
+            %newobject {self.name};
+            {self.type.to_swig()} {self.method_name}({', '.join(a.to_swig() for a in self.args[1:])});
         ''')
         return result
     
