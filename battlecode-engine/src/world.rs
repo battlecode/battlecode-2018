@@ -3239,9 +3239,10 @@ mod tests {
         // The worker can replicate to the north.
         assert![world.can_replicate(worker, Direction::North)];
         assert![world.replicate(worker, Direction::North).is_ok()];
-        assert_eq![world.karbonite(), 40];
+        assert_eq![world.karbonite(), 60];
 
-        // The child cannot replicate, because there isn't enough Karbonite.
+        // The child cannot replicate when there isn't enough Karbonite.
+        world.my_team_mut().karbonite = 0;
         let child = world.sense_unit_at_location(MapLocation::new(Planet::Earth, 0, 1)).unwrap().unwrap().id;
         assert![!world.can_replicate(child, Direction::North)];
         assert_err![world.replicate(child, Direction::North), GameError::InsufficientKarbonite];

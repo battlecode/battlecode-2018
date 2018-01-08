@@ -122,7 +122,7 @@ pub enum ViewerDelta {
     AsteroidStrike { location: MapLocation, karbonite: u32 },
     ProductionDone { factory_id: UnitID, unit_type: UnitType },
     RangerSnipe { ranger_id: UnitID, target_location: MapLocation },
-    ResearchComplete { branch: Branch },
+    ResearchComplete { branch: UnitType },
     RocketLanding { rocket_id: UnitID, location: MapLocation },
 }
 
