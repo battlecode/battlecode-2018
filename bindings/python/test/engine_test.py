@@ -16,3 +16,7 @@ def test_direction():
     locne = loc.add(bc.Direction.Northeast)
     assert locne.x == 2, locne.x
     assert locne.y == 3, locne.y
+
+def test_controller():
+    c = bc.GameController.new_manager(bc.GameMap.test_map())
+    print(c.start_game(bc.Player(bc.Team.Red, bc.Planet.Earth)).to_json())

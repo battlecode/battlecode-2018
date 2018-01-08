@@ -1028,6 +1028,7 @@ impl GameController {
             changes: turn.changes.clone(),
             units: self.world.get_viewer_units(),
             additional_changes: self.world.flush_viewer_changes(),
+            karbonite: self.world.karbonite(),
         };
         TurnApplication {
             start_turn, viewer
@@ -1117,5 +1118,14 @@ mod tests {
         assert![!player_controller_blue.can_move(blue_robot, Direction::North)];
         assert![player_controller_blue.can_move(blue_robot, Direction::West)];
         assert![player_controller_blue.move_robot(blue_robot, Direction::West).is_ok()];
+    }
+
+    #[test]
+    fn test_serialization() {
+        use serde_json::to_string;
+        let mut c = GameController::new_manager(GameMap::test_map());
+        println!("{}", to_string(&c.start_game(Player::new(Team::Red, Planet::Earth))
+            .world.planet_states[&Planet::Earth]).unwrap());
+        println!("{}", to_string(&c.start_game(Player::new(Team::Red, Planet::Earth))).unwrap());
     }
 }
