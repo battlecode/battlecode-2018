@@ -110,7 +110,7 @@ class StructWrapper(DeriveMixins):
         else:
             self.module = module
         self.name = name
-        self.c_name = f'{self.module}_{sanitize_rust_name(self.name)}'
+        self.c_name = f'{self.program.module}_{sanitize_rust_name(self.name)}'
         self.members = []
         self.member_docs = []
         self.methods = []

@@ -299,7 +299,7 @@ class Program(object):
         self.strref = namedtuple('StrRef', ['type'])(StrRefType(self.module))
     
     def vec(self, type):
-        vec = self.struct(f"vec::Vec::<{type.orig_rust()}>", module="std")
+        vec = self.struct(f"vec::Vec::<{type.orig_rust()}>", module="std", docs=f"An immutable list of {type.orig_rust()} objects")
         vec.debug()
         vec.clone()
         vec.method(usize.type, "len", [], pyname="__len__")
