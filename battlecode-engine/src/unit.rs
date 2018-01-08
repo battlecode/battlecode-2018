@@ -526,7 +526,8 @@ impl Unit {
         self.location = OnMap(location);
     }
 
-    /// Ok if the robot can attack the target location.
+    /// Ok if the robot can attack the target location. Overloaded for the
+    /// healer's heal.
     ///
     /// * InappropriateUnitType - the unit is not a robot.
     /// * OutOfRange - the target location is not in range.
@@ -544,7 +545,7 @@ impl Unit {
     }
 
     /// Ok if the unit is ready to attack. The attack heat must be lower than
-    /// the maximum heat to act.
+    /// the maximum heat to act. Overloaded for the healer's heal.
     ///
     /// * InappropriateUnitType - the unit is not a robot.
     /// * Overheated - the unit is not ready to attack.
