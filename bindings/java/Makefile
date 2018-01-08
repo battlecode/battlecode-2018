@@ -2,7 +2,7 @@ include ../../colors.mk
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
-	JAVAINCLUDE=/usr/java/include
+	JAVAINCLUDE=/usr/lib/jvm/java-8-openjdk-amd64/include
 	LIBS=-lutil -ldl -Lrt -lpthread -lgcc_s -lc -lm
 endif
 ifeq ($(UNAME_S),Darwin)
