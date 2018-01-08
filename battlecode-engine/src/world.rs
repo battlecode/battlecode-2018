@@ -1332,7 +1332,9 @@ impl GameWorld {
     pub fn repair(&mut self, worker_id: UnitID, structure_id: UnitID) -> Result<(), Error> {
         self.ok_if_can_repair(worker_id, structure_id)?;
         self.my_unit_mut(worker_id)?.worker_act();
-        self.my_unit_mut(structure_id)?.be_healed(WORKER_REPAIR_AMOUNT);
+
+        let repair_health = self.my_unit(worker_id)?.worker_repair_health().unwrap();
+        self.my_unit_mut(structure_id)?.be_healed(repair_health);
         Ok(())
     }
 
@@ -1863,8 +1865,9 @@ impl GameWorld {
                          -> Result<(), Error> {
         self.ok_if_can_launch_rocket(rocket_id, destination)?;
         let takeoff_loc = self.my_unit(rocket_id)?.location().map_location()?;
+        let blast_damage = self.my_unit(rocket_id)?.rocket_blast_damage()?;
         for dir in Direction::all() {
-            self.damage_location(takeoff_loc.add(dir), ROCKET_BLAST_DAMAGE);
+            self.damage_location(takeoff_loc.add(dir), blast_damage);
         }
         self.move_to_space(rocket_id);
         self.my_unit_mut(rocket_id)?.launch_rocket();
@@ -1881,6 +1884,7 @@ impl GameWorld {
     /// is destroyed if it lands on a factory, rocket, or impassable terrain.
     fn land_rocket(&mut self, rocket_id: UnitID, destination: MapLocation)
                    -> Result<(), Error> {
+        let blast_damage = self.my_unit(rocket_id)?.rocket_blast_damage()?;
         if self.my_planet().units_by_loc.contains_key(&destination) {
             let victim_id = *self.my_planet().units_by_loc.get(&destination).unwrap();
             let should_destroy_rocket = match self.unit_info(victim_id)?.unit_type {
@@ -1898,7 +1902,7 @@ impl GameWorld {
         }
 
         for dir in Direction::all() {
-            self.damage_location(destination.add(dir), ROCKET_BLAST_DAMAGE);
+            self.damage_location(destination.add(dir), blast_damage);
         }
 
         Ok(())
@@ -2128,7 +2132,7 @@ impl GameWorld {
 
         // The game should not end if both teams still have units, and we are
         // not at the round limit.
-        if self.round() <= MAX_GAME_LEN && red_units_value > 0 && blue_units_value > 0 {
+        if self.round() <= ROUND_LIMIT && red_units_value > 0 && blue_units_value > 0 {
             return None;
         }
 
@@ -3016,7 +3020,7 @@ mod tests {
         assert_eq!(world.my_team().karbonite, KARBONITE_STARTING - mage_cost);
 
         // After a few rounds, the mage is added to the world.
-        for _ in 0..FACTORY_NUM_ROUNDS {
+        for _ in 0..world.my_unit(factory).unwrap().factory_max_rounds_left().unwrap() {
             assert!(world.end_round().is_ok());
         }
         assert_eq!(world.my_unit(factory).unwrap().structure_garrison().unwrap().len(), 1);
