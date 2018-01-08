@@ -68,7 +68,8 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         for player in self.players:
             player['start_message'] = self.manager.start_game(player['player']).to_json()
         self.viewer_messages = []
-        self.last_message = self.manager.initial_start_turn_message().to_json()
+        self.last_message = self.manager.initial_start_turn_message().start_turn.to_json()
+        # deal with self.manager.initial_start_turn_message().viewer
         self.initialized = False
 
     @property
@@ -193,7 +194,9 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         # interact with the engine
         # TODO add to viewer_messages
         self.viewer_messages.append("")
-        self.last_message = self.manager.apply_turn(turn_message).to_json()
+        application = self.manager.apply_turn(turn_message)
+        self.last_message = application.start_turn.to_json()
+        # handle application.viewer.to_json()
         self.times[client_id] -= diff_time
         return
 
