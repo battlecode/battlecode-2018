@@ -2252,36 +2252,24 @@ impl GameWorld {
     pub(crate) fn get_viewer_units(&self) -> Vec<ViewerUnitInfo> {
         let mut units = Vec::new();
         for unit in self.get_planet(Planet::Earth).units.values() {
-            units.push(ViewerUnitInfo {
-                id: unit.id(),
-                unit_type: unit.unit_type(),
-                health: unit.health(),
-                location: unit.location(),
-            });
+            if unit.location().on_map() {
+                units.push(ViewerUnitInfo {
+                    id: unit.id(),
+                    unit_type: unit.unit_type(),
+                    health: unit.health(),
+                    location: unit.location().map_location().unwrap(),
+                });
+            }
         }
         for unit in self.get_planet(Planet::Mars).units.values() {
-            units.push(ViewerUnitInfo {
-                id: unit.id(),
-                unit_type: unit.unit_type(),
-                health: unit.health(),
-                location: unit.location(),
-            });
-        }
-        for unit in self.get_team(Team::Red).units_in_space.values() {
-            units.push(ViewerUnitInfo {
-                id: unit.id(),
-                unit_type: unit.unit_type(),
-                health: unit.health(),
-                location: unit.location(),
-            });
-        }
-        for unit in self.get_team(Team::Blue).units_in_space.values() {
-            units.push(ViewerUnitInfo {
-                id: unit.id(),
-                unit_type: unit.unit_type(),
-                health: unit.health(),
-                location: unit.location(),
-            });
+            if unit.location().on_map() {
+                units.push(ViewerUnitInfo {
+                    id: unit.id(),
+                    unit_type: unit.unit_type(),
+                    health: unit.health(),
+                    location: unit.location().map_location().unwrap(),
+                });
+            }
         }
         units
     }
