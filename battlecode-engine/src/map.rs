@@ -458,7 +458,7 @@ mod tests {
     fn validate_orbit() {
         assert_err!(OrbitPattern::new(150, 200, 200).validate(), GameError::InvalidMapObject);
         assert_err!(OrbitPattern::new(150, 200, 300).validate(), GameError::InvalidMapObject);
-        assert!(OrbitPattern::new(150, 200, 250).validate().is_ok());
+        assert!(OrbitPattern::new(75, 200, 125).validate().is_ok());
     }
 
     #[test]

@@ -61,7 +61,6 @@ fn check_message<T>(msg: ReceivedMessage<T>, player_key: &str) -> Result<T, Erro
         error,
         message
     } = msg;
-    println!("check_message");
     if !logged_in {
         bail!("Not logged in?");
     }
