@@ -28,10 +28,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "battlecode-cli"
-version = "0.1.0"
-
-[[package]]
 name = "battlecode-engine"
 version = "0.1.0"
 dependencies = [
