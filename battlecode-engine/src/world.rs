@@ -622,7 +622,7 @@ impl GameWorld {
                 let asteroid = self.asteroids.asteroid(self.round).unwrap();
                 (asteroid.location, asteroid.karbonite)
             };
-            self.viewer_changes.push(ViewerDelta::AsteroidStrike { location });
+            self.viewer_changes.push(ViewerDelta::AsteroidStrike { location, karbonite });
             if let Some(id) = self.get_planet(location.planet).units_by_loc.get(&location) {
                 if self.unit_info(*id).unwrap().unit_type.is_structure() {
                     return;
@@ -1191,6 +1191,7 @@ impl GameWorld {
                     unit.research().expect("research level is valid");
                 }
             }
+            self.viewer_changes.push(ViewerDelta::ResearchComplete { branch });
         }
     }
 
@@ -1890,6 +1891,7 @@ impl GameWorld {
                 }
                 (new_unit_type.unwrap(), factory.team())
             };
+            self.viewer_changes.push(ViewerDelta::ProductionDone { factory_id, unit_type});
 
             let id = self.id_generator.next_id();
             let level = self.get_team(team).research.get_level(&unit_type);

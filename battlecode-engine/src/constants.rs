@@ -132,3 +132,5 @@ pub const FACTORY_HEALER_COST: u32 = 50;
 pub const BLUEPRINT_FACTORY_COST: u32 = 250;
 /// The cost to blueprint a rocket.
 pub const BLUEPRINT_ROCKET_COST: u32 = 200;
+/// The cost to replicate a worker.
+pub const REPLICATE_WORKER_COST: u32 = 40;

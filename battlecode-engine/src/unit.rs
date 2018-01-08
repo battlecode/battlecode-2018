@@ -204,7 +204,7 @@ impl UnitType {
     /// * InappropriateUnitType - the unit type is not a worker.
     pub fn replicate_cost(self) -> Result<u32, Error> {
         match self {
-            UnitType::Worker => Ok(FACTORY_WORKER_COST),
+            UnitType::Worker => Ok(REPLICATE_WORKER_COST),
             _ => Err(GameError::InappropriateUnitType)?,
         }
     }
