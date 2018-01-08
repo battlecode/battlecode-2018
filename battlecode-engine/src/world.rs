@@ -194,6 +194,10 @@ pub struct GameWorld {
     /// Cached game worlds per player, to calculate start turn messages.
     /// These worlds were filtered at the start of the turn.
     cached_world: HashMap<Player, GameWorld>,
+
+    /// A list of additional messages to be sent to the viewer. Flushed
+    /// at the end of each round.
+    viewer_changes: Vec<ViewerDelta>,
 }
 
 impl GameWorld {
@@ -221,6 +225,7 @@ impl GameWorld {
             planet_states: planet_states,
             team_states: team_states,
             cached_world: HashMap::default(),
+            viewer_changes: Vec::new(),
         };
 
         // Insert initial units.
@@ -267,6 +272,7 @@ impl GameWorld {
             planet_states: planet_states,
             team_states: team_states,
             cached_world: HashMap::default(),
+            viewer_changes: Vec::new(),
         };
 
         // Cache the initial filtered states.
@@ -362,6 +368,7 @@ impl GameWorld {
             planet_states: planet_states,
             team_states: team_states,
             cached_world: HashMap::default(),
+            viewer_changes: Vec::new(),
         }
     }
 
@@ -584,6 +591,7 @@ impl GameWorld {
                 let asteroid = self.asteroids.asteroid(self.round).unwrap();
                 (asteroid.location, asteroid.karbonite)
             };
+            self.viewer_changes.push(ViewerDelta::AsteroidStrike { location });
             let planet_info = self.get_planet_mut(location.planet);
             planet_info.karbonite[location.y as usize][location.x as usize] += karbonite;
         }
@@ -1494,6 +1502,10 @@ impl GameWorld {
             if target_location.is_some() {
                 let damage = self.get_planet(planet).units.get(&id).unwrap().damage().unwrap();
                 self.damage_location(target_location.unwrap(), damage);
+                self.viewer_changes.push(ViewerDelta::RangerSnipe { 
+                    ranger_id: id, 
+                    target_location: target_location.unwrap(), 
+                });
             }
         }
     }
@@ -1907,6 +1919,10 @@ impl GameWorld {
         let landings = self.get_team(team).rocket_landings.landings_on(self.round);
         for landing in landings.iter() {
             self.land_rocket(landing.rocket_id, landing.destination);
+            self.viewer_changes.push(ViewerDelta::RocketLanding { 
+                rocket_id: landing.rocket_id, 
+                location: landing.destination 
+            });
         }
     }
 
@@ -2173,6 +2189,52 @@ impl GameWorld {
             1 => Some(Team::Red),
             _ => unreachable!(),
         }
+    }
+
+    /// Get the additional changes that have been generated for the viewer
+    /// since this function was last called.
+    pub(crate) fn flush_viewer_changes(&mut self) -> Vec<ViewerDelta> {
+        let changes = self.viewer_changes.clone();
+        self.viewer_changes = Vec::new();
+        changes
+    }
+
+    /// Get the list of units, with some info truncated, to send to the viewer.
+    pub(crate) fn get_viewer_units(&self) -> Vec<ViewerUnitInfo> {
+        let mut units = Vec::new();
+        for unit in self.get_planet(Planet::Earth).units.values() {
+            units.push(ViewerUnitInfo {
+                id: unit.id(),
+                unit_type: unit.unit_type(),
+                health: unit.health(),
+                location: unit.location(),
+            });
+        }
+        for unit in self.get_planet(Planet::Mars).units.values() {
+            units.push(ViewerUnitInfo {
+                id: unit.id(),
+                unit_type: unit.unit_type(),
+                health: unit.health(),
+                location: unit.location(),
+            });
+        }
+        for unit in self.get_team(Team::Red).units_in_space.values() {
+            units.push(ViewerUnitInfo {
+                id: unit.id(),
+                unit_type: unit.unit_type(),
+                health: unit.health(),
+                location: unit.location(),
+            });
+        }
+        for unit in self.get_team(Team::Blue).units_in_space.values() {
+            units.push(ViewerUnitInfo {
+                id: unit.id(),
+                unit_type: unit.unit_type(),
+                health: unit.health(),
+                location: unit.location(),
+            });
+        }
+        units
     }
 
     // ************************************************************************

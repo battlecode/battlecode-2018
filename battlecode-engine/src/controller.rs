@@ -53,6 +53,7 @@ impl GameController {
 
     /// Ends the current turn. Returns the list of changes made in this turn.
     pub fn end_turn(&mut self) -> TurnMessage {
+        self.world.flush_viewer_changes();
         self.turn.clone()
     }
 
@@ -780,8 +781,9 @@ impl GameController {
     /// only be called on Round 1, and should only be sent to Red Earth.
     ///
     /// Panics if we're past Round 1...
-    pub fn initial_start_turn_message(&self) -> StartTurnMessage {
-        self.world.initial_start_turn_message()
+    pub fn initial_start_turn_message(&self) -> (StartTurnMessage, ViewerKeyframe) {
+        (self.world.initial_start_turn_message(), 
+         ViewerKeyframe { world: self.world.clone() })
     }
 
     /// Get the first message to send to each player and initialize the world.
@@ -797,7 +799,11 @@ impl GameController {
         // Serialize the filtered game state to send to the player
         let start_turn_message = self.world.apply_turn(&turn);
         // Serialize the game state to send to the viewer
-        let viewer_message = ViewerMessage { world: self.world.clone() };
+        let viewer_message = ViewerMessage { 
+            changes: turn.changes.clone(),
+            units: self.world.get_viewer_units(),
+            additional_changes: self.world.flush_viewer_changes(),
+        };
         (start_turn_message, viewer_message)
     }    
     
@@ -839,7 +845,7 @@ mod tests {
         let mut player_controller_blue = GameController::new_player(blue_start_game_msg);
 
         // Send the first STM to red and test that red can move as expected.
-        let initial_start_turn_msg = manager_controller.initial_start_turn_message();
+        let (initial_start_turn_msg, _) = manager_controller.initial_start_turn_message();
         player_controller_red.start_turn(initial_start_turn_msg);
         assert![!player_controller_red.can_move(red_robot, Direction::East)];
         assert![player_controller_red.can_move(red_robot, Direction::Northeast)];
