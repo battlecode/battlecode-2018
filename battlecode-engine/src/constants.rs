@@ -73,35 +73,35 @@ pub const APOCALYPSE_ROUND: Rounds = 750;
 /// The starting amount of karbonite per team.
 pub const KARBONITE_STARTING: u32 = 100;
 /// The base amount of karbonite gained per turn.
-pub const KARBONITE_PER_ROUND: u32 = 10;
+pub const KARBONITE_PER_ROUND: u32 = 5;
 /// The karbonite per round is decreased by 1 karbonite for every
 /// KARBONITE_DECREASE_RATIO karbonite in the stockpile.
-pub const KARBONITE_DECREASE_RATIO: u32 = 1500;
+pub const KARBONITE_DECREASE_RATIO: u32 = 100;
 
 // *********************************
 // ****** RESEARCH CONSTANTS *******
 // *********************************
 
 /// The cost of each level of research on the Worker branch.
-pub const RESEARCH_WORKER_COST: [Rounds; 5] = [0, 60, 80, 100, 200];
+pub const RESEARCH_WORKER_COST: [Rounds; 5] = [0, 25, 75, 75, 75];
 
 /// The cost of each level of research on the Knight branch.
-pub const RESEARCH_KNIGHT_COST: [Rounds; 4] = [0, 80, 100, 200];
+pub const RESEARCH_KNIGHT_COST: [Rounds; 4] = [0, 25, 75, 150];
 
 /// The cost of each level of research on the Ranger branch.
-pub const RESEARCH_RANGER_COST: [Rounds; 4] = [0, 80, 100, 200];
+pub const RESEARCH_RANGER_COST: [Rounds; 4] = [0, 25, 100, 200];
 
 /// The cost of each level of research on the Mage branch.
-pub const RESEARCH_MAGE_COST: [Rounds; 5] = [0, 60, 80, 100, 200];
+pub const RESEARCH_MAGE_COST: [Rounds; 5] = [0, 25, 75, 100, 200];
 
 /// The cost of each level of research on the Healer branch.
-pub const RESEARCH_HEALER_COST: [Rounds; 4] = [0, 80, 100, 200];
+pub const RESEARCH_HEALER_COST: [Rounds; 4] = [0, 25, 100, 200];
 
 /// The cost of each level of research on the Factory branch.
 pub const RESEARCH_FACTORY_COST: [Rounds; 1] = [0];
 
 /// The cost of each level of research on the Rocket branch.
-pub const RESEARCH_ROCKET_COST: [Rounds; 4] = [0, 300, 200, 200];
+pub const RESEARCH_ROCKET_COST: [Rounds; 4] = [0, 100, 100, 100];
 
 // *********************************
 // ****** HEAT CONSTANTS ***********
@@ -119,16 +119,18 @@ pub const MAX_HEAT_TO_ACT: u32 = 10;
 // *********************************
 
 /// The cost of a worker in a factory.
-pub const FACTORY_WORKER_COST: u32 = 60;
+pub const FACTORY_WORKER_COST: u32 = 25;
 /// The cost of a knight in a factory.
-pub const FACTORY_KNIGHT_COST: u32 = 50;
+pub const FACTORY_KNIGHT_COST: u32 = 20;
 /// The cost of a ranger in a factory.
-pub const FACTORY_RANGER_COST: u32 = 50;
+pub const FACTORY_RANGER_COST: u32 = 20;
 /// The cost of a mage in a factory.
-pub const FACTORY_MAGE_COST: u32 = 50;
+pub const FACTORY_MAGE_COST: u32 = 20;
 /// The cost of a healer in a factory.
-pub const FACTORY_HEALER_COST: u32 = 50;
+pub const FACTORY_HEALER_COST: u32 = 20;
 /// The cost to blueprint a factory.
-pub const BLUEPRINT_FACTORY_COST: u32 = 250;
+pub const BLUEPRINT_FACTORY_COST: u32 = 100;
 /// The cost to blueprint a rocket.
-pub const BLUEPRINT_ROCKET_COST: u32 = 200;
+pub const BLUEPRINT_ROCKET_COST: u32 = 75;
+/// The cost to replicate a worker.
+pub const REPLICATE_WORKER_COST: u32 = 15;

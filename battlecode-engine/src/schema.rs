@@ -119,8 +119,10 @@ pub struct ViewerUnitInfo {
 /// Additional information that the viewer may need.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ViewerDelta {
-    AsteroidStrike { location: MapLocation },
+    AsteroidStrike { location: MapLocation, karbonite: u32 },
+    ProductionDone { factory_id: UnitID, unit_type: UnitType },
     RangerSnipe { ranger_id: UnitID, target_location: MapLocation },
+    ResearchComplete { branch: UnitType },
     RocketLanding { rocket_id: UnitID, location: MapLocation },
 }
 

@@ -76,7 +76,7 @@ impl UnitType {
                 vision_range: 50,
                 movement_cooldown: 20,
                 attack_cooldown: 0,
-                ability_cooldown: 50,
+                ability_cooldown: 500,
                 ability_range: 2,
                 is_ability_unlocked: true,
                 ..Default::default()
@@ -85,12 +85,12 @@ impl UnitType {
                 unit_type: Knight,
                 health: 250,
                 max_health: 250,
-                damage: 100,
+                damage: 60,
                 attack_range: 1,
                 vision_range: 50,
                 movement_cooldown: 15,
                 attack_cooldown: 20,
-                ability_cooldown: 75,
+                ability_cooldown: 100,
                 ability_range: 10,
                 ..Default::default()
             },
@@ -98,12 +98,12 @@ impl UnitType {
                 unit_type: Ranger,
                 health: 200,
                 max_health: 200,
-                damage: 70,
+                damage: 40,
                 attack_range: 50,
                 vision_range: 70,
                 movement_cooldown: 20,
                 attack_cooldown: 20,
-                ability_cooldown: 150,
+                ability_cooldown: 0,
                 ability_range: u32::max_value(),
                 ..Default::default()
             },
@@ -111,12 +111,12 @@ impl UnitType {
                 unit_type: Mage,
                 health: 100,
                 max_health: 100,
-                damage: 150,
+                damage: 60,
                 attack_range: 30,
                 vision_range: 30,
                 movement_cooldown: 20,
                 attack_cooldown: 20,
-                ability_cooldown: 100,
+                ability_cooldown: 250,
                 ability_range: 5,
                 ..Default::default()
             },
@@ -129,14 +129,14 @@ impl UnitType {
                 vision_range: 50,
                 movement_cooldown: 25,
                 attack_cooldown: 10,
-                ability_cooldown: 50,
+                ability_cooldown: 100,
                 ability_range: 30,
                 ..Default::default()
             },
             Factory => Unit {
                 unit_type: Factory,
-                health: 1000 / 4,
-                max_health: 1000,
+                health: 300 / 4,
+                max_health: 300,
                 ..Default::default()
             },
             Rocket => Unit {
@@ -204,7 +204,7 @@ impl UnitType {
     /// * InappropriateUnitType - the unit type is not a worker.
     pub fn replicate_cost(self) -> Result<u32, Error> {
         match self {
-            UnitType::Worker => Ok(FACTORY_WORKER_COST),
+            UnitType::Worker => Ok(REPLICATE_WORKER_COST),
             _ => Err(GameError::InappropriateUnitType)?,
         }
     }
