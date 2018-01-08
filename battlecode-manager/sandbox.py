@@ -48,7 +48,7 @@ class Sandbox:
                 zipf.extractall(path=str(self.working_dir.absolute()))
 
     def start(self):
-        volumes = {str(self.working_dir.absolute()):{'bind':'/code','mode':'ro'},self.socket_file:{'bind':'/tmp/battlecode-socket'}}
+        volumes = {str(self.working_dir.absolute()):{'bind':'/code','mode':'ro'},self.socket_file:{'bind':'/tmp/battlecode-socket','mode':'rw'}}
 
         working_dir = '/code'
         command = 'sh run.sh'
