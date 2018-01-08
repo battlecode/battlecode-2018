@@ -1,18 +1,41 @@
-FROM docker:dind
+FROM docker:18.01.0-ce-rc1-dind
 
-RUN apk add --no-cache python3 && \
+# Install GCC
+RUN apk add --no-cache gcc musl-dev
+
+# Install Python3
+RUN apk add --update --no-cache \
+    build-base \
+    python3-dev && \
     python3 -m ensurepip && \
     rm -r /usr/lib/python*/ensurepip && \
     pip3 install --upgrade pip setuptools && \
-    if [ ! -e /usr/bin/pip ]; then ln -s pip3 /usr/bin/pip ; fi && \
-    if [[ ! -e /usr/bin/python ]]; then ln -sf /usr/bin/python3 /usr/bin/python; fi && \
     rm -r /root/.cache
 
-RUN pip3 install tqdm docker boto3 werkzeug
+# Install necessary python libs
+RUN pip3 install \
+    tqdm docker boto3 werkzeug \
+    ujson
+
+# Install rust
+RUN apk add --update --no-cache \
+    libffi-dev \
+    rust cargo
+
+# Install battlecode bindings
+ADD . /battlecode
+
+WORKDIR /battlecode/bindings
+RUN python3 generate.py
+
+WORKDIR /battlecode/bindings/python
+RUN pip3 install -r requirements.txt
+RUN rustc --version
+RUN cargo build #--release
+RUN python3 setup.py install
 
 EXPOSE 80
 
-WORKDIR /manager
-ADD . /manager
+WORKDIR /battlecode/battlecode-manager
 
 CMD ["sh", "start_docker.sh"]

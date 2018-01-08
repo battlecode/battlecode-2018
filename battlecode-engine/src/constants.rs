@@ -3,11 +3,21 @@
 use super::world::Rounds;
 
 // *********************************
-// ****** GAME COSNTANTS ***********
+// ******* GAME CONSTANTS **********
 // *********************************
 
-/// After this many rounds have passed, the game ends.
-pub const MAX_GAME_LEN: Rounds = 1000;
+/// The round at which the game is forced to end
+pub const ROUND_LIMIT: Rounds = 1000;
+
+// *********************************
+// *** COMMUNICATION CONSTANTS *****
+// *********************************
+
+/// The length of the communication array, in bytes
+pub const COMMUNICATION_ARRAY_LENGTH: usize = 100;
+
+/// The communication delay between planets, in rounds
+pub const COMMUNICATION_DELAY: usize = 50;
 
 // *********************************
 // ****** MAP CONSTANTS ************
@@ -94,30 +104,15 @@ pub const RESEARCH_FACTORY_COST: [Rounds; 1] = [0];
 pub const RESEARCH_ROCKET_COST: [Rounds; 4] = [0, 300, 200, 200];
 
 // *********************************
-// ****** UNIT CONSTANTS ***********
+// ****** HEAT CONSTANTS ***********
 // *********************************
 
 /// The heat each robot dissipates per round.
 pub const HEAT_LOSS_PER_ROUND: u32 = 10;
 
-/// The minimum heat.
-pub const MIN_HEAT: u32 = 0;
-
 /// The robot must have less than this amount of heat to perform
 /// actions corresponding to that heat.
 pub const MAX_HEAT_TO_ACT: u32 = 10;
-
-/// The amount of health a worker can repair a structure per round.
-pub const WORKER_REPAIR_AMOUNT: u32 = 10;
-
-/// The max countdown for ranger's snipe. 
-pub const MAX_RANGER_COUNTDOWN: u32 = 50;
-
-/// The countdown decreased per round for each sniping ranger.
-pub const COUNTDOWN_PER_ROUND: u32 = 1;
-
-/// The damage a rocket deals to adjacent units upon landing.
-pub const ROCKET_BLAST_DAMAGE: i32 = 50;
 
 // *********************************
 // ********** UNIT COSTS ***********
@@ -133,22 +128,7 @@ pub const FACTORY_RANGER_COST: u32 = 50;
 pub const FACTORY_MAGE_COST: u32 = 50;
 /// The cost of a healer in a factory.
 pub const FACTORY_HEALER_COST: u32 = 50;
-/// The number of rounds to produce a robot in a factory.
-pub const FACTORY_NUM_ROUNDS: Rounds = 5;
 /// The cost to blueprint a factory.
 pub const BLUEPRINT_FACTORY_COST: u32 = 250;
 /// The cost to blueprint a rocket.
 pub const BLUEPRINT_ROCKET_COST: u32 = 200;
-
-// *********************************
-// ****** GAME PARAMETERS **********
-// *********************************
-
-/// The round at which the game is forced to end
-pub const ROUND_LIMIT: Rounds = 1000;
-
-/// The length of the communication array, in bytes
-pub const COMMUNICATION_ARRAY_LENGTH: usize = 100;
-
-/// The communication delay between planets, in rounds
-pub const COMMUNICATION_DELAY: usize = 50;
