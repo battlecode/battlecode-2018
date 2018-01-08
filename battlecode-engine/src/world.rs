@@ -110,7 +110,7 @@ impl PlanetInfo {
 /// Persistent info specific to a single team. Teams are only able to access
 /// the team info of their own team.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-struct TeamInfo {
+pub struct TeamInfo {
     /// Communication array histories for each planet.
     team_arrays: TeamArrayInfo,
 
@@ -201,11 +201,12 @@ pub struct GameWorld {
     pub planet_states: FnvHashMap<Planet, PlanetInfo>,
 
     /// The state of each team.
-    team_states: FnvHashMap<Team, TeamInfo>,
+    pub team_states: FnvHashMap<Team, TeamInfo>,
 
     /// Cached game worlds per player, to calculate start turn messages.
     /// These worlds were filtered at the start of the turn.
-    cached_world: FnvHashMap<Player, GameWorld>,
+    #[serde(skip)]
+    pub cached_world: FnvHashMap<Player, GameWorld>,
 
     /// A list of additional messages to be sent to the viewer. Flushed
     /// at the end of each round.

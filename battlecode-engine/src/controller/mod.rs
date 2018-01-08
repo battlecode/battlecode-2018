@@ -1020,9 +1020,11 @@ impl GameController {
     ///
     /// Panics if we're past Round 1...
     pub fn initial_start_turn_message(&self) -> InitialTurnApplication {
+        let mut world = self.world.clone();
+        world.cached_world.clear();
         InitialTurnApplication {
             start_turn: self.world.initial_start_turn_message(), 
-            viewer: ViewerKeyframe { world: self.world.clone() }
+            viewer: ViewerKeyframe { world }
         }
     }
 
@@ -1138,9 +1140,23 @@ mod tests {
     #[test]
     fn test_serialization() {
         use serde_json::to_string;
-        let c = GameController::new_manager(GameMap::test_map());
-        //println!("{}", to_string(&c.start_game(Player::new(Team::Red, Planet::Earth))
-            //.world.planet_states[&Planet::Earth]).unwrap());
+        let mut c = GameController::new_manager(GameMap::test_map());
+        println!("----start");
         println!("{}", to_string(&c.start_game(Player::new(Team::Red, Planet::Earth))).unwrap());
+        println!("----initial");
+        let initial = c.initial_start_turn_message();
+        println!("----initial planet_maps");
+        println!("{}", to_string(&initial.viewer.world.planet_maps).unwrap());
+        println!("----initial planet_states");
+        println!("{}", to_string(&initial.viewer.world.planet_states).unwrap());
+        println!("----initial team_states");
+        println!("{}", to_string(&initial.viewer.world.team_states).unwrap());
+        println!("----initial cached_world {}", initial.viewer.world.cached_world.len());
+        println!("{}", to_string(&initial.viewer.world.cached_world).unwrap());
+        println!("----apply");
+        let t = TurnMessage { changes: vec![] };
+        let a = c.apply_turn(&t);
+        println!("{}", to_string(&a.viewer).unwrap());
+
     }
 }
