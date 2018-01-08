@@ -1,12 +1,13 @@
 from .helpers import *
 from .type import Type
 from .function import Function, Method
+from .struct import DeriveMixins
 
 class CEnum(object):
     '''A c-style enum.'''
-    def __init__(self, module, name):
-        self.name = name
-        self.c_name = f'{module}_{name}'
+    def __init__(self, module, gen_name):
+        self.gen_name = gen_name
+        self.c_name = f'{module}_{gen_name}'
         self.variants = []
     
     def variant(self, name, value):
@@ -35,51 +36,82 @@ class CEnum(object):
         return start + s(internal, indent=4) + end
 
     def to_python(self):
-        start = f'class {self.name}(enum.IntEnum):\n'
+        start = f'class {self.gen_name}(enum.IntEnum):\n'
         internal = '\n'.join(f'{name} = {val}' for (name, val) in self.variants)
         return start + s(internal, indent=4) + '\n'
 
 class CEnumWrapperType(Type):
-    def __init__(self, module, rust_name):
-        self.san_name = sanitize_rust_name(rust_name)
-        self.c_name = f'{module}_{self.san_name}'
-        self.orig_name = f'{module}::{rust_name}'
+    def __init__(self, wrapper, is_ref=False):
+        self.wrapper = wrapper
+        self.san_name = sanitize_rust_name(wrapper.name)
+        self.c_name = f'{wrapper.program.module}_{self.san_name}'
+        self.orig_name = f'{wrapper.program.module}::{wrapper.name}'
+        self.is_ref = is_ref
         super().__init__(self.c_name, self.c_name, self.san_name, default=None)
     
+    def ref(self):
+        return CEnumWrapperType(self.wrapper, is_ref=True)
+
+    @property
+    def default(self):
+        return f'{self.c_name}::{self.wrapper.variants[0][0]}'
+
+    @default.setter
+    def default(self, v):
+        pass
+
+    def mut_ref(self):
+        return self.ref()
+    
     def wrap_c_value(self, name):
-        return ('', f'{name}.into()', '')
+        value = f'Into::<{self.wrapper.module}::{self.wrapper.name}>::into({name})'
+        if self.is_ref:
+            value = f'(&{value})'
+        return ('', value, '')
 
     def unwrap_rust_value(self, name):
-        return f'{name}.into()'
+        if self.is_ref:
+            value = f'Into::<{self.c_name}>::into(*{name})'
+        else:
+            value = f'Into::<{self.c_name}>::into({name})'
+        return value
 
     def python_postfix(self):
         return f'result = {self.to_python()}(result)\n'
 
-class CEnumWrapper(CEnum):
+    def orig_rust(self):
+        return f'{"&" if self.is_ref else ""}{self.wrapper.module}::{self.wrapper.name}'
+
+class CEnumWrapper(CEnum, DeriveMixins):
     '''A wrapper for a rust c-style enum, that is, an enum with integer values.'''
 
-    def __init__(self, program, rust_name, docs=''):
+    def __init__(self, program, name, docs=''):
         self.program = program
-        self.type = CEnumWrapperType(program.module, rust_name)
+        self.name = name
+        self.type = CEnumWrapperType(self)
         super().__init__(program.module, self.type.san_name)
         self.module = program.module
         self.docs = docs
         self.methods = []
     
-    def variant(self, name, value):
+    def variant(self, name, value, docs=''):
+        # TODO: docs
         super().variant(name, value)
-        # this is.. unfortunate, but necessary due to builder pattern
-        if self.type.default is None:
-            self.type.default = f'{self.c_name}::{name}'
         return self
 
-    def method(self, type, name, args, docs=''):
+    def method(self, type, name, args, docs='', pyname=None, self_ref=False):
         original = f'{self.type.orig_name}::{name}'
-        actual_args = [Var(self.type, 'this')] + args
+        if self_ref:
+            actual_args = [Var(self.type.mut_ref(), 'this')] + args
+        else:
+            actual_args = [Var(self.type, 'this')] + args
+
+        if pyname is None:
+            pyname = name
 
         self.methods.append(Method(type, self.c_name, name, actual_args,
             make_safe_call(type, original, actual_args), docs=docs
-        , pyname=name))
+        , pyname=pyname))
 
         return self
     
