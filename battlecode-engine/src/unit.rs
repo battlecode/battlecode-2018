@@ -15,22 +15,6 @@ use unit::Location::*;
 /// The ID of an unit is assigned when the unit is spawned.
 pub type UnitID = u16;
 
-/// The public version of the unit. Contains all the unit's stats but none of
-/// the action. The other team can see everything in the unit info.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub struct UnitInfo {
-    /// The unique ID of the unit.
-    pub id: UnitID,
-    /// The team the unit is on.
-    pub team: Team,
-    /// The type of the unit.
-    pub unit_type: UnitType,
-    /// The current location of the unit.
-    pub location: Location,
-    /// The current health of the unit.
-    pub health: u32,
-}
-
 /// The different unit types, which include factories, rockets, and the robots.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum UnitType {
@@ -351,17 +335,6 @@ impl Unit {
             unit.research()?;
         }
         Ok(unit)
-    }
-
-    /// The public version of the unit.
-    pub(crate) fn info(&self) -> UnitInfo {
-        UnitInfo {
-            id: self.id,
-            team: self.team,
-            unit_type: self.unit_type,
-            location: self.location,
-            health: self.health,
-        }
     }
 
     // ************************************************************************

@@ -61,6 +61,7 @@ fn check_message<T>(msg: ReceivedMessage<T>, player_key: &str) -> Result<T, Erro
         error,
         message
     } = msg;
+    println!("check_message");
     if !logged_in {
         bail!("Not logged in?");
     }
@@ -93,6 +94,7 @@ impl GameController {
     /// It will connect to the manager and block until it's your turn. (Don't worry, you'll be
     /// paused during the blocking anyway.)
     pub fn new_player_env() -> Result<GameController, Error> {
+        println!("new_player_env");
         let socket_file = env::var("SOCKET_FILE")?;
         let player_key = env::var("PLAYER_KEY")?;
 
@@ -101,6 +103,7 @@ impl GameController {
         stream.write(&LoginMessage {
             client_id: player_key.clone()
         })?;
+        println!("sent login");
 
         // wait for response with empty string in message field
         let msg = stream.read::<ReceivedMessage<String>>()?;
@@ -108,16 +111,21 @@ impl GameController {
         if &s[..] != "" {
             bail!("Non-empty login response: {}", s);
         }
+        println!("received login resp");
 
         // block, and eventually receive the start game message
         let msg = stream.read::<ReceivedMessage<StartGameMessage>>()?;
         let StartGameMessage { mut world } = check_message(msg, &player_key[..])?;
 
+        println!("received startgame");
+
         // then the start turn message
         let msg = stream.read::<ReceivedMessage<StartTurnMessage>>()?;
         let turn = check_message(msg, &player_key[..])?;
+        println!("received startturn");
         world.start_turn(&turn);
 
+        println!("yielding");
         // now return and let the player do their thing on the first turn :)
         Ok(GameController {
             old_world: world.clone(),
@@ -143,19 +151,24 @@ impl GameController {
         let mut turn_message = TurnMessage { changes: vec![] };
         mem::swap(&mut self.turn, &mut turn_message);
 
+        println!("write turnmessage");
         // send off our previous turn
         self.stream.as_mut().unwrap().write(&SentMessage {
             client_id: self.player_key.as_ref().unwrap().clone(),
             turn_message
         })?;
+        println!("wrote");
 
         // block and receive the state for our next turn
         let msg = self.stream.as_mut().unwrap().read::<ReceivedMessage<StartTurnMessage>>()?;
         let start_turn = check_message(msg, &self.player_key.as_ref().unwrap()[..])?;
+        println!("write turnmessage");
 
         // setup the world state
         self.old_world.start_turn(&start_turn);
         self.world = self.old_world.clone();
+
+        println!("yielding");
 
         // yield control to the player
         Ok(())
@@ -225,38 +238,39 @@ impl GameController {
     // ************************** SENSING METHODS *****************************
     // ************************************************************************
 
-    /// The unit controller for the unit of this ID. Use this method to get
-    /// detailed statistics on a unit in your team: heat, cooldowns, and
-    /// properties of special abilities like units garrisoned in a rocket.
+    /// The single unit with this ID. Use this method to get detailed
+    /// statistics on a unit: heat, cooldowns, and properties of special
+    /// abilities like units garrisoned in a rocket.
     ///
     /// * NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * TeamNotAllowed - the unit is not on the current player's team.
-    pub fn unit_controller(&self, id: UnitID) -> Result<&Unit, Error> {
-        self.world.unit_controller(id)
+    pub fn unit_ref(&self, id: UnitID) -> Result<&Unit, Error> {
+        self.world.unit_ref(id)
     }
 
-    /// The single unit with this ID.
+    /// The single unit with this ID. Use this method to get detailed
+    /// statistics on a unit: heat, cooldowns, and properties of special
+    /// abilities like units garrisoned in a rocket.
     ///
     /// * NoSuchUnit - the unit does not exist (inside the vision range).
-    pub fn unit(&self, id: UnitID) -> Result<UnitInfo, Error> {
+    pub fn unit(&self, id: UnitID) -> Result<Unit, Error> {
         self.world.unit(id)
     }
 
     /// All the units within the vision range, in no particular order.
     /// Does not include units in space.
-    pub fn units_ref(&self) -> Vec<&UnitInfo> {
+    pub fn units_ref(&self) -> Vec<&Unit> {
         self.world.units_ref()
     }
 
     /// All the units within the vision range, in no particular order.
     /// Does not include units in space.
-    pub fn units(&self) -> Vec<UnitInfo> {
+    pub fn units(&self) -> Vec<Unit> {
         self.world.units()
     }
 
     /// All the units within the vision range, by ID.
     /// Does not include units in space.
-    pub fn units_by_id(&self) -> FnvHashMap<UnitID, UnitInfo> {
+    pub fn units_by_id(&self) -> FnvHashMap<UnitID, Unit> {
         self.world.units_by_id()
     }
 
@@ -266,8 +280,9 @@ impl GameController {
         self.world.units_by_loc()
     }
 
-    /// All the units of this team that are in space.
-    pub fn units_in_space(&self) -> Vec<UnitInfo> {
+    /// All the units of this team that are in space. You cannot see units
+    /// on the other team that are in space.
+    pub fn units_in_space(&self) -> Vec<Unit> {
         self.world.units_in_space()
     }
 
@@ -302,7 +317,7 @@ impl GameController {
     /// Sense units near the location within the given radius, inclusive, in
     /// distance squared. The units are within the vision range.
     pub fn sense_nearby_units(&self, location: MapLocation, radius: u32)
-                              -> Vec<UnitInfo> {
+                              -> Vec<Unit> {
         self.world.sense_nearby_units(location, radius)
     }
 
@@ -310,7 +325,7 @@ impl GameController {
     /// distance squared. The units are within the vision range. Additionally
     /// filters the units by team.
     pub fn sense_nearby_units_by_team(&self, location: MapLocation,
-                                      radius: u32, team: Team) -> Vec<UnitInfo> {
+                                      radius: u32, team: Team) -> Vec<Unit> {
         self.world.sense_nearby_units_by_team(location, radius, team)
     }
 
@@ -318,7 +333,7 @@ impl GameController {
     /// distance squared. The units are within the vision range. Additionally
     /// filters the units by unit type.
     pub fn sense_nearby_units_by_type(&self, location: MapLocation,
-                                      radius: u32, unit_type: UnitType) -> Vec<UnitInfo> {
+                                      radius: u32, unit_type: UnitType) -> Vec<Unit> {
         self.world.sense_nearby_units_by_type(location, radius, unit_type)
     }
 
@@ -327,7 +342,7 @@ impl GameController {
     /// * LocationOffMap - the location is off the map.
     /// * LocationNotVisible - the location is outside the vision range.
     pub fn sense_unit_at_location(&self, location: MapLocation)
-                                  -> Result<Option<UnitInfo>, Error> {
+                                  -> Result<Option<Unit>, Error> {
         self.world.sense_unit_at_location(location)
     }
 
@@ -1123,7 +1138,7 @@ mod tests {
     #[test]
     fn test_serialization() {
         use serde_json::to_string;
-        let mut c = GameController::new_manager(GameMap::test_map());
+        let c = GameController::new_manager(GameMap::test_map());
         //println!("{}", to_string(&c.start_game(Player::new(Team::Red, Planet::Earth))
             //.world.planet_states[&Planet::Earth]).unwrap());
         println!("{}", to_string(&c.start_game(Player::new(Team::Red, Planet::Earth))).unwrap());

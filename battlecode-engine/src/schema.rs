@@ -93,8 +93,6 @@ pub struct StartTurnMessage {
     pub visible_locs: Vec<Vec<bool>>,
     pub units_changed: Vec<Unit>,
     pub units_vanished: Vec<UnitID>,
-    pub unit_infos_changed: Vec<UnitInfo>,
-    pub unit_infos_vanished: Vec<UnitID>,
     pub karbonite_changed: Vec<(MapLocation, u32)>,
 
     // TeamInfo
