@@ -1155,7 +1155,6 @@ impl Unit {
                 _ => Err(GameError::ResearchNotUnlocked)?,
             },
             Rocket => match self.level {
-                // TODO: rocket unlocking
                 0 => { self.is_ability_unlocked = true; },
                 1 => { self.travel_time_decrease += 20; },
                 2 => { self.max_capacity += 4; },
