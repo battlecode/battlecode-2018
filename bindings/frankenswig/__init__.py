@@ -263,11 +263,13 @@ SWIG_HEADER = '''%module {module}
 %rename("%(strip:[{module}_])s", %$isclass) "";
 %rename("%(strip:[{module}_])s", %$isenum) "";
 %rename("toString", match$name="debug") "";
+%rename("size", match$name="len") "";
+%rename("get", match$name="index") "";
 
 // we don't rename enums because it will make things inconsistent:
 //   MapLocation x = new MapLocation(Planet.EARTH, 0, 1);
 //   System.out.println(x);
-// -> MapLocation { planet: Earth, x: 0, y: 1 }
+// -> MapLocation {{ planet: Earth, x: 0, y: 1 }}
 // %rename("%(uppercase)s", %$isenumitem) "";
 #else
 %rename("%(strip:[{module}_])s") "";
