@@ -765,6 +765,14 @@ impl GameController {
         }
     }
 
+    /// The start turn message to send to the first player to move. Should
+    /// only be called on Round 1, and should only be sent to Red Earth.
+    ///
+    /// Panics if we're past Round 1...
+    pub fn initial_start_turn_message(&self) -> StartTurnMessage {
+        self.world.initial_start_turn_message()
+    }
+
     /// Get the first message to send to each player and initialize the world.
     pub fn start_game(&self, player: Player) -> StartGameMessage {
         StartGameMessage {
@@ -829,7 +837,9 @@ mod tests {
         let mut player_controller_red = GameController::new_player(red_start_game_msg);
         let mut player_controller_blue = GameController::new_player(blue_start_game_msg);
 
-        // Test that red can move as expected.
+        // Send the first STM to red and test that red can move as expected.
+        let initial_start_turn_msg = manager_controller.initial_start_turn_message();
+        assert![player_controller_red.start_turn(initial_start_turn_msg).is_ok()];
         assert![!player_controller_red.can_move(red_robot, Direction::East)];
         assert![player_controller_red.can_move(red_robot, Direction::Northeast)];
         assert![player_controller_red.move_robot(red_robot, Direction::Northeast).is_ok()];

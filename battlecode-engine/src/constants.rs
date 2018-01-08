@@ -100,9 +100,6 @@ pub const RESEARCH_ROCKET_COST: [Rounds; 4] = [0, 300, 200, 200];
 /// The heat each robot dissipates per round.
 pub const HEAT_LOSS_PER_ROUND: u32 = 10;
 
-/// The minimum heat.
-pub const MIN_HEAT: u32 = 0;
-
 /// The robot must have less than this amount of heat to perform
 /// actions corresponding to that heat.
 pub const MAX_HEAT_TO_ACT: u32 = 10;
