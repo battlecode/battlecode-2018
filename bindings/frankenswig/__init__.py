@@ -255,6 +255,10 @@ SWIG_HEADER = '''%module {module}
         SWIG_exception(error, result);
     }}
 }}
+%{{
+typedef uint8_t magicbool;
+%}}
+typedef uint8_t magicbool;
 
 // We generate code with the prefix "{module}_".
 // This will strip it out.
@@ -265,6 +269,14 @@ SWIG_HEADER = '''%module {module}
 %rename("toString", match$name="debug") "";
 %rename("size", match$name="len") "";
 %rename("get", match$name="index") "";
+%rename("equals", match$name="eq") "";
+
+// booleans don't have a stable API so we have to make our own type.
+// copied blindly from java.swg
+%typemap(jni) magicbool, const bool & "jboolean"
+%typemap(jtype) magicbool, const bool & "boolean"
+%typemap(jstype) magicbool, const bool & "boolean"
+%typemap(jboxtype) magicbool, const bool & "Boolean"
 
 // we don't rename enums because it will make things inconsistent:
 //   MapLocation x = new MapLocation(Planet.EARTH, 0, 1);

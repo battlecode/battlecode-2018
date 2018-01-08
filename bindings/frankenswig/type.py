@@ -90,6 +90,8 @@ isize = BuiltinWrapper('isize', 'intptr_t', 'int', '0')
 # instead, we pass around uint8s, and convert them to bools when they get into other languages.
 # todo: java
 boolean = BuiltinWrapper('u8', 'uint8_t', 'bool', '0')
+boolean.type.to_c = lambda: 'uint8_t'
+boolean.type.to_swig = lambda: 'magicbool'
 boolean.type.wrap_c_value = lambda name: ('', f'{name} as bool', '')
 boolean.type.unwrap_rust_value = lambda name: f'{name} as u8'
 boolean.type.python_postfix = lambda: 'result = bool(result)\n'
