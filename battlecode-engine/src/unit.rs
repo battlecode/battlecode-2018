@@ -254,6 +254,7 @@ pub struct Unit {
     // Worker special ability.
     has_worker_acted: bool,
     build_health: u32,
+    repair_health: u32,
     harvest_amount: u32,
 
     // Knight special ability.
@@ -262,6 +263,7 @@ pub struct Unit {
     // Ranger special ability.
     cannot_attack_range: u32,
     countdown: u32,
+    max_countdown: u32,
     target_location: Option<MapLocation>,
 
     // Healer special ability.
@@ -275,9 +277,11 @@ pub struct Unit {
     // Factory special ability.
     factory_unit_type: Option<UnitType>,
     factory_rounds_left: Option<Rounds>,
+    factory_max_rounds_left: Rounds,
 
     // Rocket special ability.
     is_used: bool,
+    blast_damage: i32,
     travel_time_decrease: Rounds,
 }
 
@@ -310,15 +314,19 @@ impl Default for Unit {
             garrison: vec![],
             has_worker_acted: false,
             build_health: 5,
+            repair_health: 10,
             harvest_amount: 3,
             defense: 5,
             cannot_attack_range: 10,
             countdown: 0,
+            max_countdown: 50,
             target_location: None,
             self_heal_amount: 1,
             factory_unit_type: None,
             factory_rounds_left: None,
+            factory_max_rounds_left: 5,
             is_used: false,
+            blast_damage: 50,
             travel_time_decrease: 0,
         }
     }
@@ -518,7 +526,8 @@ impl Unit {
         self.location = OnMap(location);
     }
 
-    /// Ok if the robot can attack the target location.
+    /// Ok if the robot can attack the target location. Overloaded for the
+    /// healer's heal.
     ///
     /// * InappropriateUnitType - the unit is not a robot.
     /// * OutOfRange - the target location is not in range.
@@ -536,7 +545,7 @@ impl Unit {
     }
 
     /// Ok if the unit is ready to attack. The attack heat must be lower than
-    /// the maximum heat to act.
+    /// the maximum heat to act. Overloaded for the healer's heal.
     ///
     /// * InappropriateUnitType - the unit is not a robot.
     /// * Overheated - the unit is not ready to attack.
@@ -660,12 +669,20 @@ impl Unit {
         Ok(self.has_worker_acted)
     }
 
-    /// The health restored when building or repairing a structure.
+    /// The health restored when building a structure.
     ///
     /// * InappropriateUnitType - the unit is not a worker.
     pub fn worker_build_health(&self) -> Result<u32, Error> {
         self.ok_if_unit_type(Worker)?;
         Ok(self.build_health)
+    }
+
+    /// The health restored when repairing a structure.
+    ///
+    /// * InappropriateUnitType - the unit is not a worker.
+    pub fn worker_repair_health(&self) -> Result<u32, Error> {
+        self.ok_if_unit_type(Worker)?;
+        Ok(self.repair_health)
     }
 
     /// The maximum amount of karbonite harvested from a deposit in one turn.
@@ -749,6 +766,15 @@ impl Unit {
         }
     }
 
+    /// The maximum countdown for ranger's snipe, which is the number of turns
+    /// that must pass before the snipe is executed.
+    ///
+    /// * InappropriateUnitType - the unit is not a ranger.
+    pub fn ranger_max_countdown(&self) -> Result<u32, Error> {
+        self.ok_if_unit_type(Ranger)?;
+        Ok(self.max_countdown)
+    }
+
     /// The target location for ranger's snipe, or None if the ranger is not
     /// sniping.
     ///
@@ -782,14 +808,14 @@ impl Unit {
         self.movement_heat = u32::max_value();
         self.attack_heat = u32::max_value();
         self.target_location = Some(location);
-        self.countdown = MAX_RANGER_COUNTDOWN;
+        self.countdown = self.max_countdown;
     }
 
     /// Updates the unit as if it has sniped and returns the target location
     /// if it has finished sniping.
     pub(crate) fn process_snipe(&mut self) -> Option<MapLocation> {
         if self.target_location.is_some() {
-            self.countdown -= COUNTDOWN_PER_ROUND;
+            self.countdown -= 1;
             if self.countdown > 0 {
                 return None;
             }
@@ -906,9 +932,9 @@ impl Unit {
     /// Returns OK if the structure can load a unit. The structure 
     /// must have enough space.
     ///
-    /// * GarrisonFull - the unit's garrison is already full.
     /// * InappropriateUnitType - the unit is not a structure.
     /// * StructureNotYetBuilt - the structure has not yet been built.
+    /// * GarrisonFull - the unit's garrison is already full.
     pub(crate) fn ok_if_can_load(&self) -> Result<(), Error> {
         self.ok_if_structure_built()?;
         if self.garrison.len() == self.max_capacity {
@@ -927,21 +953,15 @@ impl Unit {
     /// a planet and it must have at least one unit to unload. Does not check
     /// whether the unit is ready to move.
     ///
-    /// * GarrisonEmpty - the unit's garrison is already empty.
     /// * InappropriateUnitType - the unit is not a structure.
     /// * StructureNotYetBuilt - the structure has not yet been built.
-    /// * UnitNotOnMap - the structure is currently in space.
+    /// * GarrisonEmpty - the unit's garrison is already empty.
     pub(crate) fn ok_if_can_unload_unit(&self) -> Result<(), Error> {
         self.ok_if_structure_built()?;
-        match self.location() {
-            OnMap(_) => {
-                if self.garrison.len() == 0 {
-                    Err(GameError::GarrisonEmpty)?;
-                }
-                Ok(())
-            },
-            _ => Err(GameError::UnitNotOnMap)?,
+        if self.garrison.len() == 0 {
+            Err(GameError::GarrisonEmpty)?;
         }
+        Ok(())
     }
 
     /// Updates the structure as if it has unloaded a single unit from the
@@ -972,12 +992,21 @@ impl Unit {
         Ok(self.factory_rounds_left)
     }
 
+    /// The maximum number of rounds left to produce a robot in this factory.
+    /// Returns None if no unit is currently being produced.
+    ///
+    /// * InappropriateUnitType - the unit is not a factory.
+    pub fn factory_max_rounds_left(&self) -> Result<Rounds, Error> {
+        self.ok_if_unit_type(Factory)?;
+        Ok(self.factory_max_rounds_left)
+    }
+
     /// Returns OK if the factory can produce a robot of this type.
     ///
-    /// * FactoryBusy - the factory is already producing a unit.
     /// * InappropriateUnitType - the unit is not a factory or the unit type
     ///   is not a robot.
     /// * StructureNotYetBuilt - the structure has not yet been built.
+    /// * FactoryBusy - the factory is already producing a unit.
     pub(crate) fn ok_if_can_produce_robot(&self, unit_type: UnitType) -> Result<(), Error> {
         self.ok_if_unit_type(Factory)?;
         self.ok_if_structure_built()?;
@@ -994,7 +1023,7 @@ impl Unit {
     /// Assumes the unit can produce a robot.
     pub(crate) fn produce_robot(&mut self, unit_type: UnitType) {
         self.factory_unit_type = Some(unit_type);
-        self.factory_rounds_left = Some(FACTORY_NUM_ROUNDS);
+        self.factory_rounds_left = Some(self.factory_max_rounds_left);
     }
 
     /// Ends a round for this factory. If the factory is currently producing a
@@ -1037,6 +1066,14 @@ impl Unit {
         Ok(self.is_used)
     }
 
+    /// The damage a rocket deals to adjacent units upon landing.
+    ///
+    /// * InappropriateUnitType - the unit is not a rocket.
+    pub fn rocket_blast_damage(&self) -> Result<i32, Error> {
+        self.ok_if_unit_type(Rocket)?;
+        Ok(self.blast_damage)
+    }
+
     /// The number of rounds the rocket travel time is reduced by compared
     /// to the travel time determined by the orbit of the planets.
     ///
@@ -1050,8 +1087,8 @@ impl Unit {
     /// not been used yet.
     ///
     /// * InappropriateUnitType - the unit is not a rocket.
-    /// * RocketUsed - the rocket has already been used.
     /// * StructureNotYetBuilt - the rocket has not yet been built.
+    /// * RocketUsed - the rocket has already been used.
     pub(crate) fn ok_if_can_launch_rocket(&self) -> Result<(), Error> {
         self.ok_if_structure_built()?;
         if self.is_used {
@@ -1255,7 +1292,7 @@ mod tests {
         ranger.begin_snipe(loc_b);
 
         // Process sniping
-        let rounds = MAX_RANGER_COUNTDOWN;
+        let rounds = ranger.ranger_max_countdown().unwrap();
         for _ in 1..rounds {
             assert!(ranger.process_snipe().is_none());
         }
@@ -1310,7 +1347,7 @@ mod tests {
         assert!(factory.ok_if_can_produce_robot(Mage).is_err());
 
         // After a few rounds, the factory can produce again.
-        for _ in 0..FACTORY_NUM_ROUNDS - 1 {
+        for _ in 0..factory.factory_max_rounds_left().unwrap() - 1 {
             assert_eq!(factory.process_factory_round(), None);
             assert!(factory.ok_if_can_produce_robot(Mage).is_err());
         }
@@ -1325,7 +1362,7 @@ mod tests {
         // The factory can produce one more robot, but it won't go in its garrison.
         assert!(factory.ok_if_can_produce_robot(Mage).is_ok());
         factory.produce_robot(Mage);
-        for _ in 0..FACTORY_NUM_ROUNDS * 2 {
+        for _ in 0..factory.factory_max_rounds_left().unwrap() * 2 {
             assert_eq!(factory.process_factory_round(), None);
             assert!(factory.ok_if_can_produce_robot(Mage).is_err());
         }
