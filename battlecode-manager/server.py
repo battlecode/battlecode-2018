@@ -20,7 +20,7 @@ import battlecode as bc
 # We should also check that pausing doesn't hurt unix streams they don't
 # have
 
-INIT_TIME = 250
+INIT_TIME = .250
 TIME_PER_TURN = 10
 NUM_PLAYERS = 4
 
@@ -99,7 +99,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
                 Boolean if login was successful
         '''
 
-        client_id = unpacked_data['client_id']
+        client_id = int(unpacked_data['client_id'])
 
         # Check if they are in our list of clients
         if client_id not in [player['id'] for player in self.players]:
@@ -293,7 +293,8 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
 
             send_socket = self.request
 
-            message = json.dumps(obj) + "\n"
+            message = obj + "\n"
+            print("message ", message)
             encoded_message = message.encode()
             logging.debug("Client %s: Sending message %s", self.client_id,
                           encoded_message)
@@ -322,11 +323,21 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             Compress the current state into a message that will be sent to the
             client
             '''
-            message = {}
-            message['logged_in'] = self.logged_in
-            message['client_id'] = self.client_id
-            message['error'] = self.error
-            message['message'] = state_diff
+            if self.error == "":
+                error = "null"
+            else:
+                error = f'"{self.error}"'
+
+            if state_diff == "":
+                state_diff = '""'
+
+            if self.logged_in:
+                logged_in = "true"
+            else:
+                logged_in = "false"
+
+            message = f'{{"logged_in":{logged_in},"client_id":"{self.client_id}","error":{error},"message":{state_diff}}}'
+            print(message)
             return message
 
         def player_handler(self):
@@ -384,13 +395,11 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 # Blocks until it this clients turn
                 self.game.start_turn(self.client_id)
 
-                game_over = game.manager.is_game_over()
-                # check if game is over, if so, get winner in winner variables
-                if game_over is True: #replace with actual checking
-                    winner = 0 #report the winner
+                if self.game.manager.is_over():
+                    winner = game.manager.winning_team()
                     self.request.close()
                     logs = self.docker.destroy()
-                    report_winner() # somehow alert people who won
+                    report_winner()
                     return
 
 

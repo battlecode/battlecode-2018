@@ -7,6 +7,8 @@ use serde::de::DeserializeOwned;
 use serde_json::{to_writer, from_slice};
 use failure::Error;
 use std::mem;
+use std::thread;
+use std::time::Duration;
 
 pub struct Streams {
     stream: UnixStream,
@@ -41,6 +43,12 @@ impl Streams {
             match len {
                 Ok(len) => {
                     println!("read {}", len);
+                    if len == 0 {
+                        println!("empty, waiting");
+                        thread::sleep(Duration::new(0, 1_000_000));
+                        continue;
+                    }
+
                     let newline = buf[..len].iter().position(|&b| b == b'\n');
                     if let Some(idx) = newline {
                         println!("newline {}", idx);
@@ -54,7 +62,7 @@ impl Streams {
                     } else {
                         println!("no newline");
                         // no data; continue
-                        self.buf.extend(buf[..].iter())
+                        self.buf.extend(buf[..len].iter())
                     }
                 },
                 Err(e) => {
