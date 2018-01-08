@@ -932,9 +932,9 @@ impl Unit {
     /// Returns OK if the structure can load a unit. The structure 
     /// must have enough space.
     ///
-    /// * GarrisonFull - the unit's garrison is already full.
     /// * InappropriateUnitType - the unit is not a structure.
     /// * StructureNotYetBuilt - the structure has not yet been built.
+    /// * GarrisonFull - the unit's garrison is already full.
     pub(crate) fn ok_if_can_load(&self) -> Result<(), Error> {
         self.ok_if_structure_built()?;
         if self.garrison.len() == self.max_capacity {
@@ -953,21 +953,15 @@ impl Unit {
     /// a planet and it must have at least one unit to unload. Does not check
     /// whether the unit is ready to move.
     ///
-    /// * GarrisonEmpty - the unit's garrison is already empty.
     /// * InappropriateUnitType - the unit is not a structure.
     /// * StructureNotYetBuilt - the structure has not yet been built.
-    /// * UnitNotOnMap - the structure is currently in space.
+    /// * GarrisonEmpty - the unit's garrison is already empty.
     pub(crate) fn ok_if_can_unload_unit(&self) -> Result<(), Error> {
         self.ok_if_structure_built()?;
-        match self.location() {
-            OnMap(_) => {
-                if self.garrison.len() == 0 {
-                    Err(GameError::GarrisonEmpty)?;
-                }
-                Ok(())
-            },
-            _ => Err(GameError::UnitNotOnMap)?,
+        if self.garrison.len() == 0 {
+            Err(GameError::GarrisonEmpty)?;
         }
+        Ok(())
     }
 
     /// Updates the structure as if it has unloaded a single unit from the
@@ -1009,10 +1003,10 @@ impl Unit {
 
     /// Returns OK if the factory can produce a robot of this type.
     ///
-    /// * FactoryBusy - the factory is already producing a unit.
     /// * InappropriateUnitType - the unit is not a factory or the unit type
     ///   is not a robot.
     /// * StructureNotYetBuilt - the structure has not yet been built.
+    /// * FactoryBusy - the factory is already producing a unit.
     pub(crate) fn ok_if_can_produce_robot(&self, unit_type: UnitType) -> Result<(), Error> {
         self.ok_if_unit_type(Factory)?;
         self.ok_if_structure_built()?;
@@ -1093,8 +1087,8 @@ impl Unit {
     /// not been used yet.
     ///
     /// * InappropriateUnitType - the unit is not a rocket.
-    /// * RocketUsed - the rocket has already been used.
     /// * StructureNotYetBuilt - the rocket has not yet been built.
+    /// * RocketUsed - the rocket has already been used.
     pub(crate) fn ok_if_can_launch_rocket(&self) -> Result<(), Error> {
         self.ok_if_structure_built()?;
         if self.is_used {
