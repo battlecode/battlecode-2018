@@ -42,7 +42,7 @@ impl Team {
 
 /// The state for one of the planets in a game.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-struct PlanetInfo {
+pub struct PlanetInfo {
     /// Visible locations. True if and only if visible.
     ///
     /// Stored as a two-dimensional array, where the first index
@@ -72,7 +72,9 @@ struct PlanetInfo {
     /// Invariants:
     /// 1. Has every unit with a visible location on this planet.
     /// 2. Every entry has a corresponding entry in `unit_infos`.
-    units_by_loc: FnvHashMap<MapLocation, UnitID>,
+    #[serde(serialize_with = "serialize_structymap")]
+    #[serde(deserialize_with = "deserialize_structymap")]
+    pub units_by_loc: FnvHashMap<MapLocation, UnitID>,
 
     /// The amount of Karbonite deposited on the specified square.
     ///
@@ -80,6 +82,23 @@ struct PlanetInfo {
     /// represents a square's y-coordinate, and the second index its 
     /// x-coordinate.
     karbonite: Vec<Vec<u32>>,
+}
+
+use serde::{Serialize, Deserialize, Serializer, Deserializer};
+
+type StructyMap = FnvHashMap<MapLocation, UnitID>;
+
+// fuckin garbage no-good nonsense my goodnus
+fn serialize_structymap<S: Serializer> (map: &StructyMap, s: S) -> Result<S::Ok, S::Error> {
+    map.iter().map(|(a,b)| (a.clone(),b.clone())).collect::<Vec<(_,_)>>().serialize(s)
+}
+fn deserialize_structymap<'de, D: Deserializer<'de>>(d: D) -> Result<StructyMap, D::Error> {
+    let vec = <Vec<(MapLocation, UnitID)>>::deserialize(d)?;
+    let mut map = StructyMap::default();
+    for (k, v) in vec {
+        map.insert(k, v);
+    }
+    Ok(map)
 }
 
 impl PlanetInfo {
@@ -184,17 +203,17 @@ pub struct GameWorld {
     orbit: OrbitPattern,
 
     /// The map of each planet.
-    planet_maps: FnvHashMap<Planet, PlanetMap>,
+    pub planet_maps: FnvHashMap<Planet, PlanetMap>,
 
     /// The state of each planet.
-    planet_states: FnvHashMap<Planet, PlanetInfo>,
+    pub planet_states: FnvHashMap<Planet, PlanetInfo>,
 
     /// The state of each team.
     team_states: FnvHashMap<Team, TeamInfo>,
 
     /// Cached game worlds per player, to calculate start turn messages.
     /// These worlds were filtered at the start of the turn.
-    cached_world: HashMap<Player, GameWorld>,
+    cached_world: FnvHashMap<Player, GameWorld>,
 
     /// A list of additional messages to be sent to the viewer. Flushed
     /// at the end of each round.
@@ -225,7 +244,7 @@ impl GameWorld {
             planet_maps: planet_maps,
             planet_states: planet_states,
             team_states: team_states,
-            cached_world: HashMap::default(),
+            cached_world: FnvHashMap::default(),
             viewer_changes: Vec::new(),
         };
 
@@ -3293,6 +3312,26 @@ mod tests {
         for victim in victims.iter() {
             assert_eq![world.unit_info(*victim).unwrap().health, 100];
         }
+    }
+
+    #[test]
+    fn test_map_serialize() {
+        use super::*;
+        let mut map = StructyMap::default();
+        map.insert(MapLocation::new(Planet::Earth, 1,2), 1);
+        map.insert(MapLocation::new(Planet::Earth, 1,3), 2);
+        let p = PlanetInfo {
+            visible_locs: vec![],
+            units: FnvHashMap::default(),
+            unit_infos: FnvHashMap::default(),
+            units_by_loc: map,
+            karbonite: vec![]
+        };
+
+        use serde_json::{to_string, from_str};
+        let q = to_string(&p).unwrap();
+        let r: PlanetInfo = from_str(&q[..]).unwrap();
+        assert_eq!(p.units_by_loc, r.units_by_loc);
     }
 
     #[test]

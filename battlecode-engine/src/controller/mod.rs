@@ -1119,4 +1119,13 @@ mod tests {
         assert![player_controller_blue.can_move(blue_robot, Direction::West)];
         assert![player_controller_blue.move_robot(blue_robot, Direction::West).is_ok()];
     }
+
+    #[test]
+    fn test_serialization() {
+        use serde_json::to_string;
+        let mut c = GameController::new_manager(GameMap::test_map());
+        println!("{}", to_string(&c.start_game(Player::new(Team::Red, Planet::Earth))
+            .world.planet_states[&Planet::Earth]).unwrap());
+        println!("{}", to_string(&c.start_game(Player::new(Team::Red, Planet::Earth))).unwrap());
+    }
 }
