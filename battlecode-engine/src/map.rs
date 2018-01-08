@@ -152,8 +152,8 @@ impl PlanetMap {
             }
         }
         for ref unit in &self.initial_units {
-            let location = unit.location().map_location()?;
-            // TODO: .unwrap(GameError::InvalidMapObject)?;
+            let location = unit.location().map_location()
+                               .unwrap(GameError::InvalidMapObject)?;
             let x = location.x as usize;
             let y = location.y as usize;
             if location.planet != self.planet {
