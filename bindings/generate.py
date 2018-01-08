@@ -155,8 +155,8 @@ Unit.method(u32.type.result(), "knight_defense", [], docs="""The amount of damag
 Errors if the unit is not a knight.""", getter=True)
 Unit.method(u32.type.result(), "ranger_cannot_attack_range", [], docs="""The range within a ranger cannot attack.
 Errors if the unit is not a ranger.""", getter=True)
-Unit.method(u32.type.result(), "ranger_countdown", [], docs="""The countdown for ranger's snipe.
-Errors if the unit is not a ranger.""", getter=True)
+#Unit.method(u32.type.result(), "ranger_countdown", [], docs="""The countdown for ranger's snipe.
+#Errors if the unit is not a ranger.""", getter=True)
 #Unit.method(Option<MapLocation>.type, "ranger_target_location", [], docs="""The target location for ranger's snipe.
 #Errors if the unit is not a ranger.""")
 Unit.method(boolean.type.result(), "ranger_is_sniping", [], docs="""Whether the ranger is sniping.
