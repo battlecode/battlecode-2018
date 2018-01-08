@@ -1124,9 +1124,18 @@ impl Unit {
         match self.unit_type {
             Worker => match self.level {
                 0 => { self.harvest_amount += 1; },
-                1 => { self.build_health += 1; },
-                2 => { self.build_health += 1; },
-                3 => { self.build_health += 3; },
+                1 => {
+                    self.build_health += 1;
+                    self.repair_health += 1;
+                },
+                2 => {
+                    self.build_health += 1;
+                    self.repair_health += 1;
+                },
+                3 => {
+                    self.build_health += 3;
+                    self.repair_health += 3;
+                },
                 _ => Err(GameError::ResearchNotUnlocked)?,
             },
             Knight => match self.level {
