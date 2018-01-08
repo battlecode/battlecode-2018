@@ -11,6 +11,8 @@ import random
 import sys
 import logging
 import ujson as json
+import os.path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../bindings/python')))
 import battlecode as bc
 
 # TODO:
@@ -447,7 +449,9 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             This does all the processing of the data we receive and we spend our
             time in this function.
             '''
+            print('got connection')
             if self.is_unix_stream:
+                print('handling player')
                 self.player_handler()
             else:
                 self.viewer_handler()
