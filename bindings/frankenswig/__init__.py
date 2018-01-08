@@ -1,8 +1,6 @@
 '''This module can be used to easily generate interfaces to Rust from many other languages,
 by generating a thin SWIG wrapper, as well as a CFFI wrapper for python.
 
-TODO: %newobject, makefiles, enums, results, javadocs
-
 To use it, create a Program() and then call .struct() and .function().
 The rust struct:
     struct Banana {
@@ -74,6 +72,7 @@ use {crate} as {module};
 use std::os::raw::c_char;
 use std::cell::RefCell;
 use std::ffi::{{CStr, CString}};
+use std::ops::Index;
 use std::panic;
 use std::ptr;
 use std::mem;
@@ -89,6 +88,7 @@ fn borrow_check<T: 'static + Send>(val: T) -> T {{ val }}
 // Runtime error checking
 
 // see https://github.com/swig/swig/blob/master/Lib/swigerrors.swg
+#[derive(Clone, Copy, PartialEq)]
 #[repr(i8)]
 enum SwigError {{
     NoError         = 0,
@@ -110,7 +110,9 @@ enum SwigError {{
 thread_local! {{
     // this can be replaced with UnsafeCell / pointers and flags
     // if we're really hurting for performance
-    static ERROR: RefCell<Option<(SwigError, String)>> = RefCell::new(None);
+    static ERROR: RefCell<Option<(SwigError, String)>> = {{
+        RefCell::new(None)
+    }};
 }}
 // only usable from rust
 fn set_error(code: SwigError, err: String) {{
@@ -226,7 +228,7 @@ SWIG_HEADER = '''%module {module}
 #include "{module}.h"
 
 #ifdef __GNUC__
-    #define unlikely(expr)  __builtin_expect(!(expr),  0)
+    #define unlikely(expr)  __builtin_expect(!!(expr),  0)
 #else
     #define unlikely(expr) (expr)
 #endif
@@ -239,23 +241,52 @@ SWIG_HEADER = '''%module {module}
 // used to tell swig to not generate pointer types for arguments
 // passed by pointer
 %include "typemaps.i"
-// good enums
-%include "enums.swg"
 
 // This code is inserted around every method call.
 %exception {{
     $action
-    char *err;
-    int8_t code;
-    if (unlikely((code = {module}_get_last_err(&err)))) {{
-        SWIG_exception(code, err);
-        {module}_free_string(err);
+    if (unlikely({module}_has_err())) {{
+        char *result;
+        int8_t error = {module}_get_last_err(&result);
+        SWIG_exception(error, result);
     }}
 }}
+%{{
+typedef uint8_t magicbool;
+%}}
+typedef uint8_t magicbool;
 
 // We generate code with the prefix "{module}_".
 // This will strip it out.
+#ifdef SWIGJAVA
+// good enums
+%include "enums.swg"
+%rename("%(lowercamelcase)s", %$isfunction) "";
+%rename("%(strip:[{module}_])s", %$isclass) "";
+%rename("%(strip:[{module}_])s", %$isenum) "";
+%rename("toString", match$name="debug") "";
+%rename("size", match$name="len") "";
+%rename("get", match$name="index") "";
+%rename("equals", match$name="eq") "";
+
+// booleans don't have a stable API so we have to make our own type.
+// copied blindly from java.swg
+%typemap(jni) magicbool, const bool & "jboolean"
+%typemap(jtype) magicbool, const bool & "boolean"
+%typemap(jstype) magicbool, const bool & "boolean"
+%typemap(jboxtype) magicbool, const bool & "Boolean"
+
+// we don't rename enums because it will make things inconsistent:
+//   MapLocation x = new MapLocation(Planet.EARTH, 0, 1);
+//   System.out.println(x);
+// -> MapLocation {{ planet: Earth, x: 0, y: 1 }}
+// %rename("%(uppercase)s", %$isenumitem) "";
+#else
 %rename("%(strip:[{module}_])s") "";
+#endif
+
+// Free newly allocated char pointers with the following code
+%typemap(newfree) char * "{module}_free_string($1);";
 
 '''
 SWIG_FOOTER = ''
@@ -276,13 +307,24 @@ def _check_errors():
         _lib.{module}_free_string(_lasterror[0])
         raise Exception(errtext)
 
+def game_turns():
+    """Usage:
+    for controller in game_turns():
+        #controller is a GameController; do things with it
+        print(controller.round)
+    """
+    controller = GameController()
+    while not controller.is_over():
+        yield controller
+        controller.next_turn()
+
 '''
 PYTHON_FOOTER = ''
 
 class TypedefWrapper(object):
     def __init__(self, program, rust_name, c_type):
         self.program = program
-        self.type = Type(f'{program.module}::{rust_name}', c_type.swig, c_type.python, c_type.default)
+        self.type = BuiltinType(f'{program.module}::{rust_name}', c_type.swig, c_type.python, c_type.default)
     
     to_rust = to_c = to_swig = to_python = lambda self: ''
 
@@ -296,6 +338,15 @@ class Program(object):
         # maintaining the "thing.type" idiom
         self.string = namedtuple('String', ['type'])(StringType(self.module))
         self.strref = namedtuple('StrRef', ['type'])(StrRefType(self.module))
+
+    def vec(self, type):
+        vec = self.struct(f"vec::Vec::<{type.orig_rust()}>", module="std", docs=f"An immutable list of {type.orig_rust()} objects")
+        vec.debug()
+        vec.clone()
+        vec.method(usize.type, "len", [], pyname="__len__", docs="The length of the vector.")
+        # TODO impl option and use .get() instead
+        vec.method(type.ref(), "index", [Var(usize.type, "index")], pyname="__getitem__", docs="Copy an element out of the vector.")
+        return vec
 
     def add(self, elem):
         return self

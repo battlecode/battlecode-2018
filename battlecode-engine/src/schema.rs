@@ -113,31 +113,51 @@ pub struct ViewerUnitInfo {
     pub id: UnitID,
     pub unit_type: UnitType,
     pub health: u32,
-    pub location: Location,
+    pub location: MapLocation,
 }
 
 /// Additional information that the viewer may need.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ViewerDelta {
     AsteroidStrike { location: MapLocation },
-    RocketLanding { rocket_id: UnitID, location: MapLocation },
     RangerSnipe { ranger_id: UnitID, target_location: MapLocation },
+    RocketLanding { rocket_id: UnitID, location: MapLocation },
 }
 
 /// A description of the current game state, for the viewer.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ViewerMessage {
-    /// The current status of the GameWorld.
     pub changes: Vec<Delta>,
     pub units: Vec<ViewerUnitInfo>,
     pub additional_changes: Vec<ViewerDelta>,
+    /// the amount of karbonite at the end of this player's turn.
+    pub karbonite: u32,
 }
 
 /// An error message in response to some error.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ErrorMessage {
     /// The error string.
-    error: String
+    pub error: String
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct LoginMessage {
+    pub client_id: String
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ReceivedMessage<T> {
+    pub logged_in: bool,
+    pub client_id: String,
+    pub error: Option<String>,
+    pub message: Option<T>
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SentMessage {
+    pub client_id: String,
+    pub turn_message: TurnMessage
 }
 
 #[cfg(test)]

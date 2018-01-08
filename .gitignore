@@ -12,3 +12,6 @@ __pycache__
 *.txt
 *.DS_Store
 .vscode
+*/htmlcov
+*.coverage
+*.log

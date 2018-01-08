@@ -16,9 +16,10 @@ cache:
     - ~/.cache/pip
 before_install:
   - sudo add-apt-repository ppa:jonathonf/python-3.6 -y
+  - sudo add-apt-repository ppa:openjdk-r/ppa -y
   - sudo apt-get update -q
 install:
-  - sudo -E apt-get -yq --no-install-suggests --no-install-recommends --force-yes install python3.6
+  - sudo -E apt-get -yq --no-install-suggests --no-install-recommends --force-yes install python3.6 openjdk-8-jdk swig
   - python -m pip install -r bindings/python/requirements.txt --user
 
 script:

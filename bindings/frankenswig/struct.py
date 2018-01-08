@@ -1,5 +1,5 @@
 from .helpers import *
-from .type import Type, void
+from .type import Type, void, boolean, _stringliteral
 from .function import Function, Method
 
 class StructType(Type):
@@ -59,42 +59,72 @@ class StructType(Type):
         pyname = sanitize_rust_name(self.wrapper.name)
         return s(f'''\
             _result = {pyname}.__new__({pyname})
-            _result._ptr = result
+            if result != _ffi.NULL:
+                _result._ptr = result
             result = _result
         ''')
+    
+    def orig_rust(self):
+        return f'{"&" if self.kind == StructType.RUST_MUT_REF else ""}{self.wrapper.module}::{self.wrapper.name}'
 
 class DeriveMixins(object):
     '''Helpers for easily bindings #[derive]'d methods.'''
-    def serializeable(self):
+    def serialize(self):
         '''Add "from_json" and "to_json" methods.'''
 
         args = [Var(self.program.strref.type, "s")]
         type = self.type.result()
-        self.methods.append(Method(type, self.c_name, "from_json", args,
-            make_safe_call(type, 'serde_json::from_str', args), docs=f'Deserialize a {self.name} from a JSON string',
-        static=True))
+        self.methods.append(Method(
+            type, self.c_name, "from_json", args,
+            make_safe_call(type, f'serde_json::from_str::<{self.module}::{self.name}>', args),
+            docs=f'Deserialize a {self.type.to_python()} from a JSON string',
+            static=True
+        ))
  
         args = [Var(self.type.mut_ref(), 'this')]
         type = self.program.string.type.result()
         self.methods.append(Method(type, self.c_name, "to_json", args,
-            make_safe_call(type, 'serde_json::to_string', args), docs=f'Serialize a {self.name} to a JSON string'
+            make_safe_call(type, 'serde_json::to_string', args), docs=f'Serialize a {self.type.to_python()} to a JSON string'
         ))
 
         return self
 
+    def debug(self):
+        args = [Var(self.type.mut_ref(), 'this')]
+        inner_args = [Var(_stringliteral.type, '"{:?}"')] + args
+        type = self.program.string.type
+        self.methods.append(Method(type, self.c_name, "debug", args,
+            make_safe_call(type, 'format!', inner_args), docs=f'Create a human-readable representation of a {self.type.to_python()}',
+        pyname="__repr__"))
+    
+    def clone(self):
+        self.method(self.type, "clone", [], docs=f"Deep-copy a {self.type.to_python()}", self_ref=True)
+
+    def eq(self):
+        self.method(boolean.type, "eq", [Var(self.type.ref(), "other")], docs=f"Compare two {self.type.to_python()}s for deep equality.", pyname="__eq__", self_ref=True)
+
 class StructWrapper(DeriveMixins):
-    def __init__(self, program, name, docs=''):
+    def __init__(self, program, name, docs='', module=None):
         self.program = program
-        self.module = program.module
+        if module is None:
+            self.module = program.module
+        else:
+            self.module = module
         self.name = name
-        self.c_name = f'{self.module}_{sanitize_rust_name(self.name)}'
+        self.c_name = f'{self.program.module}_{sanitize_rust_name(self.name)}'
         self.members = []
         self.member_docs = []
         self.methods = []
         self.getters = []
         self.setters = []
         self.type = StructType(self)
-        self.constructor_ = None
+        self.constructor_ = Function(
+            self.type,
+            f'new_{self.c_name}',
+            [],
+            'set_error(SwigError::Type, "Type cannot be constructed".into());\n0 as *mut _',
+            docs=docs
+        )
         self.docs = docs
 
         pre, arg, post = self.type.mut_ref().wrap_c_value('this')
@@ -103,16 +133,15 @@ class StructWrapper(DeriveMixins):
             pre + f'\nunsafe {{ Box::from_raw({arg}); }}' + post
         )
 
-    def constructor(self, rust_method, args, docs=''):
-        assert self.constructor_ is None
-
+    def constructor(self, rust_method, args, docs='', result=False):
         method = f'{self.module}::{self.name}::{rust_method}'
+        ret = self.type.result() if result else self.type
 
         self.constructor_ = Function(
-            self.type,
+            ret,
             f'new_{self.c_name}',
             args,
-            make_safe_call(self.type, method, args),
+            make_safe_call(ret, method, args),
             docs=docs
         )
 
@@ -127,7 +156,7 @@ class StructWrapper(DeriveMixins):
 
         getter = Method(type, self.c_name, f"{name}_get", [Var(self.type, 'this')],
             pre +
-            '\nlet result = ' + type.unwrap_rust_value(arg + '.' + name) + ';\n' +
+            '\nlet result = ' + type.unwrap_rust_value(arg + '.' + name + '.clone()') + ';\n' +
             post +
             '\nresult',
             docs=docs,
@@ -149,7 +178,7 @@ class StructWrapper(DeriveMixins):
 
         return self
 
-    def method(self, type, name, args, docs='', static=False):
+    def method(self, type, name, args, docs='', static=False, pyname=None, self_ref=True, getter=False):
         # we use the "Universal function call syntax"
         # Type::method(&mut self, arg1, arg2)
         # which is equivalent to:
@@ -158,15 +187,22 @@ class StructWrapper(DeriveMixins):
         if static:
             actual_args = args
         else:
-            actual_args = [Var(self.type.mut_ref(), 'this')] + args
+            if self_ref:
+                actual_args = [Var(self.type.mut_ref(), 'this')] + args
+            else:
+                actual_args = [Var(self.type, 'this')] + args
+        
+        if pyname is None:
+            pyname = name
 
         self.methods.append(Method(type, self.c_name, name, actual_args,
             make_safe_call(type, original, actual_args), docs=docs
-        , pyname=name, static=static))
+        , pyname=pyname, static=static, getter=getter))
         return self
 
     def to_c(self):
-        definition = 'typedef struct {0.c_name} {0.c_name};\n'.format(self)
+        definition = doxygen(self.docs)
+        definition += 'typedef struct {0.c_name} {0.c_name};\n'.format(self)
         if self.constructor_:
             definition += self.constructor_.to_c()
         definition += self.destructor.to_c()
@@ -177,9 +213,8 @@ class StructWrapper(DeriveMixins):
 
     def to_swig(self):
         '''Generate a SWIG interface for this struct.'''
-        definition = '%feature("docstring", "{}");\n'.format(self.docs)
         # luckily, swig treats all structs as pointers anyway
-        definition += 'typedef struct {0.c_name} {{}} {0.c_name};\n'.format(self)
+        definition = 'typedef struct {0.c_name} {{}} {0.c_name};\n'.format(self)
         # see:
         # http://www.swig.org/Doc3.0/Arguments.html#Arguments_nn4
         # note: this prints "Can't apply (sp_Apple *INPUT). No typemaps are defined."
@@ -196,18 +231,24 @@ class StructWrapper(DeriveMixins):
 
         body = ''
         if self.constructor_:
-            body += f'%feature("docstring", "{self.constructor_.docs}");\n'
             body += f'''{self.c_name}({", ".join(a.to_swig() for a in self.constructor_.args)});\n'''
-            body += f'~{self.c_name}();\n'
+
+        body += f'~{self.c_name}();\n'
         for method in self.methods:
-            body += method.to_swig()
-        for member, member_docs in zip(self.members, self.member_docs):
-            body += f'%feature("docstring", "{member_docs}");\n{member.to_swig()};\n'
+            if not method.static:
+                body += method.to_swig()
+        for member in self.members:
+            body += f'\n{member.to_swig()};\n'
 
         body = s(body, indent=4)
-        extra = f'%extend {self.c_name} {{\n{body}}}\n'
+        extra = f'%extend {self.c_name} {{\n{body}}}'
 
-        return f'{definition}\n{extra}'
+        statics = ''
+        for method in self.methods:
+            if method.static:
+                statics += super(Method, method).to_swig() + '\n'
+
+        return f'{definition}\n{extra}\n{statics}\n'
 
     def to_rust(self):
         '''Generate a rust implementation for this struct.'''
@@ -231,15 +272,18 @@ class StructWrapper(DeriveMixins):
         if self.constructor_:
             cargs = [Var(self.type, 'self')] + self.constructor_.args
             cinit = Function.pyentry(
+                self.type,
                 cargs,
                 '__init__',
                 self.constructor_.docs
                 )
             cpyargs = ', '.join(a.type.wrap_python_value(a.name) for a in cargs[1:])
-            cbody = f'self._ptr = _lib.{self.constructor_.name}({cpyargs})\n'
+            cbody = f'ptr = _lib.{self.constructor_.name}({cpyargs})\n'
+            cbody += 'if ptr != _ffi.NULL: self._ptr = ptr\n'
             cbody += '_check_errors()\n'
         else:
             cinit = Function.pyentry(
+                self.type,
                 [Var(self.type, 'self')],
                 '__init__',
                 'INVALID: this object cannot be constructed from Python code!'
@@ -248,7 +292,7 @@ class StructWrapper(DeriveMixins):
 
         constructor = cinit + s(cbody, indent=4) + '\n'
 
-        dinit = Function.pyentry([Var(self.type, 'self')], '__del__', 'Clean up the object.')
+        dinit = Function.pyentry(void.type, [Var(self.type, 'self')], '__del__', 'Clean up the object.')
         dbody = s(f'''\
             if hasattr(self, '_ptr'):
                 # if there was an error in the constructor, we'll have no _ptr

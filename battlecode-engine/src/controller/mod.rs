@@ -2,7 +2,6 @@
 //! the API that the player will use, and for generating messages to
 //! send to other parts of the Battlecode infrastructure.
 
-use config::Config;
 use location::*;
 use map::*;
 use research::*;
@@ -11,16 +10,73 @@ use schema::*;
 use team_array::*;
 use unit::*;
 use world::*;
-
+    
 use failure::Error;
 use fnv::FnvHashMap;
+use std::env;
+use std::mem;
 
+mod streams;
+use self::streams::Streams;
+
+/// Configuration for the game controller.
+pub struct Config {
+    /// Whether to generate messages to be sent to the viewer.
+    pub generate_viewer_messages: bool,
+
+    /// Whether to generate turn messages.
+    pub generate_turn_messages: bool,
+}
+
+impl Config {
+    pub fn player_config() -> Config {
+        Config {
+            generate_viewer_messages: false,
+            generate_turn_messages: true,
+        }
+    }
+
+    pub fn runner_config() -> Config {
+        Config {
+            generate_viewer_messages: true,
+            generate_turn_messages: true,
+        }
+    }
+}
+
+/// The outermost layer of the engine stack.
 pub struct GameController {
     world: GameWorld,
     old_world: GameWorld,
     config: Config,
     turn: TurnMessage,
+    stream: Option<Streams>,
+    player_key: Option<String>
 }
+
+fn check_message<T>(msg: ReceivedMessage<T>, player_key: &str) -> Result<T, Error> {
+    let ReceivedMessage {
+        logged_in,
+        client_id,
+        error,
+        message
+    } = msg;
+    if !logged_in {
+        bail!("Not logged in?");
+    }
+    if &client_id[..] != player_key {
+        bail!("Wrong client_id: should be '{}', is '{}'", player_key, client_id);
+    }
+    if let Some(error) = error {
+        bail!("Error from manager: '{}'", error);
+    }
+    if let Some(message) = message {
+        Ok(message)
+    } else {
+        bail!("No message sent?")
+    }
+}
+
 
 impl GameController {
 
@@ -32,26 +88,103 @@ impl GameController {
     // ************************************************************************
     // ************************************************************************
 
+    /// Connect to a manager using environment variables.
+    /// You should call this method if you're running inside the player docker container.
+    /// It will connect to the manager and block until it's your turn. (Don't worry, you'll be
+    /// paused during the blocking anyway.)
+    pub fn new_player_env() -> Result<GameController, Error> {
+        let socket_file = env::var("SOCKET_FILE")?;
+        let player_key = env::var("PLAYER_KEY")?;
+
+        // send login
+        let mut stream = Streams::new(socket_file)?;
+        stream.write(&LoginMessage {
+            client_id: player_key.clone()
+        })?;
+
+        // wait for response with empty string in message field
+        let msg = stream.read::<ReceivedMessage<String>>()?;
+        let s = check_message(msg, &player_key[..])?;
+        if &s[..] != "" {
+            bail!("Non-empty login response: {}", s);
+        }
+
+        // block, and eventually receive the start game message
+        let msg = stream.read::<ReceivedMessage<StartGameMessage>>()?;
+        let StartGameMessage { mut world } = check_message(msg, &player_key[..])?;
+
+        // then the start turn message
+        let msg = stream.read::<ReceivedMessage<StartTurnMessage>>()?;
+        let turn = check_message(msg, &player_key[..])?;
+        world.start_turn(&turn);
+
+        // now return and let the player do their thing on the first turn :)
+        Ok(GameController {
+            old_world: world.clone(),
+            world,
+            config: Config::player_config(),
+            turn: TurnMessage { changes: vec![] },
+            stream: Some(stream),
+            player_key: Some(player_key)
+        })
+    }
+
+    /// Submit your current turn and wait for your next turn. Blocks. Don't worry, you'll be
+    /// paused during the blocking anyway.
+    pub fn next_turn(&mut self) -> Result<(), Error> {
+        if let None = self.stream {
+            bail!("Controller is not in env mode, has no stream, can't call next_turn()");
+        }
+        if let None = self.player_key {
+            bail!("No player key??");
+        }
+
+        // extract our previous turn, replacing it with an empty one
+        let mut turn_message = TurnMessage { changes: vec![] };
+        mem::swap(&mut self.turn, &mut turn_message);
+
+        // send off our previous turn
+        self.stream.as_mut().unwrap().write(&SentMessage {
+            client_id: self.player_key.as_ref().unwrap().clone(),
+            turn_message
+        })?;
+
+        // block and receive the state for our next turn
+        let msg = self.stream.as_mut().unwrap().read::<ReceivedMessage<StartTurnMessage>>()?;
+        let start_turn = check_message(msg, &self.player_key.as_ref().unwrap()[..])?;
+
+        // setup the world state
+        self.old_world.start_turn(&start_turn);
+        self.world = self.old_world.clone();
+
+        // yield control to the player
+        Ok(())
+    }
+
     /// Initializes the game world and creates a new controller
     /// for a player to interact with it.
+    /// Mainly for testing purposes.
     pub fn new_player(game: StartGameMessage) -> GameController {
         GameController {
             world: game.world.clone(),
             old_world: game.world,
             config: Config::player_config(),
-            turn: TurnMessage { changes: vec![] }
+            turn: TurnMessage { changes: vec![] },
+            stream: None,
+            player_key: None
         }
     }
 
     /// Starts the current turn, by updating the player's GameWorld with changes
     /// made since the last time the player had a turn.
-    pub fn start_turn(&mut self, turn: StartTurnMessage) {
+    pub fn start_turn(&mut self, turn: &StartTurnMessage) {
         self.old_world.start_turn(turn);
         self.world = self.old_world.clone();
         self.turn = TurnMessage { changes: vec![] };
     }
 
     /// Ends the current turn. Returns the list of changes made in this turn.
+    /// Mainly for testing purposes; use next_turn().
     pub fn end_turn(&mut self) -> TurnMessage {
         self.world.flush_viewer_changes();
         self.turn.clone()
@@ -96,25 +229,28 @@ impl GameController {
     /// detailed statistics on a unit in your team: heat, cooldowns, and
     /// properties of special abilities like units garrisoned in a rocket.
     ///
-    /// Note that mutating this object does NOT have any effect on the actual
-    /// game. You MUST call the mutators in world!!
-    ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * NoSuchUnit - the unit does not exist (inside the vision range).
+    /// * TeamNotAllowed - the unit is not on the current player's team.
     pub fn unit_controller(&self, id: UnitID) -> Result<&Unit, Error> {
         self.world.unit_controller(id)
     }
 
     /// The single unit with this ID.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
+    /// * NoSuchUnit - the unit does not exist (inside the vision range).
     pub fn unit(&self, id: UnitID) -> Result<UnitInfo, Error> {
         self.world.unit(id)
     }
 
     /// All the units within the vision range, in no particular order.
     /// Does not include units in space.
-    pub fn units(&self) -> Vec<&UnitInfo> {
+    pub fn units_ref(&self) -> Vec<&UnitInfo> {
+        self.world.units_ref()
+    }
+
+    /// All the units within the vision range, in no particular order.
+    /// Does not include units in space.
+    pub fn units(&self) -> Vec<UnitInfo> {
         self.world.units()
     }
 
@@ -137,12 +273,23 @@ impl GameController {
 
     /// The karbonite at the given location.
     ///
-    /// * GameError::InvalidLocation - the location is outside the vision range.
+    /// * LocationOffMap - the location is off the map.
+    /// * LocationNotVisible - the location is outside the vision range.
     pub fn karbonite_at(&self, location: MapLocation) -> Result<u32, Error> {
-        Ok(self.world.karbonite_at(location)?)
+        self.world.karbonite_at(location)
     }
 
-    /// Whether the location is within the vision range.
+    /// Returns an array of all locations within a certain radius squared of
+    /// this location that are on the map.
+    ///
+    /// The locations are ordered first by the x-coordinate, then the
+    /// y-coordinate. The radius squared is inclusive.
+    pub fn all_locations_within(&self, location: MapLocation,
+                                radius_squared: u32) -> Vec<MapLocation> {
+        self.world.all_locations_within(location, radius_squared)
+    }
+
+    /// Whether the location is on the map and within the vision range.
     pub fn can_sense_location(&self, location: MapLocation) -> bool {
         self.world.can_sense_location(location)
     }
@@ -177,10 +324,11 @@ impl GameController {
 
     /// The unit at the location, if it exists.
     ///
-    /// * GameError::InvalidLocation - the location is outside the vision range.
+    /// * LocationOffMap - the location is off the map.
+    /// * LocationNotVisible - the location is outside the vision range.
     pub fn sense_unit_at_location(&self, location: MapLocation)
                                   -> Result<Option<UnitInfo>, Error> {
-        Ok(self.world.sense_unit_at_location(location)?)
+        self.world.sense_unit_at_location(location)
     }
 
     // ************************************************************************
@@ -216,7 +364,7 @@ impl GameController {
 
     /// Writes the value at the index of this planet's team array.
     ///
-    /// * GameError::ArrayOutOfBounds - the index of the array is out of
+    /// * ArrayOutOfBounds - the index of the array is out of
     ///   bounds. It must be within [0, COMMUNICATION_ARRAY_LENGTH).
     pub fn write_team_array(&mut self, index: usize, value: i32) -> Result<(), Error> {
         let delta = Delta::WriteTeamArray { index, value };
@@ -234,8 +382,8 @@ impl GameController {
     /// Disintegrates the unit and removes it from the map. If the unit is a
     /// factory or a rocket, also disintegrates any units garrisoned inside it.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
+    /// * NoSuchUnit - the unit does not exist (inside the vision range).
+    /// * TeamNotAllowed - the unit is not on the current player's team.
     pub fn disintegrate_unit(&mut self, unit_id: UnitID) -> Result<(), Error> {
         let delta = Delta::Disintegrate { unit_id };
         self.world.apply(&delta)?;
@@ -252,9 +400,10 @@ impl GameController {
     /// Whether the location is clear for a unit to occupy, either by movement
     /// or by construction.
     ///
-    /// * GameError::InvalidLocation - the location is outside the vision range.
+    /// * LocationOffMap - the location is off the map.
+    /// * LocationNotVisible - the location is outside the vision range.
     pub fn is_occupiable(&self, location: MapLocation) -> Result<bool, Error> {
-        Ok(self.world.is_occupiable(location)?)
+        self.world.is_occupiable(location)
     }
 
     /// Whether the robot can move in the given direction, without taking into
@@ -272,10 +421,13 @@ impl GameController {
 
     /// Moves the robot in the given direction.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a robot.
-    /// * GameError::InvalidAction - the robot cannot move in that direction.
+    /// * NoSuchUnit - the robot does not exist (within the vision range).
+    /// * TeamNotAllowed - the robot is not on the current player's team.
+    /// * UnitNotOnMap - the robot is not on the map.
+    /// * LocationNotVisible - the location is outside the vision range.
+    /// * LocationOffMap - the location is off the map.
+    /// * LocationNotEmpty - the location is occupied by a unit or terrain.
+    /// * Overheated - the robot is not ready to move again.
     pub fn move_robot(&mut self, robot_id: UnitID, direction: Direction) -> Result<(), Error> {
         let delta = Delta::Move { robot_id, direction };
         self.world.apply(&delta)?;
@@ -289,10 +441,11 @@ impl GameController {
     // *************************** ATTACK METHODS *****************************
     // ************************************************************************
    
-
     /// Whether the robot can attack the given unit, without taking into
-    /// account the unit's attack heat. Takes into account only the unit's
-    /// attack range, and the location of the unit.
+    /// account the robot's attack heat. Takes into account only the robot's
+    /// attack range, and the location of the robot and target.
+    ///
+    /// Healers cannot attack, and should use `can_heal()` instead.
     pub fn can_attack(&self, robot_id: UnitID, target_unit_id: UnitID) -> bool {
         self.world.can_attack(robot_id, target_unit_id)
     }
@@ -300,19 +453,22 @@ impl GameController {
     /// Whether the robot is ready to attack. Tests whether the robot's attack
     /// heat is sufficiently low.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is a healer, or not a robot.
+    /// Healers cannot attack, and should use `is_heal_ready()` instead.
     pub fn is_attack_ready(&self, robot_id: UnitID) -> bool {
         self.world.is_attack_ready(robot_id)
     }
 
-    /// Attacks the robot, dealing the unit's standard amount of damage.
+    /// Commands a robot to attack a unit, dealing the 
+    /// robot's standard amount of damage.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is a healer, or not a robot.
-    /// * GameError::InvalidAction - the robot cannot attack that location.
+    /// Healers cannot attack, and should use `heal()` instead.
+    ///
+    /// * NoSuchUnit - the unit does not exist (inside the vision range).
+    /// * TeamNotAllowed - the unit is not on the current player's team.
+    /// * InappropriateUnitType - the unit is not a robot, or is a healer.
+    /// * UnitNotOnMap - the unit or target is not on the map.
+    /// * OutOfRange - the target location is not in range.
+    /// * Overheated - the unit is not ready to attack.
     pub fn attack(&mut self, robot_id: UnitID, target_unit_id: UnitID) -> Result<(), Error> {
         let delta = Delta::Attack { robot_id, target_unit_id };
         self.world.apply(&delta)?;
@@ -328,9 +484,6 @@ impl GameController {
 
     /// The research info of the current team, including what branch is
     /// currently being researched, the number of rounds left.
-    ///
-    /// Note that mutating this object by resetting or queueing research
-    /// does not have any effect. You must call the mutators on world.
     pub fn research_info(&self) -> Result<ResearchInfo, Error> {
         Ok(self.world.research_info())
     }
@@ -371,11 +524,14 @@ impl GameController {
     /// Harvests up to the worker's harvest amount of karbonite from the given
     /// location, adding it to the team's resource pool.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a worker.
-    /// * GameError::InvalidLocation - the location is off the map.
-    /// * GameError::InvalidAction - the worker is not ready to harvest, or there is no karbonite.
+    /// * NoSuchUnit - the worker does not exist (within the vision range).
+    /// * TeamNotAllowed - the worker is not on the current player's team.
+    /// * InappropriateUnitType - the unit is not a worker.
+    /// * Overheated - the worker has already performed an action this turn.
+    /// * UnitNotOnMap - the worker is not on the map.
+    /// * LocationOffMap - the location in the target direction is off the map.
+    /// * LocationNotVisible - the location is not in the vision range.
+    /// * KarboniteDepositEmpty - the location described contains no Karbonite.
     pub fn harvest(&mut self, worker_id: UnitID, direction: Direction)
                    -> Result<(), Error> {
         let delta = Delta::Harvest { worker_id, direction };
@@ -398,12 +554,20 @@ impl GameController {
     /// Blueprints a unit of the given type in the given direction. Subtract
     /// cost of that unit from the team's resource pool.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a worker, or the
-    ///   unit type is not a factory or rocket.
-    /// * GameError::InvalidLocation - the location is off the map.
-    /// * GameError::InvalidAction - the worker is not ready to blueprint.
+    /// * NoSuchUnit - the worker does not exist (within the vision range).
+    /// * TeamNotAllowed - the worker is not on the current player's team.
+    /// * InappropriateUnitType - the unit is not a worker, or the unit type
+    ///   is not a structure.
+    /// * Overheated - the worker has already performed an action this turn.
+    /// * UnitNotOnMap - the unit is not on the map.
+    /// * LocationOffMap - the location in the target direction is off the map.
+    /// * LocationNotVisible - the location is outside the vision range.
+    /// * LocationNotEmpty - the location in the target direction is already
+    ///   occupied.
+    /// * CannotBuildOnMars - you cannot blueprint a structure on Mars.
+    /// * ResearchNotUnlocked - you do not have the needed research to blueprint rockets.
+    /// * InsufficientKarbonite - your team does not have enough Karbonite to
+    ///   build the requested structure.
     pub fn blueprint(&mut self, worker_id: UnitID, structure_type: UnitType,
                      direction: Direction) -> Result<(), Error> {
         let delta = Delta::Blueprint { worker_id, structure_type, direction };
@@ -425,10 +589,14 @@ impl GameController {
     /// amount. If raised to maximum health, the blueprint becomes a completed
     /// structure.
     ///
-    /// * GameError::NoSuchUnit - a unit does not exist.
-    /// * GameError::TeamNotAllowed - a unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit or blueprint is the wrong type.
-    /// * GameError::InvalidAction - the worker cannot build the blueprint.
+    /// * NoSuchUnit - either unit does not exist (within the vision range).
+    /// * TeamNotAllowed - either unit is not on the current player's team.
+    /// * UnitNotOnMap - the worker is not on the map.
+    /// * InappropriateUnitType - the unit is not a worker, or the blueprint
+    ///   is not a structure.
+    /// * Overheated - the worker has already performed an action this turn.
+    /// * OutOfRange - the worker is not adjacent to the blueprint.
+    /// * StructureAlreadyBuilt - the blueprint has already been completed.
     pub fn build(&mut self, worker_id: UnitID, blueprint_id: UnitID)
                  -> Result<(), Error> {
         let delta = Delta::Build { worker_id, blueprint_id };
@@ -448,6 +616,15 @@ impl GameController {
 
     /// Commands the worker to repair a structure, repleneshing health to it. This
     /// can only be done to structures which have been fully built.
+    ///
+    /// * NoSuchUnit - either unit does not exist (within the vision range).
+    /// * TeamNotAllowed - either unit is not on the current player's team.
+    /// * UnitNotOnMap - the worker is not on the map.
+    /// * InappropriateUnitType - the unit is not a worker, or the target
+    ///   is not a structure.
+    /// * Overheated - the worker has already performed an action this turn.
+    /// * OutOfRange - the worker is not adjacent to the structure.
+    /// * StructureNotYetBuilt - the structure has not been completed.
     pub fn repair(&mut self, worker_id: UnitID, structure_id: UnitID) -> Result<(), Error> {
         let delta = Delta::Repair { worker_id, structure_id };
         self.world.apply(&delta)?;
@@ -468,11 +645,17 @@ impl GameController {
     /// Replicates a worker in the given direction. Subtracts the cost of the
     /// worker from the team's resource pool.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a worker.
-    /// * GameError::InvalidLocation - the location is off the map.
-    /// * GameError::InvalidAction - the worker is not ready to replicate.
+    /// * NoSuchUnit - the worker does not exist (within the vision range).
+    /// * TeamNotAllowed - the worker is not on the current player's team.
+    /// * InappropriateUnitType - the unit is not a worker.
+    /// * Overheated - the worker is not ready to replicate again.
+    /// * InsufficientKarbonite - your team does not have enough Karbonite for
+    ///   the worker to replicate.
+    /// * UnitNotOnMap - the worker is not on the map.
+    /// * LocationOffMap - the location in the target direction is off the map.
+    /// * LocationNotVisible - the location is outside the vision range.
+    /// * LocationNotEmpty - the location in the target direction is already
+    ///   occupied.
     pub fn replicate(&mut self, worker_id: UnitID, direction: Direction)
                      -> Result<(), Error> {
         let delta = Delta::Replicate { worker_id, direction };
@@ -500,13 +683,15 @@ impl GameController {
         self.world.is_javelin_ready(knight_id)
     }
 
-    /// Javelins the robot, dealing the amount of ability damage.
+    /// Javelins the robot, dealing the knight's standard damage.
     ///
-    /// * GameError::InvalidResearchLevel - the ability has not been researched.
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a knight.
-    /// * GameError::InvalidAction - the knight cannot javelin that unit.
+    /// * NoSuchUnit - either unit does not exist (inside the vision range).
+    /// * TeamNotAllowed - the knight is not on the current player's team.
+    /// * UnitNotOnMap - the knight is not on the map.
+    /// * InappropriateUnitType - the unit is not a knight.
+    /// * ResearchNotUnlocked - you do not have the needed research to use javelin.
+    /// * OutOfRange - the target does not lie within ability range of the knight.
+    /// * Overheated - the knight is not ready to use javelin again.
     pub fn javelin(&mut self, knight_id: UnitID, target_unit_id: UnitID) -> Result<(), Error> {
         let delta = Delta::Javelin { knight_id, target_unit_id };
         self.world.apply(&delta)?;
@@ -520,16 +705,30 @@ impl GameController {
     // *************************** RANGER METHODS *****************************
     // ************************************************************************
 
+    /// Whether the ranger can begin to snipe the given location, without
+    /// taking into account the ranger's ability heat. Takes into account only
+    /// the target location and the unit's type and unlocked abilities.
+    pub fn can_begin_snipe(&self, ranger_id: UnitID, location: MapLocation) -> bool {
+        self.world.can_begin_snipe(ranger_id, location)
+    }
+
+    /// Whether the ranger is ready to begin snipe. Tests whether the ranger's
+    /// ability heat is sufficiently low.
+    pub fn is_begin_snipe_ready(&self, ranger_id: UnitID) -> bool {
+        self.world.is_begin_snipe_ready(ranger_id)
+    }
+
     /// Begins the countdown to snipe a given location. Maximizes the units
     /// attack and movement heats until the ranger has sniped. The ranger may
     /// begin the countdown at any time, including resetting the countdown
     /// to snipe a different location.
     ///
-    /// * GameError::InvalidResearchLevel - the ability has not been researched.
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a ranger.
-    /// * GameError::InvalidLocation - the location is off the map or on a different planet.
+    /// * NoSuchUnit - either unit does not exist (inside the vision range).
+    /// * TeamNotAllowed - the ranger is not on the current player's team.
+    /// * UnitNotOnMap - the ranger is not on the map.
+    /// * InappropriateUnitType - the unit is not a ranger.
+    /// * ResearchNotUnlocked - you do not have the needed research to use snipe.
+    /// * Overheated - the ranger is not ready to use snipe again.
     pub fn begin_snipe(&mut self, ranger_id: UnitID, location: MapLocation)
                        -> Result<(), Error> {
         let delta = Delta::BeginSnipe { ranger_id, location };
@@ -554,22 +753,22 @@ impl GameController {
 
     /// Whether the mage is ready to blink. Tests whether the mage's ability
     /// heat is sufficiently low.
-    ///
-    /// * GameError::InvalidResearchLevel - the ability has not been researched.
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a mage.
     pub fn is_blink_ready(&self, mage_id: UnitID) -> bool {
         self.world.is_blink_ready(mage_id)
     }
 
     /// Blinks the mage to the given location.
     ///
-    /// * GameError::InvalidResearchLevel - the ability has not been researched.
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a mage.
-    /// * GameError::InvalidAction - the mage cannot blink to that location.
+    /// * NoSuchUnit - the mage does not exist (inside the vision range).
+    /// * TeamNotAllowed - the mage is not on the current player's team.
+    /// * UnitNotOnMap - the mage is not on the map.
+    /// * InappropriateUnitType - the unit is not a mage.
+    /// * ResearchNotUnlocked - you do not have the needed research to use blink.
+    /// * OutOfRange - the target does not lie within ability range of the mage.
+    /// * LocationOffMap - the target location is not on this planet's map.
+    /// * LocationNotVisible - the target location is outside the vision range.
+    /// * LocationNotEmpty - the target location is already occupied.
+    /// * Overheated - the mage is not ready to use blink again.
     pub fn blink(&mut self, mage_id: UnitID, location: MapLocation) -> Result<(), Error> {
         let delta = Delta::Blink { mage_id, location };
         self.world.apply(&delta)?;
@@ -596,12 +795,15 @@ impl GameController {
         self.world.is_heal_ready(healer_id)
     }
 
-    /// Heals the robot, dealing the healer's standard amount of "damage".
+    /// Commands the healer to heal the target robot.
     ///
-    /// * GameError::NoSuchUnit - a unit does not exist.
-    /// * GameError::TeamNotAllowed - the first unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the healer or robot is not the right type.
-    /// * GameError::InvalidAction - the healer cannot heal that unit.
+    /// * NoSuchUnit - either unit does not exist (inside the vision range).
+    /// * InappropriateUnitType - the unit is not a healer, or the target is not
+    ///   a robot.
+    /// * TeamNotAllowed - either robot is not on the current player's team.
+    /// * UnitNotOnMap - the healer is not on the map.
+    /// * OutOfRange - the target does not lie within "attack" range of the healer.
+    /// * Overheated - the healer is not ready to heal again.
     pub fn heal(&mut self, healer_id: UnitID, target_robot_id: UnitID) -> Result<(), Error> {
         let delta = Delta::Heal { healer_id, target_robot_id };
         self.world.apply(&delta)?;
@@ -624,13 +826,17 @@ impl GameController {
         self.world.is_overcharge_ready(healer_id)
     }
 
-    /// Overcharges the robot, resetting the robot's cooldowns.
+    /// Overcharges the robot, resetting the robot's cooldowns. The robot must
+    /// be on the same team as you.
     ///
-    /// * GameError::InvalidResearchLevel - the ability has not been researched.
-    /// * GameError::NoSuchUnit - a unit does not exist.
-    /// * GameError::TeamNotAllowed - the first unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the healer or robot is not the right type.
-    /// * GameError::InvalidAction - the healer cannot overcharge that unit.
+    /// * NoSuchUnit - either unit does not exist (inside the vision range).
+    /// * TeamNotAllowed - either robot is not on the current player's team.
+    /// * UnitNotOnMap - the healer is not on the map.
+    /// * InappropriateUnitType - the unit is not a healer, or the target is not
+    ///   a robot.
+    /// * ResearchNotUnlocked - you do not have the needed research to use overcharge.
+    /// * OutOfRange - the target does not lie within ability range of the healer.
+    /// * Overheated - the healer is not ready to use overcharge again.
     pub fn overcharge(&mut self, healer_id: UnitID, target_robot_id: UnitID)
                       -> Result<(), Error> {
         let delta = Delta::Overcharge { healer_id, target_robot_id };
@@ -654,10 +860,15 @@ impl GameController {
 
     /// Loads the robot into the garrison of the structure.
     ///
-    /// * GameError::NoSuchUnit - a unit does not exist.
-    /// * GameError::TeamNotAllowed - either unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the robot or structure are the wrong type.
-    /// * GameError::InvalidAction - the robot cannot be loaded inside the structure.
+    /// * NoSuchUnit - either unit does not exist (inside the vision range).
+    /// * TeamNotAllowed - either unit is not on the current player's team.
+    /// * UnitNotOnMap - either unit is not on the map.
+    /// * Overheated - the robot is not ready to move again.
+    /// * InappropriateUnitType - the first unit is not a structure, or the
+    ///   second unit is not a robot.
+    /// * StructureNotYetBuilt - the structure has not yet been completed.
+    /// * GarrisonFull - the structure's garrison is already full.
+    /// * OutOfRange - the robot is not adjacent to the structure.
     pub fn load(&mut self, structure_id: UnitID, robot_id: UnitID)
                     -> Result<(), Error> {
         let delta = Delta::Load { structure_id, robot_id };
@@ -678,11 +889,16 @@ impl GameController {
     /// Unloads a robot from the garrison of the specified structure into an 
     /// adjacent space. Robots are unloaded in the order they were loaded.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a structure.
-    /// * GameError::InvalidLocation - the location is off the map.
-    /// * GameError::InvalidAction - the rocket cannot degarrison a unit.
+    /// * NoSuchUnit - the unit does not exist (inside the vision range).
+    /// * TeamNotAllowed - either unit is not on the current player's team.
+    /// * UnitNotOnMap - the structure is not on the map.
+    /// * InappropriateUnitType - the unit is not a structure.
+    /// * StructureNotYetBuilt - the structure has not yet been completed.
+    /// * GarrisonEmpty - the structure's garrison is already empty.
+    /// * LocationOffMap - the location in the target direction is off the map.
+    /// * LocationNotEmpty - the location in the target direction is already
+    ///   occupied.
+    /// * Overheated - the robot inside the structure is not ready to move again.
     pub fn unload(&mut self, structure_id: UnitID, direction: Direction)
                       -> Result<(), Error> {
         let delta = Delta::Unload { structure_id, direction };
@@ -706,11 +922,14 @@ impl GameController {
 
     /// Starts producing the robot of the given type.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist.
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a factory, or the
-    ///   queued unit type is not a robot.
-    /// * GameError::InvalidAction - the factory cannot produce the robot.
+    /// * NoSuchUnit - the factory does not exist (inside the vision range).
+    /// * TeamNotAllowed - the factory is not on the current player's team.
+    /// * InappropriateUnitType - the unit is not a factory, or the unit type
+    ///   is not a robot.
+    /// * StructureNotYetBuilt - the factory has not yet been completed.
+    /// * FactoryBusy - the factory is already producing a unit.
+    /// * InsufficientKarbonite - your team does not have enough Karbonite to
+    ///   produce the given robot.
     pub fn produce_robot(&mut self, factory_id: UnitID, robot_type: UnitType)
                        -> Result<(), Error> {
         let delta = Delta::ProduceRobot { factory_id, robot_type };
@@ -727,26 +946,28 @@ impl GameController {
 
     /// The landing rounds and locations of rockets in space that belong to the
     /// current team.
-    ///
-    /// Note that mutating this object does NOT have any effect on the actual
-    /// game. You MUST call the mutators in world!!
     pub fn rocket_landings(&self) -> RocketLandingInfo {
         self.world.rocket_landings()
     }
 
-    /// Whether the rocket can launch into space. The rocket can launch if the
-    /// it has never been used before.
+    /// Whether the rocket can launch into space to the given destination. The
+    /// rocket can launch if the it has never been used before. The destination
+    /// is valid if it contains passable terrain on the other planet.
     pub fn can_launch_rocket(&self, rocket_id: UnitID, destination: MapLocation) -> bool {
         self.world.can_launch_rocket(rocket_id, destination)
     }
 
-    /// Launches the rocket into space. If the destination is not on the map of
-    /// the other planet, the rocket flies off, never to be seen again.
+    /// Launches the rocket into space, damaging the units adjacent to the
+    /// takeoff location.
     ///
-    /// * GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-    /// * GameError::TeamNotAllowed - the unit is not on the current player's team.
-    /// * GameError::InappropriateUnitType - the unit is not a rocket.
-    /// * GameError::InvalidAction - the rocket cannot launch.
+    /// * NoSuchUnit - the rocket does not exist (inside the vision range).
+    /// * TeamNotAllowed - the rocket is not on the current player's team.
+    /// * SamePlanet - the rocket cannot fly to a location on the same planet.
+    /// * InappropriateUnitType - the unit is not a rocket.
+    /// * StructureNotYetBuilt - the rocket has not yet been completed.
+    /// * RocketUsed - the rocket has already been used.
+    /// * LocationOffMap - the given location is off the map.
+    /// * LocationNotEmpty - the given location contains impassable terrain.
     pub fn launch_rocket(&mut self, rocket_id: UnitID, location: MapLocation)
                          -> Result<(), Error> {
         let delta = Delta::LaunchRocket { rocket_id, location };
@@ -773,7 +994,9 @@ impl GameController {
             world: world.clone(),
             old_world: world,
             config: Config::runner_config(),
-            turn: TurnMessage { changes: vec![] }
+            turn: TurnMessage { changes: vec![] },
+            stream: None,
+            player_key: None
         }
     }
 
@@ -781,9 +1004,11 @@ impl GameController {
     /// only be called on Round 1, and should only be sent to Red Earth.
     ///
     /// Panics if we're past Round 1...
-    pub fn initial_start_turn_message(&self) -> (StartTurnMessage, ViewerKeyframe) {
-        (self.world.initial_start_turn_message(), 
-         ViewerKeyframe { world: self.world.clone() })
+    pub fn initial_start_turn_message(&self) -> InitialTurnApplication {
+        InitialTurnApplication {
+            start_turn: self.world.initial_start_turn_message(), 
+            viewer: ViewerKeyframe { world: self.world.clone() }
+        }
     }
 
     /// Get the first message to send to each player and initialize the world.
@@ -795,22 +1020,52 @@ impl GameController {
 
     /// Given a TurnMessage from a player, apply those changes.
     /// Receives the StartTurnMessage for the next player.
-    pub fn apply_turn(&mut self, turn: TurnMessage) -> (StartTurnMessage, ViewerMessage) {
+   pub fn apply_turn(&mut self, turn: &TurnMessage) -> TurnApplication {
         // Serialize the filtered game state to send to the player
-        let start_turn_message = self.world.apply_turn(&turn);
+        let start_turn = self.world.apply_turn(turn);
         // Serialize the game state to send to the viewer
-        let viewer_message = ViewerMessage { 
+        let viewer = ViewerMessage { 
             changes: turn.changes.clone(),
             units: self.world.get_viewer_units(),
             additional_changes: self.world.flush_viewer_changes(),
+            karbonite: self.world.karbonite(),
         };
-        (start_turn_message, viewer_message)
+        TurnApplication {
+            start_turn, viewer
+        }
     }    
     
     /// Determines if the game has ended, returning the winning team if so.
     pub fn is_game_over(&self) -> Option<Team> {
         self.world.is_game_over()
     }
+
+    pub fn is_over(&self) -> bool {
+        self.is_game_over().is_some()
+    }
+
+    pub fn winning_team(&self) -> Result<Team, Error> {
+        if let Some(team) = self.is_game_over() {
+            Ok(team)
+        } else {
+            bail!("Game is not finished");
+        }
+    }
+}
+
+/// Returned from apply_turn.
+/// This struct only exists because the bindings don't do tuples yet.
+#[derive(Debug, Clone)]
+pub struct TurnApplication {
+    pub start_turn: StartTurnMessage,
+    pub viewer: ViewerMessage
+}
+
+/// Returned from initial_start_turn_message.
+#[derive(Debug, Clone)]
+pub struct InitialTurnApplication {
+    pub start_turn: StartTurnMessage,
+    pub viewer: ViewerKeyframe
 }
 
 #[cfg(test)]
@@ -845,8 +1100,8 @@ mod tests {
         let mut player_controller_blue = GameController::new_player(blue_start_game_msg);
 
         // Send the first STM to red and test that red can move as expected.
-        let (initial_start_turn_msg, _) = manager_controller.initial_start_turn_message();
-        player_controller_red.start_turn(initial_start_turn_msg);
+        let initial_start_turn_msg = manager_controller.initial_start_turn_message();
+        player_controller_red.start_turn(&initial_start_turn_msg.start_turn);
         assert![!player_controller_red.can_move(red_robot, Direction::East)];
         assert![player_controller_red.can_move(red_robot, Direction::Northeast)];
         assert![player_controller_red.move_robot(red_robot, Direction::Northeast).is_ok()];
@@ -854,13 +1109,24 @@ mod tests {
         // End red's turn, and pass the message to the manager, which
         // generates blue's start turn message and starts blue's turn.
         let red_turn_msg = player_controller_red.end_turn();
-        let (blue_start_turn_msg, _) = manager_controller.apply_turn(red_turn_msg);
-        player_controller_blue.start_turn(blue_start_turn_msg);
+        let application = manager_controller.apply_turn(&red_turn_msg);
+        let blue_start_turn_msg = application.start_turn;
+        player_controller_blue.start_turn(&blue_start_turn_msg);
 
         // Test that blue can move as expected. This demonstrates
         // it has received red's actions in its own state.
         assert![!player_controller_blue.can_move(blue_robot, Direction::North)];
         assert![player_controller_blue.can_move(blue_robot, Direction::West)];
         assert![player_controller_blue.move_robot(blue_robot, Direction::West).is_ok()];
+    }
+
+    #[test]
+    fn test_serialization() {
+        use serde_json::to_string;
+        let mut c = GameController::new_manager(GameMap::test_map());
+        //println!("{}", to_string(&c.start_game(Player::new(Team::Red, Planet::Earth))
+            //.world.planet_states[&Planet::Earth]).unwrap());
+        println!("{}", to_string(&c.start_game(Player::new(Team::Red, Planet::Earth))).unwrap());
+        assert!(false);
     }
 }

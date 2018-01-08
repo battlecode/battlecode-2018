@@ -10,13 +10,12 @@ class Function(object):
 
     def to_swig(self):
         result = s(f'''\
-            %feature("docstring", "{self.docs}");
             {self.type.to_swig()} {self.name}({', '.join(a.to_swig() for a in self.args)});
         ''')
         return result
 
     def to_c(self):
-        return f'''{self.type.to_c()} {self.name}({', '.join(a.to_c() for a in self.args)});\n'''
+        return f'''{doxygen(self.docs)}{self.type.to_c()} {self.name}({', '.join(a.to_c() for a in self.args)});\n'''
 
     def to_rust(self):
         result = s(f'''\
@@ -30,15 +29,22 @@ class Function(object):
         return result
 
     @staticmethod
-    def pyentry(args, pyname, docs):
+    def pyentry(type, args, pyname, docs):
         pyargs = ', '.join(a.to_python() for a in args)
         start = f'def {pyname}({pyargs}):\n'
-        docs = s(f"'''{docs}'''\n", indent=4)
-        return start + docs #+ s(checks, indent=4)
+        hargs = args if len(args) > 0 and args[0].name != 'self' else args[1:]
+        mypy_hint = ', '.join(a.type.to_python() for a in hargs)
+        mypy_hint = f'# type: ({mypy_hint}) -> {type.to_python()}'
+        doc_hint = ''
+        for a in args:
+            doc_hint += f':type {a.name}: {a.type.to_python()}\n'
+        doc_hint += f':rtype: {type.to_python()}\n'
+        docs = s(f"{mypy_hint}\n'''{docs}\n{doc_hint}'''\n", indent=4)
+        return start + docs
 
     def to_swig(self):
         result = s(f'''\
-            %feature("docstring", "{self.docs}");
+            %newobject {self.name};
             {self.type.to_swig()} {self.name}({', '.join(a.to_swig() for a in self.args)});
         ''')
         return result
@@ -52,11 +58,11 @@ class Function(object):
         body += '_check_errors()\n'
         body += self.type.python_postfix()
         body += 'return result\n'
-        return Function.pyentry(self.args, self.name, self.docs) + s(body, indent=4)
+        return Function.pyentry(self.type, self.args, self.name, self.docs) + s(body, indent=4)
 
 class Method(Function):
     '''A function contained within some type.'''
-    def __init__(self, type, container, method_name, args, body='', docs='', pyname=None, static=False):
+    def __init__(self, type, container, method_name, args, body='', docs='', pyname=None, static=False, getter=False):
         self.container = container
         self.method_name = method_name
         self.static = static
@@ -65,11 +71,12 @@ class Method(Function):
             self.pyname = self.method_name
         else:
             self.pyname = pyname
+        self.getter = getter
 
     def to_swig(self):
         result = s(f'''\
-            %feature("docstring", "{self.docs}");{'ERROR BROKEN STATIC METHODS' if self.static else ''}
-            {self.type.to_swig()} {self.method_name}({', '.join(a.to_swig() for a in self.args)});
+            %newobject {self.name};
+            {self.type.to_swig()} {self.method_name}({', '.join(a.to_swig() for a in self.args[1:])});
         ''')
         return result
     
@@ -84,8 +91,13 @@ class Method(Function):
         body += '_check_errors()\n'
         body += self.type.python_postfix()
         body += 'return result\n'
-        pre = '@staticmethod\n' if self.static else ''
-        return pre + Function.pyentry(args, self.pyname, self.docs) + s(body, indent=4)
+        if self.static:
+            pre = '@staticmethod\n'
+        elif self.getter:
+            pre = '@property\n'
+        else:
+            pre = ''
+        return pre + Function.pyentry(self.type, args, self.pyname, self.docs) + s(body, indent=4)
 
 class FunctionWrapper(Function):
     def __init__(self, program, type, name, args):
