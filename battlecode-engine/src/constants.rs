@@ -46,7 +46,7 @@ pub const MAP_KARBONITE_MAX: u32 = 50;
 // *********************************
 
 /// The minimum number of rounds since the last asteroid strike.
-pub const ASTEROID_ROUND_MIN: Rounds = 2;
+pub const ASTEROID_ROUND_MIN: Rounds = 10;
 
 /// The maximum number of rounds since the last asteroid strike.
 pub const ASTEROID_ROUND_MAX: Rounds = 20;
@@ -55,13 +55,13 @@ pub const ASTEROID_ROUND_MAX: Rounds = 20;
 pub const ASTEROID_KARB_MIN: u32 = 20;
 
 /// The maximum karbonite in an asteroid strike.
-pub const ASTEROID_KARB_MAX: u32 = 200;
+pub const ASTEROID_KARB_MAX: u32 = 100;
 
 /// The minimum flight time due to the orbit.
-pub const ORBIT_FLIGHT_MIN: u32 = 100;
+pub const ORBIT_FLIGHT_MIN: u32 = 50;
 
 /// The maximum flight time due to the orbit.
-pub const ORBIT_FLIGHT_MAX: u32 = 400;
+pub const ORBIT_FLIGHT_MAX: u32 = 200;
 
 /// At the start of this round, all units on Earth are destroyed.
 pub const APOCALYPSE_ROUND: Rounds = 750;
@@ -73,10 +73,10 @@ pub const APOCALYPSE_ROUND: Rounds = 750;
 /// The starting amount of karbonite per team.
 pub const KARBONITE_STARTING: u32 = 100;
 /// The base amount of karbonite gained per turn.
-pub const KARBONITE_PER_ROUND: u32 = 5;
+pub const KARBONITE_PER_ROUND: u32 = 10;
 /// The karbonite per round is decreased by 1 karbonite for every
 /// KARBONITE_DECREASE_RATIO karbonite in the stockpile.
-pub const KARBONITE_DECREASE_RATIO: u32 = 100;
+pub const KARBONITE_DECREASE_RATIO: u32 = 40;
 
 // *********************************
 // ****** RESEARCH CONSTANTS *******
