@@ -74,6 +74,7 @@ use {crate} as {module};
 use std::os::raw::c_char;
 use std::cell::RefCell;
 use std::ffi::{{CStr, CString}};
+use std::ops::Index;
 use std::panic;
 use std::ptr;
 use std::mem;
@@ -276,13 +277,24 @@ def _check_errors():
         _lib.{module}_free_string(_lasterror[0])
         raise Exception(errtext)
 
+def game_turns():
+    """Usage:
+    for controller in game_turns():
+        #controller is a GameController; do things with it
+        print(controller.round)
+    """
+    controller = GameController()
+    while not controller.is_over():
+        yield controller
+        controller.next_turn()
+
 '''
 PYTHON_FOOTER = ''
 
 class TypedefWrapper(object):
     def __init__(self, program, rust_name, c_type):
         self.program = program
-        self.type = Type(f'{program.module}::{rust_name}', c_type.swig, c_type.python, c_type.default)
+        self.type = BuiltinType(f'{program.module}::{rust_name}', c_type.swig, c_type.python, c_type.default)
     
     to_rust = to_c = to_swig = to_python = lambda self: ''
 
@@ -296,6 +308,15 @@ class Program(object):
         # maintaining the "thing.type" idiom
         self.string = namedtuple('String', ['type'])(StringType(self.module))
         self.strref = namedtuple('StrRef', ['type'])(StrRefType(self.module))
+    
+    def vec(self, type):
+        vec = self.struct(f"vec::Vec::<{type.orig_rust()}>", module="std", docs=f"An immutable list of {type.orig_rust()} objects")
+        vec.debug()
+        vec.clone()
+        vec.method(usize.type, "len", [], pyname="__len__")
+        # TODO impl option and use .get() instead
+        vec.method(type.ref(), "index", [Var(usize.type, "index")], pyname="__getitem__")
+        return vec
 
     def add(self, elem):
         return self

@@ -45,9 +45,32 @@ class Type(object):
     def result(self):
         return ResultType(self)
 
+    def orig_rust(self):
+        return self.rust
+
+class BuiltinType(Type):
+    def __init__(self, rust, swig, python, default="!!no default!!", is_ref=False):
+        super().__init__(rust, swig, python, default=default)
+        self.is_ref = is_ref
+    
+    def ref(self):
+        return BuiltinType(self.rust, self.swig, self.python, default=self.default, is_ref=True)
+
+    def wrap_c_value(self, value):
+        if self.is_ref:
+            return '&' + value
+        else:
+            return ('', value, '')
+
+    def unwrap_rust_value(self, value):
+        if self.is_ref:
+            return '*' + value
+        else:
+            return value
+
 class BuiltinWrapper(object):
     def __init__(self, *args):
-        self.type = Type(*args)
+        self.type = BuiltinType(*args)
 
 char = BuiltinWrapper('char', 'c_char', 'int', '0')
 u8 = BuiltinWrapper('u8', 'uint8_t', 'int', '0')
@@ -58,7 +81,9 @@ u32 = BuiltinWrapper('u32', 'uint32_t', 'int', '0')
 i32 = BuiltinWrapper('i32', 'int32_t', 'int', '0')
 u64 = BuiltinWrapper('u64', 'uint64_t', 'int', '0')
 i64 = BuiltinWrapper('i64', 'int64_t', 'int', '0')
-void = BuiltinWrapper('()', 'void', 'int', '()')
+void = BuiltinWrapper('()', 'void', 'None', '()')
+usize = BuiltinWrapper('usize', 'uintptr_t', 'int', '0')
+isize = BuiltinWrapper('isize', 'intptr_t', 'int', '0')
 
 # boolean's an odd case.
 # it's size isn't actually defined by C, so we can't return it from rust.
@@ -69,6 +94,9 @@ boolean.type.wrap_c_value = lambda name: ('', f'{name} as bool', '')
 boolean.type.unwrap_rust_value = lambda name: f'{name} as u8'
 boolean.type.python_postfix = lambda: 'result = bool(result)\n'
 boolean.type.wrap_python_value = lambda name: f'int({name})'
+
+# hack used in "debug" impl
+_stringliteral = BuiltinWrapper('&str', 'INVALID', 'INVALID', '""')
 
 class ResultType(Type):
     '''A Result<T, failure::Error>.'''
@@ -95,7 +123,7 @@ class StringType(Type):
     '''A rust String.'''
     def __init__(self, module):
         self.module = module
-        super().__init__('*const c_char', 'char*', 'char*', '0 as *const _')
+        super().__init__('*const c_char', 'char*', 'str', '0 as *const _')
     
     def wrap_c_value(self, name):
         pre = ''
@@ -115,6 +143,9 @@ class StringType(Type):
             _lib.{self.module}_free_string(result)
             result = _result
         ''')
+    
+    def orig_rust(self):
+        return 'String'
 
 class StrRefType(StringType):
     '''The &str type.
@@ -126,3 +157,6 @@ class StrRefType(StringType):
     def wrap_c_value(self, name):
         value = f'&*(unsafe{{CStr::from_ptr({name})}}).to_string_lossy()'
         return ('', value, '')
+
+    def orig_rust(self):
+        return '&str'

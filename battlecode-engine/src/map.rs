@@ -30,6 +30,8 @@ pub struct GameMap {
 
 impl GameMap {
     /// Validate the game map.
+    ///
+    /// * InvalidMapObject - the game map is invalid.
     pub fn validate(&self) -> Result<(), Error> {
         self.earth_map.validate()?;
         self.mars_map.validate()?;
@@ -97,6 +99,8 @@ pub struct PlanetMap {
 
 impl PlanetMap {
     /// Validates the map and checks some invariants are followed.
+    ///
+    /// * InvalidMapObject - the planet map is invalid.
     pub fn validate(&self) -> Result<(), Error> {
         // The width and height are of valid dimensions.
         if !(self.height >= MAP_HEIGHT_MIN && self.height <= MAP_HEIGHT_MAX &&
@@ -180,22 +184,23 @@ impl PlanetMap {
     /// false when the square contains impassable terrain (distinct from
     /// containing a building, for instance).
     ///
-    /// Errors if the location is off the map.
+    /// * LocationOffMap - the location is off the map.
     pub fn is_passable_terrain_at(&self, location: MapLocation) -> Result<bool, Error> {
         if self.on_map(location) {
             Ok(self.is_passable_terrain[location.y as usize][location.x as usize])
         } else {
-            Err(GameError::InvalidLocation)?
+            Err(GameError::LocationOffMap)?
         }
     }
 
     /// The amount of Karbonite initially deposited at the given location.
-    /// Errors if the location is off the map.
+    ///
+    /// * LocationOffMap - the location is off the map.
     pub fn initial_karbonite_at(&self, location: MapLocation) -> Result<u32, Error> {
         if self.on_map(location) {
             Ok(self.initial_karbonite[location.y as usize][location.x as usize])
         } else {
-            Err(GameError::InvalidLocation)?
+            Err(GameError::LocationOffMap)?
         }
     }
 
@@ -307,6 +312,8 @@ impl AsteroidPattern {
     }
 
     /// Validates the asteroid pattern.
+    ///
+    /// * InvalidMapObject - the asteroid pattern is invalid.
     pub fn validate(&self) -> Result<(), Error> {
         // The Karbonite on each asteroid is in the range
         // [ASTEROID_KARB_MIN, ASTEROID_KARB_MAX], inclusive.
@@ -371,6 +378,8 @@ impl OrbitPattern {
     }
 
     /// Validates the orbit pattern.
+    ///
+    /// * InvalidMapObject - the orbit pattern is invalid.
     pub fn validate(&self) -> Result<(), Error> {
         // The flight times are within [ORIBIT_FLIGHT_MIN, ORBIT_FLIGHT_MAX].
         if self.center - self.amplitude < ORBIT_FLIGHT_MIN {
