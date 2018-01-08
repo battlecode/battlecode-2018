@@ -2,7 +2,6 @@ from pathlib import Path
 from threading import Timer
 from tqdm import tqdm
 import os, time, socket, fcntl, struct, string, random, io, zipfile, boto3, docker
-import config
 from distutils.dir_util import copy_tree
 
 def delete_folder(path):
@@ -51,9 +50,10 @@ class Sandbox:
     def start(self):
         volumes = {str(self.working_dir.absolute()):{'bind':'/code','mode':'ro'},self.socket_file:{'bind':'/tmp/battlecode-socket'}}
         working_dir = '/code'
-        command = 'sh run.sh ' + ' '.join(['/tmp/battlecode-socket',self.player_key])
+        command = 'sh run.sh'
+        env = {'PLAYER_KEY':self.player_key,'SOCKET_FILE':self.socket_file}
 
-        self.container = self.docker.containers.run(os.environ['SANDBOX'],command,privileged=False,detach=True,cpu_percent=config.PLAYER_CPU_PERCENT,mem_limit=config.PLAYER_MEM_LIMIT,memswap_limit=config.PLAYER_MEM_LIMIT,stdout=True,stderr=True,volumes=volumes,working_dir=working_dir)
+        self.container = self.docker.containers.run(os.environ['SANDBOX'],command,privileged=False,detach=True,cpu_percent=int(os.environ['PLAYER_CPU_PERCENT']),mem_limit=os.environ['PLAYER_MEM_LIMIT'],memswap_limit=os.environ['PLAYER_MEM_LIMIT'],stdout=True,stderr=True,volumes=volumes,working_dir=working_dir,environment=env)
 
     def pause(self):
         if self.container.status == 'running':
@@ -72,32 +72,17 @@ class Sandbox:
         return self.container.logs(stdout=stdout,stderr=stderr,timestamps=timestamps,stream=stream)
 
     def destroy(self):
+        logs = self.container.logs(stdout=True,stderr=True,timestamps=True,stream=False)
         try:
             self.container.remove(force=True)
         except Exception as e:
             pass
 
         delete_folder(self.working_dir)
+        return logs
 
     def stats(self, stream=False):
         return self.container.stats(decode=True, stream=stream)
 
     def __del__(self):
         self.destroy()
-
-if __name__ == "__main__":
-    client = docker.from_env()
-    s3 = boto3.resource('s3')
-    bucket = s3.Bucket(config.REPLAY_BUCKET_NAME)
-
-    sandboxes = []
-    for _ in tqdm(range(50)):
-        sandboxes.append(Sandbox(client,bucket,"test.zip",6147))
-
-    for sandbox in sandboxes:
-        sandbox.start()
-
-    time.sleep(60)
-
-    for sandbox in sandboxes:
-        sandbox.destroy()

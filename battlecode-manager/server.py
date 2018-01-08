@@ -11,7 +11,7 @@ import random
 import sys
 import logging
 import ujson as json
-import engine
+import battlecode as bc
 
 # TODO:
 # Timing works, but still has to be checked
@@ -20,9 +20,7 @@ import engine
 
 INIT_TIME = 250
 TIME_PER_TURN = 10
-
-
-
+NUM_PLAYERS = 4
 
 class Game(object): # pylint: disable=too-many-instance-attributes
     '''
@@ -33,8 +31,8 @@ class Game(object): # pylint: disable=too-many-instance-attributes
     reception is done by the ReceiveHandler and socket server
     '''
 
-    def __init__(self, num_players: int, logging_level=logging.DEBUG,
-                 logging_file="server.log", map_file=''):
+    def __init__(self, game_map: bc.GameMap, logging_level=logging.DEBUG,
+                 logging_file="server.log"):
 
         logging.basicConfig(filename=logging_file, level=logging_level)
         '''
@@ -43,39 +41,36 @@ class Game(object): # pylint: disable=too-many-instance-attributes
             num_players: Number of players
             state:       Start state of game (Note can be snapshot
         '''
-        self.num_players = num_players
-        self.player_ids = [] # Array containing the player ids
+        self.players = [] # Array containing the player ids
         # Dict taking player id and giving bool of log in
         self.player_logged = {}
         # Dict taking player id and giving amount of time left as float
         self.times = {}
 
         # Initialize the player_ids
-        for _ in range(num_players):
+        for _ in range(NUM_PLAYERS):
             new_id = random.randrange(65536)
-            self.player_ids.append(new_id)
+            self.players.append({'id':new_id})
+            self.players[-1]['player'] = bc.Player(bc.Team.Red if index < 2 else bc.Team.Blue, bc.Planet.Earth if index % 2 == 0 else bc.Planet.Mars)
             self.player_logged[new_id] = False
-            # Whatever timing is can be handled here
             self.times[new_id] = INIT_TIME
 
         self.started = False
         self.game_over = False
 
-
-
         # Lock thread running player should hold
         self.running_lock = threading.RLock()
         self.this_turn_pid = 0 # The id of the player whose turn it is
 
-        # Game state
-        # This is initializing the engine, so we pass the map name and etc
-        # TODO replace with actual engine code here
-        if map_file == '' or map_file is None:
-            self.state = engine.init_state()
-        else:
-            # Yea this will get replaced by actual engine code later
-            pass
+        self.map = game_map
+
+        self.manager = bc.GameController.new_manager(self.map)
+        for player in self.players:
+            player['start_message'] = self.manager.start_game(player['player']).to_json()
         self.viewer_messages = []
+        self.last_message = self.manager.initial_start_turn_message().start_turn.to_json()
+        # deal with self.manager.initial_start_turn_message().viewer
+        self.initialized = False
 
     @property
     def num_log_in(self):
@@ -114,7 +109,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
 
         # Check if all the players are logged in and then start the game
         logging.info("Player logged in: %s", self.player_logged)
-        if len(self.player_ids) == self.num_log_in:
+        if len(self.players) == self.num_log_in:
             self.start_game()
         return client_id
 
@@ -125,7 +120,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         '''
 
         # Init the player who starts and then tell everyone we started
-        self.this_turn_pid = self.player_ids[0]
+        self.this_turn_pid = self.players[0]['id']
         self.started = True
         return
 
@@ -189,7 +184,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
 
 
 
-    def make_action(self, moves: bytes, client_id: int, diff_time: float):
+    def make_action(self, turn_message: bc.TurnMessage, client_id: int, diff_time: float):
         '''
         Take action data and give it to the engine
         Args:
@@ -199,7 +194,9 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         # interact with the engine
         # TODO add to viewer_messages
         self.viewer_messages.append("")
-        self.state = engine.commit_actions(self.state, moves, client_id)
+        application = self.manager.apply_turn(turn_message)
+        self.last_message = application.start_turn.to_json()
+        # handle application.viewer.to_json()
         self.times[client_id] -= diff_time
         return
 
@@ -323,7 +320,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             message['logged_in'] = self.logged_in
             message['client_id'] = self.client_id
             message['error'] = self.error
-            message['state_diff'] = state_diff
+            message['message'] = state_diff
             return message
 
         def player_handler(self):
@@ -357,11 +354,12 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
 
                 self.send_message(log_success)
 
+            """
             if use_docker:
                 # Attribute defined here for ease of use.
                 self.docker = self.dockers[self.client_id]#pylint: disable=W0201
                 self.docker.pause()
-
+            """
 
             logging.debug("Client %s: Spinning waiting for game to start",
                           self.client_id)
@@ -373,52 +371,62 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
 
             logging.info("Client %s: Game started", self.client_id)
 
+
             while self.game.started and not self.game.game_over:
                 # This is the loop that the code will always remain in
 
                 # Blocks until it this clients turn
                 self.game.start_turn(self.client_id)
-                if self.game.game_over:
-                    # Cleanup
-                    self.request.close()
-                    if use_docker:
-                        self.docker.destroy()
-                    return
 
+                game_over = game.manager.is_game_over()
+                # check if game is over, if so, get winner in winner variables
+                if game_over is True: #replace with actual checking
+                    winner = 0 #report the winner
+                    self.request.close()
+                    logs = self.docker.destroy()
+                    report_winner() # somehow alert people who won
+                    return
 
 
                 logging.debug("Client %s: Started turn", self.client_id)
 
-                # TODO get message to send to player
-                state_diff = self.game.state
-                start_turn_msg = self.message(state_diff)
+                if game.initialized:
+                    start_turn_msg = self.message(game.last_message)
+                else:
+                    for player in self.game.players:
+                        if player['id'] == self.game.this_turn_pid:
+                            start_turn_msg = player['start_message']
 
-                # Start player code computing
+                """# Start player code computing
                 if use_docker:
                     self.docker.unpause()
+                """
 
                 # TODO check this timer makes, sense it looks like the right one
                 # but i'm getting wierd results when testing?
                 start_time = time.perf_counter()
                 self.send_message(start_turn_msg)
 
-                unpacked_data = self.get_next_message()
-                end_time = time.perf_counter()
-                diff_time = end_time-start_time
+                if game.initialized:
+                    unpacked_data = self.get_next_message()
+                    end_time = time.perf_counter()
+                    diff_time = end_time-start_time
 
-                # Check client is who they claim they are
-                if unpacked_data['client_id'] != self.client_id:
-                    assert False, "Wrong Client id"
+                    # Check client is who they claim they are
+                    if unpacked_data['client_id'] != self.client_id:
+                        assert False, "Wrong Client id"
 
-                # Get the moves to pass to the game
-                moves = unpacked_data['moves']
+                    # Get the moves to pass to the game
+                    turn_message = bc.TurnMessage.from_json(unpacked_data['turn_message'])
 
-                # TODO add engine processing here
-                game.make_action(moves, self.client_id, diff_time)
+                    game.make_action(turn_message, self.client_id, diff_time)
 
 
+
+                """
                 if use_docker:
                     self.docker.pause()
+                """
                 self.game.end_turn()
 
         def viewer_handler(self):
