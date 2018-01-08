@@ -33,6 +33,7 @@ def run_game(game, dockers, args, sock_file):
     for player_key in DOCKERS:
         docker_inst = DOCKERS[player_key]
         docker_inst.start()
+        docker_inst.stream_logs()
 
     # Wait until all the code is done then clean up
     while not GAME.game_over:
