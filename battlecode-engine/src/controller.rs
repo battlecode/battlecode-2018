@@ -2,7 +2,6 @@
 //! the API that the player will use, and for generating messages to
 //! send to other parts of the Battlecode infrastructure.
 
-use config::Config;
 use location::*;
 use map::*;
 use research::*;
@@ -15,6 +14,32 @@ use world::*;
 use failure::Error;
 use fnv::FnvHashMap;
 
+/// Configuration for the game controller.
+pub struct Config {
+    /// Whether to generate messages to be sent to the viewer.
+    pub generate_viewer_messages: bool,
+
+    /// Whether to generate turn messages.
+    pub generate_turn_messages: bool,
+}
+
+impl Config {
+    pub fn player_config() -> Config {
+        Config {
+            generate_viewer_messages: false,
+            generate_turn_messages: true,
+        }
+    }
+
+    pub fn runner_config() -> Config {
+        Config {
+            generate_viewer_messages: true,
+            generate_turn_messages: true,
+        }
+    }
+}
+
+/// The outermost layer of the engine stack.
 pub struct GameController {
     world: GameWorld,
     old_world: GameWorld,
