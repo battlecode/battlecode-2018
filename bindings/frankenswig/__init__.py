@@ -243,8 +243,6 @@ SWIG_HEADER = '''%module {module}
 // used to tell swig to not generate pointer types for arguments
 // passed by pointer
 %include "typemaps.i"
-// good enums
-%include "enums.swg"
 
 // This code is inserted around every method call.
 %exception {{
@@ -263,6 +261,8 @@ typedef uint8_t magicbool;
 // We generate code with the prefix "{module}_".
 // This will strip it out.
 #ifdef SWIGJAVA
+// good enums
+%include "enums.swg"
 %rename("%(lowercamelcase)s", %$isfunction) "";
 %rename("%(strip:[{module}_])s", %$isclass) "";
 %rename("%(strip:[{module}_])s", %$isenum) "";

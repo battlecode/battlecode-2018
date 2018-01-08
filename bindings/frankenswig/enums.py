@@ -29,7 +29,7 @@ class CEnum(object):
         return start + s(internal, indent=4) + end
 
     def to_swig(self):
-        start = f'%javaconst(1);\ntypedef enum {self.c_name} {{\n'
+        start = f'#ifdef SWIGJAVA\n%javaconst(1);\n#endif\ntypedef enum {self.c_name} {{\n'
         internal = '\n'.join(f'{name} = {val},' for (name, val) in self.variants)
         end = f'\n}} {self.c_name};\n'
 
