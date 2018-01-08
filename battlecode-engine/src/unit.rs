@@ -135,8 +135,8 @@ impl UnitType {
             },
             Factory => Unit {
                 unit_type: Factory,
-                health: 1000 / 4,
-                max_health: 1000,
+                health: 300 / 4,
+                max_health: 300,
                 ..Default::default()
             },
             Rocket => Unit {
