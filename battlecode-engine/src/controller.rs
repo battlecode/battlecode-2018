@@ -537,7 +537,7 @@ impl GameController {
     /// taking into account the ranger's ability heat. Takes into account only
     /// the target location and the unit's type and unlocked abilities.
     pub fn can_begin_snipe(&self, ranger_id: UnitID, location: MapLocation) -> bool {
-        self.world.can_begin_snipe()
+        self.world.can_begin_snipe(ranger_id, location)
     }
 
     /// Whether the ranger is ready to begin snipe. Tests whether the ranger's
