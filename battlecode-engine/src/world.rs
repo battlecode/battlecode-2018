@@ -1,6 +1,7 @@
 //! The core battlecode engine.
 
 use fnv::FnvHashMap;
+use rand;
 use std::cmp;
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -2232,8 +2233,7 @@ impl GameWorld {
         }
 
         // 3. "RNG"
-        // TODO: create an unpredictably seeded RNG for this
-        match 6147 % 2 {
+        match rand::random::<u8>() % 2 {
             0 => Some(Team::Blue),
             1 => Some(Team::Red),
             _ => unreachable!(),
