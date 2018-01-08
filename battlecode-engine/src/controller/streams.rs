@@ -24,28 +24,38 @@ impl Streams {
     }
 
     pub(crate) fn read<T: DeserializeOwned>(&mut self) -> Result<T, Error> {
+        println!("reading");
         let mut buf: [u8; 256] = unsafe { mem::uninitialized() };
 
         loop {
+            println!("loop self.buf.len(): {}", self.buf.len());
             let len = self.stream.read(&mut buf[..]);
             match len {
                 Ok(len) => {
+                    println!("read {}", len);
                     let newline = buf[..len].iter().position(|&b| b == b'\n');
                     if let Some(idx) = newline {
+                        println!("newline {}", idx);
                         self.buf.extend(buf[..idx].iter());
                         let t = from_slice(&self.buf[..]);
                         self.buf.clear();
                         self.buf.extend(buf[idx+1..len].iter());
+                        println!("self buf len: {}", self.buf.len());
+                        println!("yielding value");
                         return Ok(t?);
                     } else {
+                        println!("no newline");
                         // no data; continue
                         self.buf.extend(buf[..].iter())
                     }
                 },
                 Err(e) => {
+                    println!("err");
                     if e.kind() == ErrorKind::Interrupted {
+                        println!("interrupted");
                         continue;
                     } else {
+                        println!("some other goddamn thing");
                         Err(e)?
                     }
                 }
@@ -54,8 +64,10 @@ impl Streams {
     }
 
     pub(crate) fn write<T: Serialize>(&mut self, value: &T) -> Result<(), Error> {
+        println!("writing");
         to_writer(&mut self.stream, value)?;
         self.stream.write_all(b"\n")?;
+        println!("wrote");
         Ok(())
     }
 }

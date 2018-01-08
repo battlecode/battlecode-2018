@@ -61,6 +61,7 @@ fn check_message<T>(msg: ReceivedMessage<T>, player_key: &str) -> Result<T, Erro
         error,
         message
     } = msg;
+    println!("check_message");
     if !logged_in {
         bail!("Not logged in?");
     }
@@ -93,6 +94,7 @@ impl GameController {
     /// It will connect to the manager and block until it's your turn. (Don't worry, you'll be
     /// paused during the blocking anyway.)
     pub fn new_player_env() -> Result<GameController, Error> {
+        println!("new_player_env");
         let socket_file = env::var("SOCKET_FILE")?;
         let player_key = env::var("PLAYER_KEY")?;
 
@@ -101,6 +103,7 @@ impl GameController {
         stream.write(&LoginMessage {
             client_id: player_key.clone()
         })?;
+        println!("sent login");
 
         // wait for response with empty string in message field
         let msg = stream.read::<ReceivedMessage<String>>()?;
@@ -108,16 +111,21 @@ impl GameController {
         if &s[..] != "" {
             bail!("Non-empty login response: {}", s);
         }
+        println!("received login resp");
 
         // block, and eventually receive the start game message
         let msg = stream.read::<ReceivedMessage<StartGameMessage>>()?;
         let StartGameMessage { mut world } = check_message(msg, &player_key[..])?;
 
+        println!("received startgame");
+
         // then the start turn message
         let msg = stream.read::<ReceivedMessage<StartTurnMessage>>()?;
         let turn = check_message(msg, &player_key[..])?;
+        println!("received startturn");
         world.start_turn(&turn);
 
+        println!("yielding");
         // now return and let the player do their thing on the first turn :)
         Ok(GameController {
             old_world: world.clone(),
@@ -143,19 +151,24 @@ impl GameController {
         let mut turn_message = TurnMessage { changes: vec![] };
         mem::swap(&mut self.turn, &mut turn_message);
 
+        println!("write turnmessage");
         // send off our previous turn
         self.stream.as_mut().unwrap().write(&SentMessage {
             client_id: self.player_key.as_ref().unwrap().clone(),
             turn_message
         })?;
+        println!("wrote");
 
         // block and receive the state for our next turn
         let msg = self.stream.as_mut().unwrap().read::<ReceivedMessage<StartTurnMessage>>()?;
         let start_turn = check_message(msg, &self.player_key.as_ref().unwrap()[..])?;
+        println!("write turnmessage");
 
         // setup the world state
         self.old_world.start_turn(&start_turn);
         self.world = self.old_world.clone();
+
+        println!("yielding");
 
         // yield control to the player
         Ok(())
