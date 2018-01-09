@@ -15,13 +15,6 @@ import ujson as json
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../bindings/python')))
 import battlecode as bc
 
-# TODO:
-# Timing works, but still has to be checked
-# We should also check that pausing doesn't hurt unix streams they don't
-# have
-
-INIT_TIME = .250
-TIME_PER_TURN = 10
 NUM_PLAYERS = 4
 
 class Game(object): # pylint: disable=too-many-instance-attributes
@@ -34,8 +27,10 @@ class Game(object): # pylint: disable=too-many-instance-attributes
     '''
 
     def __init__(self, game_map: bc.GameMap, logging_level=logging.DEBUG,
-                 logging_file="server.log"):
+                 logging_file="server.log", time_pool=1000, time_additional=50):
 
+        self.time_pool = time_pool/1000.
+        self.time_additional = time_additional/1000.
         logging.basicConfig(filename=logging_file, level=logging_level)
         '''
         Initialize Game object
@@ -49,13 +44,15 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         # Dict taking player id and giving amount of time left as float
         self.times = {}
 
+        self.disconnected = False
+
         # Initialize the players
         for index in range(NUM_PLAYERS):
             new_id = random.randrange(65536)
             self.players.append({'id':new_id})
             self.players[-1]['player'] = bc.Player(bc.Team.Red if index % 2 == 0 else bc.Team.Blue, bc.Planet.Earth if index < 2 else bc.Planet.Mars)
             self.player_logged[new_id] = False
-            self.times[new_id] = INIT_TIME
+            self.times[new_id] = self.time_pool
 
         self.started = False
         self.game_over = False
@@ -176,17 +173,19 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         '''
 
         logging.debug("Client %s: entered start turn", client_id)
+        exit_well = False
         while not self.game_over:
             print(str(client_id)+ " waiting")
             time.sleep(0.05)
             if self.running_lock.acquire(timeout=0.1):
                 if  self.this_turn_pid == client_id:
+                    exit_well = True
                     break
                 self.running_lock.release()
 
-        self.times[client_id] += TIME_PER_TURN
+        self.times[client_id] += self.time_additional
         logging.debug("Client %s: exit start turn", client_id)
-        return
+        return exit_well
 
 
 
@@ -260,14 +259,28 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 wrapped_socket.close()
                 recv_socket.close()
                 logging.warning("Client %s: Game Over", self.client_id)
+                self.disconnected = True
+                for i in range(NUM_PLAYERS):
+                    if self.client_id == self.game.players[i]['id']:
+                        if i < 2:
+                            self.game.winner = 'player2'
+                        else:
+                            self.game.winner = 'player1'
                 self.game.game_over = True
                 sys.exit(0)
             except KeyboardInterrupt:
                 wrapped_socket.close()
                 recv_socket.close()
-                self.game.game_over = True
+                self.disconnected = True
+                for i in range(NUM_PLAYERS):
+                    if self.client_id == self.game.players[i]['id']:
+                        if i < 2:
+                            self.game.winner = 'player2'
+                        else:
+                            self.game.winner = 'player1'
                 logging.warning("Client %s: Game Over", self.client_id)
                 print("Cleaning up")
+                self.game.game_over = True
                 raise KeyboardInterrupt
             finally:
                 wrapped_socket.close()
@@ -303,12 +316,27 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             try:
                 wrapped_socket.write(encoded_message)
             except IOError:
-                # TODO handle DCs better
+                self.disconnected = True
+                for i in range(NUM_PLAYERS):
+                    if self.client_id == self.game.players[i]['id']:
+                        if i < 2:
+                            self.game.winner = 'player2'
+                        else:
+                            self.game.winner = 'player1'
+                logging.warning("Client %s: Game Over", self.client_id)
+                print("Cleaning up")
                 self.game.game_over = True
                 wrapped_socket.close()
                 send_socket.close()
                 sys.exit(0)
             except KeyboardInterrupt:
+                self.disconnected = True
+                for i in range(NUM_PLAYERS):
+                    if self.client_id == self.game.players[i]['id']:
+                        if i < 2:
+                            self.game.winner = 'player2'
+                        else:
+                            self.game.winner = 'player1'
                 self.game.game_over = True
                 wrapped_socket.close()
                 send_socket.close()
@@ -394,14 +422,14 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 # This is the loop that the code will always remain in
 
                 # Blocks until it this clients turn
-                self.game.start_turn(self.client_id)
+                if not self.game.start_turn(self.client_id):
+                    self.request.close()
+                    return
 
                 if self.game.manager.is_over():
                     self.game.game_over = True
-                    winner = game.manager.winning_team()
                     self.game.end_turn()
                     self.request.close()
-                    print("exiting")
                     return
 
 
@@ -451,13 +479,9 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             '''
             This handles the connection to the viewer
             '''
-            pass
-
-            while True:
-                # TODO interact with engine and send next message
-                for message in self.game.get_next_message():
-                    # TODO check this schema works for the viewer
-                    self.send_message(message)
+            for message in self.game.get_next_message():
+                # TODO check this schema works for the viewer
+                self.send_message(message)
 
         def handle(self):
             '''

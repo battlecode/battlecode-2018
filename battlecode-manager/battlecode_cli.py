@@ -14,7 +14,7 @@ import battlecode as bc
 import ujson as json
 
 # TODO port number
-PORT = 808
+PORT = 16147
 
 def run_game(game, dockers, args, sock_file):
     '''
@@ -24,12 +24,10 @@ def run_game(game, dockers, args, sock_file):
     '''
 
     # Start the unix stream server
-    print("Here?")
     server.start_server(sock_file, game, dockers)
 
     if args['use_viewer']:
-        # TODO check this function
-        server.start_viewer_server(PORT, game)
+        viewer_server = server.start_viewer_server(PORT, game)
 
     # Start the docker instances
     for player_key in dockers:
@@ -41,18 +39,22 @@ def run_game(game, dockers, args, sock_file):
     while not game.game_over:
         print("Game is not Over")
         time.sleep(1)
-    
+
     print("Dumping matchfile")
-    matchfile_base = '.bc18'
-    index = 0
-    while True:
-        index += 1
-        matchfile = '/player/'+str(index)+matchfile_base
-        if not os.path.exists(matchfile):
-            break
-    match_ptr = open(matchfile, mode='w')
-    json.dump(game.viewer_messages, match_ptr)
+    match_ptr = open("/player/" + str(args['replay_filename']), mode='w')
+    match_file = {}
+    match_file['message'] = game.viewer_messages
+    if not game.disconnected:
+        winner = game.manager.winning_team
+    else:
+        winner = game.winner
+
+    match_file['metadata'] = {'player1': os.path.dirname(args['dir_p1']),
+            'player2' : os.path.dirname(args['dir_p2']), 'winner': 'player1'}
+    json.dump(match_file, match_ptr)
     match_ptr.close()
+    if args['use_viewer']:
+        viewer_server.shutdown()
 
 def cleanup(dockers, args, sock_file):
     '''
@@ -62,6 +64,7 @@ def cleanup(dockers, args, sock_file):
     for player_key in dockers:
         docker_inst = dockers[player_key]
         logs = docker_inst.destroy()
+        
     os.unlink(sock_file)
 
 def parse_args():
@@ -94,11 +97,14 @@ def create_game(args):
 
     # Load the Game state info
     game = server.Game(logging_level=logging.ERROR,
-                       game_map=args['map'])
+                       game_map=args['map'], time_pool=args['time_pool'],
+                       time_additional=args['time_additional'])
 
     # Find a good filename to use as socket file
     for index in range(10000):
         sock_file = "/tmp/battlecode-"+str(index)
+        print(sock_file)
+        print(os.path.exists(sock_file))
         if not os.path.exists(sock_file):
             break
 
