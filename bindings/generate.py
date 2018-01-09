@@ -7,6 +7,7 @@ Woo.''')
 Planet = p.c_enum('location::Planet', docs='The planets in the Battlecode world.')
 Planet.variant('Earth', 0)
 Planet.variant('Mars', 1)
+Planet.method(Planet.type, 'other', [], docs='''The other planet.''', self_ref=True)
 Planet.debug()
 Planet.eq()
 Planet.serialize()
@@ -38,27 +39,66 @@ or Center if it's Center.''', self_ref=True)
 Direction.serialize()
 
 MapLocation = p.struct('location::MapLocation',
-    'Represents two-dimensional coordinates in the Battlecode world. Naive of which planet it is on.')
+    'Two-dimensional coordinates in the Battlecode world.')
 MapLocation.constructor('new', [Var(Planet.type, 'planet'), Var(i32.type, 'x'), Var(i32.type, 'y')],
-        docs='Create a new MapLocation.')
-MapLocation.member(Planet.type, 'planet', docs='The planet lol.')
+    docs='''Returns a new MapLocation representing the location with the given
+coordinates on a planet.''')
+MapLocation.member(Planet.type, 'planet', docs='The planet of the map location.')
 MapLocation.member(i32.type, 'x', docs='The x coordinate of the map location.')
 MapLocation.member(i32.type, 'y', docs='The y coordinate of the map location.')
+MapLocation.method(MapLocation.type, 'add', [Var(Direction.type, 'direction')], docs='''Returns the location one square from this one in the given direction.''')
+MapLocation.method(MapLocation.type, 'subtract', [Var(Direction.type, 'direction')], docs='Returns the location one square from this one in the opposite direction.')
+MapLocation.method(MapLocation.type, 'add_multiple', [Var(Direction.type, 'direction'), Var(i32.type, 'multiple')], docs='''Returns the location `multiple` squares from this one in the given
+direction.''')
+MapLocation.method(MapLocation.type, 'translate', [Var(i32.type, 'dx'), Var(i32.type, 'dy')], docs='''Returns the location translated from this location by `dx` in the x
+direction and `dy` in the y direction.''')
+MapLocation.method(u32.type, 'distance_squared_to', [Var(MapLocation.type, 'o')], docs='''Computes the square of the distance from this location to the specified
+location. If on different planets, returns the maximum integer.''')
+MapLocation.method(Direction.type.result(), 'direction_to', [Var(MapLocation.type, 'o')], docs='''Returns the Direction from this location to the specified location.
+If the locations are equal this method returns Center.
+
+ * DifferentPlanet - The locations are on different planets.''')
+MapLocation.method(boolean.type, 'is_adjacent_to', [Var(MapLocation.type, 'o')], docs='''
+Determines whether this location is adjacent to the specified location,
+including diagonally. Note that squares are not adjacent to themselves,
+and squares on different planets are not adjacent to each other.''')
+MapLocation.method(boolean.type, 'is_within_range', [Var(u32.type, 'range'), Var(MapLocation.type, 'o')], docs='''
+Whether this location is within the distance squared range of the
+specified location, inclusive. False for locations on different planets.''')
 MapLocation.debug()
 MapLocation.clone()
 MapLocation.eq()
 MapLocation.serialize()
 
+UnitID = p.typedef('unit::UnitID', u16.type)
+Rounds = p.typedef('world::Rounds', u32.type)
+
 Location = p.struct('location::Location')
+Location.method(Location.type, 'new_on_map', [Var(MapLocation.type, 'map_location')], docs='''Constructs a new location on the map.''', static=True)
+Location.method(Location.type, 'new_in_garrison', [Var(UnitID.type, 'id')], docs='''Constructs a new location in a garrison.''', static=True)
+Location.method(Location.type, 'new_in_space', [], docs='''Constructs a new location in space.''', static=True)
+Location.method(boolean.type, 'is_on_map', [], docs='''Whether the unit is on a map.''')
+Location.method(boolean.type, 'is_on_planet', [Var(Planet.type, 'planet')], docs='''True if and only if the location is on the map and on this planet.''')
+Location.method(MapLocation.type.result(), 'map_location', [], docs='''The map location of the unit.
+
+ * UnitNotOnMap - The unit is in a garrison or in space, and does not
+   have a map location.''')
+Location.method(boolean.type, 'is_in_garrison', [], docs='''Whether the unit is in a garrison.''')
+Location.method(UnitID.type.result(), 'structure', [], docs='''The structure whose garrison the unit is in.
+
+ * UnitNotInGarrison - the unit is not in a garrison.''')
+Location.method(boolean.type, 'is_in_space', [], docs='''Whether the unit is in space.''')
+Location.method(boolean.type, 'is_adjacent_to', [Var(Location.type, 'o')], docs='''Determines whether this location is adjacent to the specified location,
+including diagonally. Note that squares are not adjacent to themselves,
+and squares on different planets are not adjacent to each other. Also,
+nothing is adjacent to something not on a map.''')
+Location.method(boolean.type, 'is_within_range', [Var(u32.type, 'range'), Var(Location.type, 'o')], docs='''Whether this location is within the distance squared range of the
+specified location, inclusive. False for locations on different planets.
+Note that nothing is within the range of something not on the map.''')
 Location.debug()
 Location.clone()
 Location.eq()
 Location.serialize()
-
-MapLocation.method(MapLocation.type, 'add', [Var(Direction.type, 'direction')])
-
-UnitID = p.typedef('unit::UnitID', u16.type)
-Rounds = p.typedef('world::Rounds', u32.type)
 
 Team = p.c_enum('world::Team')
 Team.variant('Red', 0)

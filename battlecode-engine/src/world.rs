@@ -312,7 +312,7 @@ impl GameWorld {
         // First find your units that are on the map to calculate the visible locations.
         let mut locs_vision: Vec<(MapLocation, u32)> = vec![];
         for unit in self.get_planet(planet).units.values().into_iter() {
-            if unit.team() == team && unit.location().on_map() {
+            if unit.team() == team && unit.location().is_on_map() {
                 locs_vision.push(
                     (unit.location().map_location().unwrap(), unit.vision_range())
                 );
@@ -1025,7 +1025,7 @@ impl GameWorld {
         self.my_unit(robot_id)?.ok_if_on_map()?;
 
         let target_loc = self.get_unit(target_id).unwrap().location();
-        if !target_loc.on_map() {
+        if !target_loc.is_on_map() {
             Err(GameError::UnitNotOnMap)?;
         }
         self.my_unit(robot_id).unwrap().ok_if_within_attack_range(target_loc)?;
@@ -1584,7 +1584,7 @@ impl GameWorld {
         self.my_unit(healer_id)?.ok_if_on_map()?;
 
         let target_loc = self.my_unit(robot_id)?.location();
-        if !target_loc.on_map() {
+        if !target_loc.is_on_map() {
             Err(GameError::UnitNotOnMap)?;
         }
         self.my_unit(healer_id).unwrap().ok_if_within_attack_range(target_loc)?;
@@ -2215,7 +2215,7 @@ impl GameWorld {
     pub(crate) fn get_viewer_units(&self) -> Vec<ViewerUnitInfo> {
         let mut units = Vec::new();
         for unit in self.get_planet(Planet::Earth).units.values() {
-            if unit.location().on_map() {
+            if unit.location().is_on_map() {
                 units.push(ViewerUnitInfo {
                     id: unit.id(),
                     unit_type: unit.unit_type(),
@@ -2225,7 +2225,7 @@ impl GameWorld {
             }
         }
         for unit in self.get_planet(Planet::Mars).units.values() {
-            if unit.location().on_map() {
+            if unit.location().is_on_map() {
                 units.push(ViewerUnitInfo {
                     id: unit.id(),
                     unit_type: unit.unit_type(),

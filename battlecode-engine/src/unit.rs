@@ -476,7 +476,7 @@ impl Unit {
     ///
     /// * UnitNotOnMap - the unit is not on the map.
     pub(crate) fn ok_if_on_map(&self) -> Result<(), Error> {
-        if !self.location().on_map() {
+        if !self.location().is_on_map() {
             Err(GameError::UnitNotOnMap)?;
         }
         Ok(())
