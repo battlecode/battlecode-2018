@@ -175,7 +175,6 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         logging.debug("Client %s: entered start turn", client_id)
         exit_well = False
         while not self.game_over:
-            print(str(client_id)+ " waiting")
             time.sleep(0.05)
             if self.running_lock.acquire(timeout=0.1):
                 if  self.this_turn_pid == client_id:
@@ -279,7 +278,6 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                         else:
                             self.game.winner = 'player1'
                 logging.warning("Client %s: Game Over", self.client_id)
-                print("Cleaning up")
                 self.game.game_over = True
                 raise KeyboardInterrupt
             finally:
