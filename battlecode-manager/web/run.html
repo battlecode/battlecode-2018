@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Battlecode '18</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.1/css/bulma.min.css">
+</head>
+<body style="display: flex;min-height: 100vh;flex-direction: column;">
+    <section class="hero is-primary" style="background-color:#A31F34">
+        <div class="hero-body">
+            <div class="container">
+                <h1 class="title">
+                    MIT Battlecode: Escape to Mars!
+                </h1>
+                <h2 class="subtitle">
+                    Game running interface for Battlecode 2018
+                </h2>
+            </div>
+        </div>
+    </section>
+
+    <section class="section" style="flex:1">
+        <div class="notification is-warning" style="display:none" id="warning">
+            <button class="delete" onclick="document.getElementById('warning').style.display='none'"></button>
+            <strong> Fatal error. </strong> <span id="warning-text"></span>
+        </div>
+
+        <div class="tile is-ancestor">
+            <div class="tile is-vertical is-8">
+                <div class="tile">
+                    <div class="tile is-parent is-vertical">
+                        <article class="tile is-child">
+                            <table class="table" id="gauss-table" style="width: 100%">
+                                <thead>
+                                    <tr>
+                                        <th>Variable</th>
+                                        <th>Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Player memory limit (in mb)</td>
+                                        <td><input class="input" type="text" value="256" id="memory"></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Player CPU percent</td>
+                                        <td><input class="input" type="text" value="20" id="cpu"></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Initial timing pool (ms)</td>
+                                        <td><input class="input" type="text" value="1000" id="pool"></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Additional time/turn (ms)</td>
+                                        <td><input class="input" type="text" value="50" id="additional"></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Replay filename</td>
+                                        <td><input class="input" type="text" value="replay" id="replay"></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Use viewer</td>
+                                        <td><div class="control">
+                                            <label class="radio">
+                                                <input type="radio" name="viewer" value="1">
+                                                True
+                                            </label>
+                                            <label class="radio">
+                                                <input type="radio" name="viewer" value="0" checked>
+                                                False
+                                            </label>
+                                        </div></td>
+                                    </tr>
+
+                                </tbody>
+                            </table>
+
+                        </article>
+                    </div>
+                </div>
+            </div>
+            <div class="tile is-parent">
+                <article class="tile is-child notification is-info">
+                    <div class="content">
+                        <div class="content">
+
+                            <div class="field">
+                                <label class="label" style="color:#fff">Red Player Directory:</label>
+                                <div class="control">
+                                    <div class="select" style="width:100%">
+                                        <select style="width:100%" id='red'>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label class="label" style="color:#fff">Blue Player Directory:</label>
+                                <div class="control">
+                                    <div class="select" style="width:100%">
+                                        <select style="width:100%" id='blue'>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label class="label" style="color:#fff">Map:</label>
+                                <div class="control">
+                                    <div class="select" style="width:100%">
+                                        <select style="width:100%" id='map'>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </article>
+            </div>
+        </div>
+
+        <div class="field has-addons" style="float:right">
+            <button id="submit" class="button is-success">
+                <span class="icon">
+                    <i class="fa fa-rocket"></i>
+                </span>
+                <span>Run Game</span>
+            </button>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="content has-text-centered">
+                <p>
+                    <strong>Battlecode: Escape to Mars</strong> by <a href="http://battlecode.org/">MIT Battlecode</a>.
+                </p>
+            </div>
+        </div>
+    </footer>
+    <div class="modal">
+        <div class="modal-background"></div>
+        <div class="modal-card">
+            <header class="modal-card-head">
+                <p class="modal-card-title">Live player logs</p>
+            </header>
+            <section class="modal-card-body">
+                <div class="content">
+                    <div class="tile is-ancestor">
+                        <div class="tile is-6 is-vertical is-parent" style="height:600px;">
+                            <div class="tile is-child box" style="overflow:scroll">
+                                <p class="title">Red Earth</p>
+                                <p id="red_earth"></p>
+                            </div>
+                            <div class="tile is-child box" style="overflow:scroll">
+                                <p class="title">Red Mars</p>
+                                <p id="red_mars"></p>
+                            </div>
+                        </div>
+                        <div class="tile is-6 is-vertical is-parent">
+                            <div class="tile is-child box" style="overflow:scroll">
+                                <p class="title">Blue Earth</p>
+                                <p id="blue_earth"></p>
+                            </div>
+                            <div class="tile is-child box" style="overflow:scroll">
+                                <p class="title">Blue Mars</p>
+                                <p id="blue_mars"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <footer class="modal-card-foot">
+                <a onclick="trigger_end_game()" class="button is-danger">
+                    <span class="icon">
+                        <i class="fa fa-times-circle"></i>
+                    </span><span>End game</span>
+                </a>
+            </footer>
+        </div>
+    </div>
+    <script>
+    /* INTERFACE METHODS */
+    function get_maps() {
+        return ['mapa', 'mapb'];
+    }
+
+    function get_player_dirs() {
+        return ['Folder 1', 'Folder 2'];
+    }
+
+    function run_game(params) {
+        // if succeeded return 'success', else return an error message
+        return 'success'
+    }
+
+    function get_player_logs() {
+        return ['alllogsforsandbox1(redearth)\nmorestuff','alllogsforsandbox2(redmars)','alllogsforsandbox3(blueearth)','alllogsforsandbox4(bluemars)']
+    }
+
+    function end_game() {
+        return;
+    }
+    /* END INTERFACE METHODS */
+
+    var modal = document.querySelector('.modal');
+    var html = document.querySelector('html');
+    function alert_error(message) {
+        document.getElementById('warning-text').innerText = message;
+        document.getElementById('warning').style.display='block';
+    }
+
+    window.onload = function() {
+        maps = get_maps();
+        folders = get_player_dirs();
+
+        red = document.getElementById("red")
+        blue = document.getElementById("blue")
+        folders.forEach(function(folder) {
+            red.innerHTML += "<option value='" + folder + "'>" + folder + "</option>";
+            blue.innerHTML += "<option value='" + folder + "'>" + folder + "</option>";
+        });
+
+        mapselect = document.getElementById("map")
+        maps.forEach(function(map) {
+            mapselect.innerHTML += "<option value='" + map + "'>" + map + "</option>";
+        });
+    }
+
+    var interval = null;
+
+    function validate(params) {
+        if (isNaN(params['player_memory'])) {
+            alert_error("Must give a numeric amount of memory in mb.");
+            return false;
+        } else if (parseInt(params['player_memory'] < 100)) {
+            alert_error("Must give at least 100mb of memory.");
+            return false;
+        } else {
+            params['player_memory'] = parseInt(params['player_memory'])
+        }
+
+        if (isNaN(params['player_cpu'])) {
+            alert_error("Must give a numeric CPU percentage.");
+            return false;
+        } else if (parseInt(params['player_cpu'] < 10)) {
+            alert_error("Must give at least 10% of CPU.");
+            return false;
+        } else {
+            params['player_cpu'] = parseInt(params['player_cpu'])
+        }
+
+        if (isNaN(params['time_pool'])) {
+            alert_error("Must give a numeric initial time pool.");
+            return false;
+        } else {
+            params['time_pool'] = parseInt(params['time_pool'])
+        }
+
+        if (isNaN(params['time_additional'])) {
+            alert_error("Must give a numeric additional time per turn.");
+            return false;
+        } else {
+            params['time_additional'] = parseInt(params['time_additional'])
+        }
+
+        if (!params['replay_filename']) {
+            alert_error('Must enter a replay filename.')
+            return false;
+        }
+
+        params['use_viewer'] = (params['use_viewer'] == '1');
+        document.getElementById('warning').style.display='none';
+
+        return true;
+    }
+
+    function trigger_end_game() {
+        modal.classList.remove('is-active');
+        window.clearInterval(interval);
+        end_game();
+    }
+
+    function display_logs(params) {
+        modal.classList.add('is-active');
+        elements = [document.getElementById('red_earth'), document.getElementById('red_mars'), document.getElementById('blue_earth'), document.getElementById('blue_mars')]
+
+        return window.setInterval(function() {
+            logs = get_player_logs();
+            for (var i=0; i<4; i++) elements[i].innerText = logs[i];
+        },100);
+    }
+
+    var submit = document.getElementById("submit")
+    submit.onclick = function() {
+        var params = {}
+        params['use_viewer'] = document.querySelector('input[name="viewer"]:checked').value;
+        params['player_memory'] = document.getElementById('memory').value;
+        params['player_cpu'] = document.getElementById('cpu').value;
+        params['time_pool'] = document.getElementById('pool').value;
+        params['time_additional'] = document.getElementById('additional').value;
+        params['replay_filename'] = document.getElementById('replay').value;
+
+        params['dir_p1'] = document.getElementById("red")
+        params['dir_p1'] = params['dir_p1'].options[params['dir_p1'].selectedIndex].value;
+        params['dir_p2'] = document.getElementById("blue")
+        params['dir_p2'] = params['dir_p2'].options[params['dir_p2'].selectedIndex].value;
+        params['map'] = document.getElementById("map")
+        params['map'] = params['map'].options[params['map'].selectedIndex].value;
+
+        if (validate(params)) {
+            var success_fail = run_game(params)
+            if (success_fail == 'success') {
+                interval = display_logs(params);
+            } else alert_error(success_fail);
+        }
+    }
+
+    </script>
+</body>
+</html>
