@@ -115,7 +115,7 @@ impl ResearchInfo {
 
     /// Returns the research queue, where the front of the queue is at the
     /// beginning of the list.
-    pub fn get_queue(&self) -> Vec<Branch> {
+    pub fn queue(&self) -> Vec<Branch> {
         self.queue.clone()
     }
 
@@ -238,7 +238,7 @@ mod tests {
     #[test]
     fn research_info_constructor() {
         let r = ResearchInfo::new();
-        assert_eq!(r.get_queue(), vec![]);
+        assert_eq!(r.queue(), vec![]);
         assert_err!(r.next_in_queue(), GameError::NullValue);
         assert_err!(r.rounds_left(), GameError::NullValue);
 
@@ -254,19 +254,19 @@ mod tests {
 
         // Add a Knight.
         assert!(r.add_to_queue(&Branch::Knight));
-        assert_eq!(r.get_queue(), vec![Branch::Knight]);
+        assert_eq!(r.queue(), vec![Branch::Knight]);
         assert_eq!(r.next_in_queue().unwrap(), Branch::Knight);
         assert_eq!(r.rounds_left().unwrap(), knight_cost);
 
         // Add a Mage.
         assert!(r.add_to_queue(&Branch::Mage));
-        assert_eq!(r.get_queue(), vec![Branch::Knight, Branch::Mage]);
+        assert_eq!(r.queue(), vec![Branch::Knight, Branch::Mage]);
         assert_eq!(r.next_in_queue().unwrap(), Branch::Knight);
         assert_eq!(r.rounds_left().unwrap(), knight_cost);
 
         // Reset a queue with items in it.
         assert!(r.reset_queue());
-        assert_eq!(r.get_queue(), vec![]);
+        assert_eq!(r.queue(), vec![]);
         assert_err!(r.next_in_queue(), GameError::NullValue);
         assert_err!(r.rounds_left(), GameError::NullValue);
 
@@ -285,7 +285,7 @@ mod tests {
     fn end_round_trivial() {
         let mut r = ResearchInfo::new();
         assert_eq!(r.end_round(), None);
-        assert_eq!(r.get_queue(), vec![]);
+        assert_eq!(r.queue(), vec![]);
         assert_err!(r.next_in_queue(), GameError::NullValue);
         assert_err!(r.rounds_left(), GameError::NullValue);
     }
@@ -317,7 +317,7 @@ mod tests {
             assert_eq!(r.end_round(), None);
         }
         assert_eq!(r.end_round(), Some(Branch::Knight));
-        assert_eq!(r.get_queue(), vec![Branch::Knight, Branch::Mage]);
+        assert_eq!(r.queue(), vec![Branch::Knight, Branch::Mage]);
         assert_eq!(r.rounds_left().unwrap(), knight_cost_l2);
         assert_eq!(r.get_level(&Branch::Knight), 1);
         assert_eq!(r.get_level(&Branch::Mage), 0);
@@ -327,7 +327,7 @@ mod tests {
             assert_eq!(r.end_round(), None);
         }
         assert_eq!(r.end_round(), Some(Branch::Knight));
-        assert_eq!(r.get_queue(), vec![Branch::Mage]);
+        assert_eq!(r.queue(), vec![Branch::Mage]);
         assert_eq!(r.rounds_left().unwrap(), mage_cost);
         assert_eq!(r.get_level(&Branch::Knight), 2);
         assert_eq!(r.get_level(&Branch::Mage), 0);
