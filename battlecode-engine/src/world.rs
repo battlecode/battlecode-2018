@@ -1643,7 +1643,7 @@ impl GameWorld {
         let healer = self.my_unit(healer_id)?;
         let robot = self.my_unit(robot_id)?;
         healer.ok_if_on_map()?;
-        robot.ok_if_robot()?;
+        robot.ok_if_can_be_overcharged()?;
         healer.ok_if_overcharge_unlocked()?;
         healer.ok_if_within_ability_range(robot.location())?;
         Ok(())
@@ -1653,7 +1653,7 @@ impl GameWorld {
     /// account the healer's ability heat. Takes into account only the healer's
     /// ability range, and the location of the robot.
     pub fn can_overcharge(&self, healer_id: UnitID, robot_id: UnitID) -> bool {
-        self.ok_if_can_overcharge(healer_id, robot_id).is_ok()                      
+        self.ok_if_can_overcharge(healer_id, robot_id).is_ok()
     }
 
     fn ok_if_overcharge_ready(&self, healer_id: UnitID) -> Result<(), Error> {

@@ -877,6 +877,20 @@ impl Unit {
         self.ability_heat += self.ability_cooldown;
     }
 
+    /// Returns OK if the unit can be overcharged. The unit must be
+    /// a robot and not a healer.
+    ///
+    /// * InappropriateUnitType - the unit is not a robot or is a healer.
+    /// * ResearchNotUnlocked - the unit's ability is not unlocked.
+    pub(crate) fn ok_if_can_be_overcharged(& self) -> Result<(), Error> {
+        self.ok_if_robot()?;
+        self.ok_if_ability_unlocked()?;
+        if self.ok_if_unit_type(Healer).is_ok() {
+            Err(GameError::InappropriateUnitType)?
+        }
+        Ok(())
+    }
+
     /// Resets a unit's move, attack, and ability cooldowns.
     pub(crate) fn be_overcharged(&mut self) {
         self.movement_heat = 0;
