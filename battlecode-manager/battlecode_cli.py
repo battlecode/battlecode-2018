@@ -19,7 +19,7 @@ PORT = 16147
 
 class Logger(object):
     def __init__(self, prefix):
-        self.logs = io.StringIO() 
+        self.logs = io.StringIO()
         self.prefix = prefix
 
     def __call__(self, v):
@@ -70,16 +70,22 @@ def run_game(game, dockers, args, sock_file):
     match_file = {}
     match_file['message'] = game.viewer_messages
     if not game.disconnected:
-        winner = game.manager.winning_team
+        if bc.Team.Red = game.manager.winning_team():
+            winner = 'player1'
+        else:
+            winner = 'player2'
     else:
         winner = game.winner
 
+
     match_file['metadata'] = {'player1': os.path.dirname(args['dir_p1']),
-            'player2' : os.path.dirname(args['dir_p2']), 'winner': 'player1'}
+            'player2' : os.path.dirname(args['dir_p2']), 'winner': winner}
     json.dump(match_file, match_ptr)
     match_ptr.close()
     if args['use_viewer']:
         viewer_server.shutdown()
+
+    return winner
 
 def cleanup(dockers, args, sock_file):
     '''
@@ -89,7 +95,7 @@ def cleanup(dockers, args, sock_file):
     for player_key in dockers:
         docker_inst = dockers[player_key]
         logs = docker_inst.destroy()
-        
+
     os.unlink(sock_file)
 
 def parse_args():
@@ -108,11 +114,18 @@ def parse_args():
 def get_map(map_name):
     '''
     Read a map of a given name, and return a GameMap.
-
-    TODO: actually read map files
     '''
 
-    return bc.GameMap.test_map()
+    try:
+        f = open(map_name)
+        contents = f.read()
+    except:
+        print("We dun goof no map found")
+        return bc.GameMap.test_map()
+    finally:
+        f.close()
+
+    return bc.GameMap.from_json(contents)
 
 def create_game(args):
     '''

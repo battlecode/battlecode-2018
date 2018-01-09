@@ -13,13 +13,13 @@ def start_docker(players):
     Start the docker file
     '''
     docker_client = docker.from_env()
-    volumes = {str(players):{'bind':'/player1', 'mode':'ro'}}
+    volumes = {str(players):{'bind':'/player', 'mode':'rw'}}
 
     command = "sh start_docker.sh"
-    env = {'SANDBOX':'gcr.io/battlecode18/sandbox'}
     try:
-        docker_client.containers.run('battledaddy', command, privileged=True,
+        docker_client.containers.run('battlecode/battlecode-2018', privileged=True,
                                      detach=False, stdout=True, stderr=True,
+                                     tty=True, stdin_open=True,
                                      volumes=volumes, environment=env)
     except ConnectionError as e:
         print("Please run this as sudo")
@@ -27,7 +27,6 @@ def start_docker(players):
         print("There was an error " + str(e))
 
     print("done")
-
 
 
 start_docker(os.getcwd())

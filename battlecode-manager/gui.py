@@ -12,32 +12,38 @@ def run_game(return_args):
     return_args['map'] = cli.get_map(return_args['map'])
     print(return_args)
 
+    global game
     (game, dockers, sock_file) = cli.create_game(return_args)
     print(sock_file)
 
     try:
         print("running game")
-        cli.run_game(game, dockers, return_args, sock_file)
+        winner  = cli.run_game(game, dockers, return_args, sock_file)
     finally:
         cli.cleanup(dockers, return_args, sock_file)
     lock.release()
-    return True
+    return winner
+
 
 
 @eel.expose
 def get_maps():
-    return ['default']
+    player_dir = '/player'
+    return [o for o in os.listdir(player_dir)
+                        if o.contains('bc18map')]
 
 
 @eel.expose
 def get_player_dirs():
 
     player_dir = '/player'
-    return [os.path.join(player_dir, o) for o in os.listdir(player_dir) 
-                        if os.path.isdir(os.path.join(player_dir,o))]
+    return [o for o in os.listdir(player_dir)
+                if os.path.isdir(os.path.join(player_dir,o))]
 
 @eel.expose
 def get_player_logs():
+    if game != None:
+        return [player['logger'].logs.getvalue() for player in game.players]
     return ["NULL", "NULL", "NULL", "NULL"]
 
 def end_game():

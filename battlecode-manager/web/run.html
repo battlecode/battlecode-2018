@@ -257,10 +257,11 @@
         return true;
     }
 
-    function trigger_end_game() {
+    function trigger_end_game(winner) {
         modal.classList.remove('is-active');
         window.clearInterval(interval);
         eel.end_game();
+        alert_error("Winner is " + winner);
     }
 
     function display_logs(params) {
@@ -291,10 +292,8 @@
         params['map'] = params['map'].options[params['map'].selectedIndex].value;
 
         if (validate(params)) {
-            var success_fail = eel.run_game(params)();
-            if (success_fail == 'success') {
-                interval = display_logs(params);
-            } else alert_error(success_fail);
+            eel.run_game(params)(trigger_end_game);
+            interval = display_logs(params);
         }
     }
 
