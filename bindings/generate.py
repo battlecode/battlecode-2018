@@ -11,14 +11,13 @@ Planet.debug()
 Planet.eq()
 Planet.serialize()
 
-Direction = p.c_enum('location::Direction', docs='''Represents a direction from one MapLocation to another.
+Direction = p.c_enum('location::Direction', docs='''A direction from one MapLocation to another.
 
 Directions for each of the cardinals (north, south, east, west), and each
 of the diagonals (northwest, southwest, northeast, southeast). There is
 also a "center" direction, representing no direction.
 
-Coordinates increase in the north and east directions.
-''')
+Coordinates increase in the north and east directions.''')
 Direction.variant('North', 0)
 Direction.variant('Northeast', 1)
 Direction.variant('East', 2)
@@ -28,9 +27,14 @@ Direction.variant('Southwest', 5)
 Direction.variant('West', 6)
 Direction.variant('Northwest', 7)
 Direction.variant('Center', 8)
-Direction.method(Direction.type, 'opposite', [])
-Direction.method(Direction.type, 'rotate_left', [])
-Direction.method(Direction.type, 'rotate_right', [])
+Direction.method(i32.type, 'dx', [], docs='''Returns the x displacement of this direction.''', self_ref=True)
+Direction.method(i32.type, 'dy', [], docs='''Returns the y displacement of this direction.''', self_ref=True)
+Direction.method(boolean.type, 'is_diagonal', [], docs='''Whether this direction is a diagonal one.''', self_ref=True)
+Direction.method(Direction.type, 'opposite', [], docs='''Returns the direction opposite this one, or Center if it's Center.''', self_ref=True)
+Direction.method(Direction.type, 'rotate_left', [], docs='''Returns the direction 45 degrees to the left (counter-clockwise) of
+this one, or Center if it's Center.''', self_ref=True)
+Direction.method(Direction.type, 'rotate_right', [], docs='''Returns the direction 45 degrees to the right (clockwise) of this one,
+or Center if it's Center.''', self_ref=True)
 Direction.serialize()
 
 MapLocation = p.struct('location::MapLocation',

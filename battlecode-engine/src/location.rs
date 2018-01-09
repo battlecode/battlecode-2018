@@ -58,18 +58,33 @@ impl Direction {
         ]
     }
 
-    /// Returns the (x, y) displacement of this direction.
-    pub fn delta(&self) -> (i32, i32) {
+    /// Returns the x displacement of this direction.
+    pub fn dx(&self) -> i32 {
         match *self {
-            North => (0, 1),
-            Northeast => (1, 1),
-            East => (1, 0),
-            Southeast => (1, -1),
-            South => (0, -1),
-            Southwest => (-1, -1),
-            West => (-1, 0),
-            Northwest => (-1, 1),
-            Center => (0, 0),
+            North => 0,
+            Northeast => 1,
+            East => 1,
+            Southeast => 1,
+            South => 0,
+            Southwest => -1,
+            West => -1,
+            Northwest => -1,
+            Center => 0,
+        }
+    }
+
+    /// Returns the y displacement of this direction.
+    pub fn dy(&self) -> i32 {
+        match *self {
+            North => 1,
+            Northeast => 1,
+            East => 0,
+            Southeast => -1,
+            South => -1,
+            Southwest => -1,
+            West => 0,
+            Northwest => 1,
+            Center => 0,
         }
     }
 
@@ -82,31 +97,31 @@ impl Direction {
     }
 
     /// Returns the direction opposite this one, or Center if it's Center.
-    pub fn opposite(self) -> Direction {
-        if self == Center {
+    pub fn opposite(&self) -> Direction {
+        if *self == Center {
             return Center;
         }
-        let new_dir = ((self as u8) + 4) % 8;
+        let new_dir = ((*self as u8) + 4) % 8;
         Direction::num_to_direction(new_dir)
     }
 
     /// Returns the direction 45 degrees to the left (counter-clockwise) of
     /// this one, or Center if it's Center.
-    pub fn rotate_left(self) -> Direction {
-        if self == Center {
+    pub fn rotate_left(&self) -> Direction {
+        if *self == Center {
             return Center;
         }
-        let new_dir = ((self as u8) + 7) % 8;
+        let new_dir = ((*self as u8) + 7) % 8;
         Direction::num_to_direction(new_dir)
     }
 
     /// Returns the direction 45 degrees to the right (clockwise) of this one,
     /// or Center if it's Center.
-    pub fn rotate_right(self) -> Direction {
-        if self == Center {
+    pub fn rotate_right(&self) -> Direction {
+        if *self == Center {
             return Center;
         }
-        let new_dir = ((self as u8) + 1) % 8;
+        let new_dir = ((*self as u8) + 1) % 8;
         Direction::num_to_direction(new_dir)
     }
 }
@@ -147,8 +162,8 @@ impl MapLocation {
     pub fn add(&self, direction: Direction) -> MapLocation {
         MapLocation { 
             planet: self.planet,
-            x: self.x + direction.delta().0, 
-            y: self.y + direction.delta().1,
+            x: self.x + direction.dx(), 
+            y: self.y + direction.dy(),
         }
     }
 
@@ -156,8 +171,8 @@ impl MapLocation {
     pub fn subtract(&self, direction: Direction) -> MapLocation {
         MapLocation {
             planet: self.planet,
-            x: self.x - direction.delta().0,
-            y: self.y - direction.delta().1,
+            x: self.x - direction.dx(),
+            y: self.y - direction.dy(),
         }
     }
 
@@ -167,8 +182,8 @@ impl MapLocation {
                         multiple: i32) -> MapLocation {
         MapLocation {
             planet: self.planet,
-            x: self.x + multiple * direction.delta().0,
-            y: self.y + multiple * direction.delta().1,
+            x: self.x + multiple * direction.dx(),
+            y: self.y + multiple * direction.dy(),
         }
     }
 
@@ -339,15 +354,15 @@ mod tests {
 
     #[test]
     fn test_direction() {
-        assert_eq!(North.delta(), (0, 1));
-        assert_eq!(Northeast.delta(), (1, 1));
-        assert_eq!(East.delta(), (1, 0));
-        assert_eq!(Southeast.delta(), (1, -1));
-        assert_eq!(South.delta(), (0, -1));
-        assert_eq!(Southwest.delta(), (-1, -1));
-        assert_eq!(West.delta(), (-1, 0));
-        assert_eq!(Northwest.delta(), (-1, 1));
-        assert_eq!(Center.delta(), (0, 0));
+        assert_eq!((North.dx(), North.dy()), (0, 1));
+        assert_eq!((Northeast.dx(), Northeast.dy()), (1, 1));
+        assert_eq!((East.dx(), East.dy()), (1, 0));
+        assert_eq!((Southeast.dx(), Southeast.dy()), (1, -1));
+        assert_eq!((South.dx(), South.dy()), (0, -1));
+        assert_eq!((Southwest.dx(), Southwest.dy()), (-1, -1));
+        assert_eq!((West.dx(), West.dy()), (-1, 0));
+        assert_eq!((Northwest.dx(), Northwest.dy()), (-1, 1));
+        assert_eq!((Center.dx(), Center.dy()), (0, 0));
 
         assert!(!North.is_diagonal());
         assert!(Northeast.is_diagonal());

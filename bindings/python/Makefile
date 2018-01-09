@@ -6,7 +6,7 @@ build:
 	$(call build_command,python3 setup.py build_ext --inplace)
 
 test: build
-	$(call test_command,python -m nose)
+	$(call test_command,python3 -m nose)
 
 clean:
 	-rm -rf battlecode/*.so build 
