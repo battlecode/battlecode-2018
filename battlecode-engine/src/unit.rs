@@ -93,8 +93,8 @@ impl UnitType {
             },
             Mage => Unit {
                 unit_type: Mage,
-                health: 100,
-                max_health: 100,
+                health: 80,
+                max_health: 80,
                 damage: 60,
                 attack_range: 30,
                 vision_range: 30,
@@ -121,12 +121,14 @@ impl UnitType {
                 unit_type: Factory,
                 health: 300 / 4,
                 max_health: 300,
+                vision_range: 2,
                 ..Default::default()
             },
             Rocket => Unit {
                 unit_type: Rocket,
                 health: 200 / 4,
                 max_health: 200,
+                vision_range: 2,
                 ..Default::default()
             },
         }
@@ -303,7 +305,7 @@ impl Default for Unit {
             defense: 5,
             cannot_attack_range: 10,
             countdown: 0,
-            max_countdown: 50,
+            max_countdown: 5,
             target_location: None,
             self_heal_amount: 1,
             factory_unit_type: None,
