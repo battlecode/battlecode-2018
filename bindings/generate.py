@@ -97,20 +97,6 @@ Errors if the unit cannot be replicated.""")
 UnitType.method(u32.type, "value", [], docs="The value of a unit, as relevant to tiebreakers.")
 UnitTypeVec = p.vec(UnitType.type)
 
-#UnitInfo = p.struct('unit::UnitInfo',
-#    docs='''The public version of the unit. Contains all the unit's stats but none of
-#the action. The other team can see everything in the unit info.''')
-#UnitInfo.clone()
-#UnitInfo.serialize()
-#UnitInfo.eq()
-#UnitInfo.debug()
-#UnitInfo.member(UnitID.type, 'id', docs="The unique ID of the unit.")
-#UnitInfo.member(Team.type, 'team', docs="The team the unit is on.")
-#UnitInfo.member(UnitType.type, 'unit_type', docs="The type of the unit.")
-#UnitInfo.member(Location.type, 'location', docs="The current location of the unit.")
-#UnitInfo.member(u32.type, 'health', docs="The current health of the unit.")
-#UnitInfoVec = p.vec(UnitInfo.type)
-
 Unit = p.struct("unit::Unit", docs="A single unit in the game and all its associated properties.")
 Unit.debug()
 Unit.clone()
@@ -125,7 +111,7 @@ Unit.method(u32.type, "health", [], docs="The current health.", getter=True)
 Unit.method(u32.type, "max_health", [], docs="The maximum health.", getter=True)
 Unit.method(u32.type, "vision_range", [], docs="The unit vision range.", getter=True)
 Unit.method(i32.type.result(), "damage", [], docs="""The damage inflicted by the robot during a normal attack.
-Errors if the unit is not a robot.""")
+Errors if the unit is not a robot.""", getter=True)
 Unit.method(u32.type.result(), "attack_range", [], docs="""The attack range.
 Errors if the unit is not a robot.""", getter=True)
 Unit.method(u32.type.result(), "movement_heat", [], docs="""The movement heat.
@@ -155,11 +141,14 @@ Unit.method(u32.type.result(), "knight_defense", [], docs="""The amount of damag
 Errors if the unit is not a knight.""", getter=True)
 Unit.method(u32.type.result(), "ranger_cannot_attack_range", [], docs="""The range within a ranger cannot attack.
 Errors if the unit is not a ranger.""", getter=True)
-#Unit.method(u32.type.result(), "ranger_countdown", [], docs="""The countdown for ranger's snipe.
-#Errors if the unit is not a ranger.""", getter=True)
-#Unit.method(Option<MapLocation>.type, "ranger_target_location", [], docs="""The target location for ranger's snipe.
-#Errors if the unit is not a ranger.""")
+Unit.method(u32.type.result(), "ranger_countdown", [], docs="""The countdown for ranger's snipe.
+Errors if the unit is not a ranger.""", getter=True)
+Unit.method(MapLocation.type.result(), "ranger_target_location", [], docs="""The target location for ranger's snipe.
+Errors if the unit is not a ranger, or if the ranger is not sniping.""")
 Unit.method(boolean.type.result(), "ranger_is_sniping", [], docs="""Whether the ranger is sniping.
+Errors if the unit is not a ranger.""", getter=True)
+Unit.method(boolean.type.result(), "ranger_max_countdown", [], docs="""The maximum countdown for ranger's snipe, which is the number of turns
+that must pass before the snipe is executed.
 Errors if the unit is not a ranger.""", getter=True)
 Unit.method(u32.type.result(), "healer_self_heal_amount", [], docs="""The amount of health passively restored to itself each round.
 Errors if the unit is not a healer.""", getter=True)
@@ -180,6 +169,7 @@ Errors if the unit is not a rocket.""", getter=True)
 Unit.method(u32.type.result(), "rocket_travel_time_decrease", [], docs="""The number of rounds the rocket travel time is reduced by compared
 to the travel time determined by the orbit of the planets.
 Errors if the unit is not a rocket.""", getter=True)
+UnitVec = p.vec(Unit.type)
 
 GameMap = p.struct('map::GameMap')
 GameMap.method(GameMap.type, 'test_map', [], static=True)
@@ -258,25 +248,24 @@ GameController.method(Rounds.type, 'round', [])
 GameController.method(Planet.type, 'planet', [])
 GameController.method(Team.type, 'team', [])
 GameController.method(u32.type, 'karbonite', [])
-#GameController.method(Unit.type.ref().result(), "unit_controller", [Var(UnitID.type, "id"),], docs="""The unit controller for the unit of this ID. Use this method to get
-#detailed statistics on a unit in your Var(heat.type, "team"), cooldowns, and
-#properties of special abilities like units garrisoned in a rocket.
-#
-#Note that mutating this object does NOT have any effect on the actual
-#game. You MUST call the mutators in world!!
-#
-#* GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-#* GameError::TeamNotAllowed - the unit is not on the current player's team.
-#
-#""")
-#GameController.method(UnitInfo.type.result(), "unit", [Var(UnitID.type, "id")], docs="""The single unit with this ID.
-#
-#* GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-#""")
-#GameController.method(UnitInfoVec.type, "units", [], docs="""All the units within the vision range, in no particular order.
-#Does not include units in space.
-#""")
-#GameController.method(UnitInfoVec.type, "units_in_space", [], docs="""All the units of this team that are in space.""")
+GameController.method(Unit.type.result(), "unit", [Var(UnitID.type, "id"),], docs="""The unit controller for the unit of this ID. Use this method to get
+detailed statistics on a unit in your Var(heat.type, "team"), cooldowns, and
+properties of special abilities like units garrisoned in a rocket.
+
+Note that mutating this object does NOT have any effect on the actual
+game. You MUST call the mutators in world!!
+
+* GameError::NoSuchUnit - the unit does not exist (inside the vision range).
+* GameError::TeamNotAllowed - the unit is not on the current player's team.
+
+""")
+GameController.method(UnitVec.type, "units", [], docs="""All the units within the vision range, in no particular order.
+Does not include units in space.
+""")
+GameController.method(UnitVec.type, "my_units", [], docs="""All the units on your team, in no particular order.
+Does not include units in space.
+""")
+GameController.method(UnitVec.type, "units_in_space", [], docs="""All the units of this team that are in space.""")
 GameController.method(u32.type.result(), "karbonite_at", [Var(MapLocation.type, "location")], docs="""The karbonite at the given location.
 """)
 GameController.method(boolean.type, "can_sense_location", [Var(MapLocation.type, "location")], docs="""
@@ -286,20 +275,24 @@ Whether the location is within the vision range.
 """)
 GameController.method(boolean.type, "can_sense_unit", [Var(UnitID.type, "id")], docs="""Whether there is a unit with this ID within the vision range.
 """)
-#GameController.method(UnitInfoVec.type, "sense_nearby_units", [Var(MapLocation.type, "location"), Var(u32.type, "radius")], docs="""Sense units near the location within the given radius, inclusive, in
-#distance squared. The units are within the vision range.
-#""")
-#GameController.method(UnitInfoVec.type, "sense_nearby_units_by_team", [Var(MapLocation.type, "location"),Var(u32.type, "radius"), Var(Team.type, "team")], docs="""Sense units near the location within the given radius, inclusive, in
-#distance squared. The units are within the vision range. Additionally
-#filters the units by team.
-#""")
-#GameController.method(UnitInfoVec.type, "sense_nearby_units_by_type", [Var(MapLocation.type, "location"),Var(u32.type, "radius"), Var(UnitType.type, "unit_type")], docs="""Sense units near the location within the given radius, inclusive, in
-#distance squared. The units are within the vision range. Additionally
-#filters the units by unit type.
-#""")
-#GameController.method(Option<UnitInfo>.type.result(), "sense_unit_at_location", [Var(MapLocation.type, "location")], docs="""The unit at the location, if it exists.
-#* GameError::InvalidLocation - the location is outside the vision range.
-#""")
+GameController.method(UnitVec.type, "sense_nearby_units", [Var(MapLocation.type, "location"), Var(u32.type, "radius")], docs="""Sense units near the location within the given radius, inclusive, in
+distance squared. The units are within the vision range.
+""")
+GameController.method(UnitVec.type, "sense_nearby_units_by_team", [Var(MapLocation.type, "location"),Var(u32.type, "radius"), Var(Team.type, "team")], docs="""Sense units near the location within the given radius, inclusive, in
+distance squared. The units are within the vision range. Additionally
+filters the units by team.
+""")
+GameController.method(UnitVec.type, "sense_nearby_units_by_type", [Var(MapLocation.type, "location"),Var(u32.type, "radius"), Var(UnitType.type, "unit_type")], docs="""Sense units near the location within the given radius, inclusive, in
+distance squared. The units are within the vision range. Additionally
+filters the units by unit type.
+""")
+GameController.method(Unit.type.result(), "sense_unit_at_location", [Var(MapLocation.type, "location")], docs="""The unit at the location, if it exists.
+* GameError::InvalidLocation - the location is outside the vision range.
+""")
+GameController.method(boolean.type, "has_unit_at_location", [Var(MapLocation.type, "location")], docs="""Whether there is a visible unit at a location.
+* GameError::InvalidLocation - the location is outside the vision range.
+""")
+
 GameController.method(AsteroidPattern.type, "asteroid_pattern", [], docs="""The asteroid strike pattern on Mars.
 """)
 GameController.method(OrbitPattern.type, "orbit_pattern", [], docs="""The orbit pattern that determines a rocket's flight duration.

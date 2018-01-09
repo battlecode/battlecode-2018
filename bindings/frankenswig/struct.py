@@ -132,6 +132,7 @@ class StructWrapper(DeriveMixins):
             [Var(self.type, 'this')],
             pre + f'\nunsafe {{ Box::from_raw({arg}); }}' + post
         )
+        self.pyextra_ = []
 
     def constructor(self, rust_method, args, docs='', result=False):
         method = f'{self.module}::{self.name}::{rust_method}'
@@ -146,6 +147,9 @@ class StructWrapper(DeriveMixins):
         )
 
         return self
+
+    def pyextra(self, value):
+        self.pyextra_.append(value)
 
     def member(self, type, name, docs=''):
         self.members.append(Var(type,name))
@@ -307,4 +311,6 @@ class StructWrapper(DeriveMixins):
                                 for setter in self.setters) + '\n'
         definition += '\n'.join(method.to_python() for method in self.methods) + '\n'
 
-        return start + s(constructor + definition, indent=4)
+        extra = '\n' + '\n'.join(self.pyextra_)
+
+        return start + s(constructor + definition + extra, indent=4)

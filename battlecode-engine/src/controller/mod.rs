@@ -267,6 +267,13 @@ impl GameController {
         self.world.units()
     }
 
+    /// All the units on your team.
+    /// Does not include units in space.
+    pub fn my_units(&self) -> Vec<Unit> {
+        let my_team = self.world.team();
+        self.world.units().iter().filter(|u| u.team() == my_team).map(|u| u.clone()).collect()
+    }
+
     /// All the units within the vision range, by ID.
     /// Does not include units in space.
     pub fn units_by_id(&self) -> FnvHashMap<UnitID, Unit> {
@@ -340,9 +347,28 @@ impl GameController {
     ///
     /// * LocationOffMap - the location is off the map.
     /// * LocationNotVisible - the location is outside the vision range.
-    pub fn sense_unit_at_location(&self, location: MapLocation)
+    pub fn sense_unit_at_location_opt(&self, location: MapLocation)
                                   -> Result<Option<Unit>, Error> {
         self.world.sense_unit_at_location(location)
+    }
+
+    /// Whether there is a visible unit at a location.
+    pub fn has_unit_at_location(&self, location: MapLocation) -> bool {
+        self.world.sense_unit_at_location(location).is_ok()
+    }
+
+    /// The unit at the location, if it exists.
+    ///
+    /// * LocationOffMap - the location is off the map.
+    /// * LocationNotVisible - the location is outside the vision range.
+    pub fn sense_unit_at_location(&self, location: MapLocation)
+                                  -> Result<Unit, Error> {
+        let loc = self.world.sense_unit_at_location(location)?;
+        if let Some(loc) = loc {
+            Ok(loc)
+        } else {
+            bail!("No unit at location.")
+        }
     }
 
     // ************************************************************************

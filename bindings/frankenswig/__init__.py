@@ -346,6 +346,12 @@ class Program(object):
         vec.method(usize.type, "len", [], pyname="__len__", docs="The length of the vector.")
         # TODO impl option and use .get() instead
         vec.method(type.ref(), "index", [Var(usize.type, "index")], pyname="__getitem__", docs="Copy an element out of the vector.")
+        vec.pyextra(s('''\
+        def __iter__(self):
+            l = len(self)
+            for i in range(l):
+                yield self[i]
+        '''))
         return vec
 
     def add(self, elem):

@@ -731,11 +731,23 @@ impl Unit {
     /// The countdown for ranger's snipe, or None if the ranger is not sniping.
     ///
     /// * InappropriateUnitType - the unit is not a ranger.
-    pub fn ranger_countdown(&self) -> Result<Option<u32>, Error> {
+    pub fn ranger_countdown_opt(&self) -> Result<Option<u32>, Error> {
+        self.ok_if_unit_type(Ranger)?;
         if self.ranger_is_sniping()? {
             Ok(Some(self.countdown))
         } else {
             Ok(None)
+        }
+    }
+
+    /// The countdown for ranger's snipe.
+    /// Errors if the ranger is not sniping.
+    pub fn ranger_countdown(&self) -> Result<u32, Error> {
+        self.ok_if_unit_type(Ranger)?;
+        if self.ranger_is_sniping()? {
+            Ok(self.countdown)
+        } else {
+            bail!("Ranger is not sniping");
         }
     }
 
@@ -752,10 +764,24 @@ impl Unit {
     /// sniping.
     ///
     /// * InappropriateUnitType - the unit is not a ranger.
-    pub fn ranger_target_location(&self) -> Result<Option<MapLocation>, Error> {
+    pub fn ranger_target_location_opt(&self) -> Result<Option<MapLocation>, Error> {
         self.ok_if_unit_type(Ranger)?;
         Ok(self.target_location)
     }
+
+    /// The target location for ranger's snipe, or None if the ranger is not
+    /// sniping.
+    ///
+    /// * InappropriateUnitType - the unit is not a ranger.
+    pub fn ranger_target_location(&self) -> Result<MapLocation, Error> {
+        self.ok_if_unit_type(Ranger)?;
+        if let Some(l) = self.target_location {
+            Ok(l)
+        } else {
+            bail!("Ranger is not sniping.");
+        }
+    }
+
 
     /// Whether the ranger is sniping.
     ///
@@ -1267,7 +1293,7 @@ mod tests {
         assert!(ranger.ok_if_snipe_unlocked().is_ok());
         ranger.begin_snipe(loc_b);
         assert!(ranger.process_snipe().is_none());
-        assert_eq!(ranger.ranger_target_location().unwrap().unwrap(), loc_b);
+        assert_eq!(ranger.ranger_target_location().unwrap(), loc_b);
 
         // Ranger can begin sniping at anytime as long as ability heat < max heat to act
         ranger.begin_snipe(loc_b);
