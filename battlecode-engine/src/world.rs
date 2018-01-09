@@ -1837,7 +1837,7 @@ impl GameWorld {
 
         for factory_id in factory_ids {
             let (unit_type, team) = {
-                let factory = self.get_unit_mut(factory_id).expect("unit exists");
+                let factory = self.get_planet_mut(planet).units.get_mut(&factory_id).unwrap();
                 let new_unit_type = factory.process_factory_round();
                 if new_unit_type.is_none() {
                     continue;
