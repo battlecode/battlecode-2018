@@ -1,4 +1,3 @@
-import boto3
 import docker
 import gzip
 
@@ -10,4 +9,7 @@ resp = img.save()
 with gzip.open('sandbox.tar.gz','wb') as f:
     f.write(resp.data)
 
-s3 = boto3.resource('s3')
+storage_client = storage.Client()
+bucket = storage_client.get_bucket(bucket_name)
+blob = bucket.blob('sandbox.tar.gz')
+blob.upload_from_filename('sandbox.tar.gz')
