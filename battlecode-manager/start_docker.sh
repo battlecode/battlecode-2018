@@ -8,9 +8,13 @@ sleep 3
 docker pull $SANDBOX
 
 
+echo "Got Here?"
 if [ $IMAGE_UPDATER ]
 then
     python3 sandbox_update.py
 else
-    python3 battlecode_cli.py
+    echo "Here?"
+    ls
+    python3 gui.py
+    echo "Here?"
 fi

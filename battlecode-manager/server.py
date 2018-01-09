@@ -86,7 +86,6 @@ class Game(object): # pylint: disable=too-many-instance-attributes
                 total += 1
         return total
 
-
     def verify_login(self, unpacked_data: str):
         '''
             This function verifies the login and then logins in the player code.
@@ -178,6 +177,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
 
         logging.debug("Client %s: entered start turn", client_id)
         while not self.game_over:
+            print(str(client_id)+ " waiting")
             time.sleep(0.05)
             if self.running_lock.acquire(timeout=0.1):
                 if  self.this_turn_pid == client_id:
@@ -260,12 +260,12 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 wrapped_socket.close()
                 recv_socket.close()
                 logging.warning("Client %s: Game Over", self.client_id)
-                game.game_over = True
+                self.game.game_over = True
                 sys.exit(0)
             except KeyboardInterrupt:
                 wrapped_socket.close()
                 recv_socket.close()
-                game.game_over = True
+                self.game.game_over = True
                 logging.warning("Client %s: Game Over", self.client_id)
                 print("Cleaning up")
                 raise KeyboardInterrupt
@@ -348,7 +348,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             self.logged_in = False
             logging.debug("Client connected to server")
             # TODO check if this is enough time out is generous enough
-            self.request.settimeout(5)
+            self.request.settimeout(50)
 
             # Handle Login phase
             while not self.logged_in:
@@ -397,9 +397,11 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 self.game.start_turn(self.client_id)
 
                 if self.game.manager.is_over():
+                    self.game.game_over = True
                     winner = game.manager.winning_team()
+                    self.game.end_turn()
                     self.request.close()
-                    report_winner()
+                    print("exiting")
                     return
 
 

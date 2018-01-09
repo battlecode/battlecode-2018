@@ -11,6 +11,7 @@ import logging
 from sandbox import Sandbox
 import server
 import battlecode as bc
+import ujson as json
 
 # TODO port number
 PORT = 808
@@ -23,6 +24,7 @@ def run_game(game, dockers, args, sock_file):
     '''
 
     # Start the unix stream server
+    print("Here?")
     server.start_server(sock_file, game, dockers)
 
     if args['use_viewer']:
@@ -30,14 +32,27 @@ def run_game(game, dockers, args, sock_file):
         server.start_viewer_server(PORT, game)
 
     # Start the docker instances
-    for player_key in DOCKERS:
-        docker_inst = DOCKERS[player_key]
+    for player_key in dockers:
+        docker_inst = dockers[player_key]
         docker_inst.start()
         docker_inst.stream_logs()
 
     # Wait until all the code is done then clean up
-    while not GAME.game_over:
+    while not game.game_over:
+        print("Game is not Over")
         time.sleep(1)
+    
+    print("Dumping matchfile")
+    matchfile_base = '.bc18'
+    index = 0
+    while True:
+        index += 1
+        matchfile = '/player/'+str(index)+matchfile_base
+        if not os.path.exists(matchfile):
+            break
+    match_ptr = open(matchfile, mode='w')
+    json.dump(game.viewer_messages, match_ptr)
+    match_ptr.close()
 
 def cleanup(dockers, args, sock_file):
     '''
@@ -45,7 +60,7 @@ def cleanup(dockers, args, sock_file):
     '''
     print("Cleaning up Docker and Socket")
     for player_key in dockers:
-        docker_inst = DOCKERS[player_key]
+        docker_inst = dockers[player_key]
         logs = docker_inst.destroy()
     os.unlink(sock_file)
 
@@ -113,5 +128,3 @@ if __name__ == "__main__":
         cleanup(DOCKERS, ARGS, SOCK_FILE)
     finally:
         cleanup(DOCKERS, ARGS, SOCK_FILE)
-else:
-    raise("Should be called from command line")

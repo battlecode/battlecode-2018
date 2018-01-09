@@ -42,6 +42,8 @@ class Sandbox:
         if s3_bucket:
             self.extract_code(s3_bucket, s3_key)
         elif local_dir:
+            print(local_dir)
+            print(str(self.working_dir.absolute()))
             copy_tree(local_dir, str(self.working_dir.absolute()))
         else:
             raise ValueError("Must provide either S3 key and bucket or local directory for code.")
