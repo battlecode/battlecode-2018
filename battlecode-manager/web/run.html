@@ -180,28 +180,9 @@
             </footer>
         </div>
     </div>
+    <script type="text/javascript" src="/eel.js"></script>
     <script>
     /* INTERFACE METHODS */
-    function get_maps() {
-        return ['mapa', 'mapb'];
-    }
-
-    function get_player_dirs() {
-        return ['Folder 1', 'Folder 2'];
-    }
-
-    function run_game(params) {
-        // if succeeded return 'success', else return an error message
-        return 'success'
-    }
-
-    function get_player_logs() {
-        return ['alllogsforsandbox1(redearth)\nmorestuff','alllogsforsandbox2(redmars)','alllogsforsandbox3(blueearth)','alllogsforsandbox4(bluemars)']
-    }
-
-    function end_game() {
-        return;
-    }
     /* END INTERFACE METHODS */
 
     var modal = document.querySelector('.modal');
@@ -211,9 +192,9 @@
         document.getElementById('warning').style.display='block';
     }
 
-    window.onload = function() {
-        maps = get_maps();
-        folders = get_player_dirs();
+    window.onload = async function() {
+        maps = await eel.get_maps()();
+        folders = await eel.get_player_dirs()();
 
         red = document.getElementById("red")
         blue = document.getElementById("blue")
@@ -279,15 +260,15 @@
     function trigger_end_game() {
         modal.classList.remove('is-active');
         window.clearInterval(interval);
-        end_game();
+        eel.end_game();
     }
 
     function display_logs(params) {
         modal.classList.add('is-active');
         elements = [document.getElementById('red_earth'), document.getElementById('red_mars'), document.getElementById('blue_earth'), document.getElementById('blue_mars')]
 
-        return window.setInterval(function() {
-            logs = get_player_logs();
+        return window.setInterval(async function() {
+            logs = await eel.get_player_logs()();
             for (var i=0; i<4; i++) elements[i].innerText = logs[i];
         },100);
     }
@@ -310,7 +291,7 @@
         params['map'] = params['map'].options[params['map'].selectedIndex].value;
 
         if (validate(params)) {
-            var success_fail = run_game(params)
+            var success_fail = eel.run_game(params)()
             if (success_fail == 'success') {
                 interval = display_logs(params);
             } else alert_error(success_fail);

@@ -8,7 +8,7 @@ options = {'host':'0.0.0.0', 'port':6147, 'mode':'default'}
 
 eel.init('web')
 @eel.expose
-def start_game(return_args):
+def run_game(return_args):
     lock.acquire()
     return_args['map'] = cli.get_map(return_args['map'])
     print(return_args)
@@ -22,8 +22,28 @@ def start_game(return_args):
     finally:
         cli.cleanup(dockers, return_args, sock_file)
     lock.release()
+    return True
 
 
-print("To play games open http://localhost:6147/play.html in your browser")
+@eel.expose
+def get_maps():
+    return ['default']
+
+
+@eel.expose
+def get_player_dirs():
+
+    player_dir = '/player'
+    return [os.path.join(player_dir, o) for o in os.listdir(player_dir) 
+                        if os.path.isdir(os.path.join(player_dir,o))]
+
+@eel.expose
+def get_player_logs():
+    return ["NULL", "NULL", "NULL", "NULL"]
+
+def end_game():
+    return ""
+
+print("To play games open http://localhost:6147/run.html in your browser")
 lock = threading.Lock()
-eel.start('main.html', options=options)
+eel.start('run.html', options=options)
