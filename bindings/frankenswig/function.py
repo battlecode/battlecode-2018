@@ -39,7 +39,13 @@ class Function(object):
         for a in args:
             doc_hint += f':type {a.name}: {a.type.to_python()}\n'
         doc_hint += f':rtype: {type.to_python()}\n'
-        docs = s(f"{mypy_hint}\n'''{docs}\n{doc_hint}'''\n", indent=4)
+        asserts = ''
+        for arg in args:
+            if arg.name == 'self':
+                continue
+            asserts += f'assert type({arg.name}) is {arg.type.to_python()}, "incorrect type of arg {arg.name}: should be {arg.type.to_python()}, is {{}}".format(type({arg.name}))\n' 
+
+        docs = s(f"{mypy_hint}\n'''{docs}\n{doc_hint}'''\n{asserts}\n", indent=4)
         return start + docs
 
     def to_swig(self):
