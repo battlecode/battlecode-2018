@@ -143,7 +143,7 @@ class StringType(Type):
         return s(f'''\
             _result = _ffi.string(result)
             _lib.{self.module}_free_string(result)
-            result = _result
+            result = _result.decode()
         ''')
     
     def orig_rust(self):
