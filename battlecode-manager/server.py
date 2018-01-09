@@ -460,7 +460,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                         assert False, "Wrong Client id"
 
                     # Get the moves to pass to the game
-                    turn_message = bc.TurnMessage.from_json(json.dumps(unpacked_data['turn_message']).encode())
+                    turn_message = bc.TurnMessage.from_json(json.dumps(unpacked_data['turn_message']))
 
                     game.make_action(turn_message, self.client_id, diff_time)
                 else:
