@@ -69,6 +69,7 @@ MapLocation.debug()
 MapLocation.clone()
 MapLocation.eq()
 MapLocation.serialize()
+MapLocationVec = p.vec(MapLocation.type)
 
 UnitID = p.typedef('unit::UnitID', u16.type)
 Rounds = p.typedef('world::Rounds', u32.type)
@@ -390,309 +391,239 @@ GameController = p.struct('controller::GameController')
 GameController.constructor("new_player_env", [], docs="Use environment variables to connect to the manager.", result=True)
 GameController.method(void.type.result(), "next_turn", [], docs="Send the moves from the current turn and wait for the next turn.")
 
+GameController.method(Rounds.type, 'round', [], docs='''The current round, starting at round 1 and up to ROUND_LIMIT rounds. A round consists of a turn from each team on each planet.''')
+GameController.method(Planet.type, 'planet', [], docs='''The current planet.''')
+GameController.method(Team.type, 'team', [], docs='''The team whose turn it is.''')
+GameController.method(PlanetMap.type.ref(), 'starting_map', [Var(Planet.type, 'planet')], docs='''The starting map of the given planet. Includes the map's planet, dimensions, impassable terrain, and initial units and karbonite.''')
+GameController.method(u32.type, 'karbonite', [], docs='''The karbonite in the team's resource pool.''')
+GameController.method(Unit.type.result(), 'unit', [Var(UnitID.type, 'id')], docs='''The single unit with this ID. Use this method to get detailed statistics on a unit - heat, cooldowns, and properties of special abilities like units garrisoned in a rocket.
 
-GameController.method(Rounds.type, 'round', [])
-GameController.method(Planet.type, 'planet', [])
-GameController.method(Team.type, 'team', [])
-GameController.method(u32.type, 'karbonite', [])
-GameController.method(Unit.type.result(), "unit", [Var(UnitID.type, "id"),], docs="""The unit controller for the unit of this ID. Use this method to get
-detailed statistics on a unit in your Var(heat.type, "team"), cooldowns, and
-properties of special abilities like units garrisoned in a rocket.
+* NoSuchUnit - the unit does not exist (inside the vision range).''')
+GameController.method(UnitVec.type, 'units', [], docs='''All the units within the vision range, in no particular order. Does not include units in space.''')
+GameController.method(UnitVec.type, 'my_units', [], docs='''All the units on your team. Does not include units in space.''')
+GameController.method(UnitVec.type, 'units_in_space', [], docs='''All the units of this team that are in space. You cannot see units on the other team that are in space.''')
+GameController.method(u32.type.result(), 'karbonite_at', [Var(MapLocation.type, 'location')], docs='''The karbonite at the given location.
 
-Note that mutating this object does NOT have any effect on the actual
-game. You MUST call the mutators in world!!
+* LocationOffMap - the location is off the map.
+* LocationNotVisible - the location is outside the vision range.''')
+GameController.method(MapLocationVec.type, 'all_locations_within', [Var(MapLocation.type, 'location'), Var(u32.type, 'radius_squared')], docs='''Returns an array of all locations within a certain radius squared of this location that are on the map.
 
-* GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-* GameError::TeamNotAllowed - the unit is not on the current player's team.
+The locations are ordered first by the x-coordinate, then the y-coordinate. The radius squared is inclusive.''')
+GameController.method(boolean.type, 'can_sense_location', [Var(MapLocation.type, 'location')], docs='''Whether the location is on the map and within the vision range.''')
+GameController.method(boolean.type, 'can_sense_unit', [Var(UnitID.type, 'id')], docs='''Whether there is a unit with this ID within the vision range.''')
+GameController.method(UnitVec.type, 'sense_nearby_units', [Var(MapLocation.type, 'location'), Var(u32.type, 'radius')], docs='''Sense units near the location within the given radius, inclusive, in distance squared. The units are within the vision range.''')
+GameController.method(UnitVec.type, 'sense_nearby_units_by_team', [Var(MapLocation.type, 'location'), Var(u32.type, 'radius'), Var(Team.type, 'team')], docs='''Sense units near the location within the given radius, inclusive, in distance squared. The units are within the vision range. Additionally filters the units by team.''')
+GameController.method(UnitVec.type, 'sense_nearby_units_by_type', [Var(MapLocation.type, 'location'), Var(u32.type, 'radius'), Var(UnitType.type, 'unit_type')], docs='''Sense units near the location within the given radius, inclusive, in distance squared. The units are within the vision range. Additionally filters the units by unit type.''')
+GameController.method(boolean.type, 'has_unit_at_location', [Var(MapLocation.type, 'location')], docs='''Whether there is a visible unit at a location.''')
+GameController.method(Unit.type.result(), 'sense_unit_at_location', [Var(MapLocation.type, 'location')], docs='''The unit at the location, if it exists.
 
-""")
-GameController.method(UnitVec.type, "units", [], docs="""All the units within the vision range, in no particular order.
-Does not include units in space.
-""")
-GameController.method(UnitVec.type, "my_units", [], docs="""All the units on your team, in no particular order.
-Does not include units in space.
-""")
-GameController.method(UnitVec.type, "units_in_space", [], docs="""All the units of this team that are in space.""")
-GameController.method(u32.type.result(), "karbonite_at", [Var(MapLocation.type, "location")], docs="""The karbonite at the given location.
-""")
-GameController.method(boolean.type, "can_sense_location", [Var(MapLocation.type, "location")], docs="""
-Whether the location is within the vision range.
+* LocationOffMap - the location is off the map.
+* LocationNotVisible - the location is outside the vision range.''')
+GameController.method(AsteroidPattern.type, 'asteroid_pattern', [], docs='''The asteroid strike pattern on Mars.''')
+GameController.method(OrbitPattern.type, 'orbit_pattern', [], docs='''The orbit pattern that determines a rocket's flight duration.''')
+GameController.method(Rounds.type, 'current_duration_of_flight', [], docs='''The current duration of flight if a rocket were to be launched this round. Does not take into account any research done on rockets.''')
+GameController.method(TeamArray.type.ref(), 'get_team_array', [Var(Planet.type, 'planet')], docs='''Gets a read-only version of this planet's team array. If the given planet is different from the planet of the player, reads the version of the planet's team array from COMMUNICATION_DELAY rounds prior.''')
+GameController.method(void.type.result(), 'write_team_array', [Var(usize.type, 'index'), Var(i32.type, 'value')], docs='''Writes the value at the index of this planet's team array.
 
-* GameError::InvalidLocation - the location is outside the vision range.
-""")
-GameController.method(boolean.type, "can_sense_unit", [Var(UnitID.type, "id")], docs="""Whether there is a unit with this ID within the vision range.
-""")
-GameController.method(UnitVec.type, "sense_nearby_units", [Var(MapLocation.type, "location"), Var(u32.type, "radius")], docs="""Sense units near the location within the given radius, inclusive, in
-distance squared. The units are within the vision range.
-""")
-GameController.method(UnitVec.type, "sense_nearby_units_by_team", [Var(MapLocation.type, "location"),Var(u32.type, "radius"), Var(Team.type, "team")], docs="""Sense units near the location within the given radius, inclusive, in
-distance squared. The units are within the vision range. Additionally
-filters the units by team.
-""")
-GameController.method(UnitVec.type, "sense_nearby_units_by_type", [Var(MapLocation.type, "location"),Var(u32.type, "radius"), Var(UnitType.type, "unit_type")], docs="""Sense units near the location within the given radius, inclusive, in
-distance squared. The units are within the vision range. Additionally
-filters the units by unit type.
-""")
-GameController.method(Unit.type.result(), "sense_unit_at_location", [Var(MapLocation.type, "location")], docs="""The unit at the location, if it exists.
-* GameError::InvalidLocation - the location is outside the vision range.
-""")
-GameController.method(boolean.type, "has_unit_at_location", [Var(MapLocation.type, "location")], docs="""Whether there is a visible unit at a location.
-* GameError::InvalidLocation - the location is outside the vision range.
-""")
+* ArrayOutOfBounds - the index of the array is out of bounds. It must be within [0, COMMUNICATION_ARRAY_LENGTH).''')
+GameController.method(void.type.result(), 'disintegrate_unit', [Var(UnitID.type, 'unit_id')], docs='''Disintegrates the unit and removes it from the map. If the unit is a factory or a rocket, also disintegrates any units garrisoned inside it.
 
-GameController.method(AsteroidPattern.type, "asteroid_pattern", [], docs="""The asteroid strike pattern on Mars.
-""")
-GameController.method(OrbitPattern.type, "orbit_pattern", [], docs="""The orbit pattern that determines a rocket's flight duration.
-""")
-GameController.method(Rounds.type, "current_duration_of_flight", [], docs="""The current duration of flight if a rocket were to be launched this
-round. Does not take into account any research done on rockets.
-""")
-#GameController.method(TeamArray.type.ref(), "get_team_array", [Var(Planet.type, "planet")], docs="""Gets a read-only version of this planet's team array. If the given
-#planet is different from the planet of the player, reads the version
-#of the planet's team array from COMMUNICATION_DELAY rounds prior.
-#""")
-GameController.method(void.type.result(), "write_team_array", [Var(usize.type, "index"), Var(i32.type, "value")], docs="""Writes the value at the index of this planet's team array.
-* GameError::ArrayOutOfBounds - the index of the array is out of
-  bounds. It must be within [0, COMMUNICATION_ARRAY_LENGTH).
-""")
-GameController.method(void.type.result(), "disintegrate_unit", [Var(UnitID.type, "unit_id")], docs="""Disintegrates the unit and removes it from the map. If the unit is a
-factory or a rocket, also disintegrates any units garrisoned inside it.
+* NoSuchUnit - the unit does not exist (inside the vision range).
+* TeamNotAllowed - the unit is not on the current player's team.''')
+GameController.method(boolean.type.result(), 'is_occupiable', [Var(MapLocation.type, 'location')], docs='''Whether the location is clear for a unit to occupy, either by movement or by construction.
 
-* GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-* GameError::TeamNotAllowed - the unit is not on the current player's team.
-""")
-GameController.method(boolean.type.result(), "is_occupiable", [Var(MapLocation.type, "location")], docs="""Whether the location is clear for a unit to occupy, either by movement
-or by construction.
-* GameError::InvalidLocation - the location is outside the vision range.
-""")
-GameController.method(boolean.type, "can_move", [Var(UnitID.type, "robot_id"), Var(Direction.type, "direction")], docs="""Whether the robot can move in the given direction, without taking into
-account the unit's movement heat. Takes into account only the map
-terrain, positions of other robots, and the edge of the game map.
-""")
-GameController.method(boolean.type, "is_move_ready", [Var(UnitID.type, "robot_id")], docs="""Whether the robot is ready to move. Tests whether the robot's attack
-heat is sufficiently low.
-""")
-GameController.method(void.type.result(), "move_robot", [Var(UnitID.type, "robot_id"), Var(Direction.type, "direction")], docs="""Moves the robot in the given direction.""")
-GameController.method(boolean.type, "can_attack", [Var(UnitID.type, "robot_id"), Var(UnitID.type, "target_unit_id")], docs="""* GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-Whether the robot can attack the given unit, without taking into
-account the unit's attack heat. Takes into account only the unit's
-attack range, and the location of the unit.
+* LocationOffMap - the location is off the map.
+* LocationNotVisible - the location is outside the vision range.''')
+GameController.method(boolean.type, 'can_move', [Var(UnitID.type, 'robot_id'), Var(Direction.type, 'direction')], docs='''Whether the robot can move in the given direction, without taking into account the unit's movement heat. Takes into account only the map terrain, positions of other robots, and the edge of the game map.''')
+GameController.method(boolean.type, 'is_move_ready', [Var(UnitID.type, 'robot_id')], docs='''Whether the robot is ready to move. Tests whether the robot's attack heat is sufficiently low.''')
+GameController.method(void.type.result(), 'move_robot', [Var(UnitID.type, 'robot_id'), Var(Direction.type, 'direction')], docs='''Moves the robot in the given direction.
 
-* GameError::TeamNotAllowed - the unit is not on the current player's team.
-* GameError::InappropriateUnitType - the unit is not a robot.
-* GameError::InvalidAction - the robot cannot move in that direction.
-""")
-GameController.method(boolean.type, "is_attack_ready", [Var(UnitID.type, "robot_id")], docs="""Whether the robot is ready to attack. Tests whether the robot's attack
-heat is sufficiently low.
-* GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-* GameError::TeamNotAllowed - the unit is not on the current player's team.
-* GameError::InappropriateUnitType - the unit is a healer, or not a robot.
-""")
-GameController.method(void.type.result(), "attack", [Var(UnitID.type, "robot_id"), Var(UnitID.type, "target_unit_id")], docs="""Attacks the robot, dealing the unit's standard amount of damage.
-* GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-* GameError::TeamNotAllowed - the unit is not on the current player's team.
-* GameError::InappropriateUnitType - the unit is a healer, or not a robot.
-* GameError::InvalidAction - the robot cannot attack that location.
-""")
-GameController.method(ResearchInfo.type.result(), "research_info", [], docs="""The research info of the current team, including what branch is
-currently being researched, the number of rounds left.
+* NoSuchUnit - the robot does not exist (within the vision range).
+* TeamNotAllowed - the robot is not on the current player's team.
+* UnitNotOnMap - the robot is not on the map.
+* LocationNotVisible - the location is outside the vision range.
+* LocationOffMap - the location is off the map.
+* LocationNotEmpty - the location is occupied by a unit or terrain.
+* Overheated - the robot is not ready to move again.''')
+GameController.method(boolean.type, 'can_attack', [Var(UnitID.type, 'robot_id'), Var(UnitID.type, 'target_unit_id')], docs='''Whether the robot can attack the given unit, without taking into account the robot's attack heat. Takes into account only the robot's attack range, and the location of the robot and target.
 
-Note that mutating this object by resetting or queueing research
-does not have any effect. You must call the mutators on world.
-""")
-GameController.method(boolean.type.result(), "reset_research", [], docs="""Resets the research queue to be empty. Returns true if the queue was
-not empty before, and false otherwise.
-""")
-GameController.method(boolean.type.result(), "queue_research", [Var(UnitType.type, "branch")], docs="""Adds a branch to the back of the queue, if it is a valid upgrade, and
-starts research if it is the first in the queue.
+Healers cannot attack, and should use can_heal() instead.''')
+GameController.method(boolean.type, 'is_attack_ready', [Var(UnitID.type, 'robot_id')], docs='''Whether the robot is ready to attack. Tests whether the robot's attack heat is sufficiently low.
 
-Returns whether the branch was successfully added.
-""")
-GameController.method(boolean.type, "can_harvest", [Var(UnitID.type, "worker_id"), Var(Direction.type, "direction")], docs="""Whether the worker is ready to harvest, and the given direction contains
-karbonite to harvest. The worker cannot already have performed an action 
-this round.
-""")
-GameController.method(void.type.result(), "harvest", [Var(UnitID.type, "worker_id"), Var(Direction.type, "direction")], docs="""Harvests up to the worker's harvest amount of karbonite from the given
-location, adding it to the team's resource pool.
+Healers cannot attack, and should use is_heal_ready() instead.''')
+GameController.method(void.type.result(), 'attack', [Var(UnitID.type, 'robot_id'), Var(UnitID.type, 'target_unit_id')], docs='''Commands a robot to attack a unit, dealing the robot's standard amount of damage.
 
-* GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-* GameError::TeamNotAllowed - the unit is not on the current player's team.
-* GameError::InappropriateUnitType - the unit is not a worker.
-* GameError::InvalidLocation - the location is off the map.
-* GameError::InvalidAction - the worker is not ready to harvest, or there is no karbonite.
-""")
+Healers cannot attack, and should use heal() instead.
 
-GameController.method(boolean.type, "can_blueprint", [Var(UnitID.type, "worker_id"), Var(UnitType.type, "unit_type"), Var(Direction.type, "direction")], docs="""Whether the worker can blueprint a unit of the given type. The worker
-can only blueprint factories, and rockets if Rocketry has been
-researched. The team must have sufficient karbonite in its resource
-pool. The worker cannot already have performed an action this round.
-""")
-GameController.method(void.type.result(), "blueprint", [Var(UnitID.type, "worker_id"), Var(UnitType.type, "structure_type"), Var(Direction.type, "direction")], docs="""Blueprints a unit of the given type in the given direction. Subtract
-cost of that unit from the team's resource pool.
+* NoSuchUnit - the unit does not exist (inside the vision range).
+* TeamNotAllowed - the unit is not on the current player's team.
+* InappropriateUnitType - the unit is not a robot, or is a healer.
+* UnitNotOnMap - the unit or target is not on the map.
+* OutOfRange - the target location is not in range.
+* Overheated - the unit is not ready to attack.''')
+GameController.method(ResearchInfo.type.result(), 'research_info', [], docs='''The research info of the current team, including what branch is currently being researched, the number of rounds left.''')
+GameController.method(boolean.type.result(), 'reset_research', [], docs='''Resets the research queue to be empty. Returns true if the queue was not empty before, and false otherwise.''')
+GameController.method(boolean.type.result(), 'queue_research', [Var(UnitType.type, 'branch')], docs='''Adds a branch to the back of the queue, if it is a valid upgrade, and starts research if it is the first in the queue.
 
-* GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-* GameError::TeamNotAllowed - the unit is not on the current player's team.
-* GameError::InappropriateUnitType - the unit is not a worker, or the
-  unit type is not a factory or rocket.
-* GameError::InvalidLocation - the location is off the map.
-* GameError::InvalidAction - the worker is not ready to blueprint.
-""")
-GameController.method(boolean.type, "can_build", [Var(UnitID.type, "worker_id"), Var(UnitID.type, "blueprint_id")], docs="""Whether the worker can build a blueprint with the given ID. The worker
-and the blueprint must be adjacent to each other. The worker cannot
-already have performed an action this round.
-""")
-GameController.method(void.type.result(), "build", [Var(UnitID.type, "worker_id"), Var(UnitID.type, "blueprint_id")], docs="""Builds a given blueprint, increasing its health by the worker's build
-amount. If raised to maximum health, the blueprint becomes a completed
-structure.
+Returns whether the branch was successfully added.''')
+GameController.method(boolean.type, 'can_harvest', [Var(UnitID.type, 'worker_id'), Var(Direction.type, 'direction')], docs='''Whether the worker is ready to harvest, and the given direction contains karbonite to harvest. The worker cannot already have performed an action this round.''')
+GameController.method(void.type.result(), 'harvest', [Var(UnitID.type, 'worker_id'), Var(Direction.type, 'direction')], docs='''Harvests up to the worker's harvest amount of karbonite from the given location, adding it to the team's resource pool.
 
-* GameError::NoSuchUnit - a unit does not exist.
-* GameError::TeamNotAllowed - a unit is not on the current player's team.
-* GameError::InappropriateUnitType - the unit or blueprint is the wrong type.
-* GameError::InvalidAction - the worker cannot build the blueprint.
-""")
-GameController.method(boolean.type, "can_repair", [Var(UnitID.type, "worker_id"), Var(UnitID.type, "structure_id")], docs="""Whether the given worker can repair the given strucutre. Tests that the worker
-is able to execute a worker action, that the structure is built, and that the
-structure is within range.
-""")
-GameController.method(void.type.result(), "repair", [Var(UnitID.type, "worker_id"), Var(UnitID.type, "structure_id")], docs="""Commands the worker to repair a structure, repleneshing health to it. This
-can only be done to structures which have been fully built.
-""")
-GameController.method(boolean.type, "can_replicate", [Var(UnitID.type, "worker_id"), Var(Direction.type, "direction")], docs="""Whether the worker is ready to replicate. Tests that the worker's
-ability heat is sufficiently low, that the team has sufficient
-karbonite in its resource pool, and that the square in the given
-direction is empty.
-""")
-GameController.method(void.type.result(), "replicate", [Var(UnitID.type, "worker_id"), Var(Direction.type, "direction")], docs="""Replicates a worker in the given direction. Subtracts the cost of the
-worker from the team's resource pool.
+* NoSuchUnit - the worker does not exist (within the vision range).
+* TeamNotAllowed - the worker is not on the current player's team.
+* InappropriateUnitType - the unit is not a worker.
+* Overheated - the worker has already performed an action this turn.
+* UnitNotOnMap - the worker is not on the map.
+* LocationOffMap - the location in the target direction is off the map.
+* LocationNotVisible - the location is not in the vision range.
+* KarboniteDepositEmpty - the location described contains no Karbonite.''')
+GameController.method(boolean.type, 'can_blueprint', [Var(UnitID.type, 'worker_id'), Var(UnitType.type, 'unit_type'), Var(Direction.type, 'direction')], docs='''Whether the worker can blueprint a unit of the given type. The worker can only blueprint factories, and rockets if Rocketry has been researched. The team must have sufficient karbonite in its resource pool. The worker cannot already have performed an action this round.''')
+GameController.method(void.type.result(), 'blueprint', [Var(UnitID.type, 'worker_id'), Var(UnitType.type, 'structure_type'), Var(Direction.type, 'direction')], docs='''Blueprints a unit of the given type in the given direction. Subtract cost of that unit from the team's resource pool.
 
-* GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-* GameError::TeamNotAllowed - the unit is not on the current player's team.
-* GameError::InappropriateUnitType - the unit is not a worker.
-* GameError::InvalidLocation - the location is off the map.
-* GameError::InvalidAction - the worker is not ready to replicate.
-""")
-GameController.method(boolean.type, "can_javelin", [Var(UnitID.type, "knight_id"), Var(UnitID.type, "target_unit_id")], docs="""Whether the knight can javelin the given robot, without taking into
-account the knight's ability heat. Takes into account only the knight's
-ability range, and the location of the robot.
-""")
-GameController.method(boolean.type, "is_javelin_ready", [Var(UnitID.type, "knight_id")], docs="""Whether the knight is ready to javelin. Tests whether the knight's
-ability heat is sufficiently low.
-""")
-GameController.method(void.type.result(), "javelin", [Var(UnitID.type, "knight_id"), Var(UnitID.type, "target_unit_id")], docs="""Javelins the robot, dealing the amount of ability damage.
-* GameError::InvalidResearchLevel - the ability has not been researched.
-* GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-* GameError::TeamNotAllowed - the unit is not on the current player's team.
-* GameError::InappropriateUnitType - the unit is not a knight.
-* GameError::InvalidAction - the knight cannot javelin that unit.
-""")
-GameController.method(void.type.result(), "begin_snipe", [Var(UnitID.type, "ranger_id"), Var(MapLocation.type, "location")], docs="""Begins the countdown to snipe a given location. Maximizes the units
-attack and movement heats until the ranger has sniped. The ranger may
-begin the countdown at any time, including resetting the countdown
-to snipe a different location.
+* NoSuchUnit - the worker does not exist (within the vision range).
+* TeamNotAllowed - the worker is not on the current player's team.
+* InappropriateUnitType - the unit is not a worker, or the unit type is not a structure.
+* Overheated - the worker has already performed an action this turn.
+* UnitNotOnMap - the unit is not on the map.
+* LocationOffMap - the location in the target direction is off the map.
+* LocationNotVisible - the location is outside the vision range.
+* LocationNotEmpty - the location in the target direction is already occupied.
+* CannotBuildOnMars - you cannot blueprint a structure on Mars.
+* ResearchNotUnlocked - you do not have the needed research to blueprint rockets.
+* InsufficientKarbonite - your team does not have enough Karbonite to build the requested structure.''')
+GameController.method(boolean.type, 'can_build', [Var(UnitID.type, 'worker_id'), Var(UnitID.type, 'blueprint_id')], docs='''Whether the worker can build a blueprint with the given ID. The worker and the blueprint must be adjacent to each other. The worker cannot already have performed an action this round.''')
+GameController.method(void.type.result(), 'build', [Var(UnitID.type, 'worker_id'), Var(UnitID.type, 'blueprint_id')], docs='''Builds a given blueprint, increasing its health by the worker's build amount. If raised to maximum health, the blueprint becomes a completed structure.
 
-* GameError::InvalidResearchLevel - the ability has not been researched.
-* GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-* GameError::TeamNotAllowed - the unit is not on the current player's team.
-* GameError::InappropriateUnitType - the unit is not a ranger.
-* GameError::InvalidLocation - the location is off the map or on a different planet.
-""")
-GameController.method(boolean.type, "can_blink", [Var(UnitID.type, "mage_id"), Var(MapLocation.type, "location")], docs="""Whether the mage can blink to the given location, without taking into
-account the mage's ability heat. Takes into account only the mage's
-ability range, the map terrain, positions of other units, and the edge
-of the game map.
-""")
-GameController.method(boolean.type, "is_blink_ready", [Var(UnitID.type, "mage_id")], docs="""Whether the mage is ready to blink. Tests whether the mage's ability
-heat is sufficiently low.
+* NoSuchUnit - either unit does not exist (within the vision range).
+* TeamNotAllowed - either unit is not on the current player's team.
+* UnitNotOnMap - the worker is not on the map.
+* InappropriateUnitType - the unit is not a worker, or the blueprint is not a structure.
+* Overheated - the worker has already performed an action this turn.
+* OutOfRange - the worker is not adjacent to the blueprint.
+* StructureAlreadyBuilt - the blueprint has already been completed.''')
+GameController.method(boolean.type, 'can_repair', [Var(UnitID.type, 'worker_id'), Var(UnitID.type, 'structure_id')], docs='''Whether the given worker can repair the given strucutre. Tests that the worker is able to execute a worker action, that the structure is built, and that the structure is within range.''')
+GameController.method(void.type.result(), 'repair', [Var(UnitID.type, 'worker_id'), Var(UnitID.type, 'structure_id')], docs='''Commands the worker to repair a structure, repleneshing health to it. This can only be done to structures which have been fully built.
 
-* GameError::InvalidResearchLevel - the ability has not been researched.
-* GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-* GameError::TeamNotAllowed - the unit is not on the current player's team.
-* GameError::InappropriateUnitType - the unit is not a mage.
-""")
-GameController.method(void.type.result(), "blink", [Var(UnitID.type, "mage_id"), Var(MapLocation.type, "location")], docs="""Blinks the mage to the given location.
-* GameError::InvalidResearchLevel - the ability has not been researched.
-* GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-* GameError::TeamNotAllowed - the unit is not on the current player's team.
-* GameError::InappropriateUnitType - the unit is not a mage.
-* GameError::InvalidAction - the mage cannot blink to that location.
-""")
-GameController.method(boolean.type, "can_heal", [Var(UnitID.type, "healer_id"), Var(UnitID.type, "target_robot_id")], docs="""Whether the healer can heal the given robot, without taking into
-account the healer's attack heat. Takes into account only the healer's
-attack range, and the location of the robot.
-""")
-GameController.method(boolean.type, "is_heal_ready", [Var(UnitID.type, "healer_id")], docs="""Whether the healer is ready to heal. Tests whether the healer's attack
-heat is sufficiently low.
-""")
-GameController.method(void.type.result(), "heal", [Var(UnitID.type, "healer_id"), Var(UnitID.type, "target_robot_id")], docs="""Heals the robot, dealing the healer's standard amount of "damage".
-* GameError::NoSuchUnit - a unit does not exist.
-* GameError::TeamNotAllowed - the first unit is not on the current player's team.
-* GameError::InappropriateUnitType - the healer or robot is not the right type.
-* GameError::InvalidAction - the healer cannot heal that unit.
-""")
-GameController.method(boolean.type, "can_overcharge", [Var(UnitID.type, "healer_id"), Var(UnitID.type, "target_robot_id")], docs="""Whether the healer can overcharge the given robot, without taking into
-account the healer's ability heat. Takes into account only the healer's
-ability range, and the location of the robot.
-""")
-GameController.method(boolean.type, "is_overcharge_ready", [Var(UnitID.type, "healer_id")], docs="""Whether the healer is ready to overcharge. Tests whether the healer's
-ability heat is sufficiently low.
-""")
-GameController.method(void.type.result(), "overcharge", [Var(UnitID.type, "healer_id"), Var(UnitID.type, "target_robot_id")], docs="""Overcharges the robot, resetting the robot's cooldowns.
-* GameError::InvalidResearchLevel - the ability has not been researched.
-* GameError::NoSuchUnit - a unit does not exist.
-* GameError::TeamNotAllowed - the first unit is not on the current player's team.
-* GameError::InappropriateUnitType - the healer or robot is not the right type.
-* GameError::InvalidAction - the healer cannot overcharge that unit.
-""")
-GameController.method(boolean.type, "can_load", [Var(UnitID.type, "structure_id"), Var(UnitID.type, "robot_id")], docs="""Whether the robot can be loaded into the given structure's garrison. The robot
-must be ready to move and must be adjacent to the structure. The structure
-and the robot must be on the same team, and the structure must have space.
-""")
-GameController.method(void.type.result(), "load", [Var(UnitID.type, "structure_id"), Var(UnitID.type, "robot_id")], docs="""Loads the robot into the garrison of the structure.
-* GameError::NoSuchUnit - a unit does not exist.
-* GameError::TeamNotAllowed - either unit is not on the current player's team.
-* GameError::InappropriateUnitType - the robot or structure are the wrong type.
-* GameError::InvalidAction - the robot cannot be loaded inside the structure.
-""")
-GameController.method(boolean.type, "can_unload", [Var(UnitID.type, "structure_id"), Var(Direction.type, "direction")], docs="""Tests whether the given structure is able to unload a unit in the
-given direction. There must be space in that direction, and the unit
-must be ready to move.
-""")
-GameController.method(void.type.result(), "unload", [Var(UnitID.type, "structure_id"), Var(Direction.type, "direction")], docs="""Unloads a robot from the garrison of the specified structure into an 
-adjacent space. Robots are unloaded in the order they were loaded.
+* NoSuchUnit - either unit does not exist (within the vision range).
+* TeamNotAllowed - either unit is not on the current player's team.
+* UnitNotOnMap - the worker is not on the map.
+* InappropriateUnitType - the unit is not a worker, or the target is not a structure.
+* Overheated - the worker has already performed an action this turn.
+* OutOfRange - the worker is not adjacent to the structure.
+* StructureNotYetBuilt - the structure has not been completed.''')
+GameController.method(boolean.type, 'can_replicate', [Var(UnitID.type, 'worker_id'), Var(Direction.type, 'direction')], docs='''Whether the worker is ready to replicate. Tests that the worker's ability heat is sufficiently low, that the team has sufficient karbonite in its resource pool, and that the square in the given direction is empty.''')
+GameController.method(void.type.result(), 'replicate', [Var(UnitID.type, 'worker_id'), Var(Direction.type, 'direction')], docs='''Replicates a worker in the given direction. Subtracts the cost of the worker from the team's resource pool.
 
-* GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-* GameError::TeamNotAllowed - the unit is not on the current player's team.
-* GameError::InappropriateUnitType - the unit is not a structure.
-* GameError::InvalidLocation - the location is off the map.
-* GameError::InvalidAction - the rocket cannot degarrison a unit.
-""")
-GameController.method(boolean.type, "can_produce_robot", [Var(UnitID.type, "factory_id"), Var(UnitType.type, "robot_type")], docs="""Whether the factory can produce a robot of the given type. The factory
-must not currently be producing a robot, and the team must have
-sufficient resources in its resource pool.
-""")
-GameController.method(void.type.result(), "produce_robot", [Var(UnitID.type, "factory_id"), Var(UnitType.type, "robot_type")], docs="""Starts producing the robot of the given type.
-* GameError::NoSuchUnit - the unit does not exist.
-* GameError::TeamNotAllowed - the unit is not on the current player's team.
-* GameError::InappropriateUnitType - the unit is not a factory, or the
-  queued unit type is not a robot.
-* GameError::InvalidAction - the factory cannot produce the robot.
-""")
-GameController.method(RocketLandingInfo.type, "rocket_landings", [], docs="""The landing rounds and locations of rockets in space that belong to the
-current team.
-Note that mutating this object does NOT have any effect on the actual
-game. You MUST call the mutators in world!!
-""")
-GameController.method(boolean.type, "can_launch_rocket", [Var(UnitID.type, "rocket_id"), Var(MapLocation.type, "destination")], docs="""W
-hether the rocket can launch into space. The rocket can launch if the
-it has never been used before.
-""")
-GameController.method(void.type.result(), "launch_rocket", [Var(UnitID.type, "rocket_id"), Var(MapLocation.type, "location")], docs="""Launches the rocket into space. If the destination is not on the map of
-the other planet, the rocket flies off, never to be seen again.
-* GameError::NoSuchUnit - the unit does not exist (inside the vision range).
-* GameError::TeamNotAllowed - the unit is not on the current player's team.
-* GameError::InappropriateUnitType - the unit is not a rocket.
-* GameError::InvalidAction - the rocket cannot launch.
-""")
+* NoSuchUnit - the worker does not exist (within the vision range).
+* TeamNotAllowed - the worker is not on the current player's team.
+* InappropriateUnitType - the unit is not a worker.
+* Overheated - the worker is not ready to replicate again.
+* InsufficientKarbonite - your team does not have enough Karbonite for the worker to replicate.
+* UnitNotOnMap - the worker is not on the map.
+* LocationOffMap - the location in the target direction is off the map.
+* LocationNotVisible - the location is outside the vision range.
+* LocationNotEmpty - the location in the target direction is already occupied.''')
+GameController.method(boolean.type, 'can_javelin', [Var(UnitID.type, 'knight_id'), Var(UnitID.type, 'target_unit_id')], docs='''Whether the knight can javelin the given robot, without taking into account the knight's ability heat. Takes into account only the knight's ability range, and the location of the robot.''')
+GameController.method(boolean.type, 'is_javelin_ready', [Var(UnitID.type, 'knight_id')], docs='''Whether the knight is ready to javelin. Tests whether the knight's ability heat is sufficiently low.''')
+GameController.method(void.type.result(), 'javelin', [Var(UnitID.type, 'knight_id'), Var(UnitID.type, 'target_unit_id')], docs='''Javelins the robot, dealing the knight's standard damage.
+
+* NoSuchUnit - either unit does not exist (inside the vision range).
+* TeamNotAllowed - the knight is not on the current player's team.
+* UnitNotOnMap - the knight is not on the map.
+* InappropriateUnitType - the unit is not a knight.
+* ResearchNotUnlocked - you do not have the needed research to use javelin.
+* OutOfRange - the target does not lie within ability range of the knight.
+* Overheated - the knight is not ready to use javelin again.''')
+GameController.method(boolean.type, 'can_begin_snipe', [Var(UnitID.type, 'ranger_id'), Var(MapLocation.type, 'location')], docs='''Whether the ranger can begin to snipe the given location, without taking into account the ranger's ability heat. Takes into account only the target location and the unit's type and unlocked abilities.''')
+GameController.method(boolean.type, 'is_begin_snipe_ready', [Var(UnitID.type, 'ranger_id')], docs='''Whether the ranger is ready to begin snipe. Tests whether the ranger's ability heat is sufficiently low.''')
+GameController.method(void.type.result(), 'begin_snipe', [Var(UnitID.type, 'ranger_id'), Var(MapLocation.type, 'location')], docs='''Begins the countdown to snipe a given location. Maximizes the units attack and movement heats until the ranger has sniped. The ranger may begin the countdown at any time, including resetting the countdown to snipe a different location.
+
+* NoSuchUnit - either unit does not exist (inside the vision range).
+* TeamNotAllowed - the ranger is not on the current player's team.
+* UnitNotOnMap - the ranger is not on the map.
+* InappropriateUnitType - the unit is not a ranger.
+* ResearchNotUnlocked - you do not have the needed research to use snipe.
+* Overheated - the ranger is not ready to use snipe again.''')
+GameController.method(boolean.type, 'can_blink', [Var(UnitID.type, 'mage_id'), Var(MapLocation.type, 'location')], docs='''Whether the mage can blink to the given location, without taking into account the mage's ability heat. Takes into account only the mage's ability range, the map terrain, positions of other units, and the edge of the game map.''')
+GameController.method(boolean.type, 'is_blink_ready', [Var(UnitID.type, 'mage_id')], docs='''Whether the mage is ready to blink. Tests whether the mage's ability heat is sufficiently low.''')
+GameController.method(void.type.result(), 'blink', [Var(UnitID.type, 'mage_id'), Var(MapLocation.type, 'location')], docs='''Blinks the mage to the given location.
+
+* NoSuchUnit - the mage does not exist (inside the vision range).
+* TeamNotAllowed - the mage is not on the current player's team.
+* UnitNotOnMap - the mage is not on the map.
+* InappropriateUnitType - the unit is not a mage.
+* ResearchNotUnlocked - you do not have the needed research to use blink.
+* OutOfRange - the target does not lie within ability range of the mage.
+* LocationOffMap - the target location is not on this planet's map.
+* LocationNotVisible - the target location is outside the vision range.
+* LocationNotEmpty - the target location is already occupied.
+* Overheated - the mage is not ready to use blink again.''')
+GameController.method(boolean.type, 'can_heal', [Var(UnitID.type, 'healer_id'), Var(UnitID.type, 'target_robot_id')], docs='''Whether the healer can heal the given robot, without taking into account the healer's attack heat. Takes into account only the healer's attack range, and the location of the robot.''')
+GameController.method(boolean.type, 'is_heal_ready', [Var(UnitID.type, 'healer_id')], docs='''Whether the healer is ready to heal. Tests whether the healer's attack heat is sufficiently low.''')
+GameController.method(void.type.result(), 'heal', [Var(UnitID.type, 'healer_id'), Var(UnitID.type, 'target_robot_id')], docs='''Commands the healer to heal the target robot.
+
+* NoSuchUnit - either unit does not exist (inside the vision range).
+* InappropriateUnitType - the unit is not a healer, or the target is not a robot.
+* TeamNotAllowed - either robot is not on the current player's team.
+* UnitNotOnMap - the healer is not on the map.
+* OutOfRange - the target does not lie within "attack" range of the healer.
+* Overheated - the healer is not ready to heal again.''')
+GameController.method(boolean.type, 'can_overcharge', [Var(UnitID.type, 'healer_id'), Var(UnitID.type, 'target_robot_id')], docs='''Whether the healer can overcharge the given robot, without taking into account the healer's ability heat. Takes into account only the healer's ability range, and the location of the robot.''')
+GameController.method(boolean.type, 'is_overcharge_ready', [Var(UnitID.type, 'healer_id')], docs='''Whether the healer is ready to overcharge. Tests whether the healer's ability heat is sufficiently low.''')
+GameController.method(void.type.result(), 'overcharge', [Var(UnitID.type, 'healer_id'), Var(UnitID.type, 'target_robot_id')], docs='''Overcharges the robot, resetting the robot's cooldowns. The robot must be on the same team as you.
+
+* NoSuchUnit - either unit does not exist (inside the vision range).
+* TeamNotAllowed - either robot is not on the current player's team.
+* UnitNotOnMap - the healer is not on the map.
+* InappropriateUnitType - the unit is not a healer, or the target is not a robot.
+* ResearchNotUnlocked - you do not have the needed research to use overcharge.
+* OutOfRange - the target does not lie within ability range of the healer.
+* Overheated - the healer is not ready to use overcharge again.''')
+GameController.method(boolean.type, 'can_load', [Var(UnitID.type, 'structure_id'), Var(UnitID.type, 'robot_id')], docs='''Whether the robot can be loaded into the given structure's garrison. The robot must be ready to move and must be adjacent to the structure. The structure and the robot must be on the same team, and the structure must have space.''')
+GameController.method(void.type.result(), 'load', [Var(UnitID.type, 'structure_id'), Var(UnitID.type, 'robot_id')], docs='''Loads the robot into the garrison of the structure.
+
+* NoSuchUnit - either unit does not exist (inside the vision range).
+* TeamNotAllowed - either unit is not on the current player's team.
+* UnitNotOnMap - either unit is not on the map.
+* Overheated - the robot is not ready to move again.
+* InappropriateUnitType - the first unit is not a structure, or the second unit is not a robot.
+* StructureNotYetBuilt - the structure has not yet been completed.
+* GarrisonFull - the structure's garrison is already full.
+* OutOfRange - the robot is not adjacent to the structure.''')
+GameController.method(boolean.type, 'can_unload', [Var(UnitID.type, 'structure_id'), Var(Direction.type, 'direction')], docs='''Tests whether the given structure is able to unload a unit in the given direction. There must be space in that direction, and the unit must be ready to move.''')
+GameController.method(void.type.result(), 'unload', [Var(UnitID.type, 'structure_id'), Var(Direction.type, 'direction')], docs='''Unloads a robot from the garrison of the specified structure into an adjacent space. Robots are unloaded in the order they were loaded.
+
+* NoSuchUnit - the unit does not exist (inside the vision range).
+* TeamNotAllowed - either unit is not on the current player's team.
+* UnitNotOnMap - the structure is not on the map.
+* InappropriateUnitType - the unit is not a structure.
+* StructureNotYetBuilt - the structure has not yet been completed.
+* GarrisonEmpty - the structure's garrison is already empty.
+* LocationOffMap - the location in the target direction is off the map.
+* LocationNotEmpty - the location in the target direction is already occupied.
+* Overheated - the robot inside the structure is not ready to move again.''')
+GameController.method(boolean.type, 'can_produce_robot', [Var(UnitID.type, 'factory_id'), Var(UnitType.type, 'robot_type')], docs='''Whether the factory can produce a robot of the given type. The factory must not currently be producing a robot, and the team must have sufficient resources in its resource pool.''')
+GameController.method(void.type.result(), 'produce_robot', [Var(UnitID.type, 'factory_id'), Var(UnitType.type, 'robot_type')], docs='''Starts producing the robot of the given type.
+
+* NoSuchUnit - the factory does not exist (inside the vision range).
+* TeamNotAllowed - the factory is not on the current player's team.
+* InappropriateUnitType - the unit is not a factory, or the unit type is not a robot.
+* StructureNotYetBuilt - the factory has not yet been completed.
+* FactoryBusy - the factory is already producing a unit.
+* InsufficientKarbonite - your team does not have enough Karbonite to produce the given robot.''')
+GameController.method(RocketLandingInfo.type, 'rocket_landings', [], docs='''The landing rounds and locations of rockets in space that belong to the current team.''')
+GameController.method(boolean.type, 'can_launch_rocket', [Var(UnitID.type, 'rocket_id'), Var(MapLocation.type, 'destination')], docs='''Whether the rocket can launch into space to the given destination. The rocket can launch if the it has never been used before. The destination is valid if it contains passable terrain on the other planet.''')
+GameController.method(void.type.result(), 'launch_rocket', [Var(UnitID.type, 'rocket_id'), Var(MapLocation.type, 'location')], docs='''Launches the rocket into space, damaging the units adjacent to the takeoff location.
+
+* NoSuchUnit - the rocket does not exist (inside the vision range).
+* TeamNotAllowed - the rocket is not on the current player's team.
+* SamePlanet - the rocket cannot fly to a location on the same planet.
+* InappropriateUnitType - the unit is not a rocket.
+* StructureNotYetBuilt - the rocket has not yet been completed.
+* RocketUsed - the rocket has already been used.
+* LocationOffMap - the given location is off the map.
+* LocationNotEmpty - the given location contains impassable terrain.''')
+
 GameController.method(GameController.type, 'new_manager', [Var(GameMap.type, 'map')], static=True)
 GameController.method(StartGameMessage.type, 'start_game', [Var(Player.type, 'player')])
 GameController.method(TurnApplication.type, 'apply_turn', [Var(TurnMessage.type.ref(), 'turn')])

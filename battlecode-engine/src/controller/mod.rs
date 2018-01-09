@@ -2,6 +2,7 @@
 //! the API that the player will use, and for generating messages to
 //! send to other parts of the Battlecode infrastructure.
 
+use error::*;
 use location::*;
 use map::*;
 use research::*;
@@ -364,13 +365,14 @@ impl GameController {
     ///
     /// * LocationOffMap - the location is off the map.
     /// * LocationNotVisible - the location is outside the vision range.
+    /// * NullValue - there is no unit at that location.
     pub fn sense_unit_at_location(&self, location: MapLocation)
                                   -> Result<Unit, Error> {
         let loc = self.world.sense_unit_at_location(location)?;
         if let Some(loc) = loc {
             Ok(loc)
         } else {
-            bail!("No unit at location.")
+            Err(GameError::NullValue)?
         }
     }
 
