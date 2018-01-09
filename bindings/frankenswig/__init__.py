@@ -290,15 +290,14 @@ typedef uint8_t magicbool;
 
 %pragma(java) jniclasscode=%{{
     static {{
-        System.out.println("loading library");
+        System.out.println("-- Starting battlecode java engine, vroom vroom! --");
+        System.out.println("Note: you're about to get a warning about stack guards, please ignore it.");
         try {{
             System.loadLibrary("battlecode");
         }} catch (UnsatisfiedLinkError e) {{
-            System.out.println("fail 1");
             try {{
                 System.load("/usr/lib/libbattlecode.so");
             }} catch (UnsatisfiedLinkError e2) {{
-                System.out.println("fail 2");
                 try {{
                     String p = java.nio.file.Paths.get("./src/bc/libbattlecode.so").toAbsolutePath().toString();
                     System.load(p);
@@ -310,7 +309,7 @@ typedef uint8_t magicbool;
                 }}
             }}
         }}
-        System.out.println("success");
+        System.out.println("-- Engine loaded. --");
     }}
 %}}
 

@@ -48,7 +48,7 @@ class Sandbox:
         else:
             raise ValueError("Must provide either S3 key and bucket or local directory for code.")
 
-    def stream_logs(self, stdout=True, stderr=True, line_action=lambda line: print(line)):
+    def stream_logs(self, stdout=True, stderr=True, line_action=lambda line: print(line.decode())):
         threading.Thread(target=_stream_logs, args=(self.container, stdout, stderr, line_action)).start()
 
     def extract_code(self, bucket, key):
@@ -59,13 +59,13 @@ class Sandbox:
                 zipf.extractall(path=str(self.working_dir.absolute()))
 
     def start(self):
-        volumes = {str(self.working_dir.absolute()):{'bind':'/code','mode':'ro'},self.socket_file:{'bind':'/tmp/battlecode-socket','mode':'rw'}}
+        volumes = {str(self.working_dir.absolute()):{'bind':'/code','mode':'rw'},self.socket_file:{'bind':'/tmp/battlecode-socket','mode':'rw'}}
 
         working_dir = '/code'
         command = 'sh run.sh'
         env = {'PLAYER_KEY':self.player_key,'SOCKET_FILE':'/tmp/battlecode-socket','RUST_BACKTRACE':1}
         #mem_limit=os.environ['PLAYER_MEM_LIMIT'],memswap_limit=os.environ['PLAYER_MEM_LIMIT']
-        self.container = self.docker.containers.run('gcr.io/battlecode18/sandbox',command,privileged=False,detach=True,stdout=True,stderr=True,volumes=volumes,working_dir=working_dir,environment=env)
+        self.container = self.docker.containers.run('battlebaby',command,privileged=False,detach=True,stdout=True,stderr=True,volumes=volumes,working_dir=working_dir,environment=env)
 
     def pause(self):
         if self.container.status == 'running':

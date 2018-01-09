@@ -12,9 +12,20 @@ from sandbox import Sandbox
 import server
 import battlecode as bc
 import ujson as json
+import io
 
 # TODO port number
 PORT = 808
+
+class Logger(object):
+    def __init__(self, prefix):
+        self.logs = io.StringIO() 
+        self.prefix = prefix
+
+    def __call__(self, v):
+        data = v.decode()
+        self.logs.write(data)
+        print(self.prefix, data, end='')
 
 def run_game(game, dockers, args, sock_file):
     '''
@@ -24,7 +35,6 @@ def run_game(game, dockers, args, sock_file):
     '''
 
     # Start the unix stream server
-    print("Here?")
     server.start_server(sock_file, game, dockers)
 
     if args['use_viewer']:
@@ -35,11 +45,25 @@ def run_game(game, dockers, args, sock_file):
     for player_key in dockers:
         docker_inst = dockers[player_key]
         docker_inst.start()
-        docker_inst.stream_logs()
+        for player_ in game.players:
+            if player_['id'] == player_key:
+                player = player_['player']
+                break
+        if player.planet == bc.Planet.Earth:
+            planet = 'earth'
+        else:
+            planet = 'mars'
+        if player.team == bc.Team.Blue:
+            team = 'blue'
+        else:
+            team = 'red'
+        name = f'[{planet}:{team}]'
+        logger = Logger(name)
+        docker_inst.stream_logs(line_action=logger)
+        player_['logger'] = logger
 
     # Wait until all the code is done then clean up
     while not game.game_over:
-        print("Game is not Over")
         time.sleep(1)
     
     print("Dumping matchfile")

@@ -1,4 +1,3 @@
-print("Got Here")
 import eel
 import os
 import battlecode_cli as cli
