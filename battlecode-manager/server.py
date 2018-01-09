@@ -53,7 +53,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         for index in range(NUM_PLAYERS):
             new_id = random.randrange(65536)
             self.players.append({'id':new_id})
-            self.players[-1]['player'] = bc.Player(bc.Team.Red if index < 2 else bc.Team.Blue, bc.Planet.Earth if index % 2 == 0 else bc.Planet.Mars)
+            self.players[-1]['player'] = bc.Player(bc.Team.Red if index % 2 == 0 else bc.Team.Blue, bc.Planet.Earth if index < 2 else bc.Planet.Mars)
             self.player_logged[new_id] = False
             self.times[new_id] = INIT_TIME
 
@@ -68,13 +68,12 @@ class Game(object): # pylint: disable=too-many-instance-attributes
 
         self.manager = bc.GameController.new_manager(self.map)
         for player in self.players:
-            player['start_message'] = self.manager.start_game(player['player'])
-            player['start_message'] = player['start_message'].to_json()
+            player['start_message'] = self.manager.start_game(player['player']).to_json()
         self.viewer_messages = []
         manager_start_message = self.manager.initial_start_turn_message()
         self.last_message = manager_start_message.start_turn.to_json()
         self.viewer_messages.append(manager_start_message.viewer.to_json())
-        self.initialized = False
+        self.initialized = 0
 
     @property
     def num_log_in(self):
@@ -292,9 +291,10 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
 
 
             send_socket = self.request
+            if isinstance(obj, bytes):
+                obj = obj.decode()
 
             message = obj + "\n"
-            print("message ", message)
             encoded_message = message.encode()
             logging.debug("Client %s: Sending message %s", self.client_id,
                           encoded_message)
@@ -326,10 +326,12 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             if self.error == "":
                 error = "null"
             else:
-                error = f'"{self.error}"'
+                self.docker.destroy()
 
             if state_diff == "":
                 state_diff = '""'
+            if isinstance(state_diff, bytes):
+                state_diff = state_diff.decode()
 
             if self.logged_in:
                 logged_in = "true"
@@ -337,7 +339,6 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 logged_in = "false"
 
             message = f'{{"logged_in":{logged_in},"client_id":"{self.client_id}","error":{error},"message":{state_diff}}}'
-            print(message)
             return message
 
         def player_handler(self):
@@ -405,12 +406,16 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
 
                 logging.debug("Client %s: Started turn", self.client_id)
 
-                if game.initialized:
-                    start_turn_msg = self.message(game.last_message)
+                if self.game.initialized > 2:
+                    print('initialized!!!!!!!')
+                    start_turn_msg = self.message(self.game.last_message)
+                    print('start_turn_msg initialized', start_turn_msg)
                 else:
                     for player in self.game.players:
                         if player['id'] == self.game.this_turn_pid:
-                            start_turn_msg = player['start_message']
+                            start_turn_msg = self.message(player['start_message'])
+                            print('start_turn_msg noninit', start_turn_msg[:50])
+                    self.game.initialized += 1
 
                 """# Start player code computing
                 if use_docker:
@@ -422,7 +427,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 start_time = time.perf_counter()
                 self.send_message(start_turn_msg)
 
-                if game.initialized:
+                if self.game.initialized > 2:
                     unpacked_data = self.get_next_message()
                     end_time = time.perf_counter()
                     diff_time = end_time-start_time
