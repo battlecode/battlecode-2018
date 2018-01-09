@@ -124,22 +124,23 @@ UnitIDVec = p.vec(UnitID.type)
 UnitType = p.c_enum("unit::UnitType",
     docs="The different unit types, which include factories, rockets, and the robots.")
 UnitType.variant('Worker', 0, docs="Workers are the foundation of the civilization.")
-UnitType.variant('Knight', 1, docs="Knights are a melee unit that is strong in numbers.")
+UnitType.variant('Knight', 1, docs="Knights are a melee unit with a hard shell.")
 UnitType.variant('Ranger', 2, docs="Rangers are a ranged unit with good all-around combat.")
 UnitType.variant('Mage', 3, docs="Mages are a fragile but specialized ranged unit for large areas.")
 UnitType.variant('Healer', 4, docs="Healers are a suport unit that can heal other units.")
 UnitType.variant('Factory', 5, docs="Factories are the hub for producing combative robots.")
 UnitType.variant('Rocket', 6, docs="Rockets are the only unit that can move between planets.")
 UnitType.serialize()
-UnitType.method(boolean.type, "is_robot", [], docs="Whether the unit type is a robot.")
-UnitType.method(boolean.type, "is_structure", [], docs="Whether the unit type is a structure.")
-UnitType.method(u32.type.result(), "factory_cost", [], docs="""The cost of the unit in a factory.
-Errors if the unit cannot be produced in a factory.""")
-UnitType.method(u32.type.result(), "blueprint_cost", [], docs="""The cost to blueprint the unit.
-Errors if the unit cannot be blueprinted.""")
-UnitType.method(u32.type.result(), "replicate_cost", [], docs="""The cost to replicate the unit.
-Errors if the unit cannot be replicated.""")
-UnitType.method(u32.type, "value", [], docs="The value of a unit, as relevant to tiebreakers.")
+UnitType.method(u32.type.result(), 'factory_cost', [], docs='''The cost of the unit in a factory.
+
+ * InappropriateUnitType - the unit type cannot be produced in a factory.''')
+UnitType.method(u32.type.result(), 'blueprint_cost', [], docs='''The cost to blueprint the unit.
+
+ * InappropriateUnitType - the unit type cannot be blueprinted.''')
+UnitType.method(u32.type.result(), 'replicate_cost', [], docs='''The cost to replicate the unit.
+
+ * InappropriateUnitType - the unit type is not a worker.''')
+UnitType.method(u32.type, 'value', [], docs="The value of a unit, as relevant to tiebreakers.")
 UnitTypeVec = p.vec(UnitType.type)
 
 Unit = p.struct("unit::Unit", docs="A single unit in the game and all its associated properties.")
@@ -147,73 +148,111 @@ Unit.debug()
 Unit.clone()
 Unit.serialize()
 Unit.eq()
-Unit.method(UnitID.type, "id", [], docs="The unique ID of a unit.", getter=True)
-Unit.method(Team.type, "team", [], docs="The team the unit belongs to.", getter=True)
-Unit.method(Level.type, "research_level", [], docs="The current research level.", getter=True)
-Unit.method(UnitType.type, "unit_type", [], docs="The unit type.", getter=True)
-Unit.method(Location.type, "location", [], docs="The location of the unit.", getter=True)
-Unit.method(u32.type, "health", [], docs="The current health.", getter=True)
-Unit.method(u32.type, "max_health", [], docs="The maximum health.", getter=True)
-Unit.method(u32.type, "vision_range", [], docs="The unit vision range.", getter=True)
-Unit.method(i32.type.result(), "damage", [], docs="""The damage inflicted by the robot during a normal attack.
-Errors if the unit is not a robot.""", getter=True)
-Unit.method(u32.type.result(), "attack_range", [], docs="""The attack range.
-Errors if the unit is not a robot.""", getter=True)
-Unit.method(u32.type.result(), "movement_heat", [], docs="""The movement heat.
-Errors if the unit is not a robot.""", getter=True)
-Unit.method(u32.type.result(), "attack_heat", [], docs="""The attack heat.
-Errors if the unit is not a robot.""", getter=True)
-Unit.method(u32.type.result(), "movement_cooldown", [], docs="""The movement cooldown.
-Errors if the unit is not a robot.""", getter=True)
-Unit.method(u32.type.result(), "attack_cooldown", [], docs="""The attack cooldown.
-Errors if the unit is not a robot.""", getter=True)
-Unit.method(boolean.type.result(), "is_ability_unlocked", [], docs="""Whether the active ability is unlocked.
-Errors if the unit is not a robot.""", getter=True)
-Unit.method(u32.type.result(), "ability_heat", [], docs="""The active ability heat.
-Errors if the unit is not a robot.""", getter=True)
-Unit.method(u32.type.result(), "ability_cooldown", [], docs="""The active ability cooldown.
-Errors if the unit is not a robot.""", getter=True)
-Unit.method(u32.type.result(), "ability_range", [], docs="""The active ability range.
-Errors if the unit is not a robot.""", getter=True)
-Unit.method(boolean.type.result(), "worker_has_acted", [], docs="""Whether the worker has already acted (harveted, blueprinted, built, or
-repaired) this round.
-Errors if the unit is not a worker.""", getter=True)
-Unit.method(u32.type.result(), "worker_build_health", [], docs="""The health restored when building or repairing a structure.
-Errors if the unit is not a worker.""", getter=True)
-Unit.method(u32.type.result(), "worker_harvest_amount", [], docs="""The maximum amount of karbonite harvested from a deposit in one turn.
-Errors if the unit is not a worker.""", getter=True)
-Unit.method(u32.type.result(), "knight_defense", [], docs="""The amount of damage resisted by a knight when attacked.
-Errors if the unit is not a knight.""", getter=True)
-Unit.method(u32.type.result(), "ranger_cannot_attack_range", [], docs="""The range within a ranger cannot attack.
-Errors if the unit is not a ranger.""", getter=True)
-Unit.method(u32.type.result(), "ranger_countdown", [], docs="""The countdown for ranger's snipe.
-Errors if the unit is not a ranger.""", getter=True)
-Unit.method(MapLocation.type.result(), "ranger_target_location", [], docs="""The target location for ranger's snipe.
-Errors if the unit is not a ranger, or if the ranger is not sniping.""")
-Unit.method(boolean.type.result(), "ranger_is_sniping", [], docs="""Whether the ranger is sniping.
-Errors if the unit is not a ranger.""", getter=True)
-Unit.method(boolean.type.result(), "ranger_max_countdown", [], docs="""The maximum countdown for ranger's snipe, which is the number of turns
-that must pass before the snipe is executed.
-Errors if the unit is not a ranger.""", getter=True)
-Unit.method(u32.type.result(), "healer_self_heal_amount", [], docs="""The amount of health passively restored to itself each round.
-Errors if the unit is not a healer.""", getter=True)
-Unit.method(boolean.type.result(), "structure_is_built", [], docs="""Whether this structure has been built.
-Errors if the unit is not a structure.""", getter=True)
-Unit.method(usize.type.result(), "structure_max_capacity", [], docs="""The max capacity of a structure.
-Errors if the unit is not a structure.""", getter=True)
-Unit.method(UnitIDVec.type.result(), "structure_garrison", [], docs="""Returns the units in the structure's garrison.
-#Errors if the unit is not a structure.""")
-#Unit.method(Option<UnitType>.type, "factory_unit_type", [], docs="""The unit type currently being produced by the factory, or None if the
-#factory is not producing a unit.
-#Errors if the unit is not a factory.""")
-#Unit.method(Option<Rounds>.type, "factory_rounds_left", [], docs="""The number of rounds left to produce a robot in this factory. Returns
-#None if no unit is currently being produced.
-#Errors if the unit is not a factory.""")
-Unit.method(boolean.type.result(), "rocket_is_used", [], docs="""Whether the rocket has already been used.
-Errors if the unit is not a rocket.""", getter=True)
-Unit.method(u32.type.result(), "rocket_travel_time_decrease", [], docs="""The number of rounds the rocket travel time is reduced by compared
-to the travel time determined by the orbit of the planets.
-Errors if the unit is not a rocket.""", getter=True)
+Unit.method(UnitID.type, 'id', [], docs='''The unique ID of a unit.''')
+Unit.method(Team.type, 'team', [], docs='''The team the unit belongs to.''')
+Unit.method(Level.type, 'research_level', [], docs='''The current research level.''')
+Unit.method(UnitType.type, 'unit_type', [], docs='''The unit type.''')
+Unit.method(Location.type, 'location', [], docs='''The location of the unit.''')
+Unit.method(u32.type, 'health', [], docs='''The current health.''')
+Unit.method(u32.type, 'max_health', [], docs='''The maximum health.''')
+Unit.method(u32.type, 'vision_range', [], docs='''The unit vision range.''')
+Unit.method(i32.type.result(), 'damage', [], docs='''The damage inflicted by the robot during a normal attack.
+
+ * InappropriateUnitType - the unit is not a robot.''')
+Unit.method(u32.type.result(), 'attack_range', [], docs='''The attack range.
+
+ * InappropriateUnitType - the unit is not a robot.''')
+Unit.method(u32.type.result(), 'movement_heat', [], docs='''The movement heat.
+
+ * InappropriateUnitType - the unit is not a robot.''')
+Unit.method(u32.type.result(), 'attack_heat', [], docs='''The attack heat.
+
+ * InappropriateUnitType - the unit is not a robot.''')
+Unit.method(u32.type.result(), 'movement_cooldown', [], docs='''The movement cooldown.
+
+ * InappropriateUnitType - the unit is not a robot.''')
+Unit.method(u32.type.result(), 'attack_cooldown', [], docs='''The attack cooldown.
+
+ * InappropriateUnitType - the unit is not a robot.''')
+Unit.method(boolean.type.result(), 'is_ability_unlocked', [], docs='''Whether the active ability is unlocked.
+
+ * InappropriateUnitType - the unit is not a robot.''')
+Unit.method(u32.type.result(), 'ability_heat', [], docs='''The active ability heat.
+
+ * InappropriateUnitType - the unit is not a robot.''')
+Unit.method(u32.type.result(), 'ability_cooldown', [], docs='''The active ability cooldown.
+
+ * InappropriateUnitType - the unit is not a robot.''')
+Unit.method(u32.type.result(), 'ability_range', [], docs='''The active ability range. This is the range in which: workers can replicate, knights can javelin, rangers can snipe, mages can blink, and healers can overcharge.
+
+ * InappropriateUnitType - the unit is not a robot.''')
+Unit.method(boolean.type.result(), 'worker_has_acted', [], docs='''Whether the worker has already acted (harveted, blueprinted, built, or repaired) this round.
+
+ * InappropriateUnitType - the unit is not a worker.''')
+Unit.method(u32.type.result(), 'worker_build_health', [], docs='''The health restored when building a structure.
+
+ * InappropriateUnitType - the unit is not a worker.''')
+Unit.method(u32.type.result(), 'worker_repair_health', [], docs='''The health restored when repairing a structure.
+
+ * InappropriateUnitType - the unit is not a worker.''')
+Unit.method(u32.type.result(), 'worker_harvest_amount', [], docs='''The maximum amount of karbonite harvested from a deposit in one turn.
+
+ * InappropriateUnitType - the unit is not a worker.''')
+Unit.method(u32.type.result(), 'knight_defense', [], docs='''The amount of damage resisted by a knight when attacked.
+
+ * InappropriateUnitType - the unit is not a knight.''')
+Unit.method(u32.type.result(), 'ranger_cannot_attack_range', [], docs='''The range within a ranger cannot attack.
+
+ * InappropriateUnitType - the unit is not a ranger.''')
+Unit.method(u32.type.result(), 'ranger_max_countdown', [], docs='''The maximum countdown for ranger's snipe, which is the number of turns that must pass before the snipe is executed.
+
+ * InappropriateUnitType - the unit is not a ranger.''')
+Unit.method(boolean.type.result(), 'ranger_is_sniping', [], docs='''Whether the ranger is sniping.
+
+ * InappropriateUnitType - the unit is not a ranger.''')
+Unit.method(MapLocation.type.result(), 'ranger_target_location', [], docs='''The target location for ranger's snipe.
+
+ * InappropriateUnitType - the unit is not a ranger.
+ * NullValue - the ranger is not sniping.''')
+Unit.method(u32.type.result(), 'ranger_countdown', [], docs='''The countdown for ranger's snipe. Errors if the ranger is not sniping.
+
+ * InappropriateUnitType - the unit is not a ranger.
+ * NullValue - the ranger is not sniping.''')
+Unit.method(u32.type.result(), 'healer_self_heal_amount', [], docs='''The amount of health passively restored to itself each round.
+
+ * InappropriateUnitType - the unit is not a healer.''')
+Unit.method(boolean.type.result(), 'structure_is_built', [], docs='''Whether this structure has been built.
+
+ * InappropriateUnitType - the unit is not a structure.''')
+Unit.method(usize.type.result(), 'structure_max_capacity', [], docs='''The max capacity of a structure.
+
+ * InappropriateUnitType - the unit is not a structure.''')
+Unit.method(UnitIDVec.type.result(), 'structure_garrison', [], docs='''Returns the units in the structure's garrison.
+
+ * InappropriateUnitType - the unit is not a structure.''')
+Unit.method(boolean.type.result(), 'is_factory_producing', [], docs='''Whether the factory is currently producing a unit.
+
+* InappropriateUnitType - the unit is not a factory.''')
+Unit.method(UnitType.type.result(), 'factory_unit_type', [], docs='''The unit type currently being produced by the factory.
+
+ * InappropriateUnitType - the unit is not a factory.
+* NullValue - the factory is not producing.''')
+Unit.method(Rounds.type.result(), 'factory_rounds_left', [], docs='''The number of rounds left to produce a robot in this factory.
+
+ * InappropriateUnitType - the unit is not a factory.
+ * NullValue - the factory is not producing.''')
+Unit.method(Rounds.type.result(), 'factory_max_rounds_left', [], docs='''The maximum number of rounds left to produce a robot in this factory.
+
+ * InappropriateUnitType - the unit is not a factory.''')
+Unit.method(boolean.type.result(), 'rocket_is_used', [], docs='''Whether the rocket has already been used.
+
+ * InappropriateUnitType - the unit is not a rocket.''')
+Unit.method(i32.type.result(), 'rocket_blast_damage', [], docs='''The damage a rocket deals to adjacent units upon landing.
+
+ * InappropriateUnitType - the unit is not a rocket.''')
+Unit.method(u32.type.result(), 'rocket_travel_time_decrease', [], docs='''The number of rounds the rocket travel time is reduced by compared to the travel time determined by the orbit of the planets.
+
+ * InappropriateUnitType - the unit is not a rocket.''')
 UnitVec = p.vec(Unit.type)
 
 PlanetMap = p.struct('map::PlanetMap', docs="The map for one of the planets in the Battlecode world. This information defines the terrain, dimensions, and initial units of the planet.")
