@@ -436,7 +436,13 @@ impl GameWorld {
     ///
     /// * NoSuchUnit - the unit does not exist (inside the vision range).
     pub fn unit_ref(&self, id: UnitID) -> Result<&Unit, Error> {
-        self.get_unit(id)
+        if let Some(unit) = self.my_planet().units.get(&id) {
+            Ok(unit)
+        } else if let Some(unit) = self.my_team().units_in_space.get(&id) {
+            Ok(unit)
+        } else {
+            Err(GameError::NoSuchUnit)?
+        }
     }
 
     /// The single unit with this ID. Use this method to get detailed
@@ -445,7 +451,13 @@ impl GameWorld {
     ///
     /// * NoSuchUnit - the unit does not exist (inside the vision range).
     pub fn unit(&self, id: UnitID) -> Result<Unit, Error> {
-        self.get_unit(id).map(|u| u.clone())
+        if let Some(unit) = self.my_planet().units.get(&id) {
+            Ok(unit.clone())
+        } else if let Some(unit) = self.my_team().units_in_space.get(&id) {
+            Ok(unit.clone())
+        } else {
+            Err(GameError::NoSuchUnit)?
+        }
     }
 
     /// All the units within the vision range, in no particular order.
@@ -546,7 +558,7 @@ impl GameWorld {
 
     /// Whether there is a unit with this ID within the vision range.
     pub fn can_sense_unit(&self, id: UnitID) -> bool {
-        self.get_unit(id).is_ok()
+        self.unit(id).is_ok()
     }
 
     /// Sense units near the location within the given radius, inclusive, in
@@ -740,7 +752,15 @@ impl GameWorld {
     /// * NoSuchUnit - the unit does not exist (inside the vision range).
     /// * TeamNotAllowed - the unit is not on the current player's team.
     fn my_unit(&self, id: UnitID) -> Result<&Unit, Error> {
-        let unit = self.get_unit(id)?;
+        let unit = {
+            if let Some(unit) = self.my_planet().units.get(&id) {
+                unit
+            } else if let Some(unit) = self.my_team().units_in_space.get(&id) {
+                unit
+            } else {
+                Err(GameError::NoSuchUnit)?
+            }
+        };
         if unit.team() == self.team() {
             Ok(unit)
         } else {
@@ -754,8 +774,14 @@ impl GameWorld {
     /// * NoSuchUnit - the unit does not exist (inside the vision range).
     /// * TeamNotAllowed - the unit is not on the current player's team.
     fn my_unit_mut(&mut self, id: UnitID) -> Result<&mut Unit, Error> {
-        if self.get_unit(id)?.team() == self.team() {
-            self.get_unit_mut(id)
+        if self.my_unit(id)?.team() == self.team() {
+            if self.my_planet().units.contains_key(&id) {
+                Ok(self.my_planet_mut().units.get_mut(&id).expect("key exists"))
+            } else if self.my_team().units_in_space.contains_key(&id) {
+                Ok(self.my_team_mut().units_in_space.get_mut(&id).expect("key exists"))
+            } else {
+                Err(GameError::NoSuchUnit)?
+            }
         } else {
             Err(GameError::TeamNotAllowed)?
         }
@@ -763,11 +789,15 @@ impl GameWorld {
 
     /// Gets this unit from space or the current planet.
     ///
-    /// * NoSuchUnit - the unit does not exist (inside the vision range).
+    /// * NoSuchUnit - the unit does not exist.
     fn get_unit(&self, id: UnitID) -> Result<&Unit, Error> {
-        if let Some(unit) = self.my_planet().units.get(&id) {
+        if let Some(unit) = self.get_planet(Planet::Earth).units.get(&id) {
             Ok(unit)
-        } else if let Some(unit) = self.my_team().units_in_space.get(&id) {
+        } else if let Some(unit) = self.get_planet(Planet::Mars).units.get(&id) {
+            Ok(unit)
+        } else if let Some(unit) = self.get_team(Team::Red).units_in_space.get(&id) {
+            Ok(unit)
+        } else if let Some(unit) = self.get_team(Team::Blue).units_in_space.get(&id) {
             Ok(unit)
         } else {
             Err(GameError::NoSuchUnit)?
@@ -776,12 +806,16 @@ impl GameWorld {
 
     /// Gets a mutable version of this unit from space or the current planet.
     ///
-    /// * NoSuchUnit - the unit does not exist (inside the vision range).
+    /// * NoSuchUnit - the unit does not exist.
     fn get_unit_mut(&mut self, id: UnitID) -> Result<&mut Unit, Error> {
-        if self.my_planet().units.contains_key(&id) {
-            Ok(self.my_planet_mut().units.get_mut(&id).expect("key exists"))
-        } else if self.my_team().units_in_space.contains_key(&id) {
-            Ok(self.my_team_mut().units_in_space.get_mut(&id).expect("key exists"))
+        if self.get_planet(Planet::Earth).units.contains_key(&id) {
+            Ok(self.get_planet_mut(Planet::Earth).units.get_mut(&id).expect("key exists"))
+        } else if self.get_planet(Planet::Mars).units.contains_key(&id) {
+            Ok(self.get_planet_mut(Planet::Mars).units.get_mut(&id).expect("key exists"))
+        } else if self.get_team(Team::Red).units_in_space.contains_key(&id) {
+            Ok(self.get_team_mut(Team::Red).units_in_space.get_mut(&id).expect("key exists"))
+        } else if self.get_team(Team::Blue).units_in_space.contains_key(&id) {
+            Ok(self.get_team_mut(Team::Blue).units_in_space.get_mut(&id).expect("key exists"))
         } else {
             Err(GameError::NoSuchUnit)?
         }
@@ -1837,7 +1871,7 @@ impl GameWorld {
 
         for factory_id in factory_ids {
             let (unit_type, team) = {
-                let factory = self.get_unit_mut(factory_id).expect("unit exists");
+                let factory = self.get_planet_mut(planet).units.get_mut(&factory_id).unwrap();
                 let new_unit_type = factory.process_factory_round();
                 if new_unit_type.is_none() {
                     continue;
@@ -1852,7 +1886,7 @@ impl GameWorld {
                 .expect("research_level is valid");
 
             self.get_planet_mut(planet).units.insert(id, new_unit);
-            self.get_unit_mut(factory_id).unwrap().load(id);
+            self.get_planet_mut(planet).units.get_mut(&factory_id).unwrap().load(id);
         }
     }
 
