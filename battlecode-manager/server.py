@@ -348,7 +348,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             self.logged_in = False
             logging.debug("Client connected to server")
             # TODO check if this is enough time out is generous enough
-            self.request.settimeout(5)
+            self.request.settimeout(50)
 
             # Handle Login phase
             while not self.logged_in:
@@ -446,7 +446,6 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                     self.docker.pause()
                 """
                 self.game.end_turn()
-                print("exiting")
 
         def viewer_handler(self):
             '''
