@@ -2,6 +2,7 @@
 //! the API that the player will use, and for generating messages to
 //! send to other parts of the Battlecode infrastructure.
 
+use error::*;
 use location::*;
 use map::*;
 use research::*;
@@ -168,7 +169,8 @@ impl GameController {
     /// Initializes the game world and creates a new controller
     /// for a player to interact with it.
     /// Mainly for testing purposes.
-    pub fn new_player(game: StartGameMessage) -> GameController {
+    #[cfg(test)]
+    fn new_player(game: StartGameMessage) -> GameController {
         GameController {
             world: game.world.clone(),
             old_world: game.world,
@@ -181,7 +183,8 @@ impl GameController {
 
     /// Starts the current turn, by updating the player's GameWorld with changes
     /// made since the last time the player had a turn.
-    pub fn start_turn(&mut self, turn: &StartTurnMessage) {
+    #[cfg(test)]
+    fn start_turn(&mut self, turn: &StartTurnMessage) {
         self.old_world.start_turn(turn);
         self.world = self.old_world.clone();
         self.turn = TurnMessage { changes: vec![] };
@@ -189,7 +192,8 @@ impl GameController {
 
     /// Ends the current turn. Returns the list of changes made in this turn.
     /// Mainly for testing purposes; use next_turn().
-    pub fn end_turn(&mut self) -> TurnMessage {
+    #[cfg(test)]
+    fn end_turn(&mut self) -> TurnMessage {
         self.world.flush_viewer_changes();
         self.turn.clone()
     }
@@ -353,13 +357,14 @@ impl GameController {
     ///
     /// * LocationOffMap - the location is off the map.
     /// * LocationNotVisible - the location is outside the vision range.
+    /// * NullValue - there is no unit at that location.
     pub fn sense_unit_at_location(&self, location: MapLocation)
                                   -> Result<Unit, Error> {
         let loc = self.world.sense_unit_at_location(location)?;
         if let Some(loc) = loc {
             Ok(loc)
         } else {
-            bail!("No unit at location.")
+            Err(GameError::NullValue)?
         }
     }
 
@@ -1020,6 +1025,8 @@ impl GameController {
 
     /// Initializes the game world and creates a new controller
     /// for the manager to interact with it.
+    ///
+    /// DO NOT CALL THIS FUNCTION UNLESS YOU ARE THE MANAGER!
     pub fn new_manager(map: GameMap) -> GameController {
         let world = GameWorld::new(map);
         GameController {
@@ -1036,6 +1043,8 @@ impl GameController {
     /// only be called on Round 1, and should only be sent to Red Earth.
     ///
     /// Panics if we're past Round 1...
+    ///
+    /// DO NOT CALL THIS FUNCTION UNLESS YOU ARE THE MANAGER!
     pub fn initial_start_turn_message(&self) -> InitialTurnApplication {
         let mut world = self.world.clone();
         world.cached_world.clear();
@@ -1046,6 +1055,8 @@ impl GameController {
     }
 
     /// Get the first message to send to each player and initialize the world.
+    ///
+    /// DO NOT CALL THIS FUNCTION UNLESS YOU ARE THE MANAGER!
     pub fn start_game(&self, player: Player) -> StartGameMessage {
         StartGameMessage {
             world: self.world.cached_world(player).clone(),
@@ -1054,7 +1065,9 @@ impl GameController {
 
     /// Given a TurnMessage from a player, apply those changes.
     /// Receives the StartTurnMessage for the next player.
-   pub fn apply_turn(&mut self, turn: &TurnMessage) -> TurnApplication {
+    ///
+    /// DO NOT CALL THIS FUNCTION UNLESS YOU ARE THE MANAGER!
+    pub fn apply_turn(&mut self, turn: &TurnMessage) -> TurnApplication {
         // Serialize the filtered game state to send to the player
         let start_turn = self.world.apply_turn(turn);
         // Serialize the game state to send to the viewer
@@ -1070,14 +1083,18 @@ impl GameController {
     }    
     
     /// Determines if the game has ended, returning the winning team if so.
+    ///
+    /// DO NOT CALL THIS FUNCTION UNLESS YOU ARE THE MANAGER!
     pub fn is_game_over(&self) -> Option<Team> {
         self.world.is_game_over()
     }
 
+    /// DO NOT CALL THIS FUNCTION UNLESS YOU ARE THE MANAGER!
     pub fn is_over(&self) -> bool {
         self.is_game_over().is_some()
     }
 
+    /// DO NOT CALL THIS FUNCTION UNLESS YOU ARE THE MANAGER!
     pub fn winning_team(&self) -> Result<Team, Error> {
         if let Some(team) = self.is_game_over() {
             Ok(team)

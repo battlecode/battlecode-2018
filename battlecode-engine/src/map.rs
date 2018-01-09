@@ -349,9 +349,20 @@ impl AsteroidPattern {
         Ok(())
     }
 
+    /// Whether there is an asteroid strike at the given round.
+    pub fn has_asteroid(&self, round: Rounds) -> bool {
+        self.pattern.get(&round).is_some()
+    }
+
     /// Get the asteroid strike at the given round.
-    pub fn asteroid(&self, round: Rounds) -> Option<&AsteroidStrike> {
-        self.pattern.get(&round)
+    ///
+    /// * NullValue - There is no asteroid strike at this round.
+    pub fn asteroid(&self, round: Rounds) -> Result<&AsteroidStrike, Error> {
+        if let Some(asteroid) = self.pattern.get(&round) {
+            Ok(asteroid)
+        } else {
+            Err(GameError::NullValue)?
+        }
     }
 
     /// Get a map of round numbers to asteroid strikes.
@@ -467,9 +478,9 @@ mod tests {
         let asteroids = AsteroidPattern::new(&asteroid_map);
         for round in 1..ROUND_LIMIT {
             if round % ASTEROID_ROUND_MAX == 0 {
-                assert!(asteroids.asteroid(round).is_some());
+                assert!(asteroids.asteroid(round).is_ok());
             } else {
-                assert!(asteroids.asteroid(round).is_none());
+                assert_err!(asteroids.asteroid(round), GameError::NullValue);
             }
         }
     }

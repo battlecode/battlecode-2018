@@ -11,6 +11,10 @@ pub enum GameError {
     #[fail(display = "You cannot build structures on Mars.")]
     CannotBuildOnMars,
 
+    /// The locations are on different planets.
+    #[fail(display = "The locations are on different planets.")]
+    DifferentPlanet,
+
     /// The factory is already producing a unit.
     #[fail(display = "The factory is already producing a unit.")]
     FactoryBusy,
@@ -55,6 +59,10 @@ pub enum GameError {
     #[fail(display = "The specified unit does not exist, at least within your vision range.")]
     NoSuchUnit,
 
+    /// No object returned, check whether it exists first.
+    #[fail(display = "No object returned, check whether it exists first.")]
+    NullValue,
+
     /// The unit is too far away to perform an action.
     #[fail(display = "The unit is too far away to perform an action.")]
     OutOfRange,
@@ -94,6 +102,10 @@ pub enum GameError {
     /// The unit is in a structure's garrison or flying through space.
     #[fail(display = "The unit is in a structure's garrison or flying through space.")]
     UnitNotOnMap,
+
+    /// The unit is not in a structure's garrison.
+    #[fail(display = "The unit is not in a structure's garrison.")]
+    UnitNotInGarrison,
 }
 
 /// Asserts that $left is an Err whose unwrapped value is the game error

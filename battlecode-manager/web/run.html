@@ -274,7 +274,7 @@
     }
 
     var submit = document.getElementById("submit")
-    submit.onclick = function() {
+    submit.onclick = async function() {
         var params = {}
         params['use_viewer'] = document.querySelector('input[name="viewer"]:checked').value;
         params['player_memory'] = document.getElementById('memory').value;
@@ -291,7 +291,7 @@
         params['map'] = params['map'].options[params['map'].selectedIndex].value;
 
         if (validate(params)) {
-            var success_fail = eel.run_game(params)()
+            var success_fail = eel.run_game(params)();
             if (success_fail == 'success') {
                 interval = display_logs(params);
             } else alert_error(success_fail);

@@ -115,20 +115,37 @@ impl ResearchInfo {
 
     /// Returns the research queue, where the front of the queue is at the
     /// beginning of the list.
-    pub fn get_queue(&self) -> Vec<Branch> {
+    pub fn queue(&self) -> Vec<Branch> {
         self.queue.clone()
     }
 
+    /// Whether there is a branch in the research queue.
+    pub fn has_next_in_queue(&self) -> bool {
+        self.queue.get(0).is_some()
+    }
+
     /// Returns the next branch to be researched, which is the branch at the
-    /// front of the research queue. Returns None if the queue is empty.
-    pub fn next_in_queue(&self) -> Option<Branch> {
-        self.queue.get(0).map(|branch| branch.clone())
+    /// front of the research queue.
+    ///
+    /// * NullValue - There is no branch to be researched.
+    pub fn next_in_queue(&self) -> Result<Branch, Error> {
+        if let Some(branch) = self.queue.get(0) {
+            Ok(branch.clone())
+        } else {
+            Err(GameError::NullValue)?
+        }
     }
 
     /// Returns the number of rounds left until the upgrade at the front of the
-    /// research queue is applied, or None if the queue is empty.
-    pub fn rounds_left(&self) -> Option<Rounds> {
-        self.rounds_left.clone()
+    /// research queue is applied.
+    ///
+    /// * NullValue - There is no branch to be researched.
+    pub fn rounds_left(&self) -> Result<Rounds, Error> {
+        if let Some(rounds_left) = self.rounds_left {
+            Ok(rounds_left)
+        } else {
+            Err(GameError::NullValue)?
+        }
     }
 
     /// Sets the number of rounds left to the cost of the first thing in the
@@ -204,8 +221,7 @@ impl ResearchInfo {
 
 #[cfg(test)]
 mod tests {
-    use super::ResearchInfo;
-    use super::super::unit::UnitType as Branch;
+    use super::*;
 
     #[test]
     fn static_cost_of_getters() {
@@ -222,9 +238,9 @@ mod tests {
     #[test]
     fn research_info_constructor() {
         let r = ResearchInfo::new();
-        assert_eq!(r.get_queue(), vec![]);
-        assert_eq!(r.next_in_queue(), None);
-        assert_eq!(r.rounds_left(), None);
+        assert_eq!(r.queue(), vec![]);
+        assert_err!(r.next_in_queue(), GameError::NullValue);
+        assert_err!(r.rounds_left(), GameError::NullValue);
 
         for branch in Branch::all() {
             assert_eq!(r.get_level(&branch), 0);
@@ -238,21 +254,21 @@ mod tests {
 
         // Add a Knight.
         assert!(r.add_to_queue(&Branch::Knight));
-        assert_eq!(r.get_queue(), vec![Branch::Knight]);
-        assert_eq!(r.next_in_queue(), Some(Branch::Knight));
-        assert_eq!(r.rounds_left(), Some(knight_cost));
+        assert_eq!(r.queue(), vec![Branch::Knight]);
+        assert_eq!(r.next_in_queue().unwrap(), Branch::Knight);
+        assert_eq!(r.rounds_left().unwrap(), knight_cost);
 
         // Add a Mage.
         assert!(r.add_to_queue(&Branch::Mage));
-        assert_eq!(r.get_queue(), vec![Branch::Knight, Branch::Mage]);
-        assert_eq!(r.next_in_queue(), Some(Branch::Knight));
-        assert_eq!(r.rounds_left(), Some(knight_cost));
+        assert_eq!(r.queue(), vec![Branch::Knight, Branch::Mage]);
+        assert_eq!(r.next_in_queue().unwrap(), Branch::Knight);
+        assert_eq!(r.rounds_left().unwrap(), knight_cost);
 
         // Reset a queue with items in it.
         assert!(r.reset_queue());
-        assert_eq!(r.get_queue(), vec![]);
-        assert_eq!(r.next_in_queue(), None);
-        assert_eq!(r.rounds_left(), None);
+        assert_eq!(r.queue(), vec![]);
+        assert_err!(r.next_in_queue(), GameError::NullValue);
+        assert_err!(r.rounds_left(), GameError::NullValue);
 
         // Reset an empty queue.
         assert!(!r.reset_queue());
@@ -269,9 +285,9 @@ mod tests {
     fn end_round_trivial() {
         let mut r = ResearchInfo::new();
         assert_eq!(r.end_round(), None);
-        assert_eq!(r.get_queue(), vec![]);
-        assert_eq!(r.next_in_queue(), None);
-        assert_eq!(r.rounds_left(), None);
+        assert_eq!(r.queue(), vec![]);
+        assert_err!(r.next_in_queue(), GameError::NullValue);
+        assert_err!(r.rounds_left(), GameError::NullValue);
     }
 
     #[test]
@@ -292,7 +308,7 @@ mod tests {
 
         // Proceed one round.
         assert_eq!(r.end_round(), None);
-        assert_eq!(r.rounds_left(), Some(knight_cost_l1 - 1));
+        assert_eq!(r.rounds_left().unwrap(), knight_cost_l1 - 1);
         assert_eq!(r.get_level(&Branch::Knight), 0);
         assert_eq!(r.get_level(&Branch::Mage), 0);
 
@@ -301,8 +317,8 @@ mod tests {
             assert_eq!(r.end_round(), None);
         }
         assert_eq!(r.end_round(), Some(Branch::Knight));
-        assert_eq!(r.get_queue(), vec![Branch::Knight, Branch::Mage]);
-        assert_eq!(r.rounds_left(), Some(knight_cost_l2));
+        assert_eq!(r.queue(), vec![Branch::Knight, Branch::Mage]);
+        assert_eq!(r.rounds_left().unwrap(), knight_cost_l2);
         assert_eq!(r.get_level(&Branch::Knight), 1);
         assert_eq!(r.get_level(&Branch::Mage), 0);
 
@@ -311,8 +327,8 @@ mod tests {
             assert_eq!(r.end_round(), None);
         }
         assert_eq!(r.end_round(), Some(Branch::Knight));
-        assert_eq!(r.get_queue(), vec![Branch::Mage]);
-        assert_eq!(r.rounds_left(), Some(mage_cost));
+        assert_eq!(r.queue(), vec![Branch::Mage]);
+        assert_eq!(r.rounds_left().unwrap(), mage_cost);
         assert_eq!(r.get_level(&Branch::Knight), 2);
         assert_eq!(r.get_level(&Branch::Mage), 0);
 
@@ -321,7 +337,7 @@ mod tests {
             assert_eq!(r.end_round(), None);
         }
         assert_eq!(r.end_round(), Some(Branch::Mage));
-        assert_eq!(r.rounds_left(), None);
+        assert_err!(r.rounds_left(), GameError::NullValue);
         assert_eq!(r.get_level(&Branch::Knight), 2);
         assert_eq!(r.get_level(&Branch::Mage), 1);
     }
@@ -341,14 +357,14 @@ mod tests {
 
         // Proceed one round.
         assert_eq!(r.end_round(), None);
-        assert_eq!(r.rounds_left(), Some(knight_cost - 1));
+        assert_eq!(r.rounds_left().unwrap(), knight_cost - 1);
         assert_eq!(r.get_level(&Branch::Knight), 0);
         assert_eq!(r.get_level(&Branch::Mage), 0);
 
         // Reset the queue and proceed a round.
         assert!(r.reset_queue());
         assert_eq!(r.end_round(), None);
-        assert_eq!(r.rounds_left(), None);
+        assert_err!(r.rounds_left(), GameError::NullValue);
         assert_eq!(r.get_level(&Branch::Knight), 0);
         assert_eq!(r.get_level(&Branch::Mage), 0);
 
@@ -358,7 +374,7 @@ mod tests {
         for _ in 0..knight_cost + mage_cost {
             r.end_round();
         }
-        assert_eq!(r.rounds_left(), None);
+        assert_err!(r.rounds_left(), GameError::NullValue);
         assert_eq!(r.get_level(&Branch::Knight), 1);
         assert_eq!(r.get_level(&Branch::Mage), 1);
     }
