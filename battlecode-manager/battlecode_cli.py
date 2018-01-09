@@ -33,12 +33,10 @@ def run_game(game, dockers, args, sock_file):
     for player_key in DOCKERS:
         docker_inst = DOCKERS[player_key]
         docker_inst.start()
+        docker_inst.stream_logs()
 
     # Wait until all the code is done then clean up
     while not GAME.game_over:
-        for player_key in DOCKERS:
-            logs = DOCKERS[player_key].get_logs(stdout=True, stderr=True, timestamps=False, stream=False)
-            print(logs.decode())
         time.sleep(1)
 
 def cleanup(dockers, args, sock_file):
@@ -95,7 +93,7 @@ def create_game(args):
     for index in range(len(game.players)):
         key = [player['id'] for player in game.players][index]
         dockers[key] = Sandbox(sock_file, player_key=key,
-                               local_dir=args['dir_p1' if index < 2 else 'dir_p2'])
+                               local_dir=args['dir_p1' if index % 2 == 0 else 'dir_p2'])
 
     return (game, dockers, sock_file)
 

@@ -10,8 +10,8 @@ import time
 import random
 import sys
 import logging
-import ujson as json
 import os.path
+import ujson as json
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../bindings/python')))
 import battlecode as bc
 
@@ -20,7 +20,7 @@ import battlecode as bc
 # We should also check that pausing doesn't hurt unix streams they don't
 # have
 
-INIT_TIME = 250
+INIT_TIME = .250
 TIME_PER_TURN = 10
 NUM_PLAYERS = 4
 
@@ -49,11 +49,11 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         # Dict taking player id and giving amount of time left as float
         self.times = {}
 
-        # Initialize the player_ids
+        # Initialize the players
         for index in range(NUM_PLAYERS):
             new_id = random.randrange(65536)
             self.players.append({'id':new_id})
-            self.players[-1]['player'] = bc.Player(bc.Team.Red if index < 2 else bc.Team.Blue, bc.Planet.Earth if index % 2 == 0 else bc.Planet.Mars)
+            self.players[-1]['player'] = bc.Player(bc.Team.Red if index % 2 == 0 else bc.Team.Blue, bc.Planet.Earth if index < 2 else bc.Planet.Mars)
             self.player_logged[new_id] = False
             self.times[new_id] = INIT_TIME
 
@@ -68,12 +68,12 @@ class Game(object): # pylint: disable=too-many-instance-attributes
 
         self.manager = bc.GameController.new_manager(self.map)
         for player in self.players:
-            player['start_message'] = self.manager.start_game(player['player'])
-            player['start_message'] = player['start_message'].to_json()
+            player['start_message'] = self.manager.start_game(player['player']).to_json()
         self.viewer_messages = []
-        self.last_message = self.manager.initial_start_turn_message().start_turn.to_json()
-        # deal with self.manager.initial_start_turn_message().viewer
-        self.initialized = False
+        manager_start_message = self.manager.initial_start_turn_message()
+        self.last_message = manager_start_message.start_turn.to_json()
+        self.viewer_messages.append(manager_start_message.viewer.to_json())
+        self.initialized = 0
 
     @property
     def num_log_in(self):
@@ -98,10 +98,10 @@ class Game(object): # pylint: disable=too-many-instance-attributes
                 Boolean if login was successful
         '''
 
-        client_id = unpacked_data['client_id']
+        client_id = int(unpacked_data['client_id'])
 
         # Check if they are in our list of clients
-        if client_id not in self.player_ids:
+        if client_id not in [player['id'] for player in self.players]:
             return "Client id Mismatch"
 
         # Check if they logged in already
@@ -139,9 +139,13 @@ class Game(object): # pylint: disable=too-many-instance-attributes
 
 
         # Increment to the next player
-        index = self.player_ids.index(self.this_turn_pid)
-        index = (index + 1) % len(self.player_ids)
-        self.this_turn_pid = self.player_ids[index]
+        index = -1
+        for i, player in enumerate(self.players):
+            if player['id'] == self.this_turn_pid:
+                index = i
+
+        index = (index + 1) % len(self.players)
+        self.this_turn_pid = self.players[index]['id']
 
         self.running_lock.release()
 
@@ -195,11 +199,9 @@ class Game(object): # pylint: disable=too-many-instance-attributes
 
         '''
         # interact with the engine
-        # TODO add to viewer_messages
-        self.viewer_messages.append("")
         application = self.manager.apply_turn(turn_message)
         self.last_message = application.start_turn.to_json()
-        # handle application.viewer.to_json()
+        self.viewer_messages.append(application.viewer.to_json())
         self.times[client_id] -= diff_time
         return
 
@@ -289,8 +291,10 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
 
 
             send_socket = self.request
+            if isinstance(obj, bytes):
+                obj = obj.decode()
 
-            message = json.dumps(obj) + "\n"
+            message = obj + "\n"
             encoded_message = message.encode()
             logging.debug("Client %s: Sending message %s", self.client_id,
                           encoded_message)
@@ -319,11 +323,22 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             Compress the current state into a message that will be sent to the
             client
             '''
-            message = {}
-            message['logged_in'] = self.logged_in
-            message['client_id'] = self.client_id
-            message['error'] = self.error
-            message['message'] = state_diff
+            if self.error == "":
+                error = "null"
+            else:
+                self.docker.destroy()
+
+            if state_diff == "":
+                state_diff = '""'
+            if isinstance(state_diff, bytes):
+                state_diff = state_diff.decode()
+
+            if self.logged_in:
+                logged_in = "true"
+            else:
+                logged_in = "false"
+
+            message = f'{{"logged_in":{logged_in},"client_id":"{self.client_id}","error":{error},"message":{state_diff}}}'
             return message
 
         def player_handler(self):
@@ -381,24 +396,26 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 # Blocks until it this clients turn
                 self.game.start_turn(self.client_id)
 
-                game_over = game.manager.is_game_over()
-                # check if game is over, if so, get winner in winner variables
-                if game_over is True: #replace with actual checking
-                    winner = 0 #report the winner
+                if self.game.manager.is_over():
+                    winner = game.manager.winning_team()
                     self.request.close()
                     logs = self.docker.destroy()
-                    report_winner() # somehow alert people who won
+                    report_winner()
                     return
 
 
                 logging.debug("Client %s: Started turn", self.client_id)
 
-                if game.initialized:
-                    start_turn_msg = self.message(game.last_message)
+                if self.game.initialized > 2:
+                    print('initialized!!!!!!!')
+                    start_turn_msg = self.message(self.game.last_message)
+                    print('start_turn_msg initialized', start_turn_msg)
                 else:
                     for player in self.game.players:
                         if player['id'] == self.game.this_turn_pid:
-                            start_turn_msg = player['start_message']
+                            start_turn_msg = self.message(player['start_message'])
+                            print('start_turn_msg noninit', start_turn_msg[:50])
+                    self.game.initialized += 1
 
                 """# Start player code computing
                 if use_docker:
@@ -410,7 +427,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 start_time = time.perf_counter()
                 self.send_message(start_turn_msg)
 
-                if game.initialized:
+                if self.game.initialized > 2:
                     unpacked_data = self.get_next_message()
                     end_time = time.perf_counter()
                     diff_time = end_time-start_time

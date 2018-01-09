@@ -23,7 +23,7 @@ Once you've created your definitions, call .write_files() and this script will g
 - program.h, a header file for the wrapper
 - program.i, a swig interface file for the wrapper
 
-program.rs is a standalone file that imports your existing crate, 
+program.rs is a standalone file that imports your existing crate,
 and you shouldn't need to modify your crate's code.
 
 This is not a principled framework, it's quite hacky. However, it gets the job done.
@@ -314,7 +314,7 @@ def game_turns():
         print(controller.round)
     """
     controller = GameController()
-    while not controller.is_over():
+    while True:
         yield controller
         controller.next_turn()
 
@@ -325,7 +325,7 @@ class TypedefWrapper(object):
     def __init__(self, program, rust_name, c_type):
         self.program = program
         self.type = BuiltinType(f'{program.module}::{rust_name}', c_type.swig, c_type.python, c_type.default)
-    
+
     to_rust = to_c = to_swig = to_python = lambda self: ''
 
 class Program(object):
@@ -368,7 +368,7 @@ class Program(object):
         return self.format(SWIG_HEADER)\
             + ''.join(elem.to_swig() for elem in self.elements)\
             + self.format(SWIG_FOOTER)
-    
+
     def to_python(self):
         return self.format(PYTHON_HEADER)\
             + '\n'.join(elem.to_python() for elem in self.elements)\
@@ -393,4 +393,3 @@ class Program(object):
         result = CEnumWrapper(self, *args, **kwargs)
         self.elements.append(result)
         return result
-

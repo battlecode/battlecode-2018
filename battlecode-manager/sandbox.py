@@ -1,5 +1,6 @@
 from pathlib import Path
 from threading import Timer
+import threading
 from tqdm import tqdm
 import os, time, socket, fcntl, struct, string, random, io, zipfile, boto3, docker
 from distutils.dir_util import copy_tree
@@ -18,12 +19,17 @@ def delete_folder(path):
 def random_key(length):
     return ''.join([random.choice(string.ascii_letters + string.digits) for _ in range(length)])
 
+def _stream_logs(container, stdout, stderr, line_action):
+    for line in container.logs(stdout=stdout, stderr=stderr, stream=True):
+        line_action(line)
+
 class Sandbox:
     def initialize():
         global docker_client
         docker_client = docker.from_env()
 
-    def __init__(self, socket_file, local_dir=None, s3_bucket=None, s3_key=None, player_key="", working_dir="working_dir/"):
+    def __init__(self, socket_file, local_dir=None, s3_bucket=None, s3_key=None,
+                player_key="", working_dir="working_dir/"):
         self.player_key = player_key
         self.docker = docker_client
         self.socket_file = socket_file
@@ -40,6 +46,9 @@ class Sandbox:
         else:
             raise ValueError("Must provide either S3 key and bucket or local directory for code.")
 
+    def stream_logs(self, stdout=True, stderr=True, line_action=lambda line: print(line)):
+        threading.Thread(target=_stream_logs, args=(self.container, stdout, stderr, line_action)).start()
+
     def extract_code(self, bucket, key):
         obj = bucket.Object(key)
         with io.BytesIO(obj.get()["Body"].read()) as tf:
@@ -52,9 +61,9 @@ class Sandbox:
 
         working_dir = '/code'
         command = 'sh run.sh'
-        env = {'PLAYER_KEY':self.player_key,'SOCKET_FILE':'/tmp/battlecode-socket'}
-
-        self.container = self.docker.containers.run('gcr.io/battlecode18/sandbox',command,privileged=False,detach=True,mem_limit=os.environ['PLAYER_MEM_LIMIT'],memswap_limit=os.environ['PLAYER_MEM_LIMIT'],stdout=True,stderr=True,volumes=volumes,working_dir=working_dir,environment=env)
+        env = {'PLAYER_KEY':self.player_key,'SOCKET_FILE':'/tmp/battlecode-socket','RUST_BACKTRACE':1}
+        #mem_limit=os.environ['PLAYER_MEM_LIMIT'],memswap_limit=os.environ['PLAYER_MEM_LIMIT']
+        self.container = self.docker.containers.run('gcr.io/battlecode18/sandbox',command,privileged=False,detach=True,stdout=True,stderr=True,volumes=volumes,working_dir=working_dir,environment=env)
 
     def pause(self):
         if self.container.status == 'running':
