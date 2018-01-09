@@ -10,7 +10,9 @@ use super::location::MapLocation;
 /// A rocket landing.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RocketLanding {
+    /// The ID of the rocket.
     pub rocket_id: UnitID,
+    /// The landing destination of the rocket.
     pub destination: MapLocation,
 }
 
