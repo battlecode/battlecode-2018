@@ -16,3 +16,4 @@ __pycache__
 *.coverage
 *.log
 sandbox
+docker-artifacts

@@ -37,6 +37,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
                  logging_file="server.log"):
 
         logging.basicConfig(filename=logging_file, level=logging_level)
+
         '''
         Initialize Game object
         Args:
@@ -64,7 +65,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         self.running_lock = threading.RLock()
         self.this_turn_pid = 0 # The id of the player whose turn it is
 
-        self.map = game_map
+        self.map = game_map # TODO: load game_map
 
         self.manager = bc.GameController.new_manager(self.map)
         for player in self.players:

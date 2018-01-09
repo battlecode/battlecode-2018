@@ -25,7 +25,7 @@ def run_game(game, dockers, args, sock_file):
     # Start the unix stream server
     server.start_server(sock_file, game, dockers)
 
-    if args['use_viewer']:
+    if args.use_viewer:
         # TODO check this function
         server.start_viewer_server(PORT, game)
 
@@ -53,14 +53,20 @@ def parse_args():
     '''
     Parse the arguments given as env variables
     '''
+    parser = argparse.ArgumentParser(description='The entrypoint for Battlecode 2017')
+    command = parser.add_subparsers(dest="command")
+    run = command.add_parser("run", help="Run a game.")
+    run.add_argument('--use_viewer', default=True)
+    run.add_argument('--p1', metavar='PLAYER1', help='The directory of player 1', dest='dir_p1')
+    run.add_argument('--p1language', help='The language used by player 1', default='python')
+    run.add_argument('--p2', metavar='PLAYER2', help='The directory of player 2', dest='dir_p2')
+    run.add_argument('--p2language', help='The language used by player 2', default='python')
+    run.add_argument('--map', metavar='MAP', help='The map to run the game on', default='default', dest='map')
+    listmaps = command.add_parser("listmaps", help="List available maps.")
 
-    return_args = {}
-    return_args['use_viewer'] = (os.environ['VIEWER'] != None)
-    return_args['dir_p1'] = os.path.abspath(os.environ['P1'])
-    return_args['dir_p2'] = os.path.abspath(os.environ['P2'])
-    return_args['map'] = get_map(os.environ['MAP'])
-
-    return return_args
+    result = parser.parse_args()
+    print(result)
+    return result
 
 def get_map(map_name):
     '''
@@ -79,7 +85,7 @@ def create_game(args):
 
     # Load the Game state info
     game = server.Game(logging_level=logging.ERROR,
-                       game_map=args['map'])
+                       game_map=get_map(args.map))
 
     # Find a good filename to use as socket file
     for index in range(10000):
@@ -93,7 +99,7 @@ def create_game(args):
     for index in range(len(game.players)):
         key = [player['id'] for player in game.players][index]
         dockers[key] = Sandbox(sock_file, player_key=key,
-                               local_dir=args['dir_p1' if index % 2 == 0 else 'dir_p2'])
+                               local_dir=args.dir_p1 if index % 2 == 0 else args.dir_p2)
 
     return (game, dockers, sock_file)
 

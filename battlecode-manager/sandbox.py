@@ -27,6 +27,9 @@ class Sandbox:
     def initialize():
         global docker_client
         docker_client = docker.from_env()
+        print("Starting up.")
+        for progress in docker_client.images.load("/images/battlebaby-py3.tar"):
+            print(progress)
 
     def __init__(self, socket_file, local_dir=None, s3_bucket=None, s3_key=None,
                 player_key="", working_dir="working_dir/"):
@@ -63,7 +66,7 @@ class Sandbox:
         command = 'sh run.sh'
         env = {'PLAYER_KEY':self.player_key,'SOCKET_FILE':'/tmp/battlecode-socket','RUST_BACKTRACE':1}
         #mem_limit=os.environ['PLAYER_MEM_LIMIT'],memswap_limit=os.environ['PLAYER_MEM_LIMIT']
-        self.container = self.docker.containers.run('gcr.io/battlecode18/sandbox',command,privileged=False,detach=True,stdout=True,stderr=True,volumes=volumes,working_dir=working_dir,environment=env)
+        self.container = self.docker.containers.run('battlebaby-py3',command,privileged=False,detach=True,stdout=True,stderr=True,volumes=volumes,working_dir=working_dir,environment=env)
 
     def pause(self):
         if self.container.status == 'running':
