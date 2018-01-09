@@ -87,7 +87,7 @@ impl UnitType {
                 vision_range: 70,
                 movement_cooldown: 20,
                 attack_cooldown: 20,
-                ability_cooldown: 0,
+                ability_cooldown: 200,
                 ability_range: u32::max_value(),
                 ..Default::default()
             },
