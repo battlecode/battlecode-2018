@@ -614,7 +614,7 @@ impl GameWorld {
     }
 
     fn process_asteroids(&mut self) {
-        if self.asteroids.asteroid(self.round).is_some() {
+        if self.asteroids.has_asteroid(self.round) {
             let (location, karbonite) = {
                 let asteroid = self.asteroids.asteroid(self.round).unwrap();
                 (asteroid.location, asteroid.karbonite)

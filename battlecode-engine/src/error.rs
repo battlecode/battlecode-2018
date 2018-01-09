@@ -59,6 +59,10 @@ pub enum GameError {
     #[fail(display = "The specified unit does not exist, at least within your vision range.")]
     NoSuchUnit,
 
+    /// No object returned, check whether it exists first.
+    #[fail(display = "No object returned, check whether it exists first.")]
+    NullValue,
+
     /// The unit is too far away to perform an action.
     #[fail(display = "The unit is too far away to perform an action.")]
     OutOfRange,

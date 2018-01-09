@@ -215,10 +215,24 @@ to the travel time determined by the orbit of the planets.
 Errors if the unit is not a rocket.""", getter=True)
 UnitVec = p.vec(Unit.type)
 
-GameMap = p.struct('map::GameMap')
-GameMap.method(GameMap.type, 'test_map', [], static=True)
-GameMap.clone()
-GameMap.serialize()
+PlanetMap = p.struct('map::PlanetMap', docs="The map for one of the planets in the Battlecode world. This information defines the terrain, dimensions, and initial units of the planet.")
+PlanetMap.member(Planet.type, 'planet', docs="The planet of the map.")
+PlanetMap.member(usize.type, 'height', docs="The height of this map, in squares. Must be in the range [MAP_HEIGHT_MIN, MAP_HEIGHT_MAX], inclusive.")
+PlanetMap.member(usize.type, 'width', docs="The height of this map, in squares. Must be in the range [MAP_WIDTH_MIN, MAP_WIDTH_MAX], inclusive.")
+PlanetMap.member(UnitVec.type, 'initial_units', docs="The initial units on the map. Each team starts with 1 to 3 Workers on Earth.")
+PlanetMap.method(void.type.result(), 'validate', [], docs='''Validates the map and checks some invariants are followed.
+
+ * InvalidMapObject - the planet map is invalid.''')
+PlanetMap.method(boolean.type, 'on_map', [Var(MapLocation.type, 'location')], docs="Whether a location is on the map.")
+PlanetMap.method(boolean.type.result(), 'is_passable_terrain_at', [Var(MapLocation.type, 'location')], docs='''
+Whether the location on the map contains passable terrain. Is only false when the square contains impassable terrain (distinct from containing a building, for instance).
+
+LocationOffMap - the location is off the map.''')
+PlanetMap.method(u32.type.result(), 'initial_karbonite_at', [Var(MapLocation.type, 'location')], docs='''The amount of Karbonite initially deposited at the given location.
+
+LocationOffMap - the location is off the map.''')
+PlanetMap.clone()
+PlanetMap.serialize()
 
 Delta = p.struct('schema::Delta')
 Delta.serialize()
@@ -251,7 +265,7 @@ InitialTurnApplication = p.struct("controller::InitialTurnApplication")
 InitialTurnApplication.member(StartTurnMessage.type, 'start_turn')
 InitialTurnApplication.member(ViewerKeyframe.type, 'viewer')
 
-AsteroidStrike = p.struct("map::AsteroidStrike")
+AsteroidStrike = p.struct("map::AsteroidStrike", docs="A single asteroid strike on Mars.")
 AsteroidStrike.constructor("new", [Var(u32.type, "karbonite"), Var(MapLocation.type, "location")])
 AsteroidStrike.member(u32.type, "karbonite")
 AsteroidStrike.member(MapLocation.type, "location")
@@ -260,16 +274,44 @@ AsteroidStrike.debug()
 AsteroidStrike.serialize()
 AsteroidStrike.eq()
 
-AsteroidPattern = p.struct("map::AsteroidPattern")
+AsteroidPattern = p.struct("map::AsteroidPattern", docs="The asteroid pattern, defined by the timing and contents of each asteroid strike.")
+AsteroidPattern.constructor("random", [Var(u16.type, "seed"), Var(PlanetMap.type.ref(), "mars_map")], docs='''Constructs a pseudorandom asteroid pattern given a map of Mars.''')
+AsteroidPattern.method(void.type.result(), "validate", [], docs='''Validates the asteroid pattern.
+
+ * InvalidMapObject - the asteroid pattern is invalid.''')
+AsteroidPattern.method(boolean.type, "has_asteroid", [Var(Rounds.type, "round")], docs='''Whether there is an asteroid strike at the given round.''')
+AsteroidPattern.method(AsteroidStrike.type.ref().result(), "asteroid", [Var(Rounds.type, "round")], docs='''Get the asteroid strike at the given round.
+
+* NullValue - There is no asteroid strike at this round.''')
 AsteroidPattern.clone()
 AsteroidPattern.debug()
 AsteroidPattern.serialize()
 
-OrbitPattern = p.struct("map::OrbitPattern")
-OrbitPattern.member(Rounds.type, "amplitude")
-OrbitPattern.member(Rounds.type, "period")
-OrbitPattern.member(Rounds.type, "center")
+OrbitPattern = p.struct("map::OrbitPattern", docs="The orbit pattern that determines a rocket's flight duration. This pattern is a sinusoidal function y=a*sin(bx)+c.")
+OrbitPattern.member(Rounds.type, "amplitude", docs="Amplitude of the orbit.")
+OrbitPattern.member(Rounds.type, "period", docs="The period of the orbit.")
+OrbitPattern.member(Rounds.type, "center", docs="The center of the orbit.")
+OrbitPattern.constructor('new', [Var(Rounds.type, 'amplitude'), Var(Rounds.type, 'period'), Var(Rounds.type, 'center')], docs='''Construct a new orbit pattern. This pattern is a sinusoidal function y=a*sin(bx)+c, where the x-axis is the round number of takeoff and the the y-axis is the duration of flight to the nearest integer.
+
+The amplitude, period, and center are measured in rounds.''')
+OrbitPattern.method(void.type.result(), 'validate', [], docs='''Validates the orbit pattern.
+
+InvalidMapObject - the orbit pattern is invalid.''')
+OrbitPattern.method(Rounds.type, 'duration', [Var(Rounds.type, 'round')], "Get the duration of flight if the rocket were to take off from either planet on the given round.")
 OrbitPattern.serialize()
+
+GameMap = p.struct('map::GameMap', docs="The map defining the starting state for an entire game.")
+GameMap.member(u16.type, 'seed', docs="Seed for random number generation.")
+GameMap.member(PlanetMap.type, 'earth_map', docs="Earth map.")
+GameMap.member(PlanetMap.type, 'mars_map', docs="Mars map.")
+GameMap.member(AsteroidPattern.type, 'asteroids', docs="The asteroid strike pattern on Mars.")
+GameMap.member(OrbitPattern.type, 'orbit', docs="The orbit pattern that determines a rocket's flight duration.")
+GameMap.method(void.type.result(), 'validate', [], docs='''Validate the game map.
+
+ * InvalidMapObject - the game map is invalid.''')
+GameMap.method(GameMap.type, 'test_map', [], static=True)
+GameMap.clone()
+GameMap.serialize()
 
 ResearchInfo = p.struct("research::ResearchInfo")
 
