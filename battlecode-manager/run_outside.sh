@@ -7,4 +7,4 @@ export VIEWER=False
 export MAP='default'
 export P2='../players/examplefuncsplayer' 
 docker pull gcr.io/battlecode18/sandbox
-python3 battlecode_cli.py
+python3 gui.py

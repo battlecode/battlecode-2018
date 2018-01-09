@@ -35,6 +35,8 @@ ADD Cargo.lock Cargo.toml Makefile /battlecode/
 WORKDIR /battlecode/bindings
 RUN python3 generate.py
 
+RUN pip3 install eel
+
 WORKDIR /battlecode/bindings/python
 RUN pip3 install -r requirements.txt
 RUN cargo build
