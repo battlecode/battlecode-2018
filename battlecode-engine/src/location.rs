@@ -58,18 +58,33 @@ impl Direction {
         ]
     }
 
-    /// Returns the (x, y) displacement of this direction.
-    pub fn delta(&self) -> (i32, i32) {
+    /// Returns the x displacement of this direction.
+    pub fn dx(&self) -> i32 {
         match *self {
-            North => (0, 1),
-            Northeast => (1, 1),
-            East => (1, 0),
-            Southeast => (1, -1),
-            South => (0, -1),
-            Southwest => (-1, -1),
-            West => (-1, 0),
-            Northwest => (-1, 1),
-            Center => (0, 0),
+            North => 0,
+            Northeast => 1,
+            East => 1,
+            Southeast => 1,
+            South => 0,
+            Southwest => -1,
+            West => -1,
+            Northwest => -1,
+            Center => 0,
+        }
+    }
+
+    /// Returns the y displacement of this direction.
+    pub fn dy(&self) -> i32 {
+        match *self {
+            North => 1,
+            Northeast => 1,
+            East => 0,
+            Southeast => -1,
+            South => -1,
+            Southwest => -1,
+            West => 0,
+            Northwest => 1,
+            Center => 0,
         }
     }
 
@@ -82,31 +97,31 @@ impl Direction {
     }
 
     /// Returns the direction opposite this one, or Center if it's Center.
-    pub fn opposite(self) -> Direction {
-        if self == Center {
+    pub fn opposite(&self) -> Direction {
+        if *self == Center {
             return Center;
         }
-        let new_dir = ((self as u8) + 4) % 8;
+        let new_dir = ((*self as u8) + 4) % 8;
         Direction::num_to_direction(new_dir)
     }
 
     /// Returns the direction 45 degrees to the left (counter-clockwise) of
     /// this one, or Center if it's Center.
-    pub fn rotate_left(self) -> Direction {
-        if self == Center {
+    pub fn rotate_left(&self) -> Direction {
+        if *self == Center {
             return Center;
         }
-        let new_dir = ((self as u8) + 7) % 8;
+        let new_dir = ((*self as u8) + 7) % 8;
         Direction::num_to_direction(new_dir)
     }
 
     /// Returns the direction 45 degrees to the right (clockwise) of this one,
     /// or Center if it's Center.
-    pub fn rotate_right(self) -> Direction {
-        if self == Center {
+    pub fn rotate_right(&self) -> Direction {
+        if *self == Center {
             return Center;
         }
-        let new_dir = ((self as u8) + 1) % 8;
+        let new_dir = ((*self as u8) + 1) % 8;
         Direction::num_to_direction(new_dir)
     }
 }
@@ -147,8 +162,8 @@ impl MapLocation {
     pub fn add(&self, direction: Direction) -> MapLocation {
         MapLocation { 
             planet: self.planet,
-            x: self.x + direction.delta().0, 
-            y: self.y + direction.delta().1,
+            x: self.x + direction.dx(), 
+            y: self.y + direction.dy(),
         }
     }
 
@@ -156,8 +171,8 @@ impl MapLocation {
     pub fn subtract(&self, direction: Direction) -> MapLocation {
         MapLocation {
             planet: self.planet,
-            x: self.x - direction.delta().0,
-            y: self.y - direction.delta().1,
+            x: self.x - direction.dx(),
+            y: self.y - direction.dy(),
         }
     }
 
@@ -167,8 +182,8 @@ impl MapLocation {
                         multiple: i32) -> MapLocation {
         MapLocation {
             planet: self.planet,
-            x: self.x + multiple * direction.delta().0,
-            y: self.y + multiple * direction.delta().1,
+            x: self.x + multiple * direction.dx(),
+            y: self.y + multiple * direction.dy(),
         }
     }
 
@@ -193,15 +208,16 @@ impl MapLocation {
     }
 
     /// Returns the Direction from this location to the specified location.
-    /// If the locations are equal this method returns Center. No direction is
-    /// returned if the locations are on different planets.
-    pub fn direction_to(&self, o: MapLocation) -> Option<Direction> {
+    /// If the locations are equal this method returns Center.
+    ///
+    /// * DifferentPlanet - The locations are on different planets.
+    pub fn direction_to(&self, o: MapLocation) -> Result<Direction, Error> {
         if self.planet != o.planet {
-            return None;
+            Err(GameError::DifferentPlanet)?;
         }
 
         if o.x == self.x && o.y == self.y {
-            return Some(Center);
+            return Ok(Center);
         }
 
         let dx = (o.x - self.x) as f32;
@@ -215,28 +231,28 @@ impl MapLocation {
         // 67.5 < y < 90 would be N.
         if dx.abs() >= 2.414 * dy.abs() {
             if dx > 0. {
-                Some(East)
+                Ok(East)
             } else {
-                Some(West)
+                Ok(West)
             }
         } else if dy.abs() >= 2.414 * dx.abs() {
             if dy > 0. {
-                Some(North)
+                Ok(North)
             } else {
-                Some(South)
+                Ok(South)
             }
         } else {
             if dy > 0. {
                 if dx > 0. {
-                    Some(Northeast)
+                    Ok(Northeast)
                 } else {
-                    Some(Northwest)
+                    Ok(Northwest)
                 }
             } else {
                 if dx > 0. {
-                    Some(Southeast)
+                    Ok(Southeast)
                 } else {
-                    Some(Southwest)
+                    Ok(Southwest)
                 }
             }
         }
@@ -279,18 +295,33 @@ pub enum Location {
 }
 
 impl Location {
-    /// True if and only if the location is on the map and on this planet.
-    pub fn on_planet(&self, planet: Planet) -> bool {
+    /// Constructs a new location on the map.
+    pub fn new_on_map(map_location: MapLocation) -> Location {
+        Location::OnMap(map_location)
+    }
+
+    /// Constructs a new location in a garrison.
+    pub fn new_in_garrison(id: UnitID) -> Location {
+        Location::InGarrison(id)
+    }
+
+    /// Constructs a new location in space.
+    pub fn new_in_space() -> Location {
+        Location::InSpace
+    }
+
+    /// Whether the unit is on a map.
+    pub fn is_on_map(&self) -> bool {
         match *self {
-            Location::OnMap(map_loc) => map_loc.planet == planet,
+            Location::OnMap(_) => true,
             _ => false,
         }
     }
 
-    /// Whether the unit is on a map.
-    pub fn on_map(&self) -> bool {
+    /// True if and only if the location is on the map and on this planet.
+    pub fn is_on_planet(&self, planet: Planet) -> bool {
         match *self {
-            Location::OnMap(_) => true,
+            Location::OnMap(map_loc) => map_loc.planet == planet,
             _ => false,
         }
     }
@@ -306,12 +337,35 @@ impl Location {
         }
     }
 
+    /// Whether the unit is in a garrison.
+    pub fn is_in_garrison(&self) -> bool {
+        match *self {
+            Location::InGarrison(_) => true,
+            _ => false,
+        }
+    }
+
+    /// The structure whose garrison the unit is in.
+    ///
+    /// * UnitNotInGarrison - the unit is not in a garrison.
+    pub fn structure(&self) -> Result<UnitID, Error> {
+        match *self {
+            Location::InGarrison(id) => Ok(id),
+            _ => Err(GameError::UnitNotInGarrison)?,
+        }
+    }
+
+    /// Whether the unit is in space.
+    pub fn is_in_space(&self) -> bool {
+        *self == Location::InSpace
+    }
+
     /// Determines whether this location is adjacent to the specified location,
     /// including diagonally. Note that squares are not adjacent to themselves,
     /// and squares on different planets are not adjacent to each other. Also,
     /// nothing is adjacent to something not on a map.
     pub fn is_adjacent_to(&self, o: Location) -> bool {
-        if !self.on_map() || !o.on_map() {
+        if !self.is_on_map() || !o.is_on_map() {
             return false;
         }
         let this_loc = self.map_location().unwrap();
@@ -323,7 +377,7 @@ impl Location {
     /// specified location, inclusive. False for locations on different planets.
     /// Note that nothing is within the range of something not on the map.
     pub fn is_within_range(&self, range: u32, o: Location) -> bool {
-        if !self.on_map() || !o.on_map() {
+        if !self.is_on_map() || !o.is_on_map() {
             return false;
         }
         let this_loc = self.map_location().unwrap();
@@ -339,15 +393,15 @@ mod tests {
 
     #[test]
     fn test_direction() {
-        assert_eq!(North.delta(), (0, 1));
-        assert_eq!(Northeast.delta(), (1, 1));
-        assert_eq!(East.delta(), (1, 0));
-        assert_eq!(Southeast.delta(), (1, -1));
-        assert_eq!(South.delta(), (0, -1));
-        assert_eq!(Southwest.delta(), (-1, -1));
-        assert_eq!(West.delta(), (-1, 0));
-        assert_eq!(Northwest.delta(), (-1, 1));
-        assert_eq!(Center.delta(), (0, 0));
+        assert_eq!((North.dx(), North.dy()), (0, 1));
+        assert_eq!((Northeast.dx(), Northeast.dy()), (1, 1));
+        assert_eq!((East.dx(), East.dy()), (1, 0));
+        assert_eq!((Southeast.dx(), Southeast.dy()), (1, -1));
+        assert_eq!((South.dx(), South.dy()), (0, -1));
+        assert_eq!((Southwest.dx(), Southwest.dy()), (-1, -1));
+        assert_eq!((West.dx(), West.dy()), (-1, 0));
+        assert_eq!((Northwest.dx(), Northwest.dy()), (-1, 1));
+        assert_eq!((Center.dx(), Center.dy()), (0, 0));
 
         assert!(!North.is_diagonal());
         assert!(Northeast.is_diagonal());
@@ -442,45 +496,44 @@ mod tests {
         let ne = MapLocation::new(Mars, 2, 2);
         let ee = MapLocation::new(Mars, 2, 0);
         let se = MapLocation::new(Mars, 2, -2);
-        assert_eq!(origin.direction_to(nn), Some(North));
-        assert_eq!(nn.direction_to(origin), Some(South));
-        assert_eq!(origin.direction_to(ne), Some(Northeast));
-        assert_eq!(ne.direction_to(origin), Some(Southwest));
-        assert_eq!(origin.direction_to(ee), Some(East));
-        assert_eq!(ee.direction_to(origin), Some(West));
-        assert_eq!(origin.direction_to(se), Some(Southeast));
-        assert_eq!(se.direction_to(origin), Some(Northwest));
+        assert_eq!(origin.direction_to(nn).unwrap(), North);
+        assert_eq!(nn.direction_to(origin).unwrap(), South);
+        assert_eq!(origin.direction_to(ne).unwrap(), Northeast);
+        assert_eq!(ne.direction_to(origin).unwrap(), Southwest);
+        assert_eq!(origin.direction_to(ee).unwrap(), East);
+        assert_eq!(ee.direction_to(origin).unwrap(), West);
+        assert_eq!(origin.direction_to(se).unwrap(), Southeast);
+        assert_eq!(se.direction_to(origin).unwrap(), Northwest);
 
         // Top right and bottom left quadrant
         let a = MapLocation::new(Mars, 2, 5);
         let b = MapLocation::new(Mars, 3, 4);
         let c = MapLocation::new(Mars, 4, 3);
         let d = MapLocation::new(Mars, 5, 2);
-        assert_eq!(origin.direction_to(a), Some(North));
-        assert_eq!(a.direction_to(origin), Some(South));
-        assert_eq!(origin.direction_to(b), Some(Northeast));
-        assert_eq!(b.direction_to(origin), Some(Southwest));
-        assert_eq!(origin.direction_to(c), Some(Northeast));
-        assert_eq!(c.direction_to(origin), Some(Southwest));
-        assert_eq!(origin.direction_to(d), Some(East));
-        assert_eq!(d.direction_to(origin), Some(West));
+        assert_eq!(origin.direction_to(a).unwrap(), North);
+        assert_eq!(a.direction_to(origin).unwrap(), South);
+        assert_eq!(origin.direction_to(b).unwrap(), Northeast);
+        assert_eq!(b.direction_to(origin).unwrap(), Southwest);
+        assert_eq!(origin.direction_to(c).unwrap(), Northeast);
+        assert_eq!(c.direction_to(origin).unwrap(), Southwest);
+        assert_eq!(origin.direction_to(d).unwrap(), East);
+        assert_eq!(d.direction_to(origin).unwrap(), West);
 
         // Top left and bottom right quadrant
         let a = MapLocation::new(Mars, 5, -2);
         let b = MapLocation::new(Mars, 4, -3);
         let c = MapLocation::new(Mars, 3, -4);
         let d = MapLocation::new(Mars, 2, -5);
-        assert_eq!(origin.direction_to(a), Some(East));
-        assert_eq!(a.direction_to(origin), Some(West));
-        assert_eq!(origin.direction_to(b), Some(Southeast));
-        assert_eq!(b.direction_to(origin), Some(Northwest));
-        assert_eq!(origin.direction_to(c), Some(Southeast));
-        assert_eq!(c.direction_to(origin), Some(Northwest));
-        assert_eq!(origin.direction_to(d), Some(South));
-        assert_eq!(d.direction_to(origin), Some(North));
+        assert_eq!(origin.direction_to(a).unwrap(), East);
+        assert_eq!(a.direction_to(origin).unwrap(), West);
+        assert_eq!(origin.direction_to(b).unwrap(), Southeast);
+        assert_eq!(b.direction_to(origin).unwrap(), Northwest);
+        assert_eq!(origin.direction_to(c).unwrap(), Southeast);
+        assert_eq!(c.direction_to(origin).unwrap(), Northwest);
+        assert_eq!(origin.direction_to(d).unwrap(), South);
+        assert_eq!(d.direction_to(origin).unwrap(), North);
 
-        assert_eq!(origin.direction_to(MapLocation::new(Earth, 0, 0)), None,
-                   "expect none if locations are on different planets");
+        assert_err!(origin.direction_to(MapLocation::new(Earth, 0, 0)), GameError::DifferentPlanet);
     }
 
     #[test]
@@ -547,14 +600,14 @@ mod tests {
         let garrison = Location::InGarrison(1);
         let space = Location::InSpace;
 
-        assert!(loc.on_planet(Planet::Mars));
-        assert!(!loc.on_planet(Planet::Earth));
-        assert!(!garrison.on_planet(Planet::Mars));
-        assert!(!space.on_planet(Planet::Mars));
+        assert!(loc.is_on_planet(Planet::Mars));
+        assert!(!loc.is_on_planet(Planet::Earth));
+        assert!(!garrison.is_on_planet(Planet::Mars));
+        assert!(!space.is_on_planet(Planet::Mars));
 
-        assert!(loc.on_map());
-        assert!(!garrison.on_map());
-        assert!(!space.on_map());
+        assert!(loc.is_on_map());
+        assert!(!garrison.is_on_map());
+        assert!(!space.is_on_map());
 
         assert!(loc.map_location().is_ok());
         assert_err!(garrison.map_location(), GameError::UnitNotOnMap);

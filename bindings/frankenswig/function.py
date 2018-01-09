@@ -103,4 +103,4 @@ class FunctionWrapper(Function):
     def __init__(self, program, type, name, args):
         self.program = program
         body = make_safe_call(type, f'{program.module}::{name}', args)
-        super(FunctionWrapper, self).__init__(type, name, args, body)
+        super(FunctionWrapper, self).__init__(type, sanitize_rust_name(name), args, body)

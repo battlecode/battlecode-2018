@@ -20,7 +20,7 @@ pub type UnitID = u16;
 pub enum UnitType {
     /// Workers are the foundation of the civilization.
     Worker = 0,
-    /// Knights are a melee unit that is strong in numbers.
+    /// Knights are a melee unit with a hard shell.
     Knight = 1,
     /// Rangers are a ranged unit with good all-around combat.
     Ranger = 2,
@@ -476,7 +476,7 @@ impl Unit {
     ///
     /// * UnitNotOnMap - the unit is not on the map.
     pub(crate) fn ok_if_on_map(&self) -> Result<(), Error> {
-        if !self.location().on_map() {
+        if !self.location().is_on_map() {
             Err(GameError::UnitNotOnMap)?;
         }
         Ok(())
@@ -730,6 +730,45 @@ impl Unit {
         Ok(self.cannot_attack_range)
     }
 
+    /// The maximum countdown for ranger's snipe, which is the number of turns
+    /// that must pass before the snipe is executed.
+    ///
+    /// * InappropriateUnitType - the unit is not a ranger.
+    pub fn ranger_max_countdown(&self) -> Result<u32, Error> {
+        self.ok_if_unit_type(Ranger)?;
+        Ok(self.max_countdown)
+    }
+
+    /// Whether the ranger is sniping.
+    ///
+    /// * InappropriateUnitType - the unit is not a ranger.
+    pub fn ranger_is_sniping(&self) -> Result<bool, Error> {
+        self.ok_if_unit_type(Ranger)?;
+        Ok(self.target_location.is_some())
+    }
+
+    /// The target location for ranger's snipe, or None if the ranger is not
+    /// sniping.
+    ///
+    /// * InappropriateUnitType - the unit is not a ranger.
+    pub fn ranger_target_location_opt(&self) -> Result<Option<MapLocation>, Error> {
+        self.ok_if_unit_type(Ranger)?;
+        Ok(self.target_location)
+    }
+
+    /// The target location for ranger's snipe.
+    ///
+    /// * InappropriateUnitType - the unit is not a ranger.
+    /// * NullValue - the ranger is not sniping.
+    pub fn ranger_target_location(&self) -> Result<MapLocation, Error> {
+        self.ok_if_unit_type(Ranger)?;
+        if let Some(l) = self.target_location {
+            Ok(l)
+        } else {
+            Err(GameError::NullValue)?
+        }
+    }
+
     /// The countdown for ranger's snipe, or None if the ranger is not sniping.
     ///
     /// * InappropriateUnitType - the unit is not a ranger.
@@ -743,7 +782,9 @@ impl Unit {
     }
 
     /// The countdown for ranger's snipe.
-    /// Errors if the ranger is not sniping.
+    ///
+    /// * InappropriateUnitType - the unit is not a ranger.
+    /// * NullValue - the ranger is not sniping.
     pub fn ranger_countdown(&self) -> Result<u32, Error> {
         self.ok_if_unit_type(Ranger)?;
         if self.ranger_is_sniping()? {
@@ -751,46 +792,6 @@ impl Unit {
         } else {
             bail!("Ranger is not sniping");
         }
-    }
-
-    /// The maximum countdown for ranger's snipe, which is the number of turns
-    /// that must pass before the snipe is executed.
-    ///
-    /// * InappropriateUnitType - the unit is not a ranger.
-    pub fn ranger_max_countdown(&self) -> Result<u32, Error> {
-        self.ok_if_unit_type(Ranger)?;
-        Ok(self.max_countdown)
-    }
-
-    /// The target location for ranger's snipe, or None if the ranger is not
-    /// sniping.
-    ///
-    /// * InappropriateUnitType - the unit is not a ranger.
-    pub fn ranger_target_location_opt(&self) -> Result<Option<MapLocation>, Error> {
-        self.ok_if_unit_type(Ranger)?;
-        Ok(self.target_location)
-    }
-
-    /// The target location for ranger's snipe, or None if the ranger is not
-    /// sniping.
-    ///
-    /// * InappropriateUnitType - the unit is not a ranger.
-    pub fn ranger_target_location(&self) -> Result<MapLocation, Error> {
-        self.ok_if_unit_type(Ranger)?;
-        if let Some(l) = self.target_location {
-            Ok(l)
-        } else {
-            bail!("Ranger is not sniping.");
-        }
-    }
-
-
-    /// Whether the ranger is sniping.
-    ///
-    /// * InappropriateUnitType - the unit is not a ranger.
-    pub fn ranger_is_sniping(&self) -> Result<bool, Error> {
-        self.ok_if_unit_type(Ranger)?;
-        Ok(self.target_location.is_some())
     }
 
     /// Ok if the unit can snipe.
@@ -975,26 +976,59 @@ impl Unit {
     // ************************** FACTORY METHODS *****************************
     // ************************************************************************
 
+    /// Whether the factory is currently producing a unit.
+    ///
+    /// * InappropriateUnitType - the unit is not a factory.
+    pub fn is_factory_producing(&self) -> Result<bool, Error> {
+        self.ok_if_unit_type(Factory)?;
+        Ok(self.factory_unit_type.is_some())
+    }
+
     /// The unit type currently being produced by the factory, or None if the
     /// factory is not producing a unit.
     ///
     /// * InappropriateUnitType - the unit is not a factory.
-    pub fn factory_unit_type(&self) -> Result<Option<UnitType>, Error> {
+    pub fn factory_unit_type_opt(&self) -> Result<Option<UnitType>, Error> {
         self.ok_if_unit_type(Factory)?;
         Ok(self.factory_unit_type)
+    }
+
+    /// The unit type currently being produced by the factory.
+    ///
+    /// * InappropriateUnitType - the unit is not a factory.
+    /// * NullValue - the factory is not producing.
+    pub fn factory_unit_type(&self) -> Result<UnitType, Error> {
+        self.ok_if_unit_type(Factory)?;
+        if let Some(unit_type) = self.factory_unit_type {
+            Ok(unit_type)
+        } else {
+            Err(GameError::NullValue)?
+        }
     }
 
     /// The number of rounds left to produce a robot in this factory. Returns
     /// None if no unit is currently being produced.
     ///
     /// * InappropriateUnitType - the unit is not a factory.
-    pub fn factory_rounds_left(&self) -> Result<Option<Rounds>, Error> {
+    pub fn factory_rounds_left_opt(&self) -> Result<Option<Rounds>, Error> {
         self.ok_if_unit_type(Factory)?;
         Ok(self.factory_rounds_left)
     }
 
+    /// The number of rounds left to produce a robot in this factory.
+    ///
+    /// * InappropriateUnitType - the unit is not a factory.
+    /// * NullValue - the factory is not producing.
+    pub fn factory_rounds_left(&self) -> Result<Rounds, Error> {
+        self.ok_if_unit_type(Factory)?;
+        if let Some(rounds_left) = self.factory_rounds_left {
+            Ok(rounds_left)
+        } else {
+            Err(GameError::NullValue)?
+        }
+    }
+
     /// The maximum number of rounds left to produce a robot in this factory.
-    /// Returns None if no unit is currently being produced.
     ///
     /// * InappropriateUnitType - the unit is not a factory.
     pub fn factory_max_rounds_left(&self) -> Result<Rounds, Error> {
@@ -1346,7 +1380,7 @@ mod tests {
         // A factory cannot produce a structure, but it can produce a mage.
         let mut factory = Unit::new(1, Team::Red, Factory, 0, OnMap(loc)).unwrap();
         factory.is_built = true;
-        assert_eq!(factory.factory_rounds_left().unwrap(), None);
+        assert_err!(factory.factory_rounds_left(), GameError::NullValue);
         assert_err!(factory.ok_if_can_produce_robot(Factory), GameError::InappropriateUnitType);
         assert_err!(factory.ok_if_can_produce_robot(Rocket), GameError::InappropriateUnitType);
         assert!(factory.ok_if_can_produce_robot(Mage).is_ok());
