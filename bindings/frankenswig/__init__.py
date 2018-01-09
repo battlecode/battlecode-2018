@@ -288,6 +288,31 @@ typedef uint8_t magicbool;
 // Free newly allocated char pointers with the following code
 %typemap(newfree) char * "{module}_free_string($1);";
 
+%pragma(java) jniclasscode=%{{
+    static {{
+        System.out.println("-- Starting battlecode java engine, vroom vroom! --");
+        System.out.println("Note: you're about to get a warning about stack guards, please ignore it.");
+        try {{
+            System.loadLibrary("battlecode");
+        }} catch (UnsatisfiedLinkError e) {{
+            try {{
+                System.load("/usr/lib/libbattlecode.so");
+            }} catch (UnsatisfiedLinkError e2) {{
+                try {{
+                    String p = java.nio.file.Paths.get("./src/bc/libbattlecode.so").toAbsolutePath().toString();
+                    System.load(p);
+                }} catch (UnsatisfiedLinkError e3) {{
+                    System.err.println("Native code library failed to load. "
+                        + "Are you running in the battlecode docker container?\\n"
+                        + e + "\\n" + e2 + "\\n" + e3);
+                    System.exit(1);
+                }}
+            }}
+        }}
+        System.out.println("-- Engine loaded. --");
+    }}
+%}}
+
 '''
 SWIG_FOOTER = ''
 
