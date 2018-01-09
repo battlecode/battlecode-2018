@@ -70,7 +70,8 @@ class Sandbox:
         self.container = self.docker.containers.run('battlebaby', command,
                 privileged=False, detach=True, stdout=True, stderr=True,
                 volumes=volumes, working_dir=working_dir, environment=env,
-                mem_limit=self.player_mem_limit,memswap_limit=self.player_mem_limit)
+                mem_limit=self.player_mem_limit,memswap_limit=self.player_mem_limit,
+                network_disabled=True)
 
     def pause(self):
         if self.container.status == 'running':
