@@ -626,8 +626,15 @@ impl GameWorld {
                 }
             }
 
-            let planet_info = self.get_planet_mut(location.planet);
-            planet_info.karbonite[location.y as usize][location.x as usize] += karbonite;
+            let new_amount = {
+                let planet_info = self.get_planet_mut(location.planet);
+                planet_info.karbonite[location.y as usize][location.x as usize] += karbonite;
+                planet_info.karbonite[location.y as usize][location.x as usize]
+            };
+            self.viewer_changes.push(ViewerDelta::KarboniteChanged {
+                location: location,
+                new_amount: new_amount,
+            });
         }
     }
 
@@ -1182,6 +1189,11 @@ impl GameWorld {
         let amount_mined = cmp::min(self.karbonite_at(harvest_loc).unwrap(), harvest_amount);
         self.my_team_mut().karbonite += amount_mined;
         self.my_planet_mut().karbonite[harvest_loc.y as usize][harvest_loc.x as usize] -= amount_mined;
+        let new_amount = self.karbonite_at(harvest_loc).unwrap();
+        self.viewer_changes.push(ViewerDelta::KarboniteChanged {
+            location: harvest_loc,
+            new_amount: new_amount,
+        });
         Ok(())
     }
 

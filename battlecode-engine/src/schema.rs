@@ -118,6 +118,7 @@ pub struct ViewerUnitInfo {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ViewerDelta {
     AsteroidStrike { location: MapLocation, karbonite: u32 },
+    KarboniteChanged { location: MapLocation, new_amount: u32 },
     ProductionDone { factory_id: UnitID, unit_type: UnitType },
     RangerSnipe { ranger_id: UnitID, target_location: MapLocation },
     ResearchComplete { branch: UnitType },
