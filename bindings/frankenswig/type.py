@@ -137,7 +137,7 @@ class StringType(Type):
         return f'check_result!(CString::new({value}).map(|s| s.into_raw()), default)'
 
     def wrap_python_value(self, value):
-        return f'_ffi.new("char[]", {value})'
+        return f'_ffi.new("char[]", {value}.encode())'
 
     def python_postfix(self):
         return s(f'''\
