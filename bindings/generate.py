@@ -546,9 +546,6 @@ the other planet, the rocket flies off, never to be seen again.
 * GameError::InappropriateUnitType - the unit is not a rocket.
 * GameError::InvalidAction - the rocket cannot launch.
 """)
-GameController.method(GameController.type, 'new_player', [Var(StartGameMessage.type, 'game')], static=True)
-GameController.method(void.type, 'start_turn', [Var(StartTurnMessage.type.ref(), 'turn')])
-GameController.method(TurnMessage.type, 'end_turn', [])
 GameController.method(GameController.type, 'new_manager', [Var(GameMap.type, 'map')], static=True)
 GameController.method(StartGameMessage.type, 'start_game', [Var(Player.type, 'player')])
 GameController.method(TurnApplication.type, 'apply_turn', [Var(TurnMessage.type.ref(), 'turn')])
