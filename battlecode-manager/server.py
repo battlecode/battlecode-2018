@@ -513,6 +513,7 @@ def start_viewer_server(port: int, game: Game) -> socketserver.BaseServer:
         server_thread: The connection so it can be closed by parent functions at
                         the appropriate time
     '''
+    print('viewer server', port)
 
     # Create handler for mangaing each connections to server
     receive_handler = create_receive_handler(game, {}, False, False)

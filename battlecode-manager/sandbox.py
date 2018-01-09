@@ -2,8 +2,14 @@ from pathlib import Path
 from threading import Timer
 import threading
 from tqdm import tqdm
-import os, time, socket, fcntl, struct, string, random, io, zipfile, boto3, docker
+import os, time, socket, fcntl, struct, string, random, io, zipfile
+try:
+    import boto3, docker
+except:
+    pass
 from distutils.dir_util import copy_tree
+import subprocess
+import signal
 
 def delete_folder(path):
     try:
@@ -22,6 +28,63 @@ def random_key(length):
 def _stream_logs(container, stdout, stderr, line_action):
     for line in container.logs(stdout=stdout, stderr=stderr, stream=True):
         line_action(line)
+
+class NoSandbox():
+    def __init__(self, socket_file, local_dir=None, s3_bucket=None, s3_key=None,
+                player_key="", working_dir="working_dir/"):
+        self.player_key = player_key
+        self.socket_file = socket_file
+        if working_dir[-1] != "/":
+            working_dir += "/"
+
+        self.working_dir = Path(working_dir + random_key(20) + "/")
+        self.working_dir.mkdir(parents=True,exist_ok=True)
+
+        if s3_bucket:
+            self.extract_code(s3_bucket, s3_key)
+        elif local_dir:
+            copy_tree(local_dir, str(self.working_dir.absolute()))
+        else:
+            raise ValueError("Must provide either S3 key and bucket or local directory for code.")
+
+    def extract_code(self, bucket, key):
+        obj = bucket.Object(key)
+        with io.BytesIO(obj.get()["Body"].read()) as tf:
+            tf.seek(0)
+            with zipfile.ZipFile(tf, mode='r') as zipf:
+                zipf.extractall(path=str(self.working_dir.absolute()))
+    
+    def stream_logs(self, stdout=True, stderr=True, line_action=lambda line: print(line)):
+        pass
+    
+    def start(self):
+        env = {
+            'SOCKET_KIND': 'UNIX',
+            'SOCKET_FILE': self.socket_file,
+            'PLAYER_KEY': str(self.player_key),
+            'RUST_BACKTRACE': '1'
+        }
+        print(['sh', os.path.abspath(os.path.join(self.working_dir, 'run.sh'))])
+        print(env)
+        self.proc = subprocess.Popen(
+            ['sh', os.path.abspath(os.path.join(self.working_dir, 'run.sh'))],
+            env=env,
+            cwd=self.working_dir
+        )
+    
+    def pause(self):
+        self.proc.send_signal(signal.pause)
+    
+    def unpause(self, timeout=None):
+        self.proc.send_signal(signal.SIGCONT)
+
+    def destroy(self):
+        self.proc.send_signal(signal.SIGKILL)
+        delete_folder(self.working_dir)
+        return ''
+
+    def __del__(self):
+        self.destroy()
 
 class Sandbox:
     def initialize():
@@ -57,7 +120,7 @@ class Sandbox:
                 zipf.extractall(path=str(self.working_dir.absolute()))
 
     def start(self):
-        volumes = {str(self.working_dir.absolute()):{'bind':'/code','mode':'ro'},self.socket_file:{'bind':'/tmp/battlecode-socket','mode':'rw'}}
+        volumes = {str(self.working_dir.absolute()):{'bind':'/code','mode':'ro'}, self.socket_file:{'bind':'/tmp/battlecode-socket','mode':'rw'}}
 
         working_dir = '/code'
         command = 'sh run.sh'

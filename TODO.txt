@@ -1,0 +1,66 @@
+- Website endpoints for checking for updates and downloading recent game builds
+- CLI that checks for updates and shells out to another cli...
+    - Installed with pip, to handle python dependencies
+    - layout:
+        - setup.py
+        - battlecode-root-cli
+- Child CLI that actually does things:
+    - battlecode run-match foldera folderb
+    - battlecode libpath # gives path to dynamic and static libraries needed by some languages
+    - battlecode javapath # gives addition to java classpath you'll need to load battlecode jar
+    - battlecode cpath # gives path to C header files
+    - battlecode pythonpath # gives path to python package
+    - battlecode viewer # starts viewer
+- System to build downloadable packages:
+    - Layout: 
+        - battlecode-1.0.0
+            - lib/
+                - libbattlecode.a
+                - libbattlecode.so
+            - rust/
+                - Cargo.toml
+                - src/
+                    - stuff.rs
+            - c/
+                - include/
+            - java/
+                - Contents.jar
+                - src/
+                    - bc/
+                        - things.java
+            - python/
+                - setup.py
+                - battlecode/
+                    - __init__.py
+                    - bc.py
+                    - _bc.so / _bc.lib
+            - cli/
+                - cli.py
+                - ...
+            - Makefile
+    - Note: this is a CUSTOM package layout; it has nothing to do with pip or gradle, etc.
+      We download it straight from the website.
+
+- player code layout: 
+    - Can't use shell anymore
+    - layout:
+        - setup.py: run before game starts
+        - run.py: run when game starts
+        - ...
+    - java code could just shell out to gradle from setup.py and run.py
+
+- docker:
+    - we can patch it in later if we want
+
+- player manager:
+    - checks website for updates
+    - `battlecode update`
+        - goes to website and gets most recent version of game
+        - downloads from AWS to:
+            - Windows: %HOME%/Documents/Battlecode/1.0.0
+            - Mac: $HOME/Documents/Battlecode/1.0.0
+            - Linux: $HOME/Documents/Battlecode/1.0.0
+    - `battlecode +1.0.0 viewer` - goes to CLI from 1.0.0, if it's installed
+    - layout:
+        - setup.py # we distribute it using python setuptools and PyPI
+        - ...

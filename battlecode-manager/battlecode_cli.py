@@ -8,12 +8,17 @@ import argparse
 import time
 import os
 import logging
-from sandbox import Sandbox
+from sandbox import Sandbox, NoSandbox
 import server
 import battlecode as bc
 
 # TODO port number
 PORT = 808
+
+if 'NOSANDBOX' in os.environ:
+    sandbox = False
+else:
+    sandbox = True
 
 def run_game(game, dockers, args, sock_file):
     '''
@@ -55,7 +60,7 @@ def parse_args():
     '''
 
     return_args = {}
-    return_args['use_viewer'] = (os.environ['VIEWER'] != None)
+    return_args['use_viewer'] = ('VIEWER' in os.environ)
     return_args['dir_p1'] = os.path.abspath(os.environ['P1'])
     return_args['dir_p2'] = os.path.abspath(os.environ['P2'])
     return_args['map'] = get_map(os.environ['MAP'])
@@ -89,14 +94,18 @@ def create_game(args):
 
     # Assign the docker instances client ids
     dockers = {}
-    Sandbox.initialize()
+    if sandbox:
+        Sandbox.initialize()
     for index in range(len(game.players)):
         key = [player['id'] for player in game.players][index]
-        dockers[key] = Sandbox(sock_file, player_key=key,
-                               local_dir=args['dir_p1' if index % 2 == 0 else 'dir_p2'])
+        if sandbox:
+            dockers[key] = Sandbox(sock_file, player_key=key,
+                                local_dir=args['dir_p1' if index % 2 == 0 else 'dir_p2'])
+        else:
+            dockers[key] = NoSandbox(sock_file, player_key=key,
+                                local_dir=args['dir_p1' if index % 2 == 0 else 'dir_p2'])
 
     return (game, dockers, sock_file)
-
 
 if __name__ == "__main__":
 
