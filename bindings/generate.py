@@ -282,7 +282,7 @@ AsteroidPattern.method(void.type.result(), "validate", [], docs='''Validates the
 AsteroidPattern.method(boolean.type, "has_asteroid", [Var(Rounds.type, "round")], docs='''Whether there is an asteroid strike at the given round.''')
 AsteroidPattern.method(AsteroidStrike.type.ref().result(), "asteroid", [Var(Rounds.type, "round")], docs='''Get the asteroid strike at the given round.
 
-* NullValue - There is no asteroid strike at this round.''')
+ * NullValue - There is no asteroid strike at this round.''')
 AsteroidPattern.clone()
 AsteroidPattern.debug()
 AsteroidPattern.serialize()
@@ -296,7 +296,7 @@ OrbitPattern.constructor('new', [Var(Rounds.type, 'amplitude'), Var(Rounds.type,
 The amplitude, period, and center are measured in rounds.''')
 OrbitPattern.method(void.type.result(), 'validate', [], docs='''Validates the orbit pattern.
 
-InvalidMapObject - the orbit pattern is invalid.''')
+ * InvalidMapObject - the orbit pattern is invalid.''')
 OrbitPattern.method(Rounds.type, 'duration', [Var(Rounds.type, 'round')], "Get the duration of flight if the rocket were to take off from either planet on the given round.")
 OrbitPattern.serialize()
 
@@ -313,7 +313,20 @@ GameMap.method(GameMap.type, 'test_map', [], static=True)
 GameMap.clone()
 GameMap.serialize()
 
-ResearchInfo = p.struct("research::ResearchInfo")
+# p.function(Level.type, 'research::max_level', [Var(UnitType.type.ref(), 'branch')])
+# p.function(Rounds.type.result(), 'research::cost_of', [Var(UnitType.type.ref(), 'branch'), Var(Level.type, 'level')])
+ResearchInfo = p.struct("research::ResearchInfo", docs="The status of research for a single team.")
+ResearchInfo.constructor('new', [], docs="Construct an initial research state.")
+ResearchInfo.method(Level.type, 'get_level', [Var(UnitType.type.ref(), 'branch')], docs='''Returns the current level of the research branch.''')
+ResearchInfo.method(UnitTypeVec.type, 'get_queue', [], docs="Returns the research queue, where the front of the queue is at the beginning of the list.")
+ResearchInfo.method(boolean.type, 'has_next_in_queue', [], "Whether there is a branch in the research queue.")
+ResearchInfo.method(UnitType.type.result(), 'next_in_queue', [], docs='''Returns the next branch to be researched, which is the branch at the front of the research queue.
+
+ * NullValue - There is no branch to be researched.''')
+ResearchInfo.method(Rounds.type.result(), 'rounds_left', [], docs='''Returns the number of rounds left until the upgrade at the front of the research queue is applied.
+
+ * NullValue - There is no branch to be researched.''')
+ResearchInfo.serialize()
 
 RocketLanding = p.struct("rockets::RocketLanding")
 RocketLanding.constructor("new", [Var(UnitID.type, "rocket_id"), Var(MapLocation.type, "destination")])
