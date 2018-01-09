@@ -399,23 +399,18 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 if self.game.manager.is_over():
                     winner = game.manager.winning_team()
                     self.request.close()
-                    logs = self.docker.destroy()
                     report_winner()
                     return
 
 
                 logging.debug("Client %s: Started turn", self.client_id)
 
-                if self.game.initialized > 2:
-                    print('initialized!!!!!!!')
+                if self.game.initialized > 3:
                     start_turn_msg = self.message(self.game.last_message)
-                    print('start_turn_msg initialized', start_turn_msg)
                 else:
                     for player in self.game.players:
                         if player['id'] == self.game.this_turn_pid:
                             start_turn_msg = self.message(player['start_message'])
-                            print('start_turn_msg noninit', start_turn_msg[:50])
-                    self.game.initialized += 1
 
                 """# Start player code computing
                 if use_docker:
@@ -427,20 +422,21 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 start_time = time.perf_counter()
                 self.send_message(start_turn_msg)
 
-                if self.game.initialized > 2:
+                if self.game.initialized > 3:
                     unpacked_data = self.get_next_message()
                     end_time = time.perf_counter()
                     diff_time = end_time-start_time
 
                     # Check client is who they claim they are
-                    if unpacked_data['client_id'] != self.client_id:
+                    if int(unpacked_data['client_id']) != self.client_id:
                         assert False, "Wrong Client id"
 
                     # Get the moves to pass to the game
-                    turn_message = bc.TurnMessage.from_json(unpacked_data['turn_message'])
+                    turn_message = bc.TurnMessage.from_json(json.dumps(unpacked_data['turn_message']).encode())
 
                     game.make_action(turn_message, self.client_id, diff_time)
-
+                else:
+                    self.game.initialized += 1
 
 
                 """
