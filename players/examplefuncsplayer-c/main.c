@@ -86,8 +86,12 @@ int main() {
         }
         delete_bc_VecUnit(units);
 
-        // pause and wait for the next turn.
+        // this line helps the output logs make more sense by forcing output to be sent
+        // to the manager.
+        // it's not strictly necessary, but it helps.
+        fflush(stdout);
 
+        // pause and wait for the next turn.
         bc_GameController_next_turn(gc);
     }
     // Convinced you shouldn't use C yet?

@@ -31,6 +31,8 @@ public class Player {
                     gc.moveRobot(unit.id(), Direction.Southeast);
                 }
             }
+            // Submit the actions we've done, and wait for our next turn.
+            gc.nextTurn();
         }
     }
 }
