@@ -70,7 +70,7 @@ def run_game(game, dockers, args, sock_file):
     match_file = {}
     match_file['message'] = game.viewer_messages
     if not game.disconnected:
-        if bc.Team.Red = game.manager.winning_team():
+        if bc.Team.Red == game.manager.winning_team():
             winner = 'player1'
         else:
             winner = 'player2'
@@ -98,34 +98,21 @@ def cleanup(dockers, args, sock_file):
 
     os.unlink(sock_file)
 
-def parse_args():
-    '''
-    Parse the arguments given as env variables
-    '''
-
-    return_args = {}
-    return_args['use_viewer'] = (os.environ['VIEWER'] != None)
-    return_args['dir_p1'] = os.path.abspath(os.environ['P1'])
-    return_args['dir_p2'] = os.path.abspath(os.environ['P2'])
-    return_args['map'] = get_map(os.environ['MAP'])
-
-    return return_args
-
 def get_map(map_name):
     '''
     Read a map of a given name, and return a GameMap.
     '''
 
+    print('contents: ' + str(os.listdir('/battlecode/battlecode-maps')))
+    print('command: /battlecode/battlecode-maps/' + map_name)
     try:
-        f = open(map_name)
-        contents = f.read()
-    except:
+        with open('/battlecode/battlecode-maps/' + map_name) as f:
+           contents = f.read()
+        return bc.GameMap.from_json(contents)
+    except Exception as e:
+        print(e)
         print("We dun goof no map found")
         return bc.GameMap.test_map()
-    finally:
-        f.close()
-
-    return bc.GameMap.from_json(contents)
 
 def create_game(args):
     '''
@@ -155,20 +142,3 @@ def create_game(args):
                                local_dir=args['dir_p1' if index % 2 == 0 else 'dir_p2'])
 
     return (game, dockers, sock_file)
-
-
-if __name__ == "__main__":
-
-    # Pars Arguments
-    ARGS = parse_args()
-
-    # Create static Game stuff
-    (GAME, DOCKERS, SOCK_FILE) = create_game(ARGS)
-
-    # After Parsing the arguments we create the docker instancse
-    try:
-        run_game(GAME, DOCKERS, ARGS, SOCK_FILE)
-    except KeyboardInterrupt:
-        cleanup(DOCKERS, ARGS, SOCK_FILE)
-    finally:
-        cleanup(DOCKERS, ARGS, SOCK_FILE)

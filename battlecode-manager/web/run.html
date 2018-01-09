@@ -27,6 +27,12 @@
             <strong> Fatal error. </strong> <span id="warning-text"></span>
         </div>
 
+        <div class="notification is-success" style="display:none" id="winner">
+            <button class="delete" onclick="document.getElementById('winner_alert').style.display='none'"></button>
+            <strong> Game completed. </strong> Winner is <span id="winner-text">.</span>
+        </div>
+
+
         <div class="tile is-ancestor">
             <div class="tile is-vertical is-8">
                 <div class="tile">
@@ -192,6 +198,12 @@
         document.getElementById('warning').style.display='block';
     }
 
+    function report_winner(winner) {
+        message = winner==0 ? "red team" : "blue team";
+        document.getElementById('winner-text').innerText = message;
+        document.getElementById('winner').style.display='block';
+    }
+
     window.onload = async function() {
         maps = await eel.get_maps()();
         folders = await eel.get_player_dirs()();
@@ -259,19 +271,20 @@
 
     function trigger_end_game(winner) {
         modal.classList.remove('is-active');
-        window.clearInterval(interval);
+        clearInterval(interval);
         eel.end_game();
-        alert_error("Winner is " + winner);
+        report_winner(winner);
     }
 
     function display_logs(params) {
         modal.classList.add('is-active');
         elements = [document.getElementById('red_earth'), document.getElementById('red_mars'), document.getElementById('blue_earth'), document.getElementById('blue_mars')]
 
-        return window.setInterval(async function() {
+        return setInterval(async function() {
             logs = await eel.get_player_logs()();
-            for (var i=0; i<4; i++) elements[i].innerText = logs[i];
-        },100);
+            if (logs[4] == 0) for (var i=0; i<4; i++) elements[i].innerText = logs[i];
+            else trigger_end_game();
+        },300);
     }
 
     var submit = document.getElementById("submit")
@@ -292,7 +305,7 @@
         params['map'] = params['map'].options[params['map'].selectedIndex].value;
 
         if (validate(params)) {
-            eel.run_game(params)(trigger_end_game);
+            eel.run_game(params)();
             interval = display_logs(params);
         }
     }
