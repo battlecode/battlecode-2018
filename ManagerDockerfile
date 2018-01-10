@@ -13,7 +13,7 @@ RUN apk add --update --no-cache \
 # Install necessary python libs
 RUN pip3 install \
     tqdm docker boto3 werkzeug \
-    ujson cffi
+    ujson cffi psycopg2
 
 # Install rust
 RUN apk add --update --no-cache \
