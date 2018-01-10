@@ -63,6 +63,12 @@ pub const ORBIT_FLIGHT_MIN: u32 = 50;
 /// The maximum flight time due to the orbit.
 pub const ORBIT_FLIGHT_MAX: u32 = 200;
 
+/// The minimum period of the orbit pattern.
+pub const ORBIT_PERIOD_MIN: u32 = 100;
+
+/// The maximum period of the orbit pattern.
+pub const ORBIT_PERIOD_MAX: u32 = 500;
+
 /// At the start of this round, all units on Earth are destroyed.
 pub const APOCALYPSE_ROUND: Rounds = 750;
 
