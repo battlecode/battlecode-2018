@@ -4,6 +4,7 @@ import threading
 from tqdm import tqdm
 import os, time, socket, fcntl, struct, string, random, io, zipfile, boto3, docker
 from distutils.dir_util import copy_tree
+from pathlib import Path
 
 def delete_folder(path):
     try:
@@ -28,6 +29,21 @@ class Sandbox:
         global docker_client
         docker_client = docker.from_env()
 
+    def dos2unix(self):
+        pathlist = Path(str(self.working_dir.absolute())).glob("**/*.py")
+        for path in pathlist:
+            with open(str(path),'r') as f:
+                x = f.read()
+            with open(str(path),'w') as f:
+                f.write(x.replace('\r\n', '\n'))
+
+        pathlist = Path(str(self.working_dir.absolute())).glob("**/*.sh")
+        for path in pathlist:
+            with open(str(path),'r') as f:
+                x = f.read()
+            with open(str(path),'w') as f:
+                f.write(x.replace('\r\n', '\n'))
+
     def __init__(self, socket_file, local_dir=None, s3_bucket=None, s3_key=None,
                 player_key="", working_dir="working_dir/",
                 player_mem_limit=256, player_cpu=20):
@@ -44,11 +60,12 @@ class Sandbox:
         if s3_bucket:
             self.extract_code(s3_bucket, s3_key)
         elif local_dir:
-            print(local_dir)
-            print(str(self.working_dir.absolute()))
             copy_tree(local_dir, str(self.working_dir.absolute()))
         else:
             raise ValueError("Must provide either S3 key and bucket or local directory for code.")
+            return
+
+        self.dos2unix()
 
     def stream_logs(self, stdout=True, stderr=True, line_action=lambda line: print(line.decode())):
         threading.Thread(target=_stream_logs, args=(self.container, stdout, stderr, line_action)).start()
@@ -64,7 +81,7 @@ class Sandbox:
         volumes = {str(self.working_dir.absolute()):{'bind':'/code','mode':'rw'},self.socket_file:{'bind':'/tmp/battlecode-socket','mode':'rw'}}
 
         working_dir = '/code'
-        command = 'find . -name "*" -type f -exec dos2unix {} \; && sh run.sh'
+        command = """sh run.sh"""
         env = {'PLAYER_KEY':self.player_key,'SOCKET_FILE':'/tmp/battlecode-socket','RUST_BACKTRACE':1}
 
         self.container = self.docker.containers.run('battlebaby', command,

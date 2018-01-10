@@ -16,11 +16,9 @@ def start_game(return_args):
     return_args['map'] = cli.get_map(return_args['map'])
     return_args['dir_p2'] = '/player/' + return_args['dir_p2']
     return_args['dir_p1'] = '/player/' + return_args['dir_p1']
-    print(return_args)
 
     global game
     (game, dockers, sock_file) = cli.create_game(return_args)
-    print(sock_file)
 
     try:
         print("running game")
@@ -76,10 +74,9 @@ def end_game():
         game.game_over = True
     return ""
 
-print("To play games open http://localhost:6147/run.html in your browser")
+print("To play games open http://localhost:6147/run.html in your browser on Mac/Linux/WindowsPro, or http://192.168.99.100:6147/run.html on Windows10Home.")
 lock = threading.Lock()
 eel.start('run.html', options=options, block=False)
-print("Started")
 
 while True:
     eel.sleep(1.0)
