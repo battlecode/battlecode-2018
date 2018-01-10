@@ -18,3 +18,5 @@ __pycache__
 sandbox
 docker-artifacts
 bundle
+battlecode
+bc18-scaffold

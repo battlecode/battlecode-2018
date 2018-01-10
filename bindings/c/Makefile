@@ -7,6 +7,7 @@ default:
 	@echo "nothing to do"
 test: default
 clean: default
+release: default
 
 else
 
@@ -23,6 +24,7 @@ c_test: test/c_test.c
 c_test_run: c_test
 	$(call test_command,LD_LIBRARY_PATH=../../target/debug/deps:$(LD_LIBRARY_PATH) test/c_test)
 
+release:
 
 .PHONY: clean
 clean:

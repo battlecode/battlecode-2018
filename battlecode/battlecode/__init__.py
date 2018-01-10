@@ -1,3 +1,0 @@
-'''BATTLECODE'''
-
-from .bc import *

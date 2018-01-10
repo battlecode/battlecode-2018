@@ -1,9 +1,20 @@
 include helpers.mk
 
-build:
+build: battlecode
 	@$(MAKE) -wC bindings
-	cp -R bindings/python/battlecode players/examplefuncsplayer-python/battlecode
-	$(call build_command,cargo build)
+	cp -R bindings/python/battlecode battlecode/python/battlecode
+	cp -R bindings/java/src/bc battlecode/java/bc
+	cp -R bindings/c/include battlecode/c/include
+	cp -R target/debug/deps/libbattlecode.a battlecode/c/lib
+
+release: battlecode
+	@$(MAKE) -wC bindings release
+
+battlecode:
+	rm -rf battlecode
+	mkdir -p battlecode/python/
+	mkdir -p battlecode/c/
+	mkdir -p battlecode/java/
 
 test:
 	@$(MAKE) -wC bindings test
@@ -43,4 +54,12 @@ docker-manager:
 
 dockers: docker-py3 docker-java
 
-.PHONY: build test dockers
+bc18-scaffold:
+	git clone https://github.com/battlecode/bc18-scaffold
+
+package: bc18-scaffold
+	-rm -rf battlecode-manager/working_dir 
+	cp -R battlecode bc18-scaffold/battlecode
+	cp -R battlecode-manager bc18-scaffold/battlecode-manager
+
+.PHONY: build test dockers battlecode

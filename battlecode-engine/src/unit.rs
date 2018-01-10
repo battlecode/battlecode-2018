@@ -1170,7 +1170,6 @@ impl Unit {
 
     /// Research the next level.
     pub(crate) fn research(&mut self) -> Result<(), Error> {
-        println!("research: {:?} {}", self.unit_type, self.level);
         match self.unit_type {
             Worker => match self.level {
                 0 => { self.harvest_amount += 1; },
