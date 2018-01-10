@@ -45,7 +45,7 @@ atexit.register(exit_handler)
 try:
     start_docker(os.getcwd())
     time.sleep(15)
-    print("Docker running at https://localhost:6147/run.html")
+    print("Docker running at https://localhost:6147/run.html on Mac/Linux/WindowsPro, or http://192.168.99.100:6147/run.html on Windows10Home.")
     while True:
         time.sleep(1)
 except KeyboardInterrupt:

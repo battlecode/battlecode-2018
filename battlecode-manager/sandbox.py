@@ -5,6 +5,7 @@ from tqdm import tqdm
 import os, time, socket, fcntl, struct, string, random, io, zipfile
 from distutils.dir_util import copy_tree
 import psutil, subprocess
+from pathlib import Path
 try:
     import boto3, docker
 except:
@@ -45,6 +46,7 @@ class NoSandbox:
             copy_tree(os.path.abspath(local_dir) + '/', str(self.working_dir.absolute()))
         else:
             raise ValueError("Must provide either S3 key and bucket or local directory for code.")
+            return
 
         self.paused = False
         self.streaming = False
@@ -57,7 +59,7 @@ class NoSandbox:
             threading.Thread(target=self._stream_logs, args=(self.process.stdout, line_action)).start()
         if stderr:
             threading.Thread(target=self._stream_logs, args=(self.process.stderr, line_action)).start()
-    
+
     def _stream_logs(self, stream, line_action):
         for line in stream:
             line_action(line)
@@ -104,6 +106,22 @@ if 'NODOCKER' not in os.environ:
     docker_client = docker.from_env()
 
     class Sandbox:
+
+        def dos2unix(self):
+            pathlist = Path(str(self.working_dir.absolute())).glob("**/*.py")
+            for path in pathlist:
+                with open(str(path),'r') as f:
+                    x = f.read()
+                with open(str(path),'w') as f:
+                    f.write(x.replace('\r\n', '\n'))
+
+            pathlist = Path(str(self.working_dir.absolute())).glob("**/*.sh")
+            for path in pathlist:
+                with open(str(path),'r') as f:
+                    x = f.read()
+                with open(str(path),'w') as f:
+                    f.write(x.replace('\r\n', '\n'))
+
         def __init__(self, socket_file, local_dir=None, s3_bucket=None, s3_key=None,
                     player_key="", working_dir="working_dir/",
                     player_mem_limit=256, player_cpu=20):
@@ -120,12 +138,13 @@ if 'NODOCKER' not in os.environ:
             if s3_bucket:
                 self.extract_code(s3_bucket, s3_key)
             elif local_dir:
-                print(local_dir)
-                print(str(self.working_dir.absolute()))
                 copy_tree(local_dir, str(self.working_dir.absolute()))
             else:
                 raise ValueError("Must provide either S3 key and bucket or local directory for code.")
-            
+                return
+
+            self.dos2unix()
+
 
         def stream_logs(self, stdout=True, stderr=True, line_action=lambda line: print(line.decode())):
             threading.Thread(target=_stream_logs, args=(self.container, stdout, stderr, line_action)).start()

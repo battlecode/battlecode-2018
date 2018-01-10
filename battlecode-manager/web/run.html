@@ -6,6 +6,7 @@
     <title>Battlecode '18</title>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.1/css/bulma.min.css">
+    <link rel="icon" type="image/png" href="favicon.png">
 </head>
 <body style="display: flex;min-height: 100vh;flex-direction: column;">
     <section class="hero is-primary" style="background-color:#A31F34">
@@ -66,7 +67,7 @@
                                         <td>Replay filename</td>
                                         <td><input class="input" type="text" value="replay.bc18" id="replay"></td>
                                     </tr>
-                                    <tr>
+                                    <!--<tr>
                                         <td>Use viewer</td>
                                         <td><div class="control">
                                             <label class="radio">
@@ -78,7 +79,7 @@
                                                 False
                                             </label>
                                         </div></td>
-                                    </tr>
+                                    </tr>-->
 
                                 </tbody>
                             </table>
@@ -140,7 +141,7 @@
         <div class="container">
             <div class="content has-text-centered">
                 <p>
-                    <strong>Battlecode: Escape to Mars</strong> by <a href="http://battlecode.org/">MIT Battlecode</a>.
+                    <strong>Battlecode: Escape to Mars</strong> by <a href="http://battlecode.org/">MIT Battlecode</a>. Version 0.9.2.
                 </p>
             </div>
         </div>
@@ -188,9 +189,6 @@
     </div>
     <script type="text/javascript" src="/eel.js"></script>
     <script>
-    /* INTERFACE METHODS */
-    /* END INTERFACE METHODS */
-
     var modal = document.querySelector('.modal');
     var html = document.querySelector('html');
     function alert_error(message) {
@@ -199,7 +197,7 @@
     }
 
     function report_winner(winner) {
-        message = winner==0 ? "red team" : "blue team";
+        message = winner==1 ? "red team" : "blue team";
         document.getElementById('winner-text').innerText = message;
         document.getElementById('winner').style.display='block';
     }
@@ -263,7 +261,7 @@
             return false;
         }
 
-        params['use_viewer'] = (params['use_viewer'] == '1');
+        params['use_viewer'] = 1;//(params['use_viewer'] == '1');
         document.getElementById('warning').style.display='none';
 
         return true;
@@ -280,7 +278,7 @@
 
     function display_logs(params) {
         modal.classList.add('is-active');
-        elements = [document.getElementById('red_earth'), document.getElementById('red_mars'), document.getElementById('blue_earth'), document.getElementById('blue_mars')]
+        elements = [document.getElementById('red_earth'), document.getElementById('blue_earth'), document.getElementById('red_mars'), document.getElementById('blue_mars')]
 
         return setInterval(async function() {
             logs = await eel.get_player_logs()();
@@ -291,7 +289,7 @@
     var submit = document.getElementById("submit")
     submit.onclick = async function() {
         var params = {}
-        params['use_viewer'] = document.querySelector('input[name="viewer"]:checked').value;
+        //params['use_viewer'] = document.querySelector('input[name="viewer"]:checked').value;
         params['player_memory'] = document.getElementById('memory').value;
         params['player_cpu'] = document.getElementById('cpu').value;
         params['time_pool'] = document.getElementById('pool').value;
