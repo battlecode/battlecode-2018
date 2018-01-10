@@ -1,8 +1,6 @@
 #!/bin/bash
-echo "=== STARTING THE MANAGER (no docker) ==="
-echo "=== ensuring dependencies ==="
 echo "$ pip3 install --user cffi eel tqdm werkzeug ujson psutil"
-pip3 install --user cffi eel tqdm werkzeug ujson psutil
+pip3 install -q --user cffi eel tqdm werkzeug ujson psutil
 RESULT=$?
 if [ $RESULT -ne 0 ]; then
     echo "Warning: pip install failed!"
