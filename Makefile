@@ -2,6 +2,7 @@ include helpers.mk
 
 build:
 	@$(MAKE) -wC bindings
+	cp -R bindings/python/battlecode players/examplefuncsplayer-python/battlecode
 	$(call build_command,cargo build)
 
 test:

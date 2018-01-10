@@ -22,9 +22,9 @@ random.seed(6137)
 
 # let's start off with some research!
 # we can queue as much as we want.
-#gc.queue_research(bc.UnitType.Rocket)
-#gc.queue_research(bc.UnitType.Worker)
-#gc.queue_research(bc.UnitType.Knight)
+gc.queue_research(bc.UnitType.Rocket)
+gc.queue_research(bc.UnitType.Worker)
+gc.queue_research(bc.UnitType.Knight)
 
 my_team = gc.team()
 

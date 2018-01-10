@@ -603,7 +603,7 @@ impl Unit {
     /// * ResearchNotUnlocked - the ability is not researched. 
     pub(crate) fn ok_if_ability_unlocked(&self) -> Result<(), Error> {
         if !self.is_ability_unlocked()? {
-            Err(GameError::ResearchNotUnlocked)?
+            Err(GameError::ResearchNotUnlocked { unit_type: self.unit_type() })?
         }
         Ok(())
     }
@@ -1170,6 +1170,7 @@ impl Unit {
 
     /// Research the next level.
     pub(crate) fn research(&mut self) -> Result<(), Error> {
+        println!("research: {:?} {}", self.unit_type, self.level);
         match self.unit_type {
             Worker => match self.level {
                 0 => { self.harvest_amount += 1; },
@@ -1185,40 +1186,40 @@ impl Unit {
                     self.build_health += 3;
                     self.repair_health += 3;
                 },
-                _ => Err(GameError::ResearchNotUnlocked)?,
+                _ => Err(GameError::ResearchNotUnlocked {unit_type: Worker})?,
             },
             Knight => match self.level {
                 0 => { self.defense += 5; },
                 1 => { self.defense += 5; },
                 2 => { self.is_ability_unlocked = true; },
-                _ => Err(GameError::ResearchNotUnlocked)?,
+                _ => Err(GameError::ResearchNotUnlocked {unit_type: Knight})?,
             },
             Ranger => match self.level {
                 0 => { self.movement_cooldown -= 5; },
                 1 => { self.vision_range += 30; },
                 2 => { self.is_ability_unlocked = true; },
-                _ => Err(GameError::ResearchNotUnlocked)?,
+                _ => Err(GameError::ResearchNotUnlocked {unit_type: Ranger})?,
             },
             Mage => match self.level {
                 0 => { self.damage += 15; },
                 1 => { self.damage += 15; },
                 2 => { self.damage += 15; },
                 3 => { self.is_ability_unlocked = true; },
-                _ => Err(GameError::ResearchNotUnlocked)?,
+                _ => Err(GameError::ResearchNotUnlocked {unit_type: Mage})?,
             },
             Healer => match self.level {
                 0 => { self.damage -= 2; },
                 1 => { self.damage -= 5; },
                 2 => { self.is_ability_unlocked = true; },
-                _ => Err(GameError::ResearchNotUnlocked)?,
+                _ => Err(GameError::ResearchNotUnlocked {unit_type: Healer})?,
             },
             Rocket => match self.level {
                 0 => { self.is_ability_unlocked = true; },
                 1 => { self.travel_time_decrease += 20; },
                 2 => { self.max_capacity += 4; },
-                _ => Err(GameError::ResearchNotUnlocked)?,
+                _ => Err(GameError::ResearchNotUnlocked {unit_type: Rocket})?,
             },
-            Factory => Err(GameError::ResearchNotUnlocked)?,
+            Factory => Err(GameError::ResearchNotUnlocked {unit_type: Factory})?,
         }
         self.level += 1;
         Ok(())
@@ -1377,7 +1378,7 @@ mod tests {
         
         // Healer canfnot overcharge if it has insufficient research level.
         let healer = Unit::new(1, Team::Red, Healer, 0, OnMap(loc)).unwrap();
-        assert_err!(healer.ok_if_overcharge_unlocked(), GameError::ResearchNotUnlocked);
+        assert_err!(healer.ok_if_overcharge_unlocked(), GameError::ResearchNotUnlocked { unit_type: Healer });
 
         // Healer can overcharge if it has unlocked ability.
         let healer = Unit::new(1, Team::Red, Healer, 3, OnMap(loc)).unwrap();

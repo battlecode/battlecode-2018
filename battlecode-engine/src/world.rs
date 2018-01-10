@@ -1250,7 +1250,7 @@ impl GameWorld {
         }
         // If building a rocket, Rocketry must be unlocked.
         if unit_type == UnitType::Rocket && self.my_research().get_level(&unit_type) < 1 {
-            Err(GameError::ResearchNotUnlocked)?;
+            Err(GameError::ResearchNotUnlocked { unit_type: UnitType::Rocket })?;
         }
         // Finally, the team must have sufficient karbonite.
         if self.karbonite() < unit_type.blueprint_cost()? {

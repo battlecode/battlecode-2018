@@ -48,7 +48,6 @@ class NoSandbox:
 
         self.paused = False
         self.streaming = False
-        copy_tree(os.path.abspath('../bundle/'), str(self.working_dir.absolute()))
 
     def stream_logs(self, stdout=True, stderr=True, line_action=lambda line: print(line.decode())):
         assert not self.streaming
