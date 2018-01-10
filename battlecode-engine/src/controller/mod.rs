@@ -11,11 +11,17 @@ use schema::*;
 use team_array::*;
 use unit::*;
 use world::*;
+
+use location::Planet::*;
+use world::Team::*;
+use unit::UnitType::*;
     
 use failure::Error;
 use fnv::FnvHashMap;
-use std::env;
+use ansi_term::{Colour, Style};
+
 use std::mem;
+use std::env;
 
 mod streams;
 use self::streams::Streams;
@@ -169,7 +175,6 @@ impl GameController {
     /// Initializes the game world and creates a new controller
     /// for a player to interact with it.
     /// Mainly for testing purposes.
-    #[cfg(test)]
     fn new_player(game: StartGameMessage) -> GameController {
         GameController {
             world: game.world.clone(),
@@ -183,7 +188,6 @@ impl GameController {
 
     /// Starts the current turn, by updating the player's GameWorld with changes
     /// made since the last time the player had a turn.
-    #[cfg(test)]
     fn start_turn(&mut self, turn: &StartTurnMessage) {
         self.old_world.start_turn(turn);
         self.world = self.old_world.clone();
@@ -192,7 +196,6 @@ impl GameController {
 
     /// Ends the current turn. Returns the list of changes made in this turn.
     /// Mainly for testing purposes; use next_turn().
-    #[cfg(test)]
     fn end_turn(&mut self) -> TurnMessage {
         self.world.flush_viewer_changes();
         self.turn.clone()
@@ -1102,6 +1105,90 @@ impl GameController {
             bail!("Game is not finished");
         }
     }
+
+    pub fn print_game_ansi(&self) {
+        let log_unit = |unit: &Unit| {
+            let symbol = match unit.unit_type() {
+                Worker => "W",
+                Knight => "K",
+                Ranger => "R",
+                Mage => "M",
+                Healer => "H",
+                Factory => "=",
+                Rocket => "^",
+            };
+            let mut style = Style::new();
+
+            if let Ok(mc) = unit.movement_heat() {
+                if mc >= 10 {
+                    style = style.underline();
+                }
+            }
+            if let Ok(ac) = unit.ability_heat() {
+                if ac >= 10 {
+                    style = style.strikethrough();
+                }
+            }
+            if unit.unit_type().is_structure() && !unit.structure_is_built().unwrap() {
+                style = style.reverse();
+            }
+            if unit.team() == Red {
+                style = style.fg(Colour::Red);
+            } else {
+                style = style.fg(Colour::Blue);
+            }
+            style.paint(symbol)
+        };
+
+        let earth_map = &self.world.planet_maps[&Earth];
+        let earth_units = &self.world.planet_states[&Earth];
+        let mars_map = &self.world.planet_maps[&Mars];
+        let mars_units = &self.world.planet_states[&Mars];
+        let bg = Style::new().on(Colour::White);
+
+        let eb = Style::new().fg(Colour::Green);
+        let mb = Style::new().fg(Colour::Yellow);
+
+        let edge = |st: Style| {
+            print!("{}", st.paint("+"));
+            for _ in 0..20 {
+                print!("{}", st.paint("-"));
+            }
+            print!("{}", st.paint("+"));
+        };
+
+        edge(eb);
+        edge(mb);
+        println!("");
+
+        for y in 0..20 {
+            print!("{}", eb.paint("|"));
+            for x in 0..20 {
+                if let Some(id) = earth_units.units_by_loc.get(&MapLocation::new(Earth, x, y)) {
+                    print!("{}", log_unit(&earth_units.units[&id]));
+                } else if !earth_map.is_passable_terrain[x as usize][y as usize] {
+                    print!("{}", bg.paint(" "));
+                } else {
+                    print!(" ");
+                }
+            }
+            print!("{}{}", eb.paint("|"), mb.paint("|"));
+            for x in 0..20 {
+                if let Some(id) = mars_units.units_by_loc.get(&MapLocation::new(Mars, x, y)) {
+                    print!("{}", log_unit(&mars_units.units[&id]));
+                } else if !mars_map.is_passable_terrain[x as usize][y as usize] {
+                    print!("{}", bg.paint(" "));
+                } else {
+                    print!(" ");
+                }
+            }
+            println!("{}", mb.paint("|"));
+        }
+
+        edge(eb);
+        edge(mb);
+        println!("");
+    }
 }
 
 /// Returned from apply_turn.
@@ -1117,6 +1204,56 @@ pub struct TurnApplication {
 pub struct InitialTurnApplication {
     pub start_turn: StartTurnMessage,
     pub viewer: ViewerKeyframe
+}
+
+/// Run a test game between two rust bots.
+pub fn run_game_ansi<R, B>(mut r: R, mut b: B, turns: usize, delay: u32) 
+        where R: FnMut(&mut GameController) -> Result<(), Error>,
+              B: FnMut(&mut GameController) -> Result<(), Error> {
+
+    let mut map = GameMap::test_map();
+
+    map.earth_map.is_passable_terrain[5][16] = false;
+    map.earth_map.is_passable_terrain[12][0] = false;
+
+    let mut master = GameController::new_manager(map);
+    let players: [Player; 4] = [
+        Player { team: Red, planet: Earth },
+        Player { team: Blue, planet: Earth },
+        Player { team: Red, planet: Mars },
+        Player { team: Blue, planet: Mars }
+    ];
+    let mut pcs: Vec<_> = players.iter().map(|p| GameController::new_player(master.start_game(*p))).collect();
+
+    let mut lastturn: Option<StartTurnMessage> = None;
+
+    for i in 0..turns*4 {
+        let p = i % 4;
+        if lastturn.is_some() {
+            let mut nx = None;
+            mem::swap(&mut lastturn, &mut nx);
+            pcs[p].start_turn(&nx.unwrap());
+        } else {
+            pcs[p].start_turn(&master.initial_start_turn_message().start_turn);
+        }
+
+        if players[p].team == Red {
+            r(&mut pcs[p]).expect("player errored");
+        } else {
+            b(&mut pcs[p]).expect("player errored");
+        }
+
+        let TurnApplication { start_turn, .. } = master.apply_turn(&pcs[p].end_turn());
+        lastturn = Some(start_turn);
+
+        master.print_game_ansi();
+        use std::{thread, time};
+        thread::sleep(time::Duration::from_millis(delay.into()));
+        if let Some(team) = master.is_game_over() {
+            println!("Winner: {:?}", team);
+            return;
+        }
+    }
 }
 
 #[cfg(test)]
@@ -1193,4 +1330,7 @@ mod tests {
         println!("{}", to_string(&a.viewer).unwrap());
 
     }
+
+    
+
 }
