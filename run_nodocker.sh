@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 mtput() {
     if command -v tput > /dev/null; then
         tput $@
