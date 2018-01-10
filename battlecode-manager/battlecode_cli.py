@@ -8,7 +8,7 @@ import argparse
 import time
 import os
 import logging
-from sandbox import Sandbox
+from sandbox import Sandbox, NoSandbox
 import server
 import battlecode as bc
 import ujson as json
@@ -102,11 +102,8 @@ def get_map(map_name):
     '''
     Read a map of a given name, and return a GameMap.
     '''
-
-    print('contents: ' + str(os.listdir('/battlecode/battlecode-maps')))
-    print('command: /battlecode/battlecode-maps/' + map_name)
     try:
-        with open('/battlecode/battlecode-maps/' + map_name) as f:
+        with open(map_name) as f:
            contents = f.read()
         return bc.GameMap.from_json(contents)
     except Exception as e:
@@ -135,10 +132,14 @@ def create_game(args):
 
     # Assign the docker instances client ids
     dockers = {}
-    Sandbox.initialize()
     for index in range(len(game.players)):
         key = [player['id'] for player in game.players][index]
-        dockers[key] = Sandbox(sock_file, player_key=key,
-                               local_dir=args['dir_p1' if index % 2 == 0 else 'dir_p2'])
+        if 'NODOCKER' in os.environ:
+            dockers[key] = NoSandbox(sock_file, player_key=key,
+                                local_dir=args['dir_p1' if index % 2 == 0 else 'dir_p2'])
+        else:
+            dockers[key] = Sandbox(sock_file, player_key=key,
+                                local_dir=args['dir_p1' if index % 2 == 0 else 'dir_p2'])
+        
 
     return (game, dockers, sock_file)

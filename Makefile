@@ -27,6 +27,16 @@ docker-sandbox:
 	   docker cp $$ID:/usr/lib/python3.6/site-packages/UNKNOWN-0.0.0-py3.6-linux-x86_64.egg/battlecode docker-artifacts/battlecode;\
        docker rm -v $$ID
 
+create-bundle:
+	-rm -rf bundle
+	mkdir -p bundle
+	cp -R bindings/python/battlecode bundle
+	cp -R bindings/java/src/bc bundle
+	cp -R bindings/c/include/bc.h bundle
+	cp -R target/debug/deps/libbattlecode.a bundle
+
+nodocker: build create-bundle
+
 docker-manager:
 	docker build -t battledaddy -f ManagerDockerfile .
 
