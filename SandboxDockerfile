@@ -1,7 +1,7 @@
 FROM alpine:3.7
 
 # Install GCC
-RUN apk add --no-cache gcc musl-dev ncurses libffi-dev rust cargo swig
+RUN apk add --no-cache gcc musl-dev ncurses libffi-dev rust cargo swig dos2unix
 
 # Install JDK 9
 ENV JAVA_VERSION_MAJOR=9 \

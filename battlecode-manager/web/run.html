@@ -66,7 +66,7 @@
                                         <td>Replay filename</td>
                                         <td><input class="input" type="text" value="replay.bc18" id="replay"></td>
                                     </tr>
-                                    <tr>
+                                    <!--<tr>
                                         <td>Use viewer</td>
                                         <td><div class="control">
                                             <label class="radio">
@@ -78,7 +78,7 @@
                                                 False
                                             </label>
                                         </div></td>
-                                    </tr>
+                                    </tr>-->
 
                                 </tbody>
                             </table>
@@ -188,9 +188,6 @@
     </div>
     <script type="text/javascript" src="/eel.js"></script>
     <script>
-    /* INTERFACE METHODS */
-    /* END INTERFACE METHODS */
-
     var modal = document.querySelector('.modal');
     var html = document.querySelector('html');
     function alert_error(message) {
@@ -199,7 +196,7 @@
     }
 
     function report_winner(winner) {
-        message = winner==0 ? "red team" : "blue team";
+        message = winner==1 ? "red team" : "blue team";
         document.getElementById('winner-text').innerText = message;
         document.getElementById('winner').style.display='block';
     }
@@ -263,7 +260,7 @@
             return false;
         }
 
-        params['use_viewer'] = (params['use_viewer'] == '1');
+        params['use_viewer'] = 1;//(params['use_viewer'] == '1');
         document.getElementById('warning').style.display='none';
 
         return true;
@@ -280,7 +277,7 @@
 
     function display_logs(params) {
         modal.classList.add('is-active');
-        elements = [document.getElementById('red_earth'), document.getElementById('red_mars'), document.getElementById('blue_earth'), document.getElementById('blue_mars')]
+        elements = [document.getElementById('red_earth'), document.getElementById('blue_earth'), document.getElementById('red_mars'), document.getElementById('blue_mars')]
 
         return setInterval(async function() {
             logs = await eel.get_player_logs()();
@@ -291,7 +288,7 @@
     var submit = document.getElementById("submit")
     submit.onclick = async function() {
         var params = {}
-        params['use_viewer'] = document.querySelector('input[name="viewer"]:checked').value;
+        //params['use_viewer'] = document.querySelector('input[name="viewer"]:checked').value;
         params['player_memory'] = document.getElementById('memory').value;
         params['player_cpu'] = document.getElementById('cpu').value;
         params['time_pool'] = document.getElementById('pool').value;

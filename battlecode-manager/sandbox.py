@@ -64,7 +64,7 @@ class Sandbox:
         volumes = {str(self.working_dir.absolute()):{'bind':'/code','mode':'rw'},self.socket_file:{'bind':'/tmp/battlecode-socket','mode':'rw'}}
 
         working_dir = '/code'
-        command = 'sh run.sh'
+        command = 'find . -name "*" -type f -exec dos2unix {} \; && sh run.sh'
         env = {'PLAYER_KEY':self.player_key,'SOCKET_FILE':'/tmp/battlecode-socket','RUST_BACKTRACE':1}
 
         self.container = self.docker.containers.run('battlebaby', command,
