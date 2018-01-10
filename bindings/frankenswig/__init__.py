@@ -288,26 +288,44 @@ typedef uint8_t magicbool;
 // Free newly allocated char pointers with the following code
 %typemap(newfree) char * "{module}_free_string($1);";
 
+%pragma(java) jniclassimports=%{{
+import java.lang.*; // For Exception
+import java.io.*;
+import java.net.*;
+%}}
 %pragma(java) jniclasscode=%{{
     static {{
         System.out.println("-- Starting battlecode java engine, vroom vroom! --");
-        System.out.println("Note: you're about to get a warning about stack guards, please ignore it.");
+
+        URL main = bcJNI.class.getResource("bcJNI.class");
+        if (!"file".equalsIgnoreCase(main.getProtocol()))
+            throw new IllegalStateException("Battlecode engine has to be left as loose class files - no jars please. Sorry.");
+        File path = new File(main.getPath());
+        File parent = path.getParentFile();
+
+        System.out.println("-- Note: you may get a warning about stack guards, please ignore it. --");
+
+        String os = System.getProperty("os.name").toLowerCase();
         try {{
-            System.loadLibrary("battlecode");
-        }} catch (UnsatisfiedLinkError e) {{
-            try {{
-                System.load("/usr/lib/libbattlecode.so");
-            }} catch (UnsatisfiedLinkError e2) {{
-                try {{
-                    String p = java.nio.file.Paths.get("./src/bc/libbattlecode.so").toAbsolutePath().toString();
-                    System.load(p);
-                }} catch (UnsatisfiedLinkError e3) {{
-                    System.err.println("Native code library failed to load. "
-                        + "Are you running in the battlecode docker container?\\n"
-                        + e + "\\n" + e2 + "\\n" + e3);
-                    System.exit(1);
-                }}
+            if (os.indexOf("win") >= 0) {{
+                String lib = new File(parent, "libbattlecode-java-win32.dll").getAbsolutePath();
+                System.out.println("Loading windows library: "+lib);
+                System.load(lib);
+            }} else if (os.indexOf("mac") >= 0) {{
+                String lib = new File(parent, "libbattlecode-java-darwin.so").getAbsolutePath();
+                System.out.println("Loading mac library: "+lib);
+                System.load(lib);
+            }} else if (os.indexOf("nux") >= 0) {{
+                String lib = new File(parent, "libbattlecode-java-linux.so").getAbsolutePath();
+                System.out.println("Loading linux library: "+lib);
+                System.load(lib);
+            }} else {{
+                throw new Exception("Unknown operating system (good job, please install linux now): " + os);
             }}
+        }} catch (Exception e) {{
+            System.err.println("Native code library failed to load. Does the file just printed exist?");
+            System.err.println("Error: "+e);
+            System.exit(1);
         }}
         System.out.println("-- Engine loaded. --");
     }}
@@ -318,8 +336,21 @@ SWIG_FOOTER = ''
 
 PYTHON_HEADER = '''"""{docs}"""
 
-from ._{module} import ffi as _ffi
-from ._{module} import lib as _lib
+# some custom logic for loading different versions of the library
+# if we distributed through PyPI, this wouldn't be necessary, but
+# we're trying to keep things relatively self-contained
+from sys import platform
+
+if platform == "linux" or platform == "linux2":
+    from .linux._{module} import ffi as _ffi
+    from .linux._{module} import lib as _lib
+elif platform == "darwin":
+    from .darwin._{module} import ffi as _ffi
+    from .darwin._{module} import lib as _lib
+elif platform == "win32":
+    from .win32._{module} import ffi as _ffi
+    from .win32._{module} import lib as _lib
+
 import threading
 import enum
 

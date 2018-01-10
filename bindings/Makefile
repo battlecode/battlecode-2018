@@ -1,4 +1,4 @@
-include ../colors.mk
+include ../helpers.mk
 
 build: src/bindings.rs
 	$(call build_command,cargo build)

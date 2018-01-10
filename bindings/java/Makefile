@@ -1,40 +1,37 @@
-include ../../colors.mk
+include ../../helpers.mk
 
-UNAME_S := $(shell uname -s)
-ifeq ($(UNAME_S),Linux)
+ifeq ($(CUR_OS),win32)
+default:
+	@echo TODO
+test: default
+clean: default
+else
+ifeq ($(CUR_OS),linux)
 	JAVAINCLUDE=/usr/lib/jvm/java-8-openjdk-amd64/include
 	LIBS=-lutil -ldl -Lrt -lpthread -lgcc_s -lc -lm
+	TARGET=src/bc/libbattlecode-java-linux.so
 endif
-ifeq ($(UNAME_S),Darwin)
+ifeq ($(CUR_OS),darwin)
 	JAVAINCLUDE=/System/Library/Frameworks/JavaVM.framework/Versions/Current/Headers/
 	LIBS=-lSystem -lresolv -lc -lm
+	TARGET=src/bc/libbattlecode-java-darwin.so
 endif
 
-build: src/bc/libbattlecode.so src/bc/bc.class
-
-src/bc/bc.class: src/bc/bc.java
-	$(call build_command,javac src/bc/*.java)
-
-src/bc/libbattlecode.so: src/bc/bc_wrap.o ../../target/debug/deps/libbattlecode.a
-	$(call build_command,gcc -shared src/bc/bc_wrap.o ../../target/debug/deps/libbattlecode.a $(LIBS) -o src/bc/libbattlecode.so)
-
-../../target/debug/deps/libbattlecode.a:
-	$(call build_command,cargo build)
-
-src/bc/bc_wrap.o: src/bc/bc_wrap.c
-	$(call build_command,gcc -c src/bc/bc_wrap.c -I$(JAVAINCLUDE) -I../c/include/ -o src/bc/bc_wrap.o)
-
-src/bc/bc_wrap.c src/bc/bc.java: ../c/include/bc.i
+build:
 	$(call build_command,cd src/bc && swig -java -package bc -outcurrentdir ../../../c/include/bc.i)
+	$(call build_command,javac src/bc/*.java)
+	$(call build_command,gcc -c src/bc/bc_wrap.c -I$(JAVAINCLUDE) -I../c/include/ -o src/bc/bc_wrap.o)
+	$(call build_command,gcc -shared src/bc/bc_wrap.o ../../target/debug/deps/libbattlecode.a $(LIBS) -o $(TARGET))
 
 test: build
 	javac tests/*.java -classpath ./tests:./src
-	java -classpath ./tests:./src -Djava.library.path=/Users/james/Library/Java/Extensions:/Library/Java/Extensions:/Network/Library/Java/Extensions:/System/Library/Java/Extensions:/usr/lib/java:.:/Users/james/Dev/battlecode-2018/bindings/java/src/bc Test
+	java -classpath ./tests:./src Test
 
 release: src/bc/bc_wrap.c src/bc/bc_wrap.o src/bc/bc.class
-	$(call build_command,gcc -shared src/bc/bc_wrap.o ../../target/release/deps/libbattlecode.a $(LIBS) -o src/bc/libbattlecode.so)
+	$(call build_command,gcc -shared src/bc/bc_wrap.o ../../target/release/deps/libbattlecode.a $(LIBS) -o $(TARGET))
 
 clean:
 	-rm -rf src/bc/*
 	
 .PHONY: build test clean
+endif

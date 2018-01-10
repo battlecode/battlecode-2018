@@ -641,6 +641,6 @@ with open("c/include/bc.h", "w+") as f:
 with open("c/include/bc.i", "w+") as f:
     f.write(p.to_swig())
 
-with open("python/battlecode/bc.py", "w+") as f:
+with open("python/battlecode/__init__.py", "w+") as f:
     f.write(p.to_python())
 print('Done.')

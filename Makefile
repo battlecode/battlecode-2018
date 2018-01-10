@@ -1,4 +1,4 @@
-include colors.mk
+include helpers.mk
 
 build:
 	@$(MAKE) -wC bindings

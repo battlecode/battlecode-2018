@@ -1,7 +1,6 @@
-include ../../colors.mk
+include ../../helpers.mk
 
 build: 
-	$(call build_command,cargo build)
 	$(call build_command,python3 setup.py build_ext --inplace)
 
 test: build
