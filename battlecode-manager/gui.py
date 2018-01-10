@@ -7,7 +7,6 @@ options = {'host':'0.0.0.0', 'port':6147, 'mode':'default'}
 
 eel.init('web')
 
-WINNER = 0
 game = None
 
 def start_game(return_args):
@@ -30,7 +29,8 @@ def start_game(return_args):
         cli.cleanup(dockers, return_args, sock_file)
     lock.release()
 
-    WINNER = 1 if winner == 'player1' else 2
+    eel.trigger_end_game(1 if winner == 'player1' else 2)()
+
 
 @eel.expose
 def run_game(return_args):
@@ -46,7 +46,7 @@ def get_maps():
     player_dir = '/battlecode/battlecode-maps'
     maps = [o for o in os.listdir(player_dir)
                         if 'bc18map' in o]
-    maps.append('test_map')
+    maps.append('testmap.bc18map')
     return maps
 
 @eel.expose
@@ -62,11 +62,10 @@ def get_player_logs():
     if game != None:
         if all('logger' in player for player in game.players):
             logs = [player['logger'].logs.getvalue() for player in game.players]
-            logs.append(0)
             return logs
         else:
-            return ["", "", "", "",0]
-    return ["NULL", "NULL", "NULL", "NULL",0]
+            return ["", "", "", ""]
+    return ["NULL", "NULL", "NULL", "NULL"]
 
 @eel.expose
 def end_game():

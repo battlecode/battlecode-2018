@@ -78,8 +78,8 @@ def run_game(game, dockers, args, sock_file):
         winner = game.winner
 
 
-    match_file['metadata'] = {'player1': os.path.dirname(args['dir_p1']),
-            'player2' : os.path.dirname(args['dir_p2']), 'winner': winner}
+    match_file['metadata'] = {'player1': args['dir_p1'][10:],
+            'player2' : args['dir_p2'][10:], 'winner': winner}
     json.dump(match_file, match_ptr)
     match_ptr.close()
     if args['use_viewer']:

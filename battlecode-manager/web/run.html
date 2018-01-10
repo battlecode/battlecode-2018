@@ -28,7 +28,7 @@
         </div>
 
         <div class="notification is-success" style="display:none" id="winner">
-            <button class="delete" onclick="document.getElementById('winner_alert').style.display='none'"></button>
+            <button class="delete" onclick="document.getElementById('winner').style.display='none'"></button>
             <strong> Game completed. </strong> Winner is <span id="winner-text">.</span>
         </div>
 
@@ -64,7 +64,7 @@
                                     </tr>
                                     <tr>
                                         <td>Replay filename</td>
-                                        <td><input class="input" type="text" value="replay" id="replay"></td>
+                                        <td><input class="input" type="text" value="replay.bc18" id="replay"></td>
                                     </tr>
                                     <tr>
                                         <td>Use viewer</td>
@@ -269,7 +269,9 @@
         return true;
     }
 
+    eel.expose(trigger_end_game);
     function trigger_end_game(winner) {
+        console.log('got end game')
         modal.classList.remove('is-active');
         clearInterval(interval);
         eel.end_game();
@@ -282,8 +284,7 @@
 
         return setInterval(async function() {
             logs = await eel.get_player_logs()();
-            if (logs[4] == 0) for (var i=0; i<4; i++) elements[i].innerText = logs[i];
-            else trigger_end_game();
+            for (var i=0; i<4; i++) elements[i].innerText = logs[i];
         },300);
     }
 
