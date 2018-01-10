@@ -38,6 +38,22 @@ WORKING_DIR = 'working_dir'
 def working_dir_message():
     print('Working directory:', os.path.abspath(WORKING_DIR))
     print('You may want to empty it periodically.')
+def copy_battlecode():
+    working_dir = os.path.abspath(WORKING_DIR)
+
+    bcdir = os.path.join(working_dir, 'battlecode')
+    # todo: copy battlecode to working_dir
+    if not os.path.exists(working_dir):
+        print("Creating working directory at", working_dir)
+        os.makedirs(working_dir)
+    if os.path.exists(bcdir):
+        print("Cleaning up old battlecode folder", bcdir)
+        rmtree(bcdir)
+
+    prepath = os.path.abspath('../battlecode')
+    print("Copying battlecode resources from {} to {}".format(prepath, working_dir))
+    copytree(prepath, bcdir)
+    print("Working dir ready!")
 
 class NoSandbox:
     def __init__(self, socket_file, local_dir=None, s3_bucket=None, s3_key=None,
@@ -47,18 +63,7 @@ class NoSandbox:
         self.player_key = player_key
         self.socket_file = socket_file
 
-        working_dir = os.path.abspath(working_dir);
-
-        bcdir = os.path.join(working_dir, 'battlecode')
-        # todo: copy battlecode to working_dir
-        if not os.path.exists(bcdir):
-            if not os.path.exists(working_dir):
-                print("Creating working directory at", working_dir)
-                os.makedirs(working_dir)
-            prepath = os.path.abspath('../battlecode')
-            print("Copying battlecode resources from {} to {}".format(prepath, working_dir))
-            copytree(prepath, bcdir)
-            print("Working dir ready!")
+        working_dir = os.path.abspath(WORKING_DIR)
 
         self.working_dir = os.path.join(working_dir, random_key(20))
 
@@ -106,6 +111,7 @@ class NoSandbox:
             raise RuntimeError('You attempted to unpause a player that was not paused.')
 
     def destroy(self):
+        print("Cleaning up working directory", self.working_dir)
         if hasattr(self, 'process'):
             if self.process.is_running():
                 self.process.kill()
