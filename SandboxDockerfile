@@ -35,7 +35,7 @@ RUN apk add --update --no-cache \
     pip3 install --upgrade pip setuptools cffi && \
     rm -r /root/.cache
 
-RUN pip3 install numpy scipy
+RUN pip3 install numpy
 
 # Install mono
 RUN apk add --no-cache --virtual=.build-dependencies wget ca-certificates tar xz && \
