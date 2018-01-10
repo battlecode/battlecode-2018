@@ -39,12 +39,5 @@ RUN apk add --update --no-cache \
 ADD . /battlecode
 
 WORKDIR /battlecode/
-RUN make
-RUN cd bindings && python3 generate.py
-RUN cat bindings/src/bindings.rs
-RUN cargo build --release
-RUN cat bindings/src/bindings.rs
-RUN cd bindings/python && RELEASE=1 python3 setup.py install
-RUN cd bindings/java && make release
-RUN cd bindings/java && mkdir /battlecode-java && mv src/bc/libbattlecode.so /usr/lib/libbattlecode.so && mv src/bc /battlecode-java/bc
-RUN mkdir -p /battlecode-c/include && mkdir -p /battlecode-c/lib && cp bindings/c/include/bc.h /battlecode-c/include/ && cp target/release/deps/libbattlecode.a /battlecode-c/lib/
+# RUN make release && make package && cd bindings && make clean
+RUN make && make package && cd bindings && make clean

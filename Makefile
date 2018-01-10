@@ -20,9 +20,6 @@ test:
 	@$(MAKE) -wC bindings test
 	$(call test_command,cargo test)
 
-package:
-	mkdir -p package
-
 clean:
 	@$(MAKE) -wC bindings clean
 	-rm -rf docker-artifacts
@@ -57,7 +54,7 @@ dockers: docker-py3 docker-java
 bc18-scaffold:
 	git clone https://github.com/battlecode/bc18-scaffold
 
-package: bc18-scaffold
+package:
 	-rm -rf battlecode-manager/working_dir 
 	cp -R battlecode bc18-scaffold/battlecode
 	cp -R battlecode-manager bc18-scaffold/battlecode-manager
