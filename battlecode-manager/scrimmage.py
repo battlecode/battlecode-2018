@@ -9,17 +9,21 @@ import os
 ##        {"password":"secret","red_key":"redawskey","blue_key":"blueawskey","map":"string","mapfile":{json of mapfile}}
 ##        Pass either map or mapfile, but not both
 ##
-##     The scrimmage server generates a string game ID, and creates an entry in the DB
-##     with the ID, red_key, blue_key, map, mapfile, and current time, with a status field set to 0 (running).
+##     The scrimmage server returns the JSON {'game_id':random_game_id} to the POST request if it is not
+##     running a game, or {'error':'busy'} if it is.  If it is busy, it does not do the following.
 ##
-##     The scrimmage server returns the JSON {'game_id':game_id} to the POST request.
+##     The scrimmage server creates an entry in the DB with the ID, red_key, blue_key, map, mapfile,
+##     and current time, with a status field set to 0 (running).
 ##
 ##     When the match is over, the scrimmage server sets that DB row status to 1 if player 1 wins, or 2 if player 2 wins.
 ##
-##     Every so often, the scrimmage server polls the database for matches started greater than N seconds ago, and runs them,
+##     When not running matches, the scrimmage server polls the database for matches started greater than N seconds ago, and runs them,
 ##     resetting the start time.  N is the maximum time to run a match * 1.5.
 ##
+##     At any time we can GET a status JSON {'games_run':[listofidseverrun],'busy':true/false}
+##
 
+GAMES_RUN = []
 
 def random_key(length):
     return ''.join([random.choice(string.ascii_letters + string.digits + string.digits) for _ in range(length)])
