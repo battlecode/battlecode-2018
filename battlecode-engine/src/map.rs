@@ -29,6 +29,17 @@ pub struct GameMap {
 }
 
 impl GameMap {
+    pub fn new(seed: u16, earth_map: PlanetMap, mars_map: PlanetMap,
+               asteroids: AsteroidPattern, orbit: OrbitPattern) -> GameMap {
+        GameMap {
+            seed: seed,
+            earth_map: earth_map,
+            mars_map: mars_map,
+            asteroids: asteroids,
+            orbit: orbit,
+        }
+    }
+
     /// Validate the game map.
     ///
     /// * InvalidMapObject - the game map is invalid.
@@ -51,6 +62,22 @@ impl GameMap {
             orbit: OrbitPattern::new(100, 100, 300),
         }
     }
+}
+
+/// The type of symmetry for a given planet map.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum SymmetryType {
+    /// The map is symmetric by a 180 degree rotation.
+    Rotational = 0,
+
+    /// The map is horizontally symmetric.
+    Horizontal = 1,
+
+    /// The map is vertically symmetric.
+    Vertical = 2,
+
+    /// The map is Mars, and has no symmetry.
+    Mars = 3,
 }
 
 /// The map for one of the planets in the Battlecode world. This information
@@ -95,6 +122,10 @@ pub struct PlanetMap {
     ///
     /// Earth is always symmetric by either a rotation or a reflection.
     pub initial_karbonite: Vec<Vec<u32>>,
+
+    /// The symmetry type of the map. Should always be Mars if this is
+    /// Mars's PlanetMap.
+    symmetry: SymmetryType,
 }
 
 impl PlanetMap {
@@ -212,6 +243,10 @@ impl PlanetMap {
             is_passable_terrain: vec![vec![true; MAP_WIDTH_MIN]; MAP_HEIGHT_MIN],
             initial_karbonite: vec![vec![10; MAP_WIDTH_MIN]; MAP_HEIGHT_MIN],
             initial_units: vec![],
+            symmetry: match planet {
+                Planet::Earth => SymmetryType::Rotational,
+                Planet::Mars => SymmetryType::Mars,
+            }
         };
 
         if planet == Planet::Earth {
@@ -226,6 +261,153 @@ impl PlanetMap {
         };
 
         map
+    }
+
+    /*** MAP EDITOR METHODS ***/
+
+    /// Creates an empty Earth map.
+    pub fn empty_earth_map(height: usize, width: usize, symmetry: SymmetryType) 
+                           -> Result<PlanetMap, Error> {
+        if height < MAP_HEIGHT_MIN || height > MAP_HEIGHT_MAX
+           || width < MAP_WIDTH_MIN || width > MAP_WIDTH_MAX {
+            Err(GameError::InvalidMapObject)?;
+        }
+
+        if symmetry == SymmetryType::Mars {
+            Err(GameError::InvalidMapObject)?;
+        }
+
+        Ok(PlanetMap {
+            planet: Planet::Earth,
+            height: height,
+            width: width,
+            is_passable_terrain: vec![vec![true; width]; height],
+            initial_karbonite: vec![vec![0; width]; height],
+            initial_units: vec![],
+            symmetry: symmetry,
+        })
+    }
+
+    /// Creates an empty Mars map.
+    pub fn empty_mars_map(height: usize, width: usize) -> Result<PlanetMap, Error> {
+        if height < MAP_HEIGHT_MIN || height > MAP_HEIGHT_MAX
+           || width < MAP_WIDTH_MIN || width > MAP_WIDTH_MAX {
+            Err(GameError::InvalidMapObject)?;
+        }
+
+        Ok(PlanetMap {
+            planet: Planet::Mars,
+            height: height,
+            width: width,
+            is_passable_terrain: vec![vec![true; width]; height],
+            initial_karbonite: vec![vec![0; width]; height],
+            initial_units: vec![],
+            symmetry: SymmetryType::Mars,
+        })
+    }
+
+    fn ok_if_on_map(&self, x: usize, y: usize) -> Result<(), Error> {
+        if x >= self.width || y >= self.height {
+            Err(GameError::LocationOffMap)?;
+        }
+        Ok(())
+    }
+
+    fn reflect(&self, x: usize, y: usize) -> (usize, usize) {
+        match self.symmetry {
+            SymmetryType::Rotational => (self.width - x - 1, self.height - y - 1),
+            SymmetryType::Horizontal => (self.width - x - 1, y),
+            SymmetryType::Vertical => (x, self.height - y - 1),
+            SymmetryType::Mars => (x, y),
+        }
+    }
+
+    fn next_id(&self) -> UnitID {
+        for id in 0..10 {
+            let mut unique = true;
+            for ref unit in self.initial_units.iter() {
+                if unit.id() == id {
+                    unique = false;
+                    break;
+                }
+            }
+            if unique {
+                return id;
+            }
+        }
+        panic!("Too many units on board!");
+    }
+
+    fn contains_unit(&self, x: usize, y: usize) -> bool {
+        for ref unit in self.initial_units.iter() {
+            if unit.location().map_location().unwrap().x as usize == x
+               && unit.location().map_location().unwrap().y as usize == y {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn add_starting_worker(&mut self, x: usize, y: usize) -> Result<(), Error> {
+        self.ok_if_on_map(x, y)?;
+        if self.planet == Planet::Mars {
+            Err(GameError::InvalidMapObject)?;
+        }
+        if !self.is_passable_terrain[y][x] {
+            Err(GameError::LocationNotEmpty)?;
+        }
+        if self.initial_units.len() > 6 {
+            Err(GameError::InvalidMapObject)?;
+        }
+        if self.contains_unit(x, y) {
+            Err(GameError::LocationNotEmpty)?;
+        }
+
+        let (o_x, o_y) = self.reflect(x, y);
+        if (o_x, o_y) == (x, y) {
+            Err(GameError::InvalidMapObject)?;
+        }
+        
+        let red_id = self.next_id();
+        self.initial_units.push(Unit::new(
+            red_id, Team::Red, UnitType::Worker, 0,
+            Location::OnMap(MapLocation::new(self.planet, x as i32, y as i32))
+        ).expect("invalid unit?"));
+        
+        let blue_id = self.next_id();
+        self.initial_units.push(Unit::new(
+            blue_id, Team::Blue, UnitType::Worker, 0,
+            Location::OnMap(MapLocation::new(self.planet, o_x as i32, o_y as i32))
+        ).expect("invalid unit?"));
+
+        Ok(())
+    }
+
+    pub fn set_impassable(&mut self, x: usize, y: usize) -> Result<(), Error> {
+        self.ok_if_on_map(x, y)?;
+        if self.contains_unit(x, y) {
+            Err(GameError::LocationNotEmpty)?;
+        }
+
+        let (o_x, o_y) = self.reflect(x, y);
+        self.is_passable_terrain[y][x] = false;
+        self.is_passable_terrain[o_y][o_x] = false;
+        Ok(())
+    }
+
+    pub fn set_karbonite(&mut self, x: usize, y: usize, amount: u32) -> Result<(), Error> {
+        self.ok_if_on_map(x, y)?;
+        if self.planet == Planet::Mars {
+            Err(GameError::InvalidMapObject)?;
+        }
+        if amount < MAP_KARBONITE_MIN || amount > MAP_KARBONITE_MAX {
+            Err(GameError::InvalidMapObject)?;
+        }
+
+        let (o_x, o_y) = self.reflect(x, y);
+        self.initial_karbonite[y][x] = amount;
+        self.initial_karbonite[o_y][o_x] = amount;
+        Ok(())
     }
 }
 
