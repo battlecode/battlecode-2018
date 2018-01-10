@@ -35,6 +35,8 @@ RUN apk add --update --no-cache \
     pip3 install --upgrade pip setuptools cffi && \
     rm -r /root/.cache
 
+RUN pip3 install numpy scipy
+
 # Install mono
 RUN apk add --no-cache --virtual=.build-dependencies wget ca-certificates tar xz && \
     wget "https://www.archlinux.org/packages/extra/x86_64/mono/download/" -O "/tmp/mono.pkg.tar.xz" && \

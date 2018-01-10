@@ -109,8 +109,14 @@ def get_map(map_name):
         print("Loading map " + map_name)
         return bc.GameMap.from_json(contents)
     except Exception as e:
-        print("Loading test map...")
-        return bc.GameMap.test_map()
+        try:
+            with open('/player/' + map_name) as f:
+               contents = f.read()
+            print("Loading map " + map_name)
+            return bc.GameMap.from_json(contents)
+        except Exception as e:
+            print("Loading test map...")
+            return bc.GameMap.test_map()
 
 def create_game(args):
     '''

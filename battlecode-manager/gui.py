@@ -44,6 +44,9 @@ def get_maps():
     player_dir = '/battlecode/battlecode-maps'
     maps = [o for o in os.listdir(player_dir)
                         if 'bc18map' in o]
+    maps.extend([o for o in os.listdir('/player')
+                        if 'bc18map' in o])
+
     maps.append('testmap.bc18map')
     return maps
 
