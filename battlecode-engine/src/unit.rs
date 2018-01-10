@@ -292,7 +292,7 @@ impl Default for Unit {
 
             is_ability_unlocked: false,
             ability_heat: 0,
-            ability_cooldown: 0,
+            ability_cooldown: 10,
             ability_range: 0,
 
             is_built: false,
