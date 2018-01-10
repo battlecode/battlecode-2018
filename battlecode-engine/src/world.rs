@@ -3439,4 +3439,23 @@ mod tests {
             world.end_round()
         }
     }
+
+    #[test]
+    fn test_non_worker_units_doing_worker_actions() {
+        let mut world = GameWorld::test_world();
+        let non_worker = world.create_unit(Team::Red, MapLocation::new(Planet::Earth, 0, 1), UnitType::Knight).unwrap();
+        let blueprint = world.create_unit(Team::Red, MapLocation::new(Planet::Earth, 1, 1), UnitType::Factory).unwrap();
+
+        // The non-worker can't do worker actions, and the error is inappropriate unit type.
+        assert!(!world.can_harvest(non_worker, Direction::North));
+        assert_err!(world.harvest(non_worker, Direction::North), GameError::InappropriateUnitType);
+        assert!(!world.can_blueprint(non_worker, UnitType::Factory, Direction::North));
+        assert_err!(world.blueprint(non_worker, UnitType::Factory, Direction::North), GameError::InappropriateUnitType);
+        assert!(!world.can_build(non_worker, blueprint));
+        assert_err!(world.build(non_worker, blueprint), GameError::InappropriateUnitType);
+        world.get_unit_mut(blueprint).unwrap().be_built(1000);
+        world.get_unit_mut(blueprint).unwrap().take_damage(10);
+        assert!(!world.can_repair(non_worker, blueprint));
+        assert_err!(world.repair(non_worker, blueprint), GameError::InappropriateUnitType);
+    }
 }
