@@ -24,6 +24,8 @@ extern crate rand;
 // significantly faster for integer keys.
 extern crate fnv;
 
+extern crate ansi_term;
+
 // see error.rs
 #[macro_use]
 pub mod error;

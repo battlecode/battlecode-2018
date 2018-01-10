@@ -58,7 +58,7 @@ pub struct PlanetInfo {
     ///    Engine, this is only true for structures on the current team. This
     ///    is because one team should not know the existence of units in the
     ///    structures of other teams.
-    units: FnvHashMap<UnitID, Unit>,
+    pub units: FnvHashMap<UnitID, Unit>,
 
     /// All the units on the map, by map location. Cached for performance.
     ///

@@ -411,6 +411,7 @@ impl OrbitPattern {
     }
 }
 
+
 #[cfg(test)]
 mod tests {
     use super::*;

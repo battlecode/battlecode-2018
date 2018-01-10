@@ -69,11 +69,17 @@ def get_player_logs():
 
 @eel.expose
 def end_game():
+    global game
+    if game is not None:
+        game.winner = 'player1'
+        game.disconnected = True
+        game.game_over = True
     return ""
 
 print("To play games open http://localhost:6147/run.html in your browser")
 lock = threading.Lock()
-eel.start('run.html', options=options,block=False)
+eel.start('run.html', options=options, block=False)
+print("Started")
 
 while True:
     eel.sleep(1.0)
