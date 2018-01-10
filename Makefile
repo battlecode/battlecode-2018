@@ -1,11 +1,18 @@
 include helpers.mk
 
+ifeq ($(CUR_OS),darwin)
+	LIB_TARGET = battlecode/c/lib/libbattlecode-darwin.a
+endif
+ifeq ($(CUR_OS),linux)
+	LIB_TARGET = battlecode/c/lib/libbattlecode-linux.a
+endif
+
 build: battlecode
 	@$(MAKE) -wC bindings
 	cp -R bindings/python/battlecode battlecode/python/battlecode
 	cp -R bindings/java/src/bc battlecode/java/bc
 	cp -R bindings/c/include battlecode/c/include
-	cp -R target/debug/deps/libbattlecode.a battlecode/c/lib
+	cp -R target/debug/deps/libbattlecode.a $(LIB_TARGET)
 
 release: battlecode
 	@$(MAKE) -wC bindings release
@@ -13,7 +20,7 @@ release: battlecode
 battlecode:
 	rm -rf battlecode
 	mkdir -p battlecode/python/
-	mkdir -p battlecode/c/
+	mkdir -p battlecode/c/lib
 	mkdir -p battlecode/java/
 
 test:

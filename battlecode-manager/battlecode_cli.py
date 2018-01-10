@@ -63,11 +63,14 @@ def run_game(game, dockers, args, sock_file):
     while not game.game_over:
         time.sleep(1)
 
-    print("Dumping matchfile")
     if 'NODOCKER' in os.environ:
-        matches = os.path.abspath('..')
+        match_output = os.path.abspath(os.path.join('..', str(args['replay_filename'])))
     else:
-        match_ptr = '/player'
+        match_output = os.path.abspath(os.path.join('/player', str(args['replay_filename'])))
+
+    print("Dumping matchfile to", match_output)
+    match_ptr = open(match_output, 'w')
+
     match_file = {}
     match_file['message'] = game.viewer_messages
     if not game.disconnected:
@@ -77,7 +80,6 @@ def run_game(game, dockers, args, sock_file):
             winner = 'player2'
     else:
         winner = game.winner
-
 
     match_file['metadata'] = {'player1': args['dir_p1'][8:],
             'player2' : args['dir_p2'][8:], 'winner': winner}

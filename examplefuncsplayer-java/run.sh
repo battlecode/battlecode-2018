@@ -1,5 +1,5 @@
 #!/bin/sh
-# build the java files.
-# there will eventually be a separate build step, but for now the build counts against your time.
-javac $(find . -name '*.java') -classpath /battlecode-java:.
-java -classpath /battlecode-java:. Player
+echo javac $(find . -name '*.java') -classpath ../battlecode/java
+javac $(find . -name '*.java') -classpath ../battlecode/java
+echo java -classpath .:../battlecode/java Player
+java -classpath .:../battlecode/java Player

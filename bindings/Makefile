@@ -1,13 +1,13 @@
 include ../helpers.mk
 
-build: src/bindings.rs
+build:
 	$(call build_command,python3.6 generate.py)
 	$(call build_command,cargo build)
 	@$(MAKE) -wC c
 	@$(MAKE) -wC python
 	@$(MAKE) -wC java
 
-release: src/bindings.rs
+release:
 	$(call build_command,python3.6 generate.py)
 	$(call build_command,cargo build --release)
 	@$(MAKE) -wC c release

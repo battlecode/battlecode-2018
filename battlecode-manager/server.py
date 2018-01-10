@@ -322,7 +322,6 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                         else:
                             self.game.winner = 'player1'
                 logging.warning("Client %s: Game Over", self.client_id)
-                print("Cleaning up")
                 self.game.game_over = True
                 wrapped_socket.close()
                 send_socket.close()
@@ -486,9 +485,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             This does all the processing of the data we receive and we spend our
             time in this function.
             '''
-            print('got connection')
             if self.is_unix_stream:
-                print('handling player')
                 self.player_handler()
             else:
                 self.viewer_handler()
@@ -547,7 +544,3 @@ def start_viewer_server(port: int, game: Game) -> socketserver.BaseServer:
     server_thread.start()
 
     return server
-
-if __name__ == "__main__":
-    print("Do not run this fuction call battlecode cli to start a game")
-    sys.exit(1)

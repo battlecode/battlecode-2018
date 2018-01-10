@@ -3,12 +3,22 @@ from threading import Timer
 import threading
 from tqdm import tqdm
 import os, time, socket, fcntl, struct, string, random, io, zipfile
-from shutil import copytree
+from shutil import copytree, rmtree
 import psutil, subprocess
 try:
     import boto3, docker
 except:
     pass
+import sys
+
+if sys.platform.startswith("linux"):
+    BC_PLATFORM = "LINUX"
+elif sys.platform == 'win32':
+    BC_PLATFORM = "WIN32"
+elif sys.platform == 'darwin':
+    BC_PLATFORM = 'DARWIN'
+else:
+    raise Exception("Unknown os: "+sys.platform)
 
 def delete_folder(path):
     try:
@@ -24,9 +34,14 @@ def delete_folder(path):
 def random_key(length):
     return ''.join([random.choice(string.ascii_letters + string.digits) for _ in range(length)])
 
+WORKING_DIR = 'working_dir'
+def working_dir_message():
+    print('Working directory:', os.path.abspath(WORKING_DIR))
+    print('You may want to empty it periodically.')
+
 class NoSandbox:
     def __init__(self, socket_file, local_dir=None, s3_bucket=None, s3_key=None,
-                player_key="", working_dir="working_dir/",
+                player_key="", working_dir=WORKING_DIR,
                 player_mem_limit=256, player_cpu=20):
         self.player_mem_limit = str(player_mem_limit)+'mb'
         self.player_key = player_key
@@ -75,7 +90,7 @@ class NoSandbox:
         # TODO: windows chec
         args = ['sh', os.path.join(self.working_dir, 'run.sh')]
         env = {'PLAYER_KEY': str(self.player_key), 'SOCKET_FILE': self.socket_file, 'RUST_BACKTRACE': '1',
-            'PYTHONPATH': os.environ['PYTHONPATH']}
+            'BC_PLATFORM': BC_PLATFORM}
         cwd = self.working_dir
         self.process = psutil.Popen(args, env=env, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -124,7 +139,7 @@ if 'NODOCKER' not in os.environ:
                     f.write(x.replace('\r\n', '\n'))
 
         def __init__(self, socket_file, local_dir=None, s3_bucket=None, s3_key=None,
-                    player_key="", working_dir="working_dir/",
+                    player_key="", working_dir=WORKING_DIR,
                     player_mem_limit=256, player_cpu=20):
             self.player_mem_limit = str(player_mem_limit)+'mb'
             self.player_key = player_key
@@ -162,7 +177,8 @@ if 'NODOCKER' not in os.environ:
 
             working_dir = '/code'
             command = 'sh run.sh'
-            env = {'PLAYER_KEY':self.player_key,'SOCKET_FILE':'/tmp/battlecode-socket','RUST_BACKTRACE':1}
+            env = {'PLAYER_KEY':self.player_key,'SOCKET_FILE':'/tmp/battlecode-socket','RUST_BACKTRACE':1,
+                'BC_PLATFORM': BC_PLATFORM}
 
             self.container = self.docker.containers.run('battlebaby', command,
                     privileged=False, detach=True, stdout=True, stderr=True,

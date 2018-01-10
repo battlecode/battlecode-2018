@@ -1,5 +1,6 @@
 #!/bin/sh
 echo 'test'
+export "PYTHONPATH=../battlecode/python:$PYTHONPATH"
 python3 run.py
 
 # If you set the following flag, the engine won't run type asserts.

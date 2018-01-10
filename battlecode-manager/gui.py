@@ -2,6 +2,11 @@ import eel
 import os
 import battlecode_cli as cli
 import threading
+import sandbox
+
+target_dir = os.path.abspath(os.path.dirname(__file__))
+print('Moving into', target_dir)
+os.chdir(target_dir)
 
 options = {'host':'0.0.0.0', 'port':6147, 'mode':'default'}
 
@@ -25,7 +30,7 @@ def start_game(return_args):
     (game, dockers, sock_file) = cli.create_game(return_args)
 
     try:
-        print("running game")
+        print("Running game...")
         winner = cli.run_game(game, dockers, return_args, sock_file)
     finally:
         cli.cleanup(dockers, return_args, sock_file)
@@ -82,6 +87,10 @@ def end_game():
         game.game_over = True
     return ""
 
+if 'NODOCKER' in os.environ:
+    sandbox.working_dir_message()
+
+print("=== Ready! ===")
 print("To play games open http://localhost:6147/run.html in your browser on Mac/Linux/WindowsPro, or http://192.168.99.100:6147/run.html on Windows10Home.")
 lock = threading.Lock()
 eel.start('run.html', options=options, block=False)
