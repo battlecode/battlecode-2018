@@ -2,11 +2,14 @@
 This runs stuff
 '''
 import os
+import time
 import docker
 import packaging
 import packaging.version
 import packaging.specifiers
 import packaging.requirements
+
+stuff=None
 
 def start_docker(players):
     '''
@@ -18,16 +21,31 @@ def start_docker(players):
 
     command = "sh start_docker.sh"
     try:
-        docker_client.containers.run('battlecode/battlecode-2018', privileged=True,
-                                     detach=False, stdout=True, stderr=True,
+        global stuff
+        stuff = docker_client.containers.run('battlecode/battlecode-2018', privileged=True,
+                                     detach=True, stdout=True, stderr=True,
                                      tty=True, stdin_open=True,
                                      volumes=volumes, ports=ports)
     except ConnectionError as e:
         print("Please run this as sudo")
     except Exception as e:
+        if stuff != None:
+            stuff.remove(force=True)
         print("There was an error " + str(e))
 
-    print("done")
 
 
-start_docker(os.getcwd())
+
+
+
+try:
+    start_docker(os.getcwd())
+    time.sleep(15)
+    print("Docker running at https://localhost:6147/run.html")
+    while True:
+        time.sleep(1)
+except KeyboardInterrupt:
+    if stuff != None:
+        print(stuff)
+        stuff.remove(force=True)
+    print("Killing")
