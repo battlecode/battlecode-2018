@@ -254,30 +254,28 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             try:
                 data = next(wrapped_socket)
             except (StopIteration, IOError):
-                # TODO on DC assign winners and losers
                 wrapped_socket.close()
                 recv_socket.close()
-                logging.warning("Client %s: Game Over", self.client_id)
-                self.disconnected = True
+                print("Here?")
                 for i in range(NUM_PLAYERS):
                     if self.client_id == self.game.players[i]['id']:
                         if i < 2:
                             self.game.winner = 'player2'
                         else:
                             self.game.winner = 'player1'
+                self.game.disconnected = True
                 self.game.game_over = True
                 sys.exit(0)
             except KeyboardInterrupt:
                 wrapped_socket.close()
                 recv_socket.close()
-                self.disconnected = True
                 for i in range(NUM_PLAYERS):
                     if self.client_id == self.game.players[i]['id']:
                         if i < 2:
                             self.game.winner = 'player2'
                         else:
                             self.game.winner = 'player1'
-                logging.warning("Client %s: Game Over", self.client_id)
+                self.game.disconnected = True
                 self.game.game_over = True
                 raise KeyboardInterrupt
             finally:
@@ -314,27 +312,27 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             try:
                 wrapped_socket.write(encoded_message)
             except IOError:
-                self.disconnected = True
                 for i in range(NUM_PLAYERS):
                     if self.client_id == self.game.players[i]['id']:
                         if i < 2:
                             self.game.winner = 'player2'
                         else:
                             self.game.winner = 'player1'
-                logging.warning("Client %s: Game Over", self.client_id)
+                print("Client %s: Game Over", self.client_id)
                 print("Cleaning up")
+                self.game.disconnected = True
                 self.game.game_over = True
                 wrapped_socket.close()
                 send_socket.close()
                 sys.exit(0)
             except KeyboardInterrupt:
-                self.disconnected = True
                 for i in range(NUM_PLAYERS):
                     if self.client_id == self.game.players[i]['id']:
                         if i < 2:
                             self.game.winner = 'player2'
                         else:
                             self.game.winner = 'player1'
+                self.game.disconnected = True
                 self.game.game_over = True
                 wrapped_socket.close()
                 send_socket.close()
@@ -373,14 +371,12 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             '''
             self.logged_in = False
             logging.debug("Client connected to server")
-            # TODO check if this is enough time out is generous enough
             self.request.settimeout(50)
 
             # Handle Login phase
             while not self.logged_in:
                 unpacked_data = self.get_next_message()
 
-                logging.debug("Received %s when trying to login", unpacked_data)
 
                 verify_out = self.game.verify_login(unpacked_data)
 
@@ -445,7 +441,6 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                     self.docker.unpause()
                 """
 
-                # TODO check this timer makes, sense it looks like the right one
                 # but i'm getting wierd results when testing?
                 start_time = time.perf_counter()
                 self.send_message(start_turn_msg)
