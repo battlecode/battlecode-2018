@@ -19,7 +19,6 @@ def start_docker(players):
     volumes = {str(players):{'bind':'/player', 'mode':'rw'}}
     ports = {6147:6147, 16147:16147}
 
-    command = "sh start_docker.sh"
     try:
         global stuff
         stuff = docker_client.containers.run('battlecode/battlecode-2018', privileged=True,

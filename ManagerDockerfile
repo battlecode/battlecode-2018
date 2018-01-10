@@ -30,6 +30,7 @@ RUN pip3 install eel
 WORKDIR /battlecode/bindings/python
 
 ADD battlecode-manager /battlecode/battlecode-manager
+ADD battlecode-maps /battlecode/battlecode-maps
 WORKDIR /battlecode/battlecode-manager
 
 CMD ["sh", "start_docker.sh"]
