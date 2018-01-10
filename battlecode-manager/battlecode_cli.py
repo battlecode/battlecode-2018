@@ -2,11 +2,13 @@
 This file contains contains the CLI that starts games up
 '''
 
-import argparse
 import time
 import os
 import logging
-from sandbox import Sandbox, NoSandbox
+from os.path import abspath
+from shutil import copytree, rmtree
+from player_plain import PlainPlayer
+from player_sandboxed import SandboxedPlayer
 import server
 import battlecode as bc
 import ujson as json
@@ -15,6 +17,7 @@ import sys
 
 # TODO port number
 PORT = 16147
+
 
 class Logger(object):
     def __init__(self, prefix):
@@ -25,6 +28,28 @@ class Logger(object):
         data = v.decode()
         self.logs.write(data)
         print(self.prefix, data, end='')
+
+
+def working_dir_message(working_dir):
+    print('Working directory:', working_dir)
+    print('You may want to empty it periodically.')
+
+
+def prepare_working_directory(working_dir):
+    bcdir = os.path.join(working_dir, 'battlecode')
+    # todo: copy battlecode to working_dir
+    if not os.path.exists(working_dir):
+        # print("Creating working directory at", working_dir)
+        os.makedirs(working_dir)
+    if os.path.exists(bcdir):
+        # print("Cleaning up old battlecode folder", bcdir)
+        rmtree(bcdir)
+
+    prepath = abspath(os.path.join(os.path.dirname(abspath(__file__)), "../battlecode"))
+    # print("Copying battlecode resources from {} to {}".format(prepath, working_dir))
+    copytree(prepath, bcdir)
+    # print("Working dir ready!")
+
 
 def run_game(game, dockers, args, sock_file):
     '''
@@ -70,14 +95,6 @@ def run_game(game, dockers, args, sock_file):
     except e:
         print(e)
 
-    if 'NODOCKER' in os.environ:
-        match_output = os.path.abspath(os.path.join('..', str(args['replay_filename'])))
-    else:
-        match_output = os.path.abspath(os.path.join('/player', str(args['replay_filename'])))
-
-    print("Dumping matchfile to", match_output)
-    match_ptr = open(match_output, 'w')
-
     match_file = {}
     match_file['message'] = game.viewer_messages
     if not game.disconnected:
@@ -88,14 +105,28 @@ def run_game(game, dockers, args, sock_file):
     else:
         winner = game.winner
 
-    match_file['metadata'] = {'player1': args['dir_p1'][8:],
-            'player2' : args['dir_p2'][8:], 'winner': winner}
+    match_file['metadata'] = {
+        'player1': args['dir_p1'][8:],
+        'player2': args['dir_p2'][8:],
+        'winner': winner
+    }
+
+    if args['docker']:
+        match_output = abspath(os.path.join('/player', str(args['replay_filename'])))
+    else:
+        match_output = args['replay_filename']
+        if not os.path.isabs(match_output):
+            match_output = abspath(os.path.join('..', str(match_output)))
+
+    print("Dumping matchfile to", match_output)
+    match_ptr = open(match_output, 'w')
     json.dump(match_file, match_ptr)
     match_ptr.close()
     if args['use_viewer']:
         viewer_server.shutdown()
 
     return winner
+
 
 def cleanup(dockers, args, sock_file):
     '''
@@ -104,13 +135,14 @@ def cleanup(dockers, args, sock_file):
     print("Cleaning up Docker and Socket...")
     for player_key in dockers:
         docker_inst = dockers[player_key]
-        logs = docker_inst.destroy()
+        docker_inst.destroy()
 
     if isinstance(sock_file, str) or isinstance(sock_file, bytes):
         # only unlink unix sockets
         os.unlink(sock_file)
 
     print("Ready to run next game.")
+
 
 def get_map(map_name):
     '''
@@ -119,7 +151,7 @@ def get_map(map_name):
 
     try:
         with open(map_name) as f:
-           contents = f.read()
+            contents = f.read()
         print("Loading map " + map_name)
         return bc.GameMap.from_json(contents)
     except Exception as e:
@@ -132,6 +164,7 @@ def get_map(map_name):
             print("Loading test map...")
             return bc.GameMap.test_map()
 
+
 def create_game(args):
     '''
     Create all the semi-permanent game structures (i.e. sockets and dockers and
@@ -143,6 +176,9 @@ def create_game(args):
                        game_map=args['map'], time_pool=args['time_pool'],
                        time_additional=args['time_additional'])
 
+    working_dir = abspath("working_dir")
+    prepare_working_directory(working_dir)
+
     # pick server location
     if 'USE_TCP' in os.environ or sys.platform == 'win32':
         print('Running game server on port tcp://localhost:16148')
@@ -151,7 +187,7 @@ def create_game(args):
     else:
         # Find a good filename to use as socket file
         for index in range(10000):
-            sock_file = "/tmp/battlecode-"+str(index)
+            sock_file = "/tmp/battlecode-" + str(index)
             if not os.path.exists(sock_file):
                 break
         else:
@@ -162,12 +198,14 @@ def create_game(args):
     dockers = {}
     for index in range(len(game.players)):
         key = [player['id'] for player in game.players][index]
-        if 'NODOCKER' in os.environ:
-            dockers[key] = NoSandbox(sock_file, player_key=key,
-                                local_dir=args['dir_p1' if index % 2 == 0 else 'dir_p2'])
+        local_dir = args['dir_p1' if index % 2 == 0 else 'dir_p2']
+        if args['docker']:
+            # Note, importing a module multiple times is ok in python.
+            # It might take a bit of time to verify that it is already imported though, but that should be negligable.
+            import docker
+            docker_instance = docker.from_env()
+            dockers[key] = SandboxedPlayer(sock_file, working_dir=working_dir, docker_instance=docker_instance, player_key=key, local_dir=local_dir)
         else:
-            dockers[key] = Sandbox(sock_file, player_key=key,
-                                local_dir=args['dir_p1' if index % 2 == 0 else 'dir_p2'])
-
+            dockers[key] = PlainPlayer(sock_file, working_dir=working_dir, player_key=key, local_dir=local_dir)
 
     return (game, dockers, sock_file)
