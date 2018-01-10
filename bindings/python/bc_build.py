@@ -23,8 +23,8 @@ elif sys.platform.startswith('linux'):
     libraries = ['util','dl','rt','pthread','gcc_s','c','m']
     source = 'battlecode.linux._bc'
 elif sys.platform == 'win32':
-    libraries = []
-    source = 'battlecode.win34._bc'
+    libraries = ["kernel32", "advapi32", "dbghelp", "advapi32", "advapi32", "ws2_32", "userenv", "shell32", "msvcrt"]
+    source = 'battlecode.win32._bc'
 else:
     raise Exception("I don't understand"+sys.platform+'.')
 
@@ -37,11 +37,11 @@ if sys.platform == 'darwin' or sys.platform.startswith('linux'):
         extra_link_args=['../../target/debug/deps/libbattlecode.a']
 elif sys.platform == 'win32':
     if 'RELEASE' in os.environ:
-        library_dirs=['../../target/release/deps']
-        extra_link_args=['../../target/release/deps/battlecode.lib']
+        library_dirs=['..\\..\\target\\release\\deps']
+        extra_link_args=['..\\..\\target\\release\\deps\\battlecode.lib']
     else:
-        library_dirs=['../../target/debug/deps']
-        extra_link_args=['../../target/debug/deps/battlecode.a']
+        library_dirs=['..\\..\\target\\debug\\deps']
+        extra_link_args=['..\\..\\target\\debug\\deps\\battlecode.lib']
 
 ffibuilder = cffi.FFI()
 ffibuilder.cdef(stripped)
