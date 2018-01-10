@@ -94,8 +94,14 @@ class NoSandbox:
     def start(self):
         # TODO: windows chec
         args = ['sh', os.path.join(self.working_dir, 'run.sh')]
-        env = {'PLAYER_KEY': str(self.player_key), 'SOCKET_FILE': self.socket_file, 'RUST_BACKTRACE': '1',
+        env = {'PLAYER_KEY': str(self.player_key), 'RUST_BACKTRACE': '1',
             'BC_PLATFORM': BC_PLATFORM}
+        
+        if isinstance(self.socket_file, tuple):
+            # tcp port
+            env['TCP_PORT'] = str(self.socket_file[1])
+        else:
+            env['SOCKET_FILE'] = self.socket_file
         cwd = self.working_dir
         self.process = psutil.Popen(args, env=env, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 

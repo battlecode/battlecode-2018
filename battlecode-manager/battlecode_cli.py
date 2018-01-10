@@ -11,6 +11,7 @@ import server
 import battlecode as bc
 import ujson as json
 import io
+import sys
 
 # TODO port number
 PORT = 16147
@@ -99,7 +100,9 @@ def cleanup(dockers, args, sock_file):
         docker_inst = dockers[player_key]
         logs = docker_inst.destroy()
 
-    os.unlink(sock_file)
+    if isinstance(sock_file, str) or isinstance(sock_file, bytes):
+        # only unlink unix sockets
+        os.unlink(sock_file)
 
     print("Ready to run next game.")
 
@@ -128,11 +131,20 @@ def create_game(args):
                        game_map=args['map'], time_pool=args['time_pool'],
                        time_additional=args['time_additional'])
 
-    # Find a good filename to use as socket file
-    for index in range(10000):
-        sock_file = "/tmp/battlecode-"+str(index)
-        if not os.path.exists(sock_file):
-            break
+    # pick server location
+    if 'USE_TCP' in os.environ or sys.platform == 'win32':
+        print('Running game server on port tcp://localhost:16148')
+        # int indicates tcp
+        sock_file = ('localhost', 16148)
+    else:
+        # Find a good filename to use as socket file
+        for index in range(10000):
+            sock_file = "/tmp/battlecode-"+str(index)
+            if not os.path.exists(sock_file):
+                break
+        else:
+            raise Exception("Do you really have 10000 /tmp/battlecode sockets???")
+        print('Running game server on socket unix://{}'.format(sock_file))
 
     # Assign the docker instances client ids
     dockers = {}

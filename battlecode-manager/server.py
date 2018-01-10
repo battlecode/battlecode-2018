@@ -512,8 +512,12 @@ def start_server(sock_file: str, game: Game, dockers, use_docker=True) -> socket
     # Create handler for mangaing each connections to server
     receive_handler = create_receive_handler(game, dockers, use_docker, True)
 
-    # Start server
-    server = socketserver.ThreadingUnixStreamServer(sock_file, receive_handler)
+    if isinstance(sock_file, tuple):
+        # tcp port
+        server = socketserver.ThreadingTCPServer(sock_file, receive_handler)
+    else:
+        server = socketserver.ThreadingUnixStreamServer(sock_file, receive_handler)
+
     server_thread = threading.Thread(target=server.serve_forever, daemon=True)
     logging.info("Server Started at %s", sock_file)
     server_thread.start()
