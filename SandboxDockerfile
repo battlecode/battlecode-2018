@@ -39,5 +39,8 @@ RUN apk add --update --no-cache \
 ADD . /battlecode
 
 WORKDIR /battlecode/
-# RUN make release && make package && cd bindings && make clean
-RUN make && make package && cd bindings && make clean
+# this creates stuff at /battlecode/battlecode
+# we then move that folder to /battlecode
+# player code will be mounted in /code, so they can access the stuff they need at ../battlecode like always :)))
+
+RUN make && make clean && mv /battlecode/battlecode /bc && rm -rf /battlecode && mv /bc /battlecode

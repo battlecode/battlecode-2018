@@ -13,15 +13,13 @@ def start_game(return_args):
     global WINNER
     WINNER = 0
 
+    return_args['map'] = cli.get_map(os.path.abspath(os.path.join('..', 'battlecode-maps', return_args['map'])))
     if 'NODOCKER' in os.environ:
-        return_args['map'] = cli.get_map('../battlecode-maps/' + return_args['map'])
-        return_args['dir_p2'] = '../players/' + return_args['dir_p2']
-        return_args['dir_p1'] = '../players/' + return_args['dir_p1']
+        return_args['dir_p1'] = os.path.abspath(os.path.join('..', return_args['dir_p1']))
+        return_args['dir_p2'] = os.path.abspath(os.path.join('..', return_args['dir_p2']))
     else:
-        return_args['map'] = cli.get_map('/battlecode/battlecode-maps/' + return_args['map'])
-        return_args['dir_p2'] = '/player/' + return_args['dir_p2']
-        return_args['dir_p1'] = '/player/' + return_args['dir_p1']
-
+        return_args['dir_p1'] = os.path.abspath(os.path.join('/player', return_args['dir_p1']))
+        return_args['dir_p2'] = os.path.abspath(os.path.join('/player', return_args['dir_p2']))
 
     global game
     (game, dockers, sock_file) = cli.create_game(return_args)
@@ -47,7 +45,7 @@ def run_game(return_args):
 @eel.expose
 def get_maps():
     if 'NODOCKER' in os.environ:
-        map_dir = '../players'
+        map_dir = os.path.abspath('../battlecode-maps')
     else:
         map_dir = '/battlecode/battlecode-maps'
     maps = [o for o in os.listdir(map_dir)
@@ -58,7 +56,7 @@ def get_maps():
 @eel.expose
 def get_player_dirs():
     if 'NODOCKER' in os.environ:
-        player_dir = '../players'
+        player_dir = os.path.abspath('..')
     else:
         player_dir = '/player'
     return [o for o in os.listdir(player_dir)

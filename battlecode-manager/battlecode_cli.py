@@ -64,7 +64,10 @@ def run_game(game, dockers, args, sock_file):
         time.sleep(1)
 
     print("Dumping matchfile")
-    match_ptr = open("/player/" + str(args['replay_filename']), mode='w')
+    if 'NODOCKER' in os.environ:
+        matches = os.path.abspath('..')
+    else:
+        match_ptr = '/player'
     match_file = {}
     match_file['message'] = game.viewer_messages
     if not game.disconnected:

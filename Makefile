@@ -33,16 +33,8 @@ docker-sandbox:
 	mkdir -p docker-artifacts/
 	docker save battlebaby -o docker-artifacts/battlebaby.tar
 	ID=$$(docker create battlebaby);\
-	   docker cp $$ID:/usr/lib/python3.6/site-packages/UNKNOWN-0.0.0-py3.6-linux-x86_64.egg/battlecode docker-artifacts/battlecode;\
+	   docker cp $$ID:/battlecode/battlecode docker-artifacts/linux-battlecode;\
        docker rm -v $$ID
-
-create-bundle:
-	-rm -rf bundle
-	mkdir -p bundle
-	cp -R bindings/python/battlecode bundle
-	cp -R bindings/java/src/bc bundle
-	cp -R bindings/c/include/bc.h bundle
-	cp -R target/debug/deps/libbattlecode.a bundle
 
 nodocker: build create-bundle
 
@@ -55,8 +47,14 @@ bc18-scaffold:
 	git clone https://github.com/battlecode/bc18-scaffold
 
 package:
+	# TODO: combine different operating system build artifacts
+	# TODO: edit manager 
 	-rm -rf battlecode-manager/working_dir 
 	cp -R battlecode bc18-scaffold/battlecode
 	cp -R battlecode-manager bc18-scaffold/battlecode-manager
+	cp -R examplefuncsplayer-python bc18-scaffold/examplefuncsplayer-python
+	cp -R examplefuncsplayer-c bc18-scaffold/examplefuncsplayer-c
+	cp -R examplefuncsplayer-java bc18-scaffold/examplefuncsplayer-java
+	cp run_nodocker.sh bc18-scaffold/
 
 .PHONY: build test dockers battlecode

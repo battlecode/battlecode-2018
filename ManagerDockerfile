@@ -20,7 +20,7 @@ RUN apk add --update --no-cache \
     libffi-dev
 
 COPY ./docker-artifacts/battlebaby.tar /images/battlebaby.tar
-COPY ./docker-artifacts/battlecode /battlecode-python/battlecode
+COPY ./docker-artifacts/linux-battlecode/python/battlecode /battlecode-python/battlecode
 ENV PYTHONPATH=/battlecode-python
 
 WORKDIR /battlecode/bindings

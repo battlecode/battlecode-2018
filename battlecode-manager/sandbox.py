@@ -3,9 +3,8 @@ from threading import Timer
 import threading
 from tqdm import tqdm
 import os, time, socket, fcntl, struct, string, random, io, zipfile
-from distutils.dir_util import copy_tree
+from shutil import copytree
 import psutil, subprocess
-from pathlib import Path
 try:
     import boto3, docker
 except:
@@ -32,18 +31,27 @@ class NoSandbox:
         self.player_mem_limit = str(player_mem_limit)+'mb'
         self.player_key = player_key
         self.socket_file = socket_file
-        if working_dir[-1] != "/":
-            working_dir += "/"
 
-        self.working_dir = Path(working_dir + random_key(20) + "/")
-        self.working_dir.mkdir(parents=True, exist_ok=True)
+        working_dir = os.path.abspath(working_dir);
+
+        bcdir = os.path.join(working_dir, 'battlecode')
+        # todo: copy battlecode to working_dir
+        if not os.path.exists(bcdir):
+            if not os.path.exists(working_dir):
+                print("Creating working directory at", working_dir)
+                os.makedirs(working_dir)
+            prepath = os.path.abspath('../battlecode')
+            print("Copying battlecode resources from {} to {}".format(prepath, working_dir))
+            copytree(prepath, bcdir)
+            print("Working dir ready!")
+
+        self.working_dir = os.path.join(working_dir, random_key(20))
 
         if s3_bucket:
             raise Exception("Cannot run code from s3 without sandbox, dummy!")
         elif local_dir:
-            print(local_dir)
-            print(str(self.working_dir.absolute()))
-            copy_tree(os.path.abspath(local_dir) + '/', str(self.working_dir.absolute()))
+            print("Copying files from {} to {}".format(os.path.abspath(local_dir), self.working_dir))
+            copytree(os.path.abspath(local_dir), self.working_dir)
         else:
             raise ValueError("Must provide either S3 key and bucket or local directory for code.")
             return
@@ -63,18 +71,12 @@ class NoSandbox:
         for line in stream:
             line_action(line)
 
-    def extract_code(self, bucket, key):
-        obj = bucket.Object(key)
-        with io.BytesIO(obj.get()["Body"].read()) as tf:
-            tf.seek(0)
-            with zipfile.ZipFile(tf, mode='r') as zipf:
-                zipf.extractall(path=str(self.working_dir.absolute()))
-
     def start(self):
-        args = ['sh', os.path.join(str(self.working_dir.absolute()), 'run.sh')]
+        # TODO: windows chec
+        args = ['sh', os.path.join(self.working_dir, 'run.sh')]
         env = {'PLAYER_KEY': str(self.player_key), 'SOCKET_FILE': self.socket_file, 'RUST_BACKTRACE': '1',
             'PYTHONPATH': os.environ['PYTHONPATH']}
-        cwd = self.working_dir.absolute()
+        cwd = self.working_dir
         self.process = psutil.Popen(args, env=env, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     def pause(self):
@@ -137,7 +139,7 @@ if 'NODOCKER' not in os.environ:
             if s3_bucket:
                 self.extract_code(s3_bucket, s3_key)
             elif local_dir:
-                copy_tree(local_dir, str(self.working_dir.absolute()))
+                copytree(local_dir, str(self.working_dir.absolute()))
             else:
                 raise ValueError("Must provide either S3 key and bucket or local directory for code.")
                 return

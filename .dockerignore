@@ -2,3 +2,6 @@ battlecode
 bc18-scaffold
 target
 players
+battlecode-manager/working_dir
+battlecode-manager/__pycache__
+__pycache__
