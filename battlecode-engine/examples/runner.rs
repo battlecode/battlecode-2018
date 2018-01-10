@@ -39,7 +39,7 @@ fn examplefuncsplayer(gc: &mut GameController) -> Result<(), Error> {
             let dir = *rng.choose(&alld[..]).unwrap();
             if rng.gen::<u8>() < 128 && gc.karbonite() > UnitType::Factory.blueprint_cost()? &&
                 gc.can_blueprint(unit.id(), UnitType::Factory, dir) {
-                println!("blueprinting {:?} {:?}", unit.location(), dir);
+                println!("blueprinting {:?} {:?} {:?}", unit.unit_type(), unit.location(), dir);
                 gc.blueprint(unit.id(), UnitType::Factory, dir)?;
                 break;
             } else if gc.is_move_ready(unit.id()) && gc.can_move(unit.id(), dir) {

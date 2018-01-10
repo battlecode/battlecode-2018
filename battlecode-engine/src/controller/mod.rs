@@ -1140,10 +1140,11 @@ impl GameController {
             style.paint(symbol)
         };
 
+
         let earth_map = &self.world.planet_maps[&Earth];
-        let earth_units = &self.world.planet_states[&Earth];
+        let earth_units = &self.world.planet_states.get(&Earth);
         let mars_map = &self.world.planet_maps[&Mars];
-        let mars_units = &self.world.planet_states[&Mars];
+        let mars_units = &self.world.planet_states.get(&Mars);
         let bg = Style::new().on(Colour::White);
 
         let eb = Style::new().fg(Colour::Green);
@@ -1161,21 +1162,26 @@ impl GameController {
         edge(mb);
         println!("");
 
-        for y in 0..20 {
+        for y in (0..20).rev() {
             print!("{}", eb.paint("|"));
             for x in 0..20 {
-                if let Some(id) = earth_units.units_by_loc.get(&MapLocation::new(Earth, x, y)) {
-                    print!("{}", log_unit(&earth_units.units[&id]));
+                let loc = MapLocation::new(Earth, x, y);
+                if let Some(id) = earth_units.and_then(|eu| eu.units_by_loc.get(&loc)) {
+                    let unit = &earth_units.unwrap().units[&id];
+                    print!("{}", log_unit(unit));
                 } else if !earth_map.is_passable_terrain[x as usize][y as usize] {
                     print!("{}", bg.paint(" "));
                 } else {
                     print!(" ");
                 }
             }
-            print!("{}{}", eb.paint("|"), mb.paint("|"));
+            print!("{}", eb.paint("|"));
+            print!("{}", mb.paint("|"));
             for x in 0..20 {
-                if let Some(id) = mars_units.units_by_loc.get(&MapLocation::new(Mars, x, y)) {
-                    print!("{}", log_unit(&mars_units.units[&id]));
+                let loc = MapLocation::new(Mars, x, y);
+                if let Some(id) = mars_units.and_then(|mu| mu.units_by_loc.get(&loc)) {
+                    let unit = &mars_units.unwrap().units[&id];
+                    print!("{}", log_unit(&unit));
                 } else if !mars_map.is_passable_terrain[x as usize][y as usize] {
                     print!("{}", bg.paint(" "));
                 } else {
@@ -1247,6 +1253,7 @@ pub fn run_game_ansi<R, B>(mut r: R, mut b: B, turns: usize, delay: u32)
         lastturn = Some(start_turn);
 
         master.print_game_ansi();
+        pcs[p].print_game_ansi();
         use std::{thread, time};
         thread::sleep(time::Duration::from_millis(delay.into()));
         if let Some(team) = master.is_game_over() {
