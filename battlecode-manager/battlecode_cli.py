@@ -1,7 +1,5 @@
 '''
 This file contains contains the CLI that starts games up
-
-Requires the following env variables: PLAYER_MEM_LIMIT (eg '256m'), PLAYER_CPU_PERCENT (eg '20'), VIEWER, P1, P2, and
 '''
 
 import argparse
@@ -91,24 +89,27 @@ def cleanup(dockers, args, sock_file):
     '''
     Clean up that needs to be done at the end of a game
     '''
-    print("Cleaning up Docker and Socket")
+    print("Cleaning up Docker and Socket...")
     for player_key in dockers:
         docker_inst = dockers[player_key]
         logs = docker_inst.destroy()
 
     os.unlink(sock_file)
 
+    print("Ready to run next game.")
+
 def get_map(map_name):
     '''
     Read a map of a given name, and return a GameMap.
     '''
+
     try:
         with open(map_name) as f:
            contents = f.read()
+        print("Loading map " + map_name)
         return bc.GameMap.from_json(contents)
     except Exception as e:
-        print(e)
-        print("We dun goof no map found")
+        print("Loading test map...")
         return bc.GameMap.test_map()
 
 def create_game(args):
@@ -125,8 +126,6 @@ def create_game(args):
     # Find a good filename to use as socket file
     for index in range(10000):
         sock_file = "/tmp/battlecode-"+str(index)
-        print(sock_file)
-        print(os.path.exists(sock_file))
         if not os.path.exists(sock_file):
             break
 
@@ -140,6 +139,6 @@ def create_game(args):
         else:
             dockers[key] = Sandbox(sock_file, player_key=key,
                                 local_dir=args['dir_p1' if index % 2 == 0 else 'dir_p2'])
-        
+
 
     return (game, dockers, sock_file)
