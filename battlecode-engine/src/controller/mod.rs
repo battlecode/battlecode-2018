@@ -1140,7 +1140,6 @@ impl GameController {
             style.paint(symbol)
         };
 
-
         let earth_map = &self.world.planet_maps[&Earth];
         let earth_units = &self.world.planet_states.get(&Earth);
         let mars_map = &self.world.planet_maps[&Mars];
@@ -1249,10 +1248,15 @@ pub fn run_game_ansi<R, B>(mut r: R, mut b: B, turns: usize, delay: u32)
             b(&mut pcs[p]).expect("player errored");
         }
 
+        println!("round: {:?} team: {:?} planet: {:?} karbonite: {:?}",
+            pcs[p].round(), pcs[p].team(), pcs[p].planet(), pcs[p].karbonite());
+
         let TurnApplication { start_turn, .. } = master.apply_turn(&pcs[p].end_turn());
         lastturn = Some(start_turn);
 
+        println!("-- master view --");
         master.print_game_ansi();
+        println!("-- player view --");
         pcs[p].print_game_ansi();
         use std::{thread, time};
         thread::sleep(time::Duration::from_millis(delay.into()));
