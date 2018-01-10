@@ -8,6 +8,7 @@ import packaging
 import packaging.version
 import packaging.specifiers
 import packaging.requirements
+import atexit
 
 stuff=None
 
@@ -35,7 +36,11 @@ def start_docker(players):
 
 
 
+def exit_handler():
+    stuff.remove(force=True)
+    print("Exiting nicely...")
 
+atexit.register(exit_handler)
 
 try:
     start_docker(os.getcwd())
