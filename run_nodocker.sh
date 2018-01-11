@@ -4,6 +4,7 @@ mtput() {
         tput $@
     fi
 }
+
 if uname -s | grep -Fqe CYGWIN ; then
     echo "run_nodocker.sh won't work on windows! Use run_nodocker.bat :)"
     exit 1
