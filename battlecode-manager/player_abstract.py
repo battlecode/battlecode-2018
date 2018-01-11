@@ -51,6 +51,7 @@ class AbstractPlayer:
         self.player_mem_limit = str(player_mem_limit) + 'mb'
         self.player_key = player_key
         self.socket_file = socket_file
+
         if working_dir[-1] != "/":
             working_dir += "/"
 
@@ -63,7 +64,7 @@ class AbstractPlayer:
             extract_s3_bucket(s3_bucket, s3_key, self.working_dir.absolute())
         elif local_dir:
             # print("Copying files from {} to {}".format(os.path.abspath(local_dir), self.working_dir))
-            copytree(os.path.abspath(local_dir), str(self.working_dir.absolute()))
+            copytree(os.path.abspath(local_dir), self.working_dir)
         else:
             raise ValueError("Must provide either S3 key and bucket or local directory for code.")
 
