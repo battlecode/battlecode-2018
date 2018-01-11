@@ -67,7 +67,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         for player in self.players:
             player['start_message'] = self.manager.start_game(player['player']).to_json()
         self.viewer_messages = []
-        manager_start_message = self.manager.initial_start_turn_message(self.time_pool)
+        manager_start_message = self.manager.initial_start_turn_message(int(1000 * self.time_pool))
         self.last_message = manager_start_message.start_turn.to_json()
         self.viewer_messages.append(manager_start_message.viewer.to_json())
         self.initialized = 0
@@ -198,9 +198,13 @@ class Game(object): # pylint: disable=too-many-instance-attributes
             data: the data received from the stream
 
         '''
+        # get the time left of the next player to go
+        next_index = (self.player_id2index(client_id) + 1) % len(self.players)
+        next_client_id = self.players[next_player_index]['id']
+        projected_time_ms = int(1000 * (self.times[next_client_id] + self.time_additional))
+
         # interact with the engine
-        projected_time_ms = 1000 * (self.times[client_id] - diff_time + self.time_additional)
-        application = self.manager.apply_turn(turn_message, int(projected_time_ms))
+        application = self.manager.apply_turn(turn_message, projected_time_ms)
         self.last_message = application.start_turn.to_json()
         self.viewer_messages.append(application.viewer.to_json())
         self.times[client_id] -= diff_time
