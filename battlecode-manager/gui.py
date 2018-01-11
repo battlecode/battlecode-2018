@@ -69,10 +69,15 @@ def get_maps():
 
 @eel.expose
 def get_player_dirs():
-
     player_dir = '/player'
-    return [o for o in os.listdir(player_dir)
-                if os.path.isdir(os.path.join(player_dir,o))]
+    players = []
+    for o in os.listdir(player_dir):
+        full_path = os.path.join(player_dir, o)
+        if not os.path.isdir(full_path):
+            continue
+        if "run.sh" in os.listdir(full_path):
+            players.append(o)
+    return players
 
 # if 0 not ended, if 1 red, 2 blue
 @eel.expose
