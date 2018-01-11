@@ -1165,11 +1165,16 @@ impl GameWorld {
     fn process_research(&mut self, team: Team) {
         if let Some(branch) = self.get_team_mut(team).research.end_round() {
             for (_, unit) in self.get_planet_mut(Planet::Earth).units.iter_mut() {
-                if unit.unit_type() == branch {
+                if unit.unit_type() == branch && unit.team() == team {
                     unit.research().expect("research level is valid");
                 }
             }
             for (_, unit) in self.get_planet_mut(Planet::Mars).units.iter_mut() {
+                if unit.unit_type() == branch && unit.team() == team {
+                    unit.research().expect("research level is valid");
+                }
+            }
+            for (_, unit) in self.get_team_mut(team).units_in_space.iter_mut() {
                 if unit.unit_type() == branch {
                     unit.research().expect("research level is valid");
                 }
@@ -3384,5 +3389,73 @@ mod tests {
         world.create_unit(Team::Blue, MapLocation::new(Planet::Mars, 0, 0), UnitType::Factory).unwrap();
         assert![world.is_game_over().is_some()];
         assert_eq![world.is_game_over().unwrap(), Team::Blue];
+    }
+
+    #[test]
+    fn test_research_both_teams_and_in_space() {
+        let mut world = GameWorld::test_world();
+        let earth_worker = world.create_unit(Team::Red, MapLocation::new(Planet::Earth, 0, 0), UnitType::Worker).unwrap();
+        let space_knight = world.create_unit(Team::Red, MapLocation::new(Planet::Earth, 1, 0), UnitType::Knight).unwrap();
+        let space_rocket = world.create_unit(Team::Red, MapLocation::new(Planet::Earth, 1, 1), UnitType::Rocket).unwrap();
+        let mars_worker = world.create_unit(Team::Red, MapLocation::new(Planet::Mars, 0, 0), UnitType::Knight).unwrap();
+        let rocket_loc = MapLocation::new(Planet::Mars, 10, 10);
+
+        // Queue research.
+        assert!(world.queue_research(UnitType::Rocket));
+        assert!(world.queue_research(UnitType::Worker));
+        assert!(world.queue_research(UnitType::Knight));
+
+        // Put some units in space.
+        world.get_unit_mut(space_rocket).unwrap().be_built(1000);
+        assert!(world.can_load(space_rocket, space_knight));
+        assert!(world.load(space_rocket, space_knight).is_ok());
+        assert!(world.can_launch_rocket(space_rocket, rocket_loc));
+        assert!(world.launch_rocket(space_rocket, rocket_loc).is_ok());
+
+        let landings = world.rocket_landings();
+        assert_eq!(landings.all().len(), 1);
+        let &(_, landing) = landings.all().get(0).unwrap();
+        assert_eq!(landing.rocket_id, space_rocket);
+        assert_eq!(landing.destination, rocket_loc);
+
+        // Queue research on the other team.
+        assert!(world.queue_research(UnitType::Rocket));
+        assert!(world.queue_research(UnitType::Worker));
+        assert!(world.queue_research(UnitType::Knight));
+
+        // Finish all the research in 150 rounds.
+        for _ in 0..150 {
+            world.end_round();
+        }
+
+        // Check that the unit levels have been upgraded.
+        assert_eq!(world.get_unit(earth_worker).unwrap().research_level(), 1);
+        assert_eq!(world.get_unit(space_knight).unwrap().research_level(), 1);
+        assert_eq!(world.get_unit(space_rocket).unwrap().research_level(), 1);
+        assert_eq!(world.get_unit(mars_worker).unwrap().research_level(), 1);
+
+        // The Python bug occurred at round 400.
+        for _ in 0..250 {
+            world.end_round()
+        }
+    }
+
+    #[test]
+    fn test_non_worker_units_doing_worker_actions() {
+        let mut world = GameWorld::test_world();
+        let non_worker = world.create_unit(Team::Red, MapLocation::new(Planet::Earth, 0, 1), UnitType::Knight).unwrap();
+        let blueprint = world.create_unit(Team::Red, MapLocation::new(Planet::Earth, 1, 1), UnitType::Factory).unwrap();
+
+        // The non-worker can't do worker actions, and the error is inappropriate unit type.
+        assert!(!world.can_harvest(non_worker, Direction::North));
+        assert_err!(world.harvest(non_worker, Direction::North), GameError::InappropriateUnitType);
+        assert!(!world.can_blueprint(non_worker, UnitType::Factory, Direction::North));
+        assert_err!(world.blueprint(non_worker, UnitType::Factory, Direction::North), GameError::InappropriateUnitType);
+        assert!(!world.can_build(non_worker, blueprint));
+        assert_err!(world.build(non_worker, blueprint), GameError::InappropriateUnitType);
+        world.get_unit_mut(blueprint).unwrap().be_built(1000);
+        world.get_unit_mut(blueprint).unwrap().take_damage(10);
+        assert!(!world.can_repair(non_worker, blueprint));
+        assert_err!(world.repair(non_worker, blueprint), GameError::InappropriateUnitType);
     }
 }

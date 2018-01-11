@@ -292,7 +292,7 @@ impl Default for Unit {
 
             is_ability_unlocked: false,
             ability_heat: 0,
-            ability_cooldown: 0,
+            ability_cooldown: 10,
             ability_range: 0,
 
             is_built: false,
@@ -671,8 +671,12 @@ impl Unit {
     /// Ok if the worker can perform a worker action (building, blueprinting,
     /// harvesting, or replicating).
     ///
+    /// * InappropriateUnitType - the unit is not a worker.
     /// * Overheated - the worker is not ready to perform a worker action.
     pub(crate) fn ok_if_can_worker_act(&self) -> Result<(), Error> {
+        if self.unit_type != Worker {
+            Err(GameError::InappropriateUnitType)?;
+        }
         if self.has_worker_acted {
             Err(GameError::Overheated)?;
         }
