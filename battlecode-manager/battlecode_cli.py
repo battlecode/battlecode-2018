@@ -208,7 +208,7 @@ def create_game(args):
             # It might take a bit of time to verify that it is already imported though, but that should be negligable.
             import docker
             docker_instance = docker.from_env()
-            dockers[key] = SandboxedPlayer(sock_file, working_dir=working_dir, docker_instance=docker_instance, player_key=key, local_dir=local_dir)
+            dockers[key] = SandboxedPlayer(sock_file, working_dir=working_dir, docker_client=docker_instance, player_key=key, local_dir=local_dir)
         else:
             dockers[key] = PlainPlayer(sock_file, working_dir=working_dir, player_key=key, local_dir=local_dir)
 
