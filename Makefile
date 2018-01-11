@@ -66,6 +66,8 @@ docker-sandbox:
 nodocker: build create-bundle
 
 docker-manager:
+	#???
+	-rm -rf docker-artifacts/linux-battlecode-musl/battlecode
 	docker build -t battledaddy -f ManagerDockerfile .
 
 dockers: docker-py3 docker-java
