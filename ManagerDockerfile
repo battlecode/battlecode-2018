@@ -16,8 +16,10 @@ RUN pip3 install \
     ujson cffi psutil eel
 
 COPY ./docker-artifacts/battlebaby.tar /images/battlebaby.tar
-COPY ./docker-artifacts/linux-battlecode/python/battlecode /battlecode-python/battlecode
-ENV PYTHONPATH=/battlecode-python
+COPY ./docker-artifacts/linux-battlecode-musl /battlecode/battlecode
+ENV PYTHONPATH=/battlecode/battlecode/python
+# this is necessary because we don't need to copy this file into the target dir & it breaks shutil.copytree
+RUN rm /battlecode/battlecode/c/lib/libbattlecode.a
 
 ADD battlecode-manager /battlecode/battlecode-manager
 ADD battlecode-maps /battlecode/battlecode-maps
