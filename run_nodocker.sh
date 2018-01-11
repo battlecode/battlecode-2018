@@ -4,6 +4,12 @@ mtput() {
         tput $@
     fi
 }
+if uname -s | grep -Fqe CYGWIN ; then
+    echo "run.sh won't work on windows! Use run.bat :)"
+fi
+if uname -s | grep -Fqe MINGW ; then
+    echo "run.sh won't work on windows! Use run.bat :)"
+fi
 
 echo "=== STARTING THE MANAGER (no docker) ==="
 echo "=== ensuring dependencies ==="
