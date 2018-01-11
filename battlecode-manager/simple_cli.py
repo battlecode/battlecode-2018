@@ -44,7 +44,8 @@ def get_maps(map_directory):
     return maps
 
 
-map_directory = 'battlecode-maps'
+file_dir = os.path.dirname(os.path.realpath(__file__))
+map_directory = os.path.abspath(file_dir + '/../battlecode-maps')
 parser = argparse.ArgumentParser(description='Run BattleCode 2018 matches')
 parser.add_argument('-p1', '--player1', help="Path to the directory for player 1", required=True)
 parser.add_argument('-p2', '--player2', help="Path to the directory for player 2", required=True)
