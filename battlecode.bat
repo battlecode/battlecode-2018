@@ -8,4 +8,4 @@ py -3 -m pip install --user cffi tqdm werkzeug psutil
 set PYTHONPATH=%~dp0\battlecode\python
 echo %PYTHONPATH%
 set NODOCKER=1
-python %~dp0\battlecode-manager\simple_cli.py %1 %2 %3 %4 %5 %6 %7 %8 %9
+py -3 %~dp0\battlecode-manager\simple_cli.py %1 %2 %3 %4 %5 %6 %7 %8 %9

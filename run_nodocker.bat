@@ -8,4 +8,4 @@ py -3 -m pip install --user cffi eel tqdm werkzeug psutil
 set PYTHONPATH=%~dp0\battlecode\python
 echo %PYTHONPATH%
 set NODOCKER=1
-python %~dp0\battlecode-manager\gui.py
+py -3 %~dp0\battlecode-manager\gui.py
