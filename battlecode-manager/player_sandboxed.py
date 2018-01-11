@@ -43,11 +43,11 @@ class SandboxedPlayer(AbstractPlayer):
             mem_limit=self.player_mem_limit,
             memswap_limit=self.player_mem_limit,
             auto_remove = True,
-            cap_drop=['chown, dac_override, fowner, fsetid, kill, setgid, setuid, setpcap, net_bind_service, net_raw, sys_chroot, mknod, audit_write, setfcap'],
-            cpu_period=100000,
-            cpu_quota=self.player_cpu_fraction*100000,
             network_disabled=True
         )
+
+        #cap_drop=['chown, dac_override, fowner, fsetid, kill, setgid, setuid, setpcap, net_bind_service, net_raw, sys_chroot, mknod, audit_write, setfcap'],cpu_period=100000,cpu_quota=self.player_cpu_fraction*100000,
+
 
     def pause(self):
         if self.container.status == 'running':
