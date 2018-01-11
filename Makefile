@@ -94,4 +94,13 @@ full-package:
 	make docker-win32
 
 
+full-package:
+	# assumes you're on mac.
+	# you need to have a battlecode-win32 folder
+	make release
+	make docker-sandbox
+	make copy-linux
+	make docker-win32
+
+
 .PHONY: build test dockers battlecode
