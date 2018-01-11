@@ -1,5 +1,4 @@
 import os
-import sys
 import argparse
 import battlecode_cli as cli
 

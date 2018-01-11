@@ -65,8 +65,7 @@ def run_game(game, dockers, args, sock_file):
     # Start the unix stream server
     s = server.start_server(sock_file, game, dockers)
 
-    if args['use_viewer']:
-        viewer_server = server.start_viewer_server(PORT, game)
+    viewer_server = server.start_viewer_server(PORT, game) if args['use_viewer'] else None
 
     # Start the docker instances
     for player_key in dockers:
@@ -94,8 +93,9 @@ def run_game(game, dockers, args, sock_file):
         time.sleep(1)
 
     print('Killing game server.')
+    main_server.shutdown()
     try:
-        s.server_close()
+        main_server.server_close()
     except e:
         print(e)
 
@@ -126,7 +126,7 @@ def run_game(game, dockers, args, sock_file):
     match_ptr = open(match_output, 'w')
     json.dump(match_file, match_ptr)
     match_ptr.close()
-    if args['use_viewer']:
+    if viewer_server is not None:
         viewer_server.shutdown()
 
     return winner
