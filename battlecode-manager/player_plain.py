@@ -4,6 +4,7 @@ import subprocess
 import threading
 import sys
 from threading import Timer
+import select
 
 from player_abstract import AbstractPlayer
 
@@ -16,6 +17,7 @@ class PlainPlayer(AbstractPlayer):
 
         self.paused = False
         self.streaming = False
+        self.process = None
 
     def stream_logs(self, stdout=True, stderr=True, line_action=lambda line: print(line.decode())):
         assert not self.streaming
@@ -26,8 +28,17 @@ class PlainPlayer(AbstractPlayer):
             threading.Thread(target=self._stream_logs, args=(self.process.stderr, line_action)).start()
 
     def _stream_logs(self, stream, line_action):
-        for line in stream:
-            line_action(line)
+        while True:
+            # Check if we can read anything from the pipe.
+            # This is important because otherwise this thread will block trying to read things
+            # even when the bot process has exited, causing this thread to stay alive indefinitely.
+            r, w, e = select.select([stream], [], [], 0.01)
+            if stream in r:
+                # Read something from the pipe
+                line_action(stream.readline())
+            elif self.process is None:
+                # Otherwise if the process is None then we should exit because the game is over
+                return
 
     def start(self):
         # TODO: windows chec
@@ -51,7 +62,7 @@ class PlainPlayer(AbstractPlayer):
             env['SOCKET_FILE'] = self.socket_file
 
         cwd = self.working_dir
-        self.process = psutil.Popen(args, env=env, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.process = psutil.Popen(args, env=env, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=-1)
 
     def pause(self):
         print("Pausing")
@@ -66,7 +77,7 @@ class PlainPlayer(AbstractPlayer):
             raise RuntimeError('You attempted to unpause a player that was not paused.')
 
     def destroy(self):
-        if hasattr(self, 'process'):
-            if self.process.is_running():
-                self.process.kill()
+        if self.process is not None:
+            self.process.kill()
+            self.process = None
         super().destroy()
