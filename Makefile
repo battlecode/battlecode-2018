@@ -93,5 +93,6 @@ package:
 	cp run_nodocker.sh bc18-scaffold/
 	cp run_nodocker.bat bc18-scaffold/
 	cp battlecode.sh bc18-scaffold/
+	cp battlecode.bat bc18-scaffold/
 
 .PHONY: build test dockers battlecode
