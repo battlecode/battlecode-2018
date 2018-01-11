@@ -9,6 +9,10 @@ if [ "$BC_PLATFORM" = 'LINUX' ]; then
 elif [ "$BC_PLATFORM" = 'DARWIN' ]; then
     LIBRARIES="-lSystem -lresolv -lc -lm -L../battlecode/c/lib -lbattlecode-darwin"
     INCLUDES="-I../battlecode/c/include -I."
+else
+	echo "Unknown platform '$BC_PLATFORM' or platform not set"
+	echo "Make sure the BC_PLATFORM environment variable is set"
+	exit 1
 fi
 
 echo "$ gcc extra.c -c -O -g $INCLUDES"
