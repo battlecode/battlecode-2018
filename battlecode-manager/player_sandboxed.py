@@ -14,6 +14,7 @@ class SandboxedPlayer(AbstractPlayer):
                  player_key="", player_mem_limit=256, player_cpu=20):
 
         super().__init__(socket_file, working_dir, local_dir, s3_bucket, s3_key, player_key, player_mem_limit, player_cpu)
+        self.docker = docker_client
 
     def stream_logs(self, stdout=True, stderr=True, line_action=lambda line: print(line.decode())):
         threading.Thread(target=_stream_logs, args=(self.container, stdout, stderr, line_action)).start()
