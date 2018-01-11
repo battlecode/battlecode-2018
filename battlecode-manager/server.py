@@ -11,7 +11,10 @@ import random
 import sys
 import logging
 import os.path
-import ujson as json
+try:
+    import ujson as json
+except:
+    import json
 import battlecode as bc
 
 NUM_PLAYERS = 4

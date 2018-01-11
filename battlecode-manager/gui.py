@@ -14,6 +14,9 @@ os.chdir(target_dir)
 
 options = {'host':'0.0.0.0', 'port':6147, 'mode':'default'}
 
+if sys.platform == 'win32':
+    options['host'] = 'localhost'
+
 print('Starting eel')
 
 eel.init('web')
@@ -42,7 +45,6 @@ def start_game(return_args):
     finally:
         cli.cleanup(dockers, return_args, sock_file)
     lock.release()
-    print("release lock")
 
     if winner == 'player1':
         eel.trigger_end_game(1)()
@@ -90,14 +92,11 @@ def get_player_dirs():
     players = []
     for o in os.listdir(player_dir):
         if o.startswith('.') or o in ('battlecode', 'battlecode-manager'):
-            print('skipping',o,'jc')
             continue
         full_path = os.path.join(player_dir, o)
         if not os.path.isdir(full_path):
-            print('skipping',o,'id')
             continue
         if os.path.exists(os.path.join(full_path, 'run.sh')):
-            print('skipping',o,'id')
             players.append(o)
     return players
 
@@ -149,8 +148,7 @@ def reap_children(timeout=3):
 def stop_manager():
     reap_children()
     print("Shutting self down with a SIGKILL.")
-    pid = os.getpid()
-    os.kill(pid, signal.SIGKILL)
+    procs = psutil.Process().kill()
 
 if 'NODOCKER' in os.environ:
     sandbox.working_dir_message()
