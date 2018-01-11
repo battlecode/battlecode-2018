@@ -2,7 +2,7 @@ from pathlib import Path
 from threading import Timer
 import threading
 from tqdm import tqdm
-import os, time, socket, fcntl, struct, string, random, io, zipfile
+import os, time, socket, struct, string, random, io, zipfile
 from shutil import copytree, rmtree
 import psutil, subprocess
 try:
@@ -93,9 +93,19 @@ class NoSandbox:
 
     def start(self):
         # TODO: windows chec
-        args = ['sh', os.path.join(self.working_dir, 'run.sh')]
-        env = {'PLAYER_KEY': str(self.player_key), 'RUST_BACKTRACE': '1',
+        if sys.platform == 'win32':
+            args = [os.path.join(self.working_dir, 'run.bat')]
+            # things break otherwise
+            env = dict(os.environ)
+
+            env['PLAYER_KEY'] = str(self.player_key)
+            env['RUST_BACKTRACE'] = '1'
+            env['BC_PLATFORM'] = BC_PLATFORM
+        else:
+            env = {'PLAYER_KEY': str(self.player_key), 'RUST_BACKTRACE': '1',
             'BC_PLATFORM': BC_PLATFORM}
+            args = ['sh', os.path.join(self.working_dir, 'run.sh')]
+        print(args)
         
         if isinstance(self.socket_file, tuple):
             # tcp port

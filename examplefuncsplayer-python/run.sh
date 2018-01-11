@@ -1,5 +1,4 @@
 #!/bin/sh
-echo 'test'
 export "PYTHONPATH=../battlecode/python:$PYTHONPATH"
 python3 run.py
 

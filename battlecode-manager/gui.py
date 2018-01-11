@@ -10,6 +10,8 @@ os.chdir(target_dir)
 
 options = {'host':'0.0.0.0', 'port':6147, 'mode':'default'}
 
+print('Starting eel')
+
 eel.init('web')
 
 game = None
@@ -53,9 +55,11 @@ def get_maps():
         map_dir = os.path.abspath('../battlecode-maps')
     else:
         map_dir = '/battlecode/battlecode-maps'
+
     maps = [o for o in os.listdir(map_dir)
                         if 'bc18map' in o]
     maps.append('testmap.bc18map')
+    print(maps)
     return maps
 
 @eel.expose
@@ -64,8 +68,12 @@ def get_player_dirs():
         player_dir = os.path.abspath('..')
     else:
         player_dir = '/player'
-    return [o for o in os.listdir(player_dir)
+    players =  [o for o in os.listdir(player_dir)
                 if os.path.isdir(os.path.join(player_dir, o))]
+    print(player_dir)
+    print(os.listdir(player_dir))
+    print(players)
+    return players
 
 # if 0 not ended, if 1 red, 2 blue
 @eel.expose
@@ -94,6 +102,7 @@ if 'NODOCKER' in os.environ:
 print("=== Ready! ===")
 print("To play games open http://localhost:6147/run.html in your browser on Mac/Linux/WindowsPro, or http://192.168.99.100:6147/run.html on Windows10Home.")
 lock = threading.Lock()
+
 eel.start('run.html', options=options, block=False)
 
 while True:
