@@ -3,8 +3,7 @@ import argparse
 import battlecode_cli as cli
 
 map_extension = ".bc18map"
-# TODO: Is this correct?
-replay_extension = ".bc18replay"
+replay_extension = ".bc18"
 
 
 def start_game(args):
