@@ -2,7 +2,11 @@ import eel
 import os
 import battlecode_cli as cli
 import threading
+import sys
+import json
 import sandbox
+import signal
+import psutil
 
 target_dir = os.path.abspath(os.path.dirname(__file__))
 print('Moving into', target_dir)
@@ -31,14 +35,29 @@ def start_game(return_args):
     global game
     (game, dockers, sock_file) = cli.create_game(return_args)
 
+    winner = None
     try:
         print("Running game...")
         winner = cli.run_game(game, dockers, return_args, sock_file)
     finally:
         cli.cleanup(dockers, return_args, sock_file)
     lock.release()
+    print("release lock")
 
-    eel.trigger_end_game(1 if winner == 'player1' else 2)()
+    if winner == 'player1':
+        eel.trigger_end_game(1)()
+    elif winner == ' player2':
+        eel.trigger_end_game(2)()
+    else:
+        eel.trigger_end_game(0)()
+
+
+@eel.expose
+def get_viewer_data():
+    if game != None:
+        return json.loads(game.manager.manager_viewer_message())
+    else:
+        return {'width':0, 'height': 0, 'earth' : [], 'mars': []}
 
 @eel.expose
 def run_game(return_args):
@@ -58,11 +77,8 @@ def get_maps():
 
     maps = [o for o in os.listdir(map_dir)
                         if 'bc18map' in o]
-    maps.extend([o for o in os.listdir('/player')
-                        if 'bc18map' in o])
 
     maps.append('testmap.bc18map')
-    print(maps)
     return maps
 
 @eel.expose
@@ -71,11 +87,18 @@ def get_player_dirs():
         player_dir = os.path.abspath('..')
     else:
         player_dir = '/player'
-    players =  [o for o in os.listdir(player_dir)
-                if os.path.isdir(os.path.join(player_dir, o)) and o not in ('battlecode', 'battlecode-manager') and not o.startswith('.')]
-    print(player_dir)
-    print(os.listdir(player_dir))
-    print(players)
+    players = []
+    for o in os.listdir(player_dir):
+        if o.startswith('.') or o in ('battlecode', 'battlecode-manager'):
+            print('skipping',o,'jc')
+            continue
+        full_path = os.path.join(player_dir, o)
+        if not os.path.isdir(full_path):
+            print('skipping',o,'id')
+            continue
+        if os.path.exists(os.path.join(full_path, 'run.sh')):
+            print('skipping',o,'id')
+            players.append(o)
     return players
 
 # if 0 not ended, if 1 red, 2 blue
@@ -93,10 +116,41 @@ def get_player_logs():
 def end_game():
     global game
     if game is not None:
-        game.winner = 'player1'
+        game.winner = 'player3'
         game.disconnected = True
         game.game_over = True
     return ""
+
+def reap_children(timeout=3):
+    "Tries hard to terminate and ultimately kill all the children of this process."
+    def on_terminate(proc):
+        print("process {} terminated with exit code {}".format(proc, proc.returncode))
+
+    print("Killing manager children...")
+
+    procs = psutil.Process().children(recursive=True)
+    # send SIGTERM
+    for p in procs:
+        print("Killing ", p.pid)
+        p.terminate()
+    gone, alive = psutil.wait_procs(procs, timeout=timeout, callback=on_terminate)
+    if alive:
+        # send SIGKILL
+        for p in alive:
+            print("process {} survived SIGTERM; trying SIGKILL" % p.pid)
+            p.kill()
+        gone, alive = psutil.wait_procs(alive, timeout=timeout, callback=on_terminate)
+        if alive:
+            # give up
+            for p in alive:
+                print("process {} survived SIGKILL; giving up" % p.pid)
+
+@eel.expose
+def stop_manager():
+    reap_children()
+    print("Shutting self down with a SIGKILL.")
+    pid = os.getpid()
+    os.kill(pid, signal.SIGKILL)
 
 if 'NODOCKER' in os.environ:
     sandbox.working_dir_message()

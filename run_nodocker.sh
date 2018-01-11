@@ -9,6 +9,7 @@ if [ $RESULT -ne 0 ]; then
     echo "I'll keep going, but maybe try to fix whatever error you just got."
 fi
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-export PYTHONPATH="../bindings/python/:$PYTHONPATH"
+export PYTHONPATH="$DIR/battlecode/python:$PYTHONPATH"
 export NODOCKER=1
+echo "$ python3 $DIR/battlecode-manager/gui.py"
 python3 $DIR/battlecode-manager/gui.py

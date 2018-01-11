@@ -57,8 +57,8 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         self.game_over = False
 
         # Lock thread running player should hold
-        self.running_lock = threading.RLock()
-        self.this_turn_pid = 0 # The id of the player whose turn it is
+        self.current_player_index = 0
+        self.turn_events = [threading.Event() for _  in range(len(self.players))]
 
         self.map = game_map
 
@@ -70,6 +70,12 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         self.last_message = manager_start_message.start_turn.to_json()
         self.viewer_messages.append(manager_start_message.viewer.to_json())
         self.initialized = 0
+
+    def player_id2index(self, client_id):
+        for i in range(len(self.players)):
+            if self.players[i]['id'] ==client_id:
+                return i
+        raise Exception("Invalid id")
 
     @property
     def num_log_in(self):
@@ -111,6 +117,10 @@ class Game(object): # pylint: disable=too-many-instance-attributes
             self.start_game()
         return client_id
 
+    def set_player_turn(self, player_index):
+        self.current_player_index = player_index
+        self.turn_events[player_index].set()
+
     def start_game(self):
         '''
         This code handles starting the game. Anything that is meant to be
@@ -118,7 +128,8 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         '''
 
         # Init the player who starts and then tell everyone we started
-        self.this_turn_pid = self.players[0]['id']
+        self.current_player_index = 0
+        self.set_player_turn(self.current_player_index)
         self.started = True
         return
 
@@ -134,15 +145,8 @@ class Game(object): # pylint: disable=too-many-instance-attributes
 
 
         # Increment to the next player
-        index = -1
-        for i, player in enumerate(self.players):
-            if player['id'] == self.this_turn_pid:
-                index = i
-
-        index = (index + 1) % len(self.players)
-        self.this_turn_pid = self.players[index]['id']
-
-        self.running_lock.release()
+        self.current_player_index = (self.current_player_index + 1) % len(self.players)
+        self.set_player_turn(self.current_player_index)
 
     def get_viewer_messages(self):
         '''
@@ -173,17 +177,15 @@ class Game(object): # pylint: disable=too-many-instance-attributes
 
         logging.debug("Client %s: entered start turn", client_id)
         exit_well = False
+        player_index = self.player_id2index(client_id)
         while not self.game_over:
-            time.sleep(0.05)
-            if self.running_lock.acquire(timeout=0.1):
-                if  self.this_turn_pid == client_id:
-                    exit_well = True
-                    break
-                self.running_lock.release()
+            if self.turn_events[player_index].wait(timeout=0.1):
+                self.turn_events[player_index].clear()
+                assert(self.current_player_index == player_index)
+                self.times[client_id] += self.time_additional
+                return True
 
-        self.times[client_id] += self.time_additional
-        logging.debug("Client %s: exit start turn", client_id)
-        return exit_well
+        return False
 
 
 
@@ -253,30 +255,28 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             try:
                 data = next(wrapped_socket)
             except (StopIteration, IOError):
-                # TODO on DC assign winners and losers
                 wrapped_socket.close()
                 recv_socket.close()
-                logging.warning("Client %s: Game Over", self.client_id)
-                self.disconnected = True
+                print("Here?")
                 for i in range(NUM_PLAYERS):
                     if self.client_id == self.game.players[i]['id']:
                         if i < 2:
                             self.game.winner = 'player2'
                         else:
                             self.game.winner = 'player1'
+                self.game.disconnected = True
                 self.game.game_over = True
                 sys.exit(0)
             except KeyboardInterrupt:
                 wrapped_socket.close()
                 recv_socket.close()
-                self.disconnected = True
                 for i in range(NUM_PLAYERS):
                     if self.client_id == self.game.players[i]['id']:
                         if i < 2:
                             self.game.winner = 'player2'
                         else:
                             self.game.winner = 'player1'
-                logging.warning("Client %s: Game Over", self.client_id)
+                self.game.disconnected = True
                 self.game.game_over = True
                 raise KeyboardInterrupt
             finally:
@@ -313,26 +313,27 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             try:
                 wrapped_socket.write(encoded_message)
             except IOError:
-                self.disconnected = True
                 for i in range(NUM_PLAYERS):
                     if self.client_id == self.game.players[i]['id']:
                         if i < 2:
                             self.game.winner = 'player2'
                         else:
                             self.game.winner = 'player1'
-                logging.warning("Client %s: Game Over", self.client_id)
+                print("Client %s: Game Over", self.client_id)
+                print("Cleaning up")
+                self.game.disconnected = True
                 self.game.game_over = True
                 wrapped_socket.close()
                 send_socket.close()
                 sys.exit(0)
             except KeyboardInterrupt:
-                self.disconnected = True
                 for i in range(NUM_PLAYERS):
                     if self.client_id == self.game.players[i]['id']:
                         if i < 2:
                             self.game.winner = 'player2'
                         else:
                             self.game.winner = 'player1'
+                self.game.disconnected = True
                 self.game.game_over = True
                 wrapped_socket.close()
                 send_socket.close()
@@ -371,14 +372,12 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             '''
             self.logged_in = False
             logging.debug("Client connected to server")
-            # TODO check if this is enough time out is generous enough
             self.request.settimeout(50)
 
             # Handle Login phase
             while not self.logged_in:
                 unpacked_data = self.get_next_message()
 
-                logging.debug("Received %s when trying to login", unpacked_data)
 
                 verify_out = self.game.verify_login(unpacked_data)
 
@@ -434,16 +433,14 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 if self.game.initialized > 3:
                     start_turn_msg = self.message(self.game.last_message)
                 else:
-                    for player in self.game.players:
-                        if player['id'] == self.game.this_turn_pid:
-                            start_turn_msg = self.message(player['start_message'])
+                    state_diff = self.game.players[self.game.current_player_index]['start_message']
+                    start_turn_msg = self.message(state_diff)
 
                 """# Start player code computing
                 if use_docker:
                     self.docker.unpause()
                 """
 
-                # TODO check this timer makes, sense it looks like the right one
                 # but i'm getting wierd results when testing?
                 start_time = time.perf_counter()
                 self.send_message(start_turn_msg)

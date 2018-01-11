@@ -105,7 +105,6 @@ class NoSandbox:
             env = {'PLAYER_KEY': str(self.player_key), 'RUST_BACKTRACE': '1',
             'BC_PLATFORM': BC_PLATFORM}
             args = ['sh', os.path.join(self.working_dir, 'run.sh')]
-        print(args)
         
         if isinstance(self.socket_file, tuple):
             # tcp port
@@ -180,11 +179,7 @@ if 'NODOCKER' not in os.environ:
             if s3_bucket:
                 self.extract_code(s3_bucket, s3_key)
             elif local_dir:
-                print(local_dir, self.working_dir)
-                print(os.path.exists(local_dir))
-                print(os.path.exists(self.working_dir))
                 copytree(os.path.abspath(local_dir), self.working_dir)
-                print('succ')
             else:
                 raise ValueError("Must provide either S3 key and bucket or local directory for code.")
                 return
