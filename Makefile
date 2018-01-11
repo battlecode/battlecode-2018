@@ -49,7 +49,7 @@ generate:
 	@$(MAKE) -wC bindings generate
 
 linux-libs:
-	#docker build -t linuxbuild -f LinuxBuildDockerfile .
+	docker build -t linuxbuild -f LinuxBuildDockerfile .
 	mkdir -p docker-artifacts/
 	ID=$$(docker create linuxbuild);\
 	   docker cp $$ID:/battlecode docker-artifacts/linux-battlecode;\

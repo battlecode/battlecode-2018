@@ -79,7 +79,7 @@ WORKDIR /battlecode/
 # we then move that folder to /battlecode
 # player code will be mounted in /code, so they can access the stuff they need at ../battlecode like always :)))
 
-RUN make && make clean && mv /battlecode/battlecode /bc && rm -rf /battlecode && mv /bc /battlecode
+RUN make release && make clean && mv /battlecode/battlecode /bc && rm -rf /battlecode && mv /bc /battlecode
 
 # backwards compatibility w/ original image layout
 
