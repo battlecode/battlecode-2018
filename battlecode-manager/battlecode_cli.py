@@ -63,7 +63,7 @@ def run_game(game, dockers, args, sock_file):
     '''
 
     # Start the unix stream server
-    s = server.start_server(sock_file, game, dockers)
+    main_server = server.start_server(sock_file, game, dockers)
 
     viewer_server = server.start_viewer_server(PORT, game) if args['use_viewer'] else None
 
