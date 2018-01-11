@@ -131,6 +131,11 @@
         </div>
 
         <div class="field has-addons" style="float:right">
+            <button onclick="eel.stop_manager()()" style="margin-right:10px" class="button is-danger">
+                <span class="icon">
+                    <i class="fa fa-stop-circle-o"></i>
+                </span><span>Stop Manager</span>
+            </button>
             <button id="submit" class="button is-success">
                 <span class="icon">
                     <i class="fa fa-rocket"></i>
@@ -240,7 +245,7 @@
 
         context = canvas.getContext("2d");
         context.clearRect(0, 0, canvas.width, canvas.height);
-        context.fillStyle="#6FB76F" if earth else "#FF8F66";
+        context.fillStyle = earth ? "#6FB76F" : "#FF8F66";
         context.fillRect(p,p,10*width,10*height);
         context.font = "9px monospace";
         for (var i=0; i<pixels.length; i+=2) {
@@ -367,8 +372,8 @@
             for (var i=0; i<4; i++) elements[i].innerText = logs[i];
 
             var maps = await eel.get_viewer_data()();
-            draw_grid(earth,maps['width'],maps['height'],maps['earth']);
-            draw_grid(mars,maps['width'],maps['height'],maps['mars']);
+            draw_grid(earth,maps['width'],maps['height'],maps['earth'],true);
+            draw_grid(mars,maps['width'],maps['height'],maps['mars'],false);
         },300);
     }
 

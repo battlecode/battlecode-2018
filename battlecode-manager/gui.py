@@ -57,10 +57,6 @@ def run_game(return_args):
     return "success"
 
 @eel.expose
-def get_current_map():
-    pass
-
-@eel.expose
 def get_maps():
     player_dir = '/battlecode/battlecode-maps'
     maps = [o for o in os.listdir(player_dir)
@@ -100,6 +96,7 @@ def end_game():
 
 @eel.expose
 def stop_manager():
+    os.system('killall python3')
     sys.exit(0)
 
 print("To play games open http://localhost:6147/run.html in your browser on Mac/Linux/WindowsPro, or http://192.168.99.100:6147/run.html on Windows10Home.")
