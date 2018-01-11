@@ -6,9 +6,11 @@ mtput() {
 }
 if uname -s | grep -Fqe CYGWIN ; then
     echo "run.sh won't work on windows! Use run.bat :)"
+    exit 1
 fi
 if uname -s | grep -Fqe MINGW ; then
     echo "run.sh won't work on windows! Use run.bat :)"
+    exit 1
 fi
 
 echo "=== STARTING THE MANAGER (no docker) ==="
