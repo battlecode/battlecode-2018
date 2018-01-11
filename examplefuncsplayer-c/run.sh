@@ -4,10 +4,10 @@
 
 # we provide this env variable for you
 if [ "$BC_PLATFORM" = 'LINUX' ]; then
-    LIBRARIES="-lutil -ldl -lrt -lpthread -lgcc_s -lc -lm -L../battlecode/c/lib -lbattlecode-linux"
+    LIBRARIES="-lbattlecode-linux -lutil -ldl -lrt -pthread -lgcc_s -lc -lm -L../battlecode/c/lib"
     INCLUDES="-I../battlecode/c/include -I."
 elif [ "$BC_PLATFORM" = 'DARWIN' ]; then
-    LIBRARIES="-lSystem -lresolv -lc -lm -L../battlecode/c/lib -lbattlecode-darwin"
+    LIBRARIES="-lbattlecode-darwin -lSystem -lresolv -lc -lm -L../battlecode/c/lib"
     INCLUDES="-I../battlecode/c/include -I."
 else
 	echo "Unknown platform '$BC_PLATFORM' or platform not set"

@@ -54,7 +54,8 @@ class PlainPlayer(AbstractPlayer):
             # things break otherwise
             env = dict(os.environ)
         else:
-            env = {}
+        	# Path needs to be passed through, otherwise some compilers (e.g gcc) can get confused and not find things
+            env = { 'PATH': os.environ['PATH'] }
 
         env['PLAYER_KEY'] = str(self.player_key)
         env['RUST_BACKTRACE'] = '1'
