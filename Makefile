@@ -42,22 +42,32 @@ test:
 clean:
 	@$(MAKE) -wC bindings clean
 	-rm -rf docker-artifacts
+	-rm -rf docker-manager/working_dir
 	# run build first, to generate code and stuff
 
 generate:
 	@$(MAKE) -wC bindings generate
+
+linux-libs:
+	docker build -t linuxbuild -f LinuxBuildDockerfile .
+	mkdir -p docker-artifacts/
+	ID=$$(docker create linuxbuild);\
+	   docker cp $$ID:/battlecode docker-artifacts/linux-battlecode;\
+       docker rm -v $$ID
 
 docker-sandbox:
 	docker build -t battlebaby -f SandboxDockerfile . --squash
 	mkdir -p docker-artifacts/
 	docker save battlebaby -o docker-artifacts/battlebaby.tar
 	ID=$$(docker create battlebaby);\
-	   docker cp $$ID:/battlecode docker-artifacts/linux-battlecode;\
+	   docker cp $$ID:/battlecode docker-artifacts/linux-battlecode-musl;\
        docker rm -v $$ID
 
 nodocker: build create-bundle
 
 docker-manager:
+	#???
+	-rm -rf docker-artifacts/linux-battlecode-musl/battlecode
 	docker build -t battledaddy -f ManagerDockerfile .
 
 dockers: docker-py3 docker-java
@@ -84,14 +94,7 @@ package:
 	cp -R examplefuncsplayer-java bc18-scaffold/examplefuncsplayer-java
 	cp run_nodocker.sh bc18-scaffold/
 	cp run_nodocker.bat bc18-scaffold/
-
-full-package:
-	# assumes you're on mac.
-	# you need to have a battlecode-win32 folder
-	make release
-	make docker-sandbox
-	make copy-linux
-	make docker-win32
-
+	cp battlecode.sh bc18-scaffold/
+	cp battlecode.bat bc18-scaffold/
 
 .PHONY: build test dockers battlecode

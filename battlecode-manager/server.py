@@ -70,6 +70,8 @@ class Game(object): # pylint: disable=too-many-instance-attributes
             player['start_message'] = self.manager.start_game(player['player']).to_json()
         self.viewer_messages = []
         manager_start_message = self.manager.initial_start_turn_message()
+        self.manager_viewer_messages = []
+        self.manager_viewer_messages.append(self.manager.manager_viewer_message())
         self.last_message = manager_start_message.start_turn.to_json()
         self.viewer_messages.append(manager_start_message.viewer.to_json())
         self.initialized = 0
@@ -204,6 +206,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         application = self.manager.apply_turn(turn_message)
         self.last_message = application.start_turn.to_json()
         self.viewer_messages.append(application.viewer.to_json())
+        self.manager_viewer_messages.append(self.manager.manager_viewer_message())
         self.times[client_id] -= diff_time
         return
 
@@ -410,7 +413,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
 
             while not self.game.started and not self.game.game_over:
                 # Spin while waiting for game to start
-                time.sleep(0.5)
+                time.sleep(0.05)
 
 
             logging.info("Client %s: Game started", self.client_id)
