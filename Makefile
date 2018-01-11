@@ -84,6 +84,7 @@ package:
 	cp -R examplefuncsplayer-java bc18-scaffold/examplefuncsplayer-java
 	cp run_nodocker.sh bc18-scaffold/
 	cp run_nodocker.bat bc18-scaffold/
+	cp battlecode.sh bc18-scaffold/
 
 full-package:
 	# assumes you're on mac.
