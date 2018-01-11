@@ -28,22 +28,8 @@ class PlainPlayer(AbstractPlayer):
             threading.Thread(target=self._stream_logs, args=(self.process.stderr, line_action)).start()
 
     def _stream_logs(self, stream, line_action):
-        while True:
-            # Check if we can read anything from the pipe.
-            # This is important because otherwise this thread will block trying to read things
-            # even when the bot process has exited, causing this thread to stay alive indefinitely.
-            r, w, e = select.select([stream], [], [], 0.01)
-            if stream in r:
-                # Read something from the pipe
-                line = stream.readline()
-                if line:
-                    line_action(line)
-                else:
-                    # EOF
-                    return
-            elif self.process is None:
-                # Otherwise if the process is None then we should exit because the game is over
-                return
+        for line in stream:
+            line_action(line)
 
     def start(self):
         if sys.platform == 'win32':
