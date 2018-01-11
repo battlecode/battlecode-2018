@@ -67,28 +67,24 @@ RUN apk add --update --no-cache \
     python3-dev && \
     python3 -m ensurepip && \
     rm -r /usr/lib/python*/ensurepip && \
-    pip3 install --upgrade pip setuptools cffi && \
+    pip3 install --upgrade pip setuptools cffi nose && \
     rm -r /root/.cache
 RUN pip3 install numpy
-
-# Install mono
-RUN apk add --no-cache --virtual=.build-dependencies wget ca-certificates tar xz && \
-    wget "https://www.archlinux.org/packages/extra/x86_64/mono/download/" -O "/tmp/mono.pkg.tar.xz" && \
-    tar -xJf "/tmp/mono.pkg.tar.xz" && \
-    cert-sync /etc/ssl/certs/ca-certificates.crt && \
-    apk del .build-dependencies && \
-    rm /tmp/*
 
 # Install battlecode bindings
 ADD . /battlecode
 
 WORKDIR /battlecode/
-#RUN make
-RUN cd bindings && python3 generate.py
-RUN cat bindings/src/bindings.rs
-RUN cargo build --release
-RUN cat bindings/src/bindings.rs
-RUN cd bindings/python && RELEASE=1 python3 setup.py install
-RUN cd bindings/java && make release
-RUN cd bindings/java && mkdir /battlecode-java && mv src/bc/libbattlecode.so /usr/lib/libbattlecode.so && mv src/bc /battlecode-java/bc
-RUN mkdir -p /battlecode-c/include && mkdir -p /battlecode-c/lib && cp bindings/c/include/bc.h /battlecode-c/include/ && cp target/release/deps/libbattlecode.a /battlecode-c/lib/
+# this creates stuff at /battlecode/battlecode
+# we then move that folder to /battlecode
+# player code will be mounted in /code, so they can access the stuff they need at ../battlecode like always :)))
+
+RUN make release && make clean && mv /battlecode/battlecode /bc && rm -rf /battlecode && mv /bc /battlecode
+
+# backwards compatibility w/ original image layout
+
+RUN ln -s -T /battlecode/c /battlecode-c
+RUN ln -s -T /battlecode-c/lib/libbattlecode-linux.a /battlecode-c/lib/libbattlecode.a
+RUN ln -s -T /battlecode/java /battlecode-java
+ENV PYTHONPATH=/battlecode/python
+

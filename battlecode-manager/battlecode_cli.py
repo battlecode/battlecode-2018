@@ -1,4 +1,5 @@
 '''
+t
 This file contains contains the CLI that starts games up
 '''
 
@@ -6,11 +7,15 @@ import argparse
 import time
 import os
 import logging
-from sandbox import Sandbox
+from sandbox import Sandbox, NoSandbox
 import server
 import battlecode as bc
-import ujson as json
+try:
+    import ujson as json
+except:
+    import json
 import io
+import sys
 
 # TODO port number
 PORT = 16147
@@ -33,7 +38,7 @@ def run_game(game, dockers, args, sock_file):
     '''
 
     # Start the unix stream server
-    server.start_server(sock_file, game, dockers)
+    s = server.start_server(sock_file, game, dockers)
 
     if args['use_viewer']:
         viewer_server = server.start_viewer_server(PORT, game)
@@ -63,9 +68,20 @@ def run_game(game, dockers, args, sock_file):
     while not game.game_over:
         time.sleep(1)
 
-    print(game.disconnected)
-    print("Dumping matchfile")
-    match_ptr = open("/player/" + str(args['replay_filename']), mode='w')
+    print('Killing game server.')
+    try:
+        s.server_close()
+    except e:
+        print(e)
+
+    if 'NODOCKER' in os.environ:
+        match_output = os.path.abspath(os.path.join('..', str(args['replay_filename'])))
+    else:
+        match_output = os.path.abspath(os.path.join('/player', str(args['replay_filename'])))
+
+    print("Dumping matchfile to", match_output)
+    match_ptr = open(match_output, 'w')
+
     match_file = {}
     match_file['message'] = game.viewer_messages
     if not game.disconnected:
@@ -75,7 +91,6 @@ def run_game(game, dockers, args, sock_file):
             winner = 'player2'
     else:
         winner = game.winner
-
 
     match_file['metadata'] = {'player1': args['dir_p1'][8:],
             'player2' : args['dir_p2'][8:], 'winner': winner}
@@ -95,7 +110,9 @@ def cleanup(dockers, args, sock_file):
         docker_inst = dockers[player_key]
         logs = docker_inst.destroy()
 
-    os.unlink(sock_file)
+    if isinstance(sock_file, str) or isinstance(sock_file, bytes):
+        # only unlink unix sockets
+        os.unlink(sock_file)
 
     print("Ready to run next game.")
 
@@ -105,7 +122,7 @@ def get_map(map_name):
     '''
 
     try:
-        with open('/battlecode/battlecode-maps/' + map_name) as f:
+        with open(map_name) as f:
            contents = f.read()
         print("Loading map " + map_name)
         return bc.GameMap.from_json(contents)
@@ -130,18 +147,31 @@ def create_game(args):
                        game_map=args['map'], time_pool=args['time_pool'],
                        time_additional=args['time_additional'])
 
-    # Find a good filename to use as socket file
-    for index in range(10000):
-        sock_file = "/tmp/battlecode-"+str(index)
-        if not os.path.exists(sock_file):
-            break
+    # pick server location
+    if 'USE_TCP' in os.environ or sys.platform == 'win32':
+        print('Running game server on port tcp://localhost:16148')
+        # int indicates tcp
+        sock_file = ('localhost', 16148)
+    else:
+        # Find a good filename to use as socket file
+        for index in range(10000):
+            sock_file = "/tmp/battlecode-"+str(index)
+            if not os.path.exists(sock_file):
+                break
+        else:
+            raise Exception("Do you really have 10000 /tmp/battlecode sockets???")
+        print('Running game server on socket unix://{}'.format(sock_file))
 
     # Assign the docker instances client ids
     dockers = {}
-    Sandbox.initialize()
     for index in range(len(game.players)):
         key = [player['id'] for player in game.players][index]
-        dockers[key] = Sandbox(sock_file, player_key=key,
-                               local_dir=args['dir_p1' if index % 2 == 0 else 'dir_p2'])
+        if 'NODOCKER' in os.environ:
+            dockers[key] = NoSandbox(sock_file, player_key=key,
+                                local_dir=args['dir_p1' if index % 2 == 0 else 'dir_p2'])
+        else:
+            dockers[key] = Sandbox(sock_file, player_key=key,
+                                local_dir=args['dir_p1' if index % 2 == 0 else 'dir_p2'])
+
 
     return (game, dockers, sock_file)

@@ -4,8 +4,20 @@ import battlecode_cli as cli
 import threading
 import sys
 import json
+import sandbox
+import signal
+import psutil
+
+target_dir = os.path.abspath(os.path.dirname(__file__))
+print('Moving into', target_dir)
+os.chdir(target_dir)
 
 options = {'host':'0.0.0.0', 'port':6147, 'mode':'default'}
+
+if sys.platform == 'win32':
+    options['host'] = 'localhost'
+
+print('Starting eel')
 
 eel.init('web')
 
@@ -15,17 +27,21 @@ def start_game(return_args):
     global WINNER
     WINNER = 0
 
-    return_args['map'] = cli.get_map(return_args['map'])
-    return_args['dir_p2'] = '/player/' + return_args['dir_p2']
-    return_args['dir_p1'] = '/player/' + return_args['dir_p1']
+    return_args['map'] = cli.get_map(os.path.abspath(os.path.join('..', 'battlecode-maps', return_args['map'])))
+    if 'NODOCKER' in os.environ:
+        return_args['dir_p1'] = os.path.abspath(os.path.join('..', return_args['dir_p1']))
+        return_args['dir_p2'] = os.path.abspath(os.path.join('..', return_args['dir_p2']))
+    else:
+        return_args['dir_p1'] = os.path.abspath(os.path.join('/player', return_args['dir_p1']))
+        return_args['dir_p2'] = os.path.abspath(os.path.join('/player', return_args['dir_p2']))
 
     global game
     (game, dockers, sock_file) = cli.create_game(return_args)
 
     winner = None
     try:
-        print("running game")
-        winner  = cli.run_game(game, dockers, return_args, sock_file)
+        print("Running game...")
+        winner = cli.run_game(game, dockers, return_args, sock_file)
     finally:
         cli.cleanup(dockers, return_args, sock_file)
     lock.release()
@@ -49,7 +65,6 @@ def get_viewer_data(turn):
     else :
         return {'width':0, 'height': 0, 'earth' : [], 'mars': []}
 
-
 @eel.expose
 def run_game(return_args):
     if not lock.acquire(blocking=False):
@@ -61,21 +76,33 @@ def run_game(return_args):
 
 @eel.expose
 def get_maps():
-    player_dir = '/battlecode/battlecode-maps'
-    maps = [o for o in os.listdir(player_dir)
+    if 'NODOCKER' in os.environ:
+        map_dir = os.path.abspath('../battlecode-maps')
+    else:
+        map_dir = '/battlecode/battlecode-maps'
+
+    maps = [o for o in os.listdir(map_dir)
                         if 'bc18map' in o]
-    maps.extend([o for o in os.listdir('/player')
-                        if 'bc18map' in o])
 
     maps.append('testmap.bc18map')
     return maps
 
 @eel.expose
 def get_player_dirs():
-
-    player_dir = '/player'
-    return [o for o in os.listdir(player_dir)
-                if os.path.isdir(os.path.join(player_dir,o))]
+    if 'NODOCKER' in os.environ:
+        player_dir = os.path.abspath('..')
+    else:
+        player_dir = '/player'
+    players = []
+    for o in os.listdir(player_dir):
+        if o.startswith('.') or o in ('battlecode', 'battlecode-manager'):
+            continue
+        full_path = os.path.join(player_dir, o)
+        if not os.path.isdir(full_path):
+            continue
+        if os.path.exists(os.path.join(full_path, 'run.sh')):
+            players.append(o)
+    return players
 
 # if 0 not ended, if 1 red, 2 blue
 @eel.expose
@@ -97,13 +124,44 @@ def end_game():
         game.game_over = True
     return ""
 
+def reap_children(timeout=3):
+    "Tries hard to terminate and ultimately kill all the children of this process."
+    def on_terminate(proc):
+        print("process {} terminated with exit code {}".format(proc, proc.returncode))
+
+    print("Killing manager children...")
+
+    procs = psutil.Process().children(recursive=True)
+    # send SIGTERM
+    for p in procs:
+        print("Killing ", p.pid)
+        p.terminate()
+    gone, alive = psutil.wait_procs(procs, timeout=timeout, callback=on_terminate)
+    if alive:
+        # send SIGKILL
+        for p in alive:
+            print("process {} survived SIGTERM; trying SIGKILL" % p.pid)
+            p.kill()
+        gone, alive = psutil.wait_procs(alive, timeout=timeout, callback=on_terminate)
+        if alive:
+            # give up
+            for p in alive:
+                print("process {} survived SIGKILL; giving up" % p.pid)
+
 @eel.expose
 def stop_manager():
-    os.system('killall python3')
-    sys.exit(0)
+    reap_children()
+    print("Shutting self down with a SIGKILL.")
+    procs = psutil.Process().kill()
 
+if 'NODOCKER' in os.environ:
+    sandbox.working_dir_message()
+    sandbox.copy_battlecode()
+
+print("=== Ready! ===")
 print("To play games open http://localhost:6147/run.html in your browser on Mac/Linux/WindowsPro, or http://192.168.99.100:6147/run.html on Windows10Home.")
 lock = threading.Lock()
+
 eel.start('run.html', options=options, block=False)
 
 while True:

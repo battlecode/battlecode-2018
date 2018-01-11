@@ -207,7 +207,7 @@
         <div class="container">
             <div class="content has-text-centered">
                 <p>
-                    <strong>Battlecode: Escape to Mars</strong> by <a href="http://battlecode.org/">MIT Battlecode</a>. Version 0.9.4.
+                    <strong>Battlecode: Escape to Mars</strong> by <a href="http://battlecode.org/">MIT Battlecode</a>. Version 0.9.5.
                 </p>
             </div>
         </div>
@@ -293,13 +293,17 @@
         red = document.getElementById("red")
         blue = document.getElementById("blue")
         folders.forEach(function(folder) {
-            red.innerHTML += "<option value='" + folder + "'>" + folder + "</option>";
-            blue.innerHTML += "<option value='" + folder + "'>" + folder + "</option>";
+            if (folder.charAt(0) != '.') {
+                red.innerHTML += "<option value='" + folder + "'>" + folder + "</option>";
+                blue.innerHTML += "<option value='" + folder + "'>" + folder + "</option>";
+            }
         });
 
         mapselect = document.getElementById("map")
         maps.forEach(function(map) {
-            mapselect.innerHTML += "<option value='" + map + "'>" + map + "</option>";
+            if (map.charAt(0) != '.') {
+                mapselect.innerHTML += "<option value='" + map + "'>" + map + "</option>";
+            }
         });
     }
 
