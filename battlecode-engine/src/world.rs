@@ -2071,6 +2071,12 @@ impl GameWorld {
             },
         };
 
+        // Land rockets.
+        if self.planet() == Mars {
+            let team = self.team();
+            self.process_rockets(team);
+        }
+
         let player = self.player_to_move;
         let world = self.filter(player);
         let mut stm = StartTurnMessage {
@@ -2167,10 +2173,6 @@ impl GameWorld {
 
         // Add produced factory robots to the garrison.
         self.process_factories();
-
-        // Land rockets.
-        self.process_rockets(Team::Red);
-        self.process_rockets(Team::Blue);
 
         // Process any potential asteroid impacts.
         self.process_asteroids();
