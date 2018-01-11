@@ -4,21 +4,8 @@ import string
 import random
 import io
 import zipfile
-from shutil import copytree
+from shutil import copytree, rmtree
 import sys
-
-
-# TODO Any reason why shutil.rmtree is not used for this?
-def delete_folder(path):
-    try:
-        for sub in path.iterdir():
-            if sub.is_dir():
-                delete_folder(sub)
-            else:
-                sub.unlink()
-        path.rmdir()
-    except Exception as e:
-        pass
 
 
 def random_key(length):
@@ -52,23 +39,21 @@ class AbstractPlayer:
         self.player_key = player_key
         self.socket_file = socket_file
 
-        if working_dir[-1] != "/":
-            working_dir += "/"
-
-        self.working_dir = Path(working_dir + random_key(20) + "/")
+        # Note that working dir is an absolute path
+        self.working_dir = os.path.abspath(os.path.join(working_dir, random_key(20)))
 
         if not os.path.exists(working_dir):
             os.makedirs(working_dir)
 
         if s3_bucket:
-            extract_s3_bucket(s3_bucket, s3_key, self.working_dir.absolute())
+            extract_s3_bucket(s3_bucket, s3_key, self.working_dir)
         elif local_dir:
             # print("Copying files from {} to {}".format(os.path.abspath(local_dir), self.working_dir))
             copytree(os.path.abspath(local_dir), self.working_dir)
         else:
             raise ValueError("Must provide either S3 key and bucket or local directory for code.")
 
-        dos2unix(str(self.working_dir.absolute()))
+        dos2unix(self.working_dir)
 
     def _detect_platform(self):
         if sys.platform.startswith("linux"):
@@ -93,7 +78,9 @@ class AbstractPlayer:
         pass
 
     def destroy(self):
-        delete_folder(self.working_dir)
+        # Need to check for existance because this method may be called multiple times (e.g from __del__)
+        if os.path.isdir(self.working_dir):
+            rmtree(self.working_dir)
 
     def __del__(self):
         self.destroy()

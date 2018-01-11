@@ -21,7 +21,7 @@ class SandboxedPlayer(AbstractPlayer):
 
     def start(self):
         volumes = {
-            str(self.working_dir.absolute()): {'bind': '/code', 'mode': 'rw'},
+            self.working_dir: {'bind': '/code', 'mode': 'rw'},
             self.socket_file: {'bind': '/tmp/battlecode-socket', 'mode': 'rw'}
         }
 
