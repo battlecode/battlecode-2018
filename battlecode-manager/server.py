@@ -413,7 +413,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
 
             while not self.game.started and not self.game.game_over:
                 # Spin while waiting for game to start
-                time.sleep(0.5)
+                time.sleep(0.05)
 
 
             logging.info("Client %s: Game started", self.client_id)
