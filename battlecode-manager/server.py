@@ -27,7 +27,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
     '''
 
     def __init__(self, game_map: bc.GameMap, logging_level=logging.DEBUG,
-                 logging_file="server.log", time_pool=1000, time_additional=50):
+                 logging_file="server.log", time_pool=10000, time_additional=50):
 
         self.time_pool = time_pool/1000.
         self.time_additional = time_additional/1000.
