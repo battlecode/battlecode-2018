@@ -343,8 +343,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                             self.game.winner = 'player2'
                         else:
                             self.game.winner = 'player1'
-                print("Client %s: Game Over", self.client_id)
-                print("Cleaning up")
+                print("Game Over for player", self.game.player_id2index(self.client_id))
                 self.game.disconnected = True
                 self.game.game_over = True
                 wrapped_socket.close()
@@ -536,7 +535,6 @@ def start_server(sock_file: str, game: Game, dockers, use_docker=True) -> socket
         # tcp port
         server = socketserver.ThreadingTCPServer(sock_file, receive_handler)
     else:
-        print('starting server', sock_file)
         server = socketserver.ThreadingUnixStreamServer(sock_file, receive_handler)
 
     server_thread = threading.Thread(target=server.serve_forever, daemon=True)

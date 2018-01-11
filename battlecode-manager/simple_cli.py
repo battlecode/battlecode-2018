@@ -37,7 +37,6 @@ def run_game(map_path, player1dir, player2dir, replay_dir, docker=False, termina
     (game, sandboxes, sock_file) = cli.create_game(args)
 
     try:
-        print("running game")
         winner = cli.run_game(game, sandboxes, args, sock_file)
     finally:
         cli.cleanup(sandboxes, args, sock_file)
@@ -82,5 +81,5 @@ try:
     run_game(map_path, args.player1, args.player2, replay_dir,
         docker=args.docker, terminal_viewer=args.terminal_viewer, extra_delay=args.extra_delay)
 except KeyboardInterrupt:
-    print("Stopping game")
-    raise
+    print("Game Stopped")
+    exit(0)
