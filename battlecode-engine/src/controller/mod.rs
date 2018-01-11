@@ -1152,7 +1152,7 @@ impl GameController {
                     message.earth[(x+y*width)*2] = unit_int;
                     message.earth[(x+y*width)*2+1] = team_int;
 
-                } else if !earth_map.is_passable_terrain[x as usize][y as usize] {
+                } else if !earth_map.is_passable_terrain[y as usize][x as usize] {
                     message.earth[(x+y*width)*2] = 8;
                     message.earth[(x+y*width)*2+1] = 3;
                 } else {
@@ -1178,7 +1178,7 @@ impl GameController {
                     };
                     message.mars[(x+y*width)*2] = unit_int;
                     message.mars[(x+y*width)*2+1] = team_int;
-                } else if !mars_map.is_passable_terrain[x as usize][y as usize] {
+                } else if !mars_map.is_passable_terrain[y as usize][x as usize] {
                     message.mars[(x+y*width)*2] = 8;
                     message.mars[(x+y*width)*2+1] = 3;
                 } else {
@@ -1259,7 +1259,7 @@ impl GameController {
                 if let Some(id) = earth_units.and_then(|eu| eu.units_by_loc.get(&loc)) {
                     let unit = &earth_units.unwrap().units[&id];
                     print!("{}", log_unit(unit));
-                } else if !earth_map.is_passable_terrain[x as usize][y as usize] {
+                } else if !earth_map.is_passable_terrain[y as usize][x as usize] {
                     print!("{}", bg.paint(" "));
                 } else {
                     print!(" ");
@@ -1272,7 +1272,7 @@ impl GameController {
                 if let Some(id) = mars_units.and_then(|mu| mu.units_by_loc.get(&loc)) {
                     let unit = &mars_units.unwrap().units[&id];
                     print!("{}", log_unit(&unit));
-                } else if !mars_map.is_passable_terrain[x as usize][y as usize] {
+                } else if !mars_map.is_passable_terrain[y as usize][x as usize] {
                     print!("{}", bg.paint(" "));
                 } else {
                     print!(" ");
