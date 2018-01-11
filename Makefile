@@ -42,17 +42,25 @@ test:
 clean:
 	@$(MAKE) -wC bindings clean
 	-rm -rf docker-artifacts
+	-rm -rf docker-manager/working_dir
 	# run build first, to generate code and stuff
 
 generate:
 	@$(MAKE) -wC bindings generate
+
+linux-libs:
+	#docker build -t linuxbuild -f LinuxBuildDockerfile .
+	mkdir -p docker-artifacts/
+	ID=$$(docker create linuxbuild);\
+	   docker cp $$ID:/battlecode docker-artifacts/linux-battlecode;\
+       docker rm -v $$ID
 
 docker-sandbox:
 	docker build -t battlebaby -f SandboxDockerfile . --squash
 	mkdir -p docker-artifacts/
 	docker save battlebaby -o docker-artifacts/battlebaby.tar
 	ID=$$(docker create battlebaby);\
-	   docker cp $$ID:/battlecode docker-artifacts/linux-battlecode;\
+	   docker cp $$ID:/battlecode docker-artifacts/linux-battlecode-musl;\
        docker rm -v $$ID
 
 nodocker: build create-bundle

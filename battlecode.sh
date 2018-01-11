@@ -6,20 +6,20 @@ mtput() {
 }
 
 if uname -s | grep -Fqe CYGWIN ; then
-	# TODO: Make CLI replacement
-    echo "run_nodocker.sh won't work on windows! Use run_nodocker.bat :)"
+    # TODO: Make CLI replacement
+    echo "battlecode.sh won't work on windows! Use battlecode.bat :)"
     exit 1
 fi
 if uname -s | grep -Fqe MINGW ; then
-    echo "run_nodocker.sh won't work on windows! Use run_nodocker.bat :)"
+    echo "battlecode.sh won't work on windows! Use battlecode.bat :)"
     exit 1
 fi
 
 # Use tput to show different colors in the terminal
 mtput setaf 5
-echo "$ pip3 install --user cffi eel tqdm werkzeug ujson psutil"
+echo "$ pip3 install --user cffi tqdm werkzeug ujson psutil"
 mtput sgr0
-pip3 install -q --user cffi eel tqdm werkzeug ujson psutil
+pip3 install -q --user cffi tqdm werkzeug ujson psutil
 
 RESULT=$?
 if [ $RESULT -ne 0 ]; then
