@@ -6,9 +6,20 @@ map_extension = ".bc18map"
 replay_extension = ".bc18"
 
 
-def start_game(args):
-    args['map'] = cli.get_map(args['map'])
-    print(args)
+def run_game(map_path, player1dir, player2dir, replay_dir, docker=False):
+    args = {}
+    args['dir_p2'] = player1dir
+    args['dir_p1'] = player2dir
+    args['docker'] = docker
+    # TODO: Will cause name collisions if multiple instances run at the same time!
+    args['replay_filename'] = os.path.join(replay_dir, "replay_" + str(len(os.listdir(replay_dir))) + replay_extension)
+    args['player_memory'] = 256
+    args['player_cpu'] = 20
+    # TODO: Isn't this supposed to be 10000 or something? I got these values from the web client, but they seem too low
+    args['time_pool'] = 1000
+    args['time_additional'] = 50
+    args['use_viewer'] = False
+    args['map'] = cli.get_map(map_path)
 
     (game, sandboxes, sock_file) = cli.create_game(args)
 
@@ -19,21 +30,6 @@ def start_game(args):
         cli.cleanup(sandboxes, args, sock_file)
 
     print("Winner is player: " + str(1 if winner == 'player1' else 2))
-
-
-def run_game(map_path, player1dir, player2dir, replay_dir, docker=False):
-    args = {}
-    args['map'] = map_path
-    args['dir_p2'] = player1dir
-    args['dir_p1'] = player2dir
-    args['docker'] = docker
-    # TODO: Will cause name collisions if multiple instances run at the same time!
-    args['replay_filename'] = os.path.join(replay_dir, "replay_" + str(len(os.listdir(replay_dir))) + replay_extension)
-    # Not sure what this is yet...
-    args['time_pool'] = 50
-    args['time_additional'] = 10 * 1000
-    args['use_viewer'] = False
-    start_game(args)
 
 
 def get_maps(map_directory):

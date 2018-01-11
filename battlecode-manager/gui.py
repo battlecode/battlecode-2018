@@ -4,7 +4,6 @@ import battlecode_cli as cli
 import threading
 import sys
 import json
-import sandbox
 import signal
 import psutil
 
@@ -29,9 +28,11 @@ def start_game(return_args):
 
     return_args['map'] = cli.get_map(os.path.abspath(os.path.join('..', 'battlecode-maps', return_args['map'])))
     if 'NODOCKER' in os.environ:
+        return_args['docker'] = False
         return_args['dir_p1'] = os.path.abspath(os.path.join('..', return_args['dir_p1']))
         return_args['dir_p2'] = os.path.abspath(os.path.join('..', return_args['dir_p2']))
     else:
+        return_args['docker'] = True
         return_args['dir_p1'] = os.path.abspath(os.path.join('/player', return_args['dir_p1']))
         return_args['dir_p2'] = os.path.abspath(os.path.join('/player', return_args['dir_p2']))
 
@@ -150,9 +151,6 @@ def stop_manager():
     print("Shutting self down with a SIGKILL.")
     procs = psutil.Process().kill()
 
-if 'NODOCKER' in os.environ:
-    sandbox.working_dir_message()
-    sandbox.copy_battlecode()
 
 print("=== Ready! ===")
 print("To play games open http://localhost:6147/run.html in your browser on Mac/Linux/WindowsPro, or http://192.168.99.100:6147/run.html on Windows10Home.")
