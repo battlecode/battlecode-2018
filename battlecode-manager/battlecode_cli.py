@@ -63,6 +63,7 @@ def run_game(game, dockers, args, sock_file):
     while not game.game_over:
         time.sleep(1)
 
+    print(game.disconnected)
     print("Dumping matchfile")
     match_ptr = open("/player/" + str(args['replay_filename']), mode='w')
     match_file = {}

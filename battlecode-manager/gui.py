@@ -2,6 +2,7 @@ import eel
 import os
 import battlecode_cli as cli
 import threading
+import sys
 import json
 
 options = {'host':'0.0.0.0', 'port':6147, 'mode':'default'}
@@ -21,14 +22,21 @@ def start_game(return_args):
     global game
     (game, dockers, sock_file) = cli.create_game(return_args)
 
+    winner = None
     try:
         print("running game")
         winner  = cli.run_game(game, dockers, return_args, sock_file)
     finally:
         cli.cleanup(dockers, return_args, sock_file)
     lock.release()
+    print("release lock")
 
-    eel.trigger_end_game(1 if winner == 'player1' else 2)()
+    if winner == 'player1':
+        eel.trigger_end_game(1)()
+    elif winner == ' player2':
+        eel.trigger_end_game(2)()
+    else:
+        eel.trigger_end_game(0)()
 
 
 @eel.expose
@@ -47,6 +55,10 @@ def run_game(return_args):
     t1 = threading.Thread(target=start_game,args=(return_args,))
     t1.start()
     return "success"
+
+@eel.expose
+def get_current_map():
+    pass
 
 @eel.expose
 def get_maps():
@@ -81,10 +93,14 @@ def get_player_logs():
 def end_game():
     global game
     if game is not None:
-        game.winner = 'player1'
+        game.winner = 'player3'
         game.disconnected = True
         game.game_over = True
     return ""
+
+@eel.expose
+def stop_manager():
+    sys.exit(0)
 
 print("To play games open http://localhost:6147/run.html in your browser on Mac/Linux/WindowsPro, or http://192.168.99.100:6147/run.html on Windows10Home.")
 lock = threading.Lock()
