@@ -36,11 +36,11 @@ generate:
 	@$(MAKE) -wC bindings generate
 
 docker-sandbox:
-	docker build -t battlebaby -f SandboxDockerfile .
+	docker build -t battlebaby -f SandboxDockerfile . --squash
 	mkdir -p docker-artifacts/
 	docker save battlebaby -o docker-artifacts/battlebaby.tar
 	ID=$$(docker create battlebaby);\
-	   docker cp $$ID:/battlecode/battlecode docker-artifacts/linux-battlecode;\
+	   docker cp $$ID:/battlecode docker-artifacts/linux-battlecode;\
        docker rm -v $$ID
 
 nodocker: build create-bundle

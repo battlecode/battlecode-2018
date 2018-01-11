@@ -72,7 +72,7 @@ def get_player_dirs():
     else:
         player_dir = '/player'
     players =  [o for o in os.listdir(player_dir)
-                if os.path.isdir(os.path.join(player_dir, o))]
+                if os.path.isdir(os.path.join(player_dir, o)) and o not in ('battlecode', 'battlecode-manager') and not o.startswith('.')]
     print(player_dir)
     print(os.listdir(player_dir))
     print(players)

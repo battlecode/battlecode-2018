@@ -3,7 +3,7 @@ FROM docker:18.01.0-ce-rc1-dind
 # Install Python3
 RUN apk add --update --no-cache \
     gcc musl-dev libffi-dev \
-    build-base \
+    build-base linux-headers \
     python3-dev && \
     python3 -m ensurepip && \
     rm -r /usr/lib/python*/ensurepip && \
@@ -13,21 +13,11 @@ RUN apk add --update --no-cache \
 # Install necessary python libs
 RUN pip3 install \
     tqdm docker boto3 werkzeug \
-    ujson cffi
-
-# Install rust
-RUN apk add --update --no-cache \
-    libffi-dev
+    ujson cffi psutil eel
 
 COPY ./docker-artifacts/battlebaby.tar /images/battlebaby.tar
 COPY ./docker-artifacts/linux-battlecode/python/battlecode /battlecode-python/battlecode
 ENV PYTHONPATH=/battlecode-python
-
-WORKDIR /battlecode/bindings
-
-RUN pip3 install eel
-
-WORKDIR /battlecode/bindings/python
 
 ADD battlecode-manager /battlecode/battlecode-manager
 ADD battlecode-maps /battlecode/battlecode-maps

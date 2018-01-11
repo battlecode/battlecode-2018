@@ -167,16 +167,24 @@ if 'NODOCKER' not in os.environ:
             self.player_key = player_key
             self.docker = docker_client
             self.socket_file = socket_file
+
             if working_dir[-1] != "/":
                 working_dir += "/"
 
             self.working_dir = Path(working_dir + random_key(20) + "/")
-            self.working_dir.mkdir(parents=True,exist_ok=True)
+            if not os.path.exists(working_dir):
+                os.makedirs(working_dir)
+
+            #self.working_dir.mkdir(parents=True, exist_ok=True)
 
             if s3_bucket:
                 self.extract_code(s3_bucket, s3_key)
             elif local_dir:
-                copytree(local_dir, str(self.working_dir.absolute()))
+                print(local_dir, self.working_dir)
+                print(os.path.exists(local_dir))
+                print(os.path.exists(self.working_dir))
+                copytree(os.path.abspath(local_dir), self.working_dir)
+                print('succ')
             else:
                 raise ValueError("Must provide either S3 key and bucket or local directory for code.")
                 return
@@ -199,7 +207,7 @@ if 'NODOCKER' not in os.environ:
 
             working_dir = '/code'
             command = 'sh run.sh'
-            env = {'PLAYER_KEY':self.player_key,'SOCKET_FILE':'/tmp/battlecode-socket','RUST_BACKTRACE':1,
+            env = {'PLAYER_KEY': self.player_key,'SOCKET_FILE':'/tmp/battlecode-socket','RUST_BACKTRACE':1,
                 'BC_PLATFORM': BC_PLATFORM}
 
             self.container = self.docker.containers.run('battlebaby', command,

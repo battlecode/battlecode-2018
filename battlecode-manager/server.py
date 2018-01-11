@@ -12,7 +12,6 @@ import sys
 import logging
 import os.path
 import ujson as json
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../bindings/python')))
 import battlecode as bc
 
 NUM_PLAYERS = 4
@@ -516,6 +515,7 @@ def start_server(sock_file: str, game: Game, dockers, use_docker=True) -> socket
         # tcp port
         server = socketserver.ThreadingTCPServer(sock_file, receive_handler)
     else:
+        print('starting server', sock_file)
         server = socketserver.ThreadingUnixStreamServer(sock_file, receive_handler)
 
     server_thread = threading.Thread(target=server.serve_forever, daemon=True)
