@@ -34,7 +34,7 @@ def run_game(game, dockers, args, sock_file):
     '''
 
     # Start the unix stream server
-    server.start_server(sock_file, game, dockers)
+    s = server.start_server(sock_file, game, dockers)
 
     if args['use_viewer']:
         viewer_server = server.start_viewer_server(PORT, game)
@@ -63,6 +63,12 @@ def run_game(game, dockers, args, sock_file):
     # Wait until all the code is done then clean up
     while not game.game_over:
         time.sleep(1)
+
+    print('Killing game server.')
+    try:
+        s.server_close()
+    except e:
+        print(e)
 
     if 'NODOCKER' in os.environ:
         match_output = os.path.abspath(os.path.join('..', str(args['replay_filename'])))

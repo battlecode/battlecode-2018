@@ -14,6 +14,9 @@ os.chdir(target_dir)
 
 options = {'host':'0.0.0.0', 'port':6147, 'mode':'default'}
 
+if sys.platform == 'win32':
+    options['host'] = 'localhost'
+
 print('Starting eel')
 
 eel.init('web')
@@ -146,8 +149,7 @@ def reap_children(timeout=3):
 def stop_manager():
     reap_children()
     print("Shutting self down with a SIGKILL.")
-    pid = os.getpid()
-    os.kill(pid, signal.SIGKILL)
+    procs = psutil.Process().kill()
 
 if 'NODOCKER' in os.environ:
     sandbox.working_dir_message()
