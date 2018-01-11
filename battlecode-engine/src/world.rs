@@ -2014,7 +2014,7 @@ impl GameWorld {
         }
     }
 
-    pub(crate) fn initial_start_turn_message(&self) -> StartTurnMessage {
+    pub(crate) fn initial_start_turn_message(&self, time_left_ms: u32) -> StartTurnMessage {
         let initial_player = Player::first_to_move();
         let world = self.cached_world(initial_player);
         if world.round != 1 {
@@ -2022,6 +2022,7 @@ impl GameWorld {
         }
 
         StartTurnMessage {
+            time_left_ms,
             round: world.round,
             visible_locs: world.my_planet().visible_locs.clone(),
             units_changed: vec![],
@@ -2041,7 +2042,7 @@ impl GameWorld {
     /// finished, also processes the end of the round. This includes updating
     /// unit cooldowns, rocket landings, asteroid strikes, research, etc. Returns 
     /// the next player to move, and whether the round was also ended.
-    pub(crate) fn end_turn(&mut self) -> StartTurnMessage {
+    pub(crate) fn end_turn(&mut self, time_left_ms: u32) -> StartTurnMessage {
         use self::Team::*;
         use self::Planet::*;
 
@@ -2059,6 +2060,7 @@ impl GameWorld {
         let player = self.player_to_move;
         let world = self.filter(player);
         let mut stm = StartTurnMessage {
+            time_left_ms,
             round: world.round,
             visible_locs: world.my_planet().visible_locs.clone(),
             units_changed: vec![],
@@ -2192,13 +2194,13 @@ impl GameWorld {
         }
     }
 
-    /// Applies a turn message to this GameWorld, and ends the current turn. Returns
-    /// the next player to move, and whether the current round was also ended.
-    pub(crate) fn apply_turn(&mut self, turn: &TurnMessage) -> StartTurnMessage {
+    /// Applies a turn message to this GameWorld, and ends the current turn.
+    /// Returns the message to send to the next player.
+    pub(crate) fn apply_turn(&mut self, turn: &TurnMessage, time_left_ms: u32) -> StartTurnMessage {
         for delta in turn.changes.iter() {
             self.apply(delta).unwrap();
         }
-        self.end_turn()
+        self.end_turn(time_left_ms)
     }
 
     /// Determines if the game has ended, returning the winning team if so.
@@ -2340,6 +2342,10 @@ impl GameWorld {
 mod tests {
     use super::*;
 
+    // a filler time that only has meaning in the context of actual games
+    // run under time duress
+    const FILLER_TIME: u32 = 10000;
+
     fn _print_visible_locs(locs: &Vec<Vec<bool>>) {
         for bool_row in locs {
             let mut int_row: Vec<u8> = vec![];
@@ -2376,7 +2382,7 @@ mod tests {
         // There should be no changes in each of the first two turns between
         // the initial filtered map and the next turn's filtered map.
         for i in 0..3 {
-            let stm = world.end_turn();
+            let stm = world.end_turn(FILLER_TIME);
             assert_eq!(stm.round, new_rounds[i]);
             assert_eq!(stm.visible_locs, old_worlds[i].my_planet().visible_locs);
             assert_eq!(stm.units_changed.len(), 0);
@@ -2429,7 +2435,7 @@ mod tests {
         assert_err!(red_world.unit(5), GameError::NoSuchUnit);
 
         // The Blue Earth engine cannot see 1, which is not in range.
-        blue_world.start_turn(&world.end_turn());
+        blue_world.start_turn(&world.end_turn(FILLER_TIME));
         assert_err!(blue_world.unit(1), GameError::NoSuchUnit);
         assert!(blue_world.unit(2).is_ok());
         assert!(blue_world.unit(3).is_ok());
@@ -2544,7 +2550,7 @@ mod tests {
         assert!(world.load(id_a, id_b).is_ok());
 
         // Filter the world on Blue's turn.
-        blue_world.start_turn(&world.end_turn());
+        blue_world.start_turn(&world.end_turn(FILLER_TIME));
 
         // Destroy the loaded rocket in the Dev engine.
         assert_eq!(world.my_planet().units.len(), 3);
@@ -2824,8 +2830,8 @@ mod tests {
         }
 
         // Go forward two turns so that we're on Mars.
-        world.end_turn();
-        world.end_turn();
+        world.end_turn(FILLER_TIME);
+        world.end_turn(FILLER_TIME);
 
         // Force land the rocket.
         world.land_rocket(rocket, mars_loc);
@@ -2864,21 +2870,21 @@ mod tests {
         // Rocket landing on a robot should destroy the robot.
         assert![world.can_launch_rocket(rocket_a, mars_loc_knight)];
         assert![world.launch_rocket(rocket_a, mars_loc_knight).is_ok()];
-        world.end_turn();
-        world.end_turn();
+        world.end_turn(FILLER_TIME);
+        world.end_turn(FILLER_TIME);
         world.land_rocket(rocket_a, mars_loc_knight);
         assert![world.my_unit(rocket_a).is_ok()];
-        world.end_turn();
+        world.end_turn(FILLER_TIME);
         assert_err![world.my_unit(knight), GameError::NoSuchUnit];
 
         // Launch the rocket on Earth.
-        world.end_turn();
+        world.end_turn(FILLER_TIME);
         assert![world.can_launch_rocket(rocket_b, mars_loc_factory)];
         assert![world.launch_rocket(rocket_b, mars_loc_factory).is_ok()];
 
         // Go forward two turns so that we're on Mars.
-        world.end_turn();
-        world.end_turn();
+        world.end_turn(FILLER_TIME);
+        world.end_turn(FILLER_TIME);
 
         // Rocket landing on a factory should destroy both units.
         world.land_rocket(rocket_b, mars_loc_factory);
@@ -2960,8 +2966,8 @@ mod tests {
         assert![world.launch_rocket(rocket, landing_loc).is_ok()];
 
         // Go forward two turns so that we're on Mars.
-        world.end_turn();
-        world.end_turn();
+        world.end_turn(FILLER_TIME);
+        world.end_turn(FILLER_TIME);
         world.land_rocket(rocket, landing_loc);
 
         // Cannot unload in the same round. But can after one turn.
@@ -3111,8 +3117,8 @@ mod tests {
         assert![world.blueprint(worker_d, UnitType::Rocket, Direction::South).is_ok()];
 
         // Blueprinting is never possible on Mars.
-        world.end_turn();
-        world.end_turn();
+        world.end_turn(FILLER_TIME);
+        world.end_turn(FILLER_TIME);
         let mars_factory_loc = MapLocation::new(Planet::Mars, 0, 0);
         let worker_e = world.create_unit(Team::Red, mars_factory_loc.add(Direction::North), UnitType::Worker).unwrap();
         assert![!world.can_blueprint(worker_e, UnitType::Factory, Direction::South)];
