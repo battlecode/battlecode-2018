@@ -5,6 +5,16 @@ mtput() {
     fi
 }
 
+if uname -s | grep -Fqe CYGWIN ; then
+	# TODO: Make CLI replacement
+    echo "run_nodocker.sh won't work on windows! Use run_nodocker.bat :)"
+    exit 1
+fi
+if uname -s | grep -Fqe MINGW ; then
+    echo "run_nodocker.sh won't work on windows! Use run_nodocker.bat :)"
+    exit 1
+fi
+
 # Use tput to show different colors in the terminal
 mtput setaf 5
 echo "$ pip3 install --user cffi eel tqdm werkzeug ujson psutil"
