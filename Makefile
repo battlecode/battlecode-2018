@@ -9,16 +9,28 @@ endif
 
 build: battlecode
 	@$(MAKE) -wC bindings
-	cp -R bindings/python/battlecode battlecode/python/battlecode
-	cp -R bindings/java/src/bc battlecode/java/bc
-	cp -R bindings/c/include battlecode/c/include
 	cp -R target/debug/deps/libbattlecode.a $(LIB_TARGET)
+	@$(MAKE) copy
 
 release: battlecode
 	@$(MAKE) -wC bindings release
+	cp -R target/release/deps/libbattlecode.a $(LIB_TARGET)
+	@$(MAKE) copy
+
+copy:
+	cp -R bindings/python/battlecode battlecode/python/battlecode
+	cp -R bindings/java/src/bc battlecode/java/bc
+	cp -R bindings/c/include battlecode/c/include
+
+copy-linux:
+	cp docker-artifacts/linux-battlecode/python/battlecode/linux/* battlecode/python/battlecode/linux/
+	cp docker-artifacts/linux-battlecode/java/bc/*linux* battlecode/java/bc/
+	cp docker-artifacts/linux-battlecode/c/lib/*linux* battlecode/c/lib/
+
+copy-win32:
+	cp win32-battlecode/python/battlecode/win32/* battlecode/python/battlecode/win32/
 
 battlecode:
-	rm -rf battlecode
 	mkdir -p battlecode/python/
 	mkdir -p battlecode/c/lib
 	mkdir -p battlecode/java/
@@ -63,5 +75,14 @@ package:
 	cp -R examplefuncsplayer-c bc18-scaffold/examplefuncsplayer-c
 	cp -R examplefuncsplayer-java bc18-scaffold/examplefuncsplayer-java
 	cp run_nodocker.sh bc18-scaffold/
+
+full-package:
+	# assumes you're on mac.
+	# you need to have a battlecode-win32 folder
+	make release
+	make docker-sandbox
+	make copy-linux
+	make docker-win32
+
 
 .PHONY: build test dockers battlecode
