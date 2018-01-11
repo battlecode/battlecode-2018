@@ -90,14 +90,11 @@ def get_player_dirs():
     players = []
     for o in os.listdir(player_dir):
         if o.startswith('.') or o in ('battlecode', 'battlecode-manager'):
-            print('skipping',o,'jc')
             continue
         full_path = os.path.join(player_dir, o)
         if not os.path.isdir(full_path):
-            print('skipping',o,'id')
             continue
         if os.path.exists(os.path.join(full_path, 'run.sh')):
-            print('skipping',o,'id')
             players.append(o)
     return players
 

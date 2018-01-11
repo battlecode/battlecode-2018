@@ -1,7 +1,6 @@
 #!/bin/sh
 # This is the script that runs INSIDE DOCKER to start the manager.
 # It won't work outside docker.
-
 echo "=== STARTING THE MANAGER ==="
 echo "=== random garbage incoming: ==="
 nohup dockerd-entrypoint.sh &
