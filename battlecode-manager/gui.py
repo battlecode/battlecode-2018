@@ -29,7 +29,6 @@ def start_game(return_args):
     finally:
         cli.cleanup(dockers, return_args, sock_file)
     lock.release()
-    print("release lock")
 
     if winner == 'player1':
         eel.trigger_end_game(1)()
@@ -40,10 +39,14 @@ def start_game(return_args):
 
 
 @eel.expose
-def get_viewer_data():
-    if game != None:
-        return json.loads(game.manager.manager_viewer_message())
-    else:
+def get_viewer_data(turn):
+    if game != None and len(game.manager_viewer_messages) >= 1:
+        if turn >= len(game.manager_viewer_messages) or turn == -1:
+            turn = len(game.manager_viewer_messages) - 1
+
+        message = game.manager_viewer_messages[turn]
+        return json.loads(message)
+    else :
         return {'width':0, 'height': 0, 'earth' : [], 'mars': []}
 
 
