@@ -1297,6 +1297,9 @@ class bcPINVOKE {
   [global::System.Runtime.InteropServices.DllImport("bc", EntryPoint="CSharp_GameController_winning_team")]
   public static extern int GameController_winning_team(global::System.Runtime.InteropServices.HandleRef jarg1);
 
+  [global::System.Runtime.InteropServices.DllImport("bc", EntryPoint="CSharp_GameController_manager_viewer_message")]
+  public static extern string GameController_manager_viewer_message(global::System.Runtime.InteropServices.HandleRef jarg1);
+
   [global::System.Runtime.InteropServices.DllImport("bc", EntryPoint="CSharp_GameController_new_manager")]
   public static extern global::System.IntPtr GameController_new_manager(global::System.Runtime.InteropServices.HandleRef jarg1);
 }

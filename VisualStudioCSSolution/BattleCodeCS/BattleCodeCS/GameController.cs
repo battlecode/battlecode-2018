@@ -486,4 +486,10 @@ public class GameController : global::System.IDisposable {
     return ret;
   }
 
+  public string manager_viewer_message() {
+    string ret = bcPINVOKE.GameController_manager_viewer_message(swigCPtr);
+    if (bcPINVOKE.SWIGPendingException.Pending) throw bcPINVOKE.SWIGPendingException.Retrieve();
+    return ret;
+  }
+
 }
