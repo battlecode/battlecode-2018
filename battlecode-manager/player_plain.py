@@ -35,7 +35,12 @@ class PlainPlayer(AbstractPlayer):
             r, w, e = select.select([stream], [], [], 0.01)
             if stream in r:
                 # Read something from the pipe
-                line_action(stream.readline())
+                line = stream.readline()
+                if line:
+                    line_action(line)
+                else:
+                    # EOF
+                    return
             elif self.process is None:
                 # Otherwise if the process is None then we should exit because the game is over
                 return
