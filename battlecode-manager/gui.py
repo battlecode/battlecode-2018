@@ -30,8 +30,12 @@ def start_game(return_args):
     lock.release()
     print("release lock")
 
-    if(winner!= None):
-        eel.trigger_end_game(1 if winner == 'player1' else 2)()
+    if winner == 'player1':
+        eel.trigger_end_game(1)()
+    elif winner == ' player2':
+        eel.trigger_end_game(2)()
+    else:
+        eel.trigger_end_game(0)()
 
 
 @eel.expose
@@ -80,7 +84,7 @@ def get_player_logs():
 def end_game():
     global game
     if game is not None:
-        game.winner = 'player1'
+        game.winner = 'player3'
         game.disconnected = True
         game.game_over = True
     return ""
