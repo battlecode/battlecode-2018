@@ -58,6 +58,9 @@ def get_maps():
 
     maps = [o for o in os.listdir(map_dir)
                         if 'bc18map' in o]
+    maps.extend([o for o in os.listdir('/player')
+                        if 'bc18map' in o])
+
     maps.append('testmap.bc18map')
     print(maps)
     return maps
