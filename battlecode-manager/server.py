@@ -59,7 +59,8 @@ class Game(object): # pylint: disable=too-many-instance-attributes
 
         # Lock thread running player should hold
         self.running_lock = threading.RLock()
-        self.this_turn_pid = 0 # The id of the player whose turn it is
+        self.current_player_index = 0  # The index of the player whose turn it is
+        self.turn_events = [threading.Event() for _ in range(len(self.players))]
 
         self.map = game_map
 
@@ -71,6 +72,14 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         self.last_message = manager_start_message.start_turn.to_json()
         self.viewer_messages.append(manager_start_message.viewer.to_json())
         self.initialized = 0
+
+
+    def player_id2index (self, client_id):
+        for i in range(len(self.players)):
+            if self.players[i]['id'] == client_id:
+                return i
+
+        raise Exception("Invalid id")
 
     @property
     def num_log_in(self):
@@ -119,9 +128,13 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         '''
 
         # Init the player who starts and then tell everyone we started
-        self.this_turn_pid = self.players[0]['id']
+        self._set_player_turn(0)
         self.started = True
         return
+
+    def _set_player_turn(self, player_index):
+        self.current_player_index = player_index
+        self.turn_events[player_index].set()
 
 
 
@@ -134,16 +147,9 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         '''
 
 
-        # Increment to the next player
-        index = -1
-        for i, player in enumerate(self.players):
-            if player['id'] == self.this_turn_pid:
-                index = i
-
-        index = (index + 1) % len(self.players)
-        self.this_turn_pid = self.players[index]['id']
-
-        self.running_lock.release()
+        # Increment to the next playe
+        self.current_player_index = (self.current_player_index + 1) % len(self.players)
+        self._set_player_turn(self.current_player_index)
 
     def get_viewer_messages(self):
         '''
@@ -162,32 +168,26 @@ class Game(object): # pylint: disable=too-many-instance-attributes
 
 
 
-    def start_turn(self, client_id: int):
+    def start_turn(self, player_index: int):
         '''
         This is a blocking function that waits until it client_id's turn to
         start the game. It attempts to take the game lock and then checks to see
         if the client_id matches the next player id. If it does it returns and
         the player can start running.
 
-        This also handles waking the docker instances to start computing
         '''
 
-        logging.debug("Client %s: entered start turn", client_id)
-        exit_well = False
-        while not self.game_over:
-            time.sleep(0.05)
-            if self.running_lock.acquire(timeout=0.1):
-                if  self.this_turn_pid == client_id:
-                    exit_well = True
-                    break
-                self.running_lock.release()
+        logging.debug("Client %s: entered start turn", player_index)
+        while True:
+            if self.turn_events[player_index].wait(timeout=0.1):
+                self.turn_events[player_index].clear()
+                assert(self.current_player_index == player_index)
+                self.times[self.players[player_index]['id']] += self.time_additional
+                logging.debug("Client %s: exit start turn", player_index)
+                return True
 
-        self.times[client_id] += self.time_additional
-        logging.debug("Client %s: exit start turn", client_id)
-        return exit_well
-
-
-
+            if self.game_over:
+                return False
 
     def make_action(self, turn_message: bc.TurnMessage, client_id: int, diff_time: float):
         '''
@@ -414,12 +414,14 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
 
             logging.info("Client %s: Game started", self.client_id)
 
-
             while self.game.started and not self.game.game_over:
                 # This is the loop that the code will always remain in
 
                 # Blocks until it this clients turn
-                if not self.game.start_turn(self.client_id):
+                our_index = self.game.player_id2index(self.client_id)
+
+                if not self.game.start_turn(our_index):
+                    # Game is done
                     self.request.close()
                     return
 
@@ -429,15 +431,12 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                     self.request.close()
                     return
 
-
                 logging.debug("Client %s: Started turn", self.client_id)
 
                 if self.game.initialized > 3:
                     start_turn_msg = self.message(self.game.last_message)
                 else:
-                    for player in self.game.players:
-                        if player['id'] == self.game.this_turn_pid:
-                            start_turn_msg = self.message(player['start_message'])
+                    start_turn_msg = self.message(self.game.players[self.game.current_player_index]['start_message'])
 
                 """# Start player code computing
                 if use_docker:
@@ -464,7 +463,6 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                     game.make_action(turn_message, self.client_id, diff_time)
                 else:
                     self.game.initialized += 1
-
 
                 """
                 if use_docker:
