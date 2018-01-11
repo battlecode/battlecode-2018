@@ -68,6 +68,35 @@ class PlainPlayer(AbstractPlayer):
 
     def destroy(self):
         if self.process is not None:
-            self.process.kill()
+            reap(self.process)
             self.process = None
         super().destroy()
+
+def reap(process, timeout=3):
+    "Tries hard to terminate and ultimately kill all the children of this process."
+    def on_terminate(proc):
+        print("process {} terminated with exit code {}".format(proc.pid, proc.returncode))
+
+    try:
+        procs = process.children(recursive=True)
+        # send SIGTERM
+        for p in procs:
+            print("Killing ", p.pid)
+            p.terminate()
+        gone, alive = psutil.wait_procs(procs, timeout=timeout, callback=on_terminate)
+        if alive:
+            # send SIGKILL
+            for p in alive:
+                print("process {} survived SIGTERM; trying SIGKILL" % p.pid)
+                p.kill()
+            gone, alive = psutil.wait_procs(alive, timeout=timeout, callback=on_terminate)
+            if alive:
+                # give up
+                for p in alive:
+                    print("process {} survived SIGKILL; giving up" % p.pid)
+
+        print("Killing ", process.pid)
+        process.kill()
+    except:
+        print("Killing failed; assuming process exited early.")
+

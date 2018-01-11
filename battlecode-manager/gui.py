@@ -6,6 +6,7 @@ import sys
 import json
 import signal
 import psutil
+import player_plain
 
 target_dir = os.path.abspath(os.path.dirname(__file__))
 print('Moving into', target_dir)
@@ -147,8 +148,8 @@ def reap_children(timeout=3):
 
 @eel.expose
 def stop_manager():
-    reap_children()
-    print("Shutting self down with a SIGKILL.")
+    print("Shutting manager down.")
+    player_plain.reap(psutil.Process())
     procs = psutil.Process().kill()
 
 
