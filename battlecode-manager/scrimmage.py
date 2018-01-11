@@ -2,6 +2,8 @@ from werkzeug.wrappers import Request, Response
 import psycopg2
 import json
 import os
+import battlecode_cli as cli
+
 
 ##### SCRIMMAGE SERVER 2K18 #######
 ##
@@ -23,10 +25,21 @@ import os
 ##     At any time we can GET a status JSON {'games_run':[listofidseverrun],'busy':true/false}
 ##
 
+pg = None
+cur = None
+BUSY = False
+s3_bucket = None
 GAMES_RUN = []
+
 
 def random_key(length):
     return ''.join([random.choice(string.ascii_letters + string.digits + string.digits) for _ in range(length)])
+
+def run_match(data):
+    data['s3_bucket'] = s3_bucket
+    (game, dockers, sock_file) = cli.create_scrimmage_game(data)
+
+    pass
 
 @Request.application
 def application(request):
@@ -40,13 +53,27 @@ def application(request):
         elif data['password'] != os.environ['PASSWORD']:
             return Response(json.dumps({'error':'Incorrect password.'}),401)
 
-        if not ('red_key' in data and 'blue_key' in data and ('map' in data or 'mapfile' in data)):
+        if not ('red_key' in data and 'blue_key' in data and 'map' in data):
             return Response(json.dumps({'error':'Not all fields provided.'}),400)
 
 
+        if not BUSY:
+            cur.execute("INSERT INTO " + os.environ["TABLE_NAME"] + " (red_key, blue_key, map, start, replay) VALUES (%s, %s, %s, now(), '') RETURNING id", (data['red_key'],data['blue_key'],data['map']))
+            pg.commit()
+
+            GAMES_RUN.append(cur.fetchone()[0])
+            BUSY = True
+            run_match(data)
 
         return Response('Goodbye World!')
 
 if __name__ == "__main__":
     from werkzeug.serving import run_simple
+    try:
+        pg = psycopg2.connect("dbname='battlecode' user='battlecode' host='" + os.environ["DB_HOST"] + "' password='" + os.environ["DB_PASS"] + "'")
+        cur = pg.cursor()
+        print("Connected to postgres.")
+    except:
+        print("Could not connect to postgres.")
+
     run_simple('0.0.0.0', 410, application, use_reloader=True)
