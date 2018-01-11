@@ -1,6 +1,16 @@
 #!/bin/bash
+mtput() {
+    if command -v tput > /dev/null; then
+        tput $@
+    fi
+}
+
+# Use tput to show different colors in the terminal
+mtput setaf 5
 echo "$ pip3 install --user cffi eel tqdm werkzeug ujson psutil"
+mtput sgr0
 pip3 install -q --user cffi eel tqdm werkzeug ujson psutil
+
 RESULT=$?
 if [ $RESULT -ne 0 ]; then
     echo "Warning: pip install failed!"
