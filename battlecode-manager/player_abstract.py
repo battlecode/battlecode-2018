@@ -36,6 +36,7 @@ class AbstractPlayer:
     def __init__(self, socket_file, working_dir, local_dir, s3_bucket, s3_key,
                  player_key, player_mem_limit, player_cpu):
         self.player_mem_limit = str(player_mem_limit) + 'mb'
+        self.player_cpu_fraction = player_cpu/100.0
         self.player_key = player_key
         self.socket_file = socket_file
 
