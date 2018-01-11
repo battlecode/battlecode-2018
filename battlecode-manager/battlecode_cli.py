@@ -90,7 +90,7 @@ def run_game(game, dockers, args, sock_file):
 
     # Wait until all the code is done then clean up
     while not game.game_over:
-        time.sleep(1)
+        time.sleep(0.1)
 
     print('Killing game server.')
     main_server.shutdown()
