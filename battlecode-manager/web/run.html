@@ -7,6 +7,9 @@
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.1/css/bulma.min.css">
     <link rel="icon" type="image/png" href="favicon.png">
+    <style>
+        canvas { width:100%; }
+    </style>
 </head>
 <body style="display: flex;min-height: 100vh;flex-direction: column;">
     <section class="hero is-primary" style="background-color:#A31F34">
@@ -22,7 +25,7 @@
         </div>
     </section>
 
-    <section class="section" style="flex:1">
+    <section class="section" style="flex:1" id="runner_view">
         <div class="notification is-warning" style="display:none" id="warning">
             <button class="delete" onclick="document.getElementById('warning').style.display='none'"></button>
             <strong> Fatal error. </strong> <span id="warning-text"></span>
@@ -137,60 +140,81 @@
         </div>
     </section>
 
+    <section class="section" style="flex:1;display:none" id="running_view">
+        <div class="tile is-ancestor">
+            <div class="tile is-4 is-vertical is-parent">
+                <div class="tile is-child" style="text-align:center">
+                    <canvas id="earth"></canvas>
+                </div>
+            </div>
+            <div class="tile is-4 is-vertical is-parent">
+                <div class="tile is-child" style="text-align:center">
+                    <canvas id="mars"></canvas>
+                </div>
+            </div>
+            <div class="tile is-parent">
+                <div class="tile is-child">
+                    <a onclick="trigger_end_game()" style="width:100%" class="button is-warning">
+                        <span class="icon">
+                            <i class="fa fa-times-circle"></i>
+                        </span><span>End game</span>
+                    </a><br /><br />
+
+                    <a onclick="eel.stop_manager()()" style="width:100%" class="button is-danger">
+                        <span class="icon">
+                            <i class="fa fa-stop-circle-o"></i>
+                        </span><span>Stop manager</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="tile is-ancestor">
+            <div class="tile is-parent">
+                <div class="tile is-child box" style="overflow:scroll">
+                    <p class="title">Red Earth</p>
+                    <p id="red_earth"></p>
+                </div>
+            </div>
+            <div class="tile is-parent">
+                <div class="tile is-child box" style="overflow:scroll">
+                    <p class="title">Red Mars</p>
+                    <p id="red_mars"></p>
+                </div>
+            </div>
+            <div class="tile is-parent">
+                <div class="tile is-child box" style="overflow:scroll">
+                    <p class="title">Blue Earth</p>
+                    <p id="blue_earth"></p>
+                </div>
+            </div>
+            <div class="tile is-parent">
+                <div class="tile is-child box" style="overflow:scroll">
+                    <p class="title">Blue Mars</p>
+                    <p id="blue_mars"></p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
     <footer class="footer">
         <div class="container">
             <div class="content has-text-centered">
                 <p>
-                    <strong>Battlecode: Escape to Mars</strong> by <a href="http://battlecode.org/">MIT Battlecode</a>. Version 0.9.3.
+                    <strong>Battlecode: Escape to Mars</strong> by <a href="http://battlecode.org/">MIT Battlecode</a>. Version 0.9.4.
                 </p>
             </div>
         </div>
     </footer>
-    <div class="modal">
-        <div class="modal-background"></div>
-        <div class="modal-card">
-            <header class="modal-card-head">
-                <p class="modal-card-title">Live player logs</p>
-            </header>
-            <section class="modal-card-body">
-                <div class="content">
-                    <div class="tile is-ancestor">
-                        <div class="tile is-6 is-vertical is-parent" style="height:600px;">
-                            <div class="tile is-child box" style="overflow:scroll">
-                                <p class="title">Red Earth</p>
-                                <p id="red_earth"></p>
-                            </div>
-                            <div class="tile is-child box" style="overflow:scroll">
-                                <p class="title">Red Mars</p>
-                                <p id="red_mars"></p>
-                            </div>
-                        </div>
-                        <div class="tile is-6 is-vertical is-parent">
-                            <div class="tile is-child box" style="overflow:scroll">
-                                <p class="title">Blue Earth</p>
-                                <p id="blue_earth"></p>
-                            </div>
-                            <div class="tile is-child box" style="overflow:scroll">
-                                <p class="title">Blue Mars</p>
-                                <p id="blue_mars"></p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-            <footer class="modal-card-foot">
-                <a onclick="trigger_end_game()" class="button is-danger">
-                    <span class="icon">
-                        <i class="fa fa-times-circle"></i>
-                    </span><span>End game</span>
-                </a>
-            </footer>
-        </div>
-    </div>
+
     <script type="text/javascript" src="/eel.js"></script>
     <script>
+
     var modal = document.querySelector('.modal');
     var html = document.querySelector('html');
+    var earth = document.getElementById("earth");
+    var mars = document.getElementById("mars");
     function alert_error(message) {
         document.getElementById('warning-text').innerText = message;
         document.getElementById('warning').style.display='block';
@@ -200,6 +224,61 @@
         message = winner==1 ? "red team" : "blue team";
         document.getElementById('winner-text').innerText = message;
         document.getElementById('winner').style.display='block';
+    }
+
+    function draw_grid(canvas, width, height, pixels, earth)  {
+        var p = 10;
+        var b = 2;
+
+        var s = p-2*b
+        canvas.width = 10*width + 2*p;
+        canvas.height = 10*height + 2*p;
+
+        var cw = 10*width + (p*2) + 1;
+        var ch = 10*height + (p*2) + 1;
+
+
+        context = canvas.getContext("2d");
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        context.fillStyle="#6FB76F" if earth else "#FF8F66";
+        context.fillRect(p,p,10*width,10*height);
+        context.font = "9px monospace";
+        for (var i=0; i<pixels.length; i+=2) {
+            row = height - Math.floor((i/2)/width) - 1;
+            col = (i/2)%width;
+
+            x_in = 1.5*p + col*p - s/2
+            y_in = 1.5*p + row*p - s/2
+
+            if (pixels[i+1]==0) {
+                context.fillStyle="#ff0000";
+                context.fillRect(x_in,y_in,s+1,s+1);
+            } else if (pixels[i+1]==1) {
+                context.fillStyle="#0000ff";
+                context.fillRect(x_in,y_in,s+1,s+1);
+            } else if (pixels[i] != 0) {
+                context.fillStyle="#000000"
+                context.fillRect(x_in-b,y_in-b,s+1 + 2*b,s+1 + 2*b);
+            }
+
+            vals = ['W','K','R','M','H','F','^']
+            if (pixels[i+1]==0 || pixels[i+1]==1) {
+                context.fillStyle="#ffffff";
+                char = vals[pixels[i]-1];
+                context.fillText(char,x_in+b/2,y_in+s);
+            }
+        }
+
+        for (var x = 0; x <= 10*width; x += 10) {
+            context.moveTo(0.5 + x + p, p);
+            context.lineTo(0.5 + x + p, 10*height + p);
+        } for (var x = 0; x <= 10*height; x += 10) {
+            context.moveTo(p, 0.5 + x + p);
+            context.lineTo(10*width + p, 0.5 + x + p);
+        } context.strokeStyle = "black";
+        context.stroke();
+
+
     }
 
     window.onload = async function() {
@@ -269,20 +348,27 @@
 
     eel.expose(trigger_end_game);
     function trigger_end_game(winner) {
-        console.log('got end game')
-        modal.classList.remove('is-active');
+        document.getElementById('runner_view').style.display = "block";
+        document.getElementById('running_view').style.display = "none";
+
         clearInterval(interval);
         eel.end_game();
         report_winner(winner);
     }
 
     function display_logs(params) {
-        modal.classList.add('is-active');
+        document.getElementById('runner_view').style.display = "none";
+        document.getElementById('running_view').style.display = "block";
+
         elements = [document.getElementById('red_earth'), document.getElementById('blue_earth'), document.getElementById('red_mars'), document.getElementById('blue_mars')]
 
         return setInterval(async function() {
             logs = await eel.get_player_logs()();
             for (var i=0; i<4; i++) elements[i].innerText = logs[i];
+
+            var maps = await eel.get_viewer_data()();
+            draw_grid(earth,maps['width'],maps['height'],maps['earth']);
+            draw_grid(mars,maps['width'],maps['height'],maps['mars']);
         },300);
     }
 

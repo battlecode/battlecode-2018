@@ -2,6 +2,7 @@ import eel
 import os
 import battlecode_cli as cli
 import threading
+import json
 
 options = {'host':'0.0.0.0', 'port':6147, 'mode':'default'}
 
@@ -28,6 +29,14 @@ def start_game(return_args):
     lock.release()
 
     eel.trigger_end_game(1 if winner == 'player1' else 2)()
+
+
+@eel.expose
+def get_viewer_data():
+    if game != None:
+        return json.loads(game.manager.manager_viewer_message())
+    else:
+        return {'width':0, 'height': 0, 'earth' : [], 'mars': []}
 
 
 @eel.expose

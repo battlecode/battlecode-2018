@@ -84,6 +84,14 @@ fn check_message<T>(msg: ReceivedMessage<T>, player_key: &str) -> Result<T, Erro
     }
 }
 
+#[derive(Serialize)]
+struct ManagerViewMessage {
+    width: u32,
+    height: u32,
+    earth: Vec<u32>,
+    mars: Vec<u32>
+}
+
 
 impl GameController {
 
@@ -1104,6 +1112,89 @@ impl GameController {
         } else {
             bail!("Game is not finished");
         }
+    }
+
+    pub fn manager_viewer_message(&self) -> String{
+        let earth_map = &self.world.planet_maps[&Earth];
+        let height = earth_map.height;
+        let width = earth_map.width;
+
+        let earth_map = &self.world.planet_maps[&Earth];
+        let earth_units = &self.world.planet_states.get(&Earth);
+        let mars_map = &self.world.planet_maps[&Mars];
+        let mars_units = &self.world.planet_states.get(&Mars);
+
+        let mut message = ManagerViewMessage {
+            width: width as u32,
+            height: height as u32,
+            earth: vec![0; 2*width*height],
+            mars: vec![0; 2*width*height],
+        };
+
+        for x in (0..width) {
+            for y in (0..height) {
+                let loc = MapLocation::new(Earth, x as i32, y as i32);
+                if let Some(id) = earth_units.and_then(|eu| eu.units_by_loc.get(&loc)) {
+                    let unit = &earth_units.unwrap().units[&id];
+                    let unit_int = match unit.unit_type() {
+                        Worker => 1,
+                        Knight => 2,
+                        Ranger => 3,
+                        Mage => 4,
+                        Healer => 5,
+                        Factory => 6,
+                        Rocket => 7,
+                    };
+                    let team_int = match unit.team() {
+                        Red => 0,
+                        Blue => 1,
+                    };
+                    message.earth[(x+y*width)*2] = unit_int;
+                    message.earth[(x+y*width)*2+1] = team_int;
+
+                } else if !earth_map.is_passable_terrain[x as usize][y as usize] {
+                    message.earth[(x+y*width)*2] = 8;
+                    message.earth[(x+y*width)*2+1] = 3;
+                } else {
+                    message.earth[(x+y*width)*2] = 0;
+                    message.earth[(x+y*width)*2+1] = 3;
+                }
+
+                let loc = MapLocation::new(Mars, x as i32, y as i32);
+                if let Some(id) = mars_units.and_then(|mu| mu.units_by_loc.get(&loc)) {
+                    let unit = &mars_units.unwrap().units[&id];
+                    let unit_int = match unit.unit_type() {
+                        Worker => 1,
+                        Knight => 2,
+                        Ranger => 3,
+                        Mage => 4,
+                        Healer => 5,
+                        Factory => 6,
+                        Rocket => 7,
+                    };
+                    let team_int = match unit.team() {
+                        Red => 0,
+                        Blue => 1,
+                    };
+                    message.mars[(x+y*width)*2] = unit_int;
+                    message.mars[(x+y*width)*2+1] = team_int;
+                } else if !mars_map.is_passable_terrain[x as usize][y as usize] {
+                    message.mars[(x+y*width)*2] = 8;
+                    message.mars[(x+y*width)*2+1] = 3;
+                } else {
+                    message.mars[(x+y*width)*2] = 0;
+                    message.mars[(x+y*width)*2+1] = 3;
+                }
+
+            }
+
+        }
+
+        use serde_json::to_string;
+
+        to_string(&message).unwrap()
+
+
     }
 
     pub fn print_game_ansi(&self) {
