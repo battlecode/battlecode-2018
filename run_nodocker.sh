@@ -4,6 +4,14 @@ mtput() {
         tput $@
     fi
 }
+if uname -s | grep -Fqe CYGWIN ; then
+    echo "run_nodocker.sh won't work on windows! Use run_nodocker.bat :)"
+    exit 1
+fi
+if uname -s | grep -Fqe MINGW ; then
+    echo "run_nodocker.sh won't work on windows! Use run_nodocker.bat :)"
+    exit 1
+fi
 
 echo "=== STARTING THE MANAGER (no docker) ==="
 echo "=== ensuring dependencies ==="
