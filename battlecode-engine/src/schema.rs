@@ -88,7 +88,7 @@ pub struct TurnMessage {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct StartTurnMessage {
     // Time left, in milliseconds.
-    pub time_left_ms: u32,
+    pub time_left_ms: i32,
     // Current round.
     pub round: Rounds,
 

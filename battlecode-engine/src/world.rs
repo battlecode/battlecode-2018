@@ -2014,7 +2014,7 @@ impl GameWorld {
         }
     }
 
-    pub(crate) fn initial_start_turn_message(&self, time_left_ms: u32) -> StartTurnMessage {
+    pub(crate) fn initial_start_turn_message(&self, time_left_ms: i32) -> StartTurnMessage {
         let initial_player = Player::first_to_move();
         let world = self.cached_world(initial_player);
         if world.round != 1 {
@@ -2042,7 +2042,7 @@ impl GameWorld {
     /// finished, also processes the end of the round. This includes updating
     /// unit cooldowns, rocket landings, asteroid strikes, research, etc. Returns 
     /// the next player to move, and whether the round was also ended.
-    pub(crate) fn end_turn(&mut self, time_left_ms: u32) -> StartTurnMessage {
+    pub(crate) fn end_turn(&mut self, time_left_ms: i32) -> StartTurnMessage {
         use self::Team::*;
         use self::Planet::*;
 
@@ -2196,7 +2196,7 @@ impl GameWorld {
 
     /// Applies a turn message to this GameWorld, and ends the current turn.
     /// Returns the message to send to the next player.
-    pub(crate) fn apply_turn(&mut self, turn: &TurnMessage, time_left_ms: u32) -> StartTurnMessage {
+    pub(crate) fn apply_turn(&mut self, turn: &TurnMessage, time_left_ms: i32) -> StartTurnMessage {
         for delta in turn.changes.iter() {
             self.apply(delta).unwrap();
         }
@@ -2344,7 +2344,7 @@ mod tests {
 
     // a filler time that only has meaning in the context of actual games
     // run under time duress
-    const FILLER_TIME: u32 = 10000;
+    const FILLER_TIME: i32 = 10000;
 
     fn _print_visible_locs(locs: &Vec<Vec<bool>>) {
         for bool_row in locs {

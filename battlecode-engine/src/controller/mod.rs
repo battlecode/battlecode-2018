@@ -59,7 +59,7 @@ pub struct GameController {
     turn: TurnMessage,
     stream: Option<Streams>,
     player_key: Option<String>,
-    time_left_ms: Option<u32>,
+    time_left_ms: Option<i32>,
 }
 
 fn check_message<T>(msg: ReceivedMessage<T>, player_key: &str) -> Result<T, Error> {
@@ -185,7 +185,7 @@ impl GameController {
     }
 
     /// Get the time left at the start of this player's turn, in milliseconds.
-    pub fn get_time_left_ms(&self) -> u32 {
+    pub fn get_time_left_ms(&self) -> i32 {
         self.time_left_ms.expect("only the player controller should call get_time_left_ms()")
     }
 
@@ -1071,7 +1071,7 @@ impl GameController {
     /// which also happens to be the total amount of time in the initial pool.
     ///
     /// DO NOT CALL THIS FUNCTION UNLESS YOU ARE THE MANAGER!
-    pub fn initial_start_turn_message(&self, time_left_ms: u32) -> InitialTurnApplication {
+    pub fn initial_start_turn_message(&self, time_left_ms: i32) -> InitialTurnApplication {
         let mut world = self.world.clone();
         world.cached_world.clear();
         InitialTurnApplication {
@@ -1096,7 +1096,7 @@ impl GameController {
     /// and not the player whose turn you are applying.
     ///
     /// DO NOT CALL THIS FUNCTION UNLESS YOU ARE THE MANAGER!
-    pub fn apply_turn(&mut self, turn: &TurnMessage, time_left_ms: u32) -> TurnApplication {
+    pub fn apply_turn(&mut self, turn: &TurnMessage, time_left_ms: i32) -> TurnApplication {
         // Serialize the filtered game state to send to the player
         let start_turn = self.world.apply_turn(turn, time_left_ms);
         // Serialize the game state to send to the viewer
