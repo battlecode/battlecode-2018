@@ -17,7 +17,7 @@ python setup.py build_ext --inplace
 @if %errorlevel% neq 0 exit /b %errorlevel%
 
 cd ../java/src/bc
-swig -java -package bc -outcurrentdir ../../../c/include/bc.i)
+swig -java -package bc -outcurrentdir ../../../c/include/bc.i
 @if %errorlevel% neq 0 exit /b %errorlevel%
 
 cd ../..
@@ -25,3 +25,13 @@ javac src/bc/*.java
 @if %errorlevel% neq 0 exit /b %errorlevel%
 
 nmake /f windows.mk
+
+cd ../..
+
+setlocal enableextensions
+md %1
+cp -R bindings/python/battlecode battlecode/python/battlecode
+cp -R bindings/java/src/bc battlecode/java/bc
+cp -R bindings/c/include battlecode/c/include
+cp -R target/debug/deps/battlecode.lib battlecode/c/lib/battlecode-win32.lib
+endlocal
