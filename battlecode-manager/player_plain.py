@@ -46,16 +46,14 @@ class PlainPlayer(AbstractPlayer):
                 return
 
     def start(self):
-        # TODO: windows chec
-        args = ['sh', os.path.join(self.working_dir, 'run.sh')]
-
         if sys.platform == 'win32':
             args = [os.path.join(self.working_dir, 'run.bat')]
             # things break otherwise
             env = dict(os.environ)
         else:
-        	# Path needs to be passed through, otherwise some compilers (e.g gcc) can get confused and not find things
-            env = { 'PATH': os.environ['PATH'] }
+            args = ['sh', os.path.join(self.working_dir, 'run.sh')]
+            # Path needs to be passed through, otherwise some compilers (e.g gcc) can get confused and not find things
+            env = {'PATH': os.environ['PATH']}
 
         env['PLAYER_KEY'] = str(self.player_key)
         env['RUST_BACKTRACE'] = '1'
