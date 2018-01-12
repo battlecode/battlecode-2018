@@ -19,6 +19,9 @@ import battlecode as bc
 
 NUM_PLAYERS = 4
 
+import threading
+l = threading.Lock()
+
 PKEYS = {
     int(bc.Planet.Earth): {
         int(bc.Team.Red): 0,
@@ -66,6 +69,8 @@ class Game(object): # pylint: disable=too-many-instance-attributes
 
         self.disconnected = False
 
+        self.players_dict = {}
+
         # Initialize the players
         for index in range(NUM_PLAYERS):
             new_id = random.randrange(65536)
@@ -73,6 +78,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
             self.players[-1]['player'] = bc.Player(bc.Team.Red if index % 2 == 0 else bc.Team.Blue, bc.Planet.Earth if index < 2 else bc.Planet.Mars)
             self.player_logged[new_id] = False
             self.times[new_id] = self.time_pool
+            self.players_dict[new_id] = self.players[-1]
 
         self.started = False
         self.game_over = False
@@ -222,9 +228,6 @@ class Game(object): # pylint: disable=too-many-instance-attributes
                 max_yield_item = new_max
             time.sleep(0.1)
 
-
-
-
     def start_turn(self, client_id: int):
         '''
         This is a blocking function that waits until it client_id's turn to
@@ -246,9 +249,6 @@ class Game(object): # pylint: disable=too-many-instance-attributes
                 return True
 
         return False
-
-
-
 
     def make_action(self, turn_message: bc.TurnMessage, client_id: int, diff_time: float):
         '''
@@ -318,7 +318,6 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             except (StopIteration, IOError):
                 wrapped_socket.close()
                 recv_socket.close()
-                print("Here?")
                 for i in range(NUM_PLAYERS):
                     if self.client_id == self.game.players[i]['id']:
                         if i < 2:
@@ -438,7 +437,6 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             while not self.logged_in:
                 unpacked_data = self.get_next_message()
 
-
                 verify_out = self.game.verify_login(unpacked_data)
 
                 self.error = ""
@@ -455,13 +453,6 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
 
                 self.send_message(log_success)
 
-            """
-            if use_docker:
-                # Attribute defined here for ease of use.
-                self.docker = self.dockers[self.client_id]#pylint: disable=W0201
-                self.docker.pause()
-            """
-
             logging.debug("Client %s: Spinning waiting for game to start",
                           self.client_id)
 
@@ -469,12 +460,15 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 # Spin while waiting for game to start
                 time.sleep(0.05)
 
-
             logging.info("Client %s: Game started", self.client_id)
 
+            my_sandbox = dockers[self.client_id]
+            my_player = self.game.players_dict[self.client_id]['player']
 
             while self.game.started and not self.game.game_over:
                 # This is the loop that the code will always remain in
+                import sys
+                sys.stdout.flush()
 
                 # Blocks until it this clients turn
                 if not self.game.start_turn(self.client_id):
@@ -487,7 +481,6 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                     self.request.close()
                     return
 
-
                 logging.debug("Client %s: Started turn", self.client_id)
 
                 if self.game.initialized > 3:
@@ -498,12 +491,14 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
 
                 # but i'm getting wierd results when testing?
                 start_time = time.perf_counter()
+                my_sandbox.unpause()
                 self.send_message(start_turn_msg)
 
                 if self.game.initialized > 3:
                     unpacked_data = self.get_next_message()
                     end_time = time.perf_counter()
                     diff_time = end_time-start_time
+                    my_sandbox.pause()
 
                     # Check client is who they claim they are
                     if int(unpacked_data['client_id']) != self.client_id:
@@ -512,7 +507,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                     # Get the moves to pass to the game
                     turn_message = bc.TurnMessage.from_json(json.dumps(unpacked_data['turn_message']))
 
-                    game.make_action(turn_message, self.client_id, diff_time)
+                    self.game.make_action(turn_message, self.client_id, diff_time)
                 else:
                     self.game.initialized += 1
 

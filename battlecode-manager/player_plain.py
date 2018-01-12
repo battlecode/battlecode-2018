@@ -103,10 +103,8 @@ def reap(process, timeout=3):
     except:
         print("Killing failed; assuming process exited early.")
 
-import time
 def suspend(process):
-    s = time.time()
-    procs = process.children(recursive=True)
+    procs = process.children(recursive=False)
     # to enterprising players reading this code:
     # yes, it is possible to escape the pausing using e.g. `nohup` when running without docker.
     # however, that won't work while running inside docker. Sorry.
@@ -119,10 +117,8 @@ def suspend(process):
         p.suspend()
     except:
         pass
-    print('suspension took:', time.time() - s)
 
 def resume(process):
-    s = time.time()
     procs = process.children(recursive=True)
     for p in procs:
         try:
@@ -133,5 +129,4 @@ def resume(process):
         p.resume()
     except:
         pass
-    print('resumption took:', time.time() - s)
 
