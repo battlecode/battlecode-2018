@@ -1079,11 +1079,9 @@ impl GameWorld {
             Err(GameError::InappropriateUnitType)?;
         }
         self.my_unit(robot_id)?.ok_if_on_map()?;
+        self.unit(target_id)?.ok_if_on_map()?;
 
         let target_loc = self.unit(target_id).unwrap().location();
-        if !target_loc.is_on_map() {
-            Err(GameError::UnitNotOnMap)?;
-        }
         self.my_unit(robot_id).unwrap().ok_if_within_attack_range(target_loc)?;
         Ok(())
     }
