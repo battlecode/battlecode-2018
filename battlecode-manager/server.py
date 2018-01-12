@@ -136,6 +136,10 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         triggered when a game starts is stored here.
         '''
 
+        if self.terminal_viewer and sys.platform != 'win32':
+            # Clear the entire screen
+            sys.stdout.write("\033[2J")
+
         # Init the player who starts and then tell everyone we started
         self.current_player_index = 0
         self.set_player_turn(self.current_player_index)
@@ -154,15 +158,28 @@ class Game(object): # pylint: disable=too-many-instance-attributes
 
         if self.terminal_viewer:
             if sys.platform == 'win32':
+                # Windows terminal only supports escape codes starting from Windows 10 in the 'Threshold 2' update.
+                # So fall back to other commands to ensure compatibility
                 os.system('cls')
             else:
-                os.system('clear')
+                # Move the cursor to coordinate (0,0) on the screen.
+                # Compared the clearing the entire screen, this reduces flicker.
+                # See https://en.wikipedia.org/wiki/ANSI_escape_code
+                sys.stdout.write("\033[0;0H")
+                # os.system('clear')
+
             print('[rnd: {}] [rK: {}] [bK: {}]'.format(
                 self.manager.round(),
                 self.manager.manager_karbonite(bc.Team.Red),
                 self.manager.manager_karbonite(bc.Team.Blue),
             ))
             self.manager.print_game_ansi()
+
+            if sys.platform != 'win32':
+                # Clear the screen from the cursor to the end of the screen.
+                # Just in case some text has been left over there from earlier frames.
+                sys.stdout.write("\033[J")
+
         if self.extra_delay:
             import time
             time.sleep(self.extra_delay / 1000.)
