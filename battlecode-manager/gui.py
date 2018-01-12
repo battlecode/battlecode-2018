@@ -36,6 +36,8 @@ def start_game(return_args):
         return_args['docker'] = True
         return_args['dir_p1'] = os.path.abspath(os.path.join('/player', return_args['dir_p1']))
         return_args['dir_p2'] = os.path.abspath(os.path.join('/player', return_args['dir_p2']))
+    return_args['terminal_viewer'] = False
+    return_args['extra_delay'] = 0
 
     global game
     (game, dockers, sock_file) = cli.create_game(return_args)

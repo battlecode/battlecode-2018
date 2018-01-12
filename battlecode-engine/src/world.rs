@@ -67,14 +67,14 @@ pub struct PlanetInfo {
     /// 2. Every entry has a corresponding entry in `units`.
     #[serde(serialize_with = "serialize_structymap")]
     #[serde(deserialize_with = "deserialize_structymap")]
-    pub units_by_loc: FnvHashMap<MapLocation, UnitID>,
+    pub(crate) units_by_loc: FnvHashMap<MapLocation, UnitID>,
 
     /// The amount of Karbonite deposited on the specified square.
     ///
     /// Stored as a two-dimensional array, where the first index 
     /// represents a square's y-coordinate, and the second index its 
     /// x-coordinate.
-    karbonite: Vec<Vec<u32>>,
+    pub(crate) karbonite: Vec<Vec<u32>>,
 }
 
 use serde::{Serialize, Deserialize, Serializer, Deserializer};
@@ -2348,6 +2348,10 @@ impl GameWorld {
             }
         }
         self.my_planet_mut().units_by_loc = units_by_loc;
+    }
+
+    pub(crate) fn manager_karbonite(&self, team: Team) -> u32 {
+        self.team_states.get(&team).expect("oy, stop being nefarious").karbonite
     }
 }
 

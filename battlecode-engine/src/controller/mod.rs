@@ -1209,8 +1209,6 @@ impl GameController {
         use serde_json::to_string;
 
         to_string(&message).unwrap()
-
-
     }
 
     pub fn print_game_ansi(&self) {
@@ -1300,6 +1298,11 @@ impl GameController {
         edge(eb);
         edge(mb);
         println!("");
+    }
+
+    // Get team karbonite from manager.
+    pub fn manager_karbonite(&self, team: Team) -> u32 {
+        self.world.manager_karbonite()
     }
 }
 

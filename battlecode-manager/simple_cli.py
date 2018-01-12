@@ -1,12 +1,20 @@
 import os
 import argparse
 import battlecode_cli as cli
+import sys
+try:
+    import colorama
+    colorama.init()
+    CINIT=True
+except:
+    CINIT=False
+    pass
 
 map_extension = ".bc18map"
 replay_extension = ".bc18"
 
 
-def run_game(map_path, player1dir, player2dir, replay_dir, docker=False):
+def run_game(map_path, player1dir, player2dir, replay_dir, docker=False, terminal_viewer=False, extra_delay=0):
     args = {}
     args['dir_p2'] = player1dir
     args['dir_p1'] = player2dir
@@ -19,7 +27,12 @@ def run_game(map_path, player1dir, player2dir, replay_dir, docker=False):
     args['time_pool'] = 1000
     args['time_additional'] = 50
     args['use_viewer'] = False
+    args['terminal_viewer'] = terminal_viewer
+    args['extra_delay'] = extra_delay
     args['map'] = cli.get_map(map_path)
+
+    if terminal_viewer and sys.platform == 'win32' and not CINIT:
+        print('To get pretty output with -tv on windows, run `py -3 -m pip install colorama`')
 
     (game, sandboxes, sock_file) = cli.create_game(args)
 
@@ -31,13 +44,11 @@ def run_game(map_path, player1dir, player2dir, replay_dir, docker=False):
 
     print("Winner is player: " + str(1 if winner == 'player1' else 2))
 
-
 def get_maps(map_directory):
     maps = [o for o in os.listdir(map_directory) if o.endswith(map_extension)]
     # This map is built-in
     maps.append('testmap.bc18map')
     return maps
-
 
 file_dir = os.path.dirname(os.path.realpath(__file__))
 map_directory = os.path.abspath(file_dir + '/../battlecode-maps')
@@ -47,6 +58,8 @@ parser.add_argument('-p2', '--player2', help="Path to the directory for player 2
 parser.add_argument('-m', '--map', help="The map to play on. The available maps are:\n" + ", ".join(get_maps(map_directory)), required=True)
 parser.add_argument('--replay-dir', help="Directory to save replays to. This may not work with docker.", default="replays", required=False)
 parser.add_argument('--docker', action='store_const', const=True, default=False, help="Use Docker to run the game. This requires Docker to be installed and the gods to be on your side")
+parser.add_argument('-tv', '--terminal-viewer', action='store_const', const=True, default=False, help="Print game images in the terminal.")
+parser.add_argument('-ed', '--extra-delay', type=int, default=0, help="add extra delay after each turn (make -tv slower)")
 
 args = parser.parse_args()
 map_path = args.map
@@ -66,7 +79,8 @@ if map_path not in get_maps(map_directory):
     print("Could not find any map named " + str(map_path) + ". Use --help to see a list of all available maps.")
 
 try:
-    run_game(map_path, args.player1, args.player2, replay_dir, docker=args.docker)
+    run_game(map_path, args.player1, args.player2, replay_dir,
+        docker=args.docker, terminal_viewer=args.terminal_viewer, extra_delay=args.extra_delay)
 except KeyboardInterrupt:
     print("Stopping game")
     raise
