@@ -1302,7 +1302,7 @@ impl GameController {
 
     // Get team karbonite from manager.
     pub fn manager_karbonite(&self, team: Team) -> u32 {
-        self.world.manager_karbonite()
+        self.world.manager_karbonite(team)
     }
 }
 
