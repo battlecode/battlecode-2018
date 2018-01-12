@@ -377,7 +377,10 @@ impl GameController {
 
     /// Whether there is a visible unit at a location.
     pub fn has_unit_at_location(&self, location: MapLocation) -> bool {
-        self.world.sense_unit_at_location(location).is_ok()
+        match self.world.sense_unit_at_location(location) {
+            Ok(unit) => unit.is_some(),
+            Err(_) => false
+        }
     }
 
     /// The unit at the location, if it exists.
