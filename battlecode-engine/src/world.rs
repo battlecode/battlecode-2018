@@ -2334,6 +2334,10 @@ impl GameWorld {
         }
         self.my_planet_mut().units_by_loc = units_by_loc;
     }
+
+    pub(crate) fn manager_karbonite(&self, team: Team) -> u32 {
+        self.team_states.get(&team).expect("oy, stop being nefarious").karbonite
+    }
 }
 
 #[cfg(test)]
