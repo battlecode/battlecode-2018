@@ -21,7 +21,7 @@ class Function(object):
         result = s(f'''\
             #[no_mangle]
             pub extern "C" fn {self.name}({', '.join(a.to_rust() for a in self.args)}) -> {self.type.rust} {{
-                let default: {self.type.rust} = {self.type.default};
+                let _default: {self.type.rust} = {self.type.default};
             '''
         )
         result += s(self.body, indent=4)
