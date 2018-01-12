@@ -1,8 +1,17 @@
 # Makefile to build C code.
-include ../../colors.mk
+include ../../helpers.mk
+
+ifeq ($(CUR_OS),win32)
+
+default:
+	@echo "nothing to do"
+test: default
+clean: default
+release: default
+
+else
 
 CC = gcc
-
 default: c_test
 
 test: c_test_run
@@ -15,6 +24,10 @@ c_test: test/c_test.c
 c_test_run: c_test
 	$(call test_command,LD_LIBRARY_PATH=../../target/debug/deps:$(LD_LIBRARY_PATH) test/c_test)
 
+release:
+
 .PHONY: clean
 clean:
 	rm test/*o test/c_test
+
+endif

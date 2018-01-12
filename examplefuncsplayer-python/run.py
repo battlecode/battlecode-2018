@@ -3,6 +3,9 @@ import random
 import sys
 import traceback
 
+import os
+print(os.getcwd())
+
 print("pystarting")
 
 # A GameController is the main type that you talk to the game with.
