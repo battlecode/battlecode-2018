@@ -89,7 +89,7 @@ def get_maps():
         map_dir = '/battlecode/battlecode-maps'
 
     maps = [o for o in os.listdir(map_dir)
-                        if 'bc18map' in o]
+                        if 'bc18map' in o or 'bc18t' in o]
 
     maps.append('testmap.bc18map')
     return maps

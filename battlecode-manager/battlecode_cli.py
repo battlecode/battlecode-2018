@@ -158,13 +158,19 @@ def get_map(map_name):
         with open(map_name) as f:
             contents = f.read()
         print("Loading map " + map_name)
-        return bc.GameMap.from_json(contents)
+        if map_name.endswith('.bc18map'):
+            return bc.GameMap.from_json(contents)
+        elif map_name.endswith('.bc18t'):
+            return bc.GameMap.parse_text_map(contents)
     except Exception as e:
         try:
             with open('/player/' + map_name) as f:
                contents = f.read()
             print("Loading map " + map_name)
-            return bc.GameMap.from_json(contents)
+            if map_name.endswith('.bc18map'):
+                return bc.GameMap.from_json(contents)
+            elif map_name.endswith('.bc18t'):
+                return bc.GameMap.parse_text_map(contents)
         except Exception as e:
             print("Loading test map...")
             return bc.GameMap.test_map()
