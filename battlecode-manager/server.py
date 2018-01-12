@@ -66,8 +66,6 @@ class Game(object): # pylint: disable=too-many-instance-attributes
 
         self.disconnected = False
 
-        self.players_dict = {}
-
         # Initialize the players
         for index in range(NUM_PLAYERS):
             new_id = random.randrange(65536)
@@ -75,7 +73,6 @@ class Game(object): # pylint: disable=too-many-instance-attributes
             self.players[-1]['player'] = bc.Player(bc.Team.Red if index % 2 == 0 else bc.Team.Blue, bc.Planet.Earth if index < 2 else bc.Planet.Mars)
             self.player_logged[new_id] = False
             self.times[new_id] = self.time_pool
-            self.players_dict[new_id] = self.players[-1]
 
         self.started = False
         self.game_over = False
@@ -460,13 +457,9 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             logging.info("Client %s: Game started", self.client_id)
 
             my_sandbox = dockers[self.client_id]
-            my_player = self.game.players_dict[self.client_id]['player']
 
             while self.game.started and not self.game.game_over:
                 # This is the loop that the code will always remain in
-                import sys
-                sys.stdout.flush()
-
                 # Blocks until it this clients turn
                 if not self.game.start_turn(self.client_id):
                     self.request.close()
