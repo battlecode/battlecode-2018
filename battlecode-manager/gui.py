@@ -60,6 +60,7 @@ def start_game(return_args):
 
 @eel.expose
 def get_viewer_data(turn):
+    turn = int(turn)
     if game != None and len(game.manager_viewer_messages) >= 1:
         if turn >= len(game.manager_viewer_messages) or turn == -1:
             turn = len(game.manager_viewer_messages) - 1
@@ -67,7 +68,7 @@ def get_viewer_data(turn):
         message = json.loads(game.manager_viewer_messages[turn])
         message['turn'] = turn
         return message
-    else :
+    else:
         return {'width':0, 'height': 0, 'earth' : [], 'mars': [], 'turn':0}
 
 @eel.expose

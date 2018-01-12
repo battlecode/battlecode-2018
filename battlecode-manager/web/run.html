@@ -6,7 +6,6 @@
     <title>Battlecode '18</title>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.1/css/bulma.min.css">
-    <link rel="stylesheet" href="https://raw.githubusercontent.com/Wikiki/bulma-extensions/master/bulma-extensions.min.css">
     <link rel="icon" type="image/png" href="favicon.png">
     <style>
         canvas { width:100%; }
@@ -148,48 +147,53 @@
 
     <section class="section" style="flex:1;display:none" id="running_view">
         <div class="tile is-ancestor">
-            <div class="tile is-parent">
-                <div class="tile is-child">
-                    <input id="slider" class="slider is-fullwidth" step="1" min="0" max="0" value="0" type="range">
-                </div>
-            </div>
-            <div class="tile is-8 is-vertical is-parent">
-                <div class="tile">
-                    <div class="tile is-child" style="text-align:center">
-                        <canvas id="earth"></canvas>
-                    </div>
+            <div class="tile is-vertical is-8">
+                <div class="tile is-parent">
+                    <article class="tile is-child">
+                        <div class="content">
+                            <input id="slider" style="width:100%" type="range" min="0" max="0" value="0" >
+                        </div>
+                    </article>
                 </div>
                 <div class="tile">
-                    <div class="tile is-child" style="text-align:center">
-                        <canvas id="mars"></canvas>
+                    <div class="tile is-parent is-6 is-vertical">
+                        <article class="tile is-child">
+                            <canvas id="earth"></canvas>
+                        </article>
+                    </div>
+                    <div class="tile is-6 is-parent is-vertical">
+                        <article class="tile is-child">
+                            <canvas id="mars"></canvas>
+                        </article>
                     </div>
                 </div>
             </div>
             <div class="tile is-parent">
-                <div class="tile is-child" style="text-align:center">
-                    <a onclick="use_latest()" style="width:100%" class="button is-primary">
-                        <span class="icon">
-                            <i class="fa fa-refresh"></i>
-                        </span><span>View live</span>
-                    </a><br /><br />
+                <article class="tile is-child">
+                    <div class="content" style="text-align:center">
+                        <a onclick="use_latest()" style="width:100%" class="button is-primary">
+                            <span class="icon">
+                                <i class="fa fa-refresh"></i>
+                            </span><span>View live</span>
+                        </a><br /><br />
 
-                    <a onclick="trigger_end_game()" style="width:100%" class="button is-warning">
-                        <span class="icon">
-                            <i class="fa fa-times-circle"></i>
-                        </span><span>End game</span>
-                    </a><br /><br />
+                        <a onclick="trigger_end_game()" style="width:100%" class="button is-warning">
+                            <span class="icon">
+                                <i class="fa fa-times-circle"></i>
+                            </span><span>End game</span>
+                        </a><br /><br />
 
-                    <a onclick="eel.stop_manager()()" style="width:100%" class="button is-danger">
-                        <span class="icon">
-                            <i class="fa fa-stop-circle-o"></i>
-                        </span><span>Stop manager</span>
-                    </a><br /><br />
+                        <a onclick="eel.stop_manager()()" style="width:100%" class="button is-danger">
+                            <span class="icon">
+                                <i class="fa fa-stop-circle-o"></i>
+                            </span><span>Stop manager</span>
+                        </a><br /><br />
 
-                    <h1 class="title" id="turn_field">0</h1>
-                </div>
+                        <h1 class="title" id="turn_field">0</h1>
+                    </div>
+                </article>
             </div>
         </div>
-
         <div class="tile is-ancestor">
             <div class="tile is-parent">
                 <div class="tile is-child box" style="overflow:scroll">
@@ -230,79 +234,7 @@
     </footer>
 
     <script type="text/javascript" src="/eel.js"></script>
-    <script>
-    // Find output DOM associated to the DOM element passed as parameter
-function findOutputForSlider( element ) {
-   var idVal = element.id;
-   outputs = document.getElementsByTagName( 'output' );
-   for( var i = 0; i < outputs.length; i++ ) {
-     if ( outputs[ i ].htmlFor == idVal )
-       return outputs[ i ];
-   }
-}
 
-function getSliderOutputPosition( slider ) {
-  // Update output position
-  var newPlace,
-      minValue;
-
-  var style = window.getComputedStyle( slider, null );
-  // Measure width of range input
-  sliderWidth = parseInt( style.getPropertyValue( 'width' ), 10 );
-
-  // Figure out placement percentage between left and right of input
-  if ( !slider.getAttribute( 'min' ) ) {
-    minValue = 0;
-  } else {
-    minValue = slider.getAttribute( 'min' );
-  }
-  var newPoint = ( slider.value - minValue ) / ( slider.getAttribute( 'max' ) - minValue );
-
-  // Prevent bubble from going beyond left or right (unsupported browsers)
-  if ( newPoint < 0 ) {
-    newPlace = 0;
-  } else if ( newPoint > 1 ) {
-    newPlace = sliderWidth;
-  } else {
-    newPlace = sliderWidth * newPoint;
-  }
-
-  return {
-    'position': newPlace + 'px'
-  }
-}
-
-document.addEventListener( 'DOMContentLoaded', function () {
-  // Get all document sliders
-  var sliders = document.querySelectorAll( 'input[type="range"].slider' );
-  [].forEach.call( sliders, function ( slider ) {
-    var output = findOutputForSlider( slider );
-    if ( output ) {
-      if ( slider.classList.contains( 'has-output-tooltip' ) ) {
-        // Get new output position
-        var newPosition = getSliderOutputPosition( slider );
-
-        // Set output position
-        output.style[ 'left' ] = newPosition.position;
-      }
-
-      // Add event listener to update output when slider value change
-      slider.addEventListener( 'input', function( event ) {
-        if ( event.target.classList.contains( 'has-output-tooltip' ) ) {
-          // Get new output position
-          var newPosition = getSliderOutputPosition( event.target );
-
-          // Set output position
-          output.style[ 'left' ] = newPosition.position;
-        }
-
-        // Update output with slider value
-        output.value = event.target.value;
-      } );
-    }
-  } );
-} );
-    </script>
     <script>
 
     var viewer_cache = {}
@@ -472,7 +404,7 @@ document.addEventListener( 'DOMContentLoaded', function () {
     }
 
     async function render_turn(turn) {
-        var maps = (turn in viewer_cache) ? viewer_cache[turn] : await eel.get_viewer_data(turn)();
+        var maps = (turn in viewer_cache) ? viewer_cache[turn] : await eel.get_viewer_data(4*turn)();
 
         draw_grid(earth,maps['width'],maps['height'],maps['earth'],true);
         draw_grid(mars,maps['width'],maps['height'],maps['mars'],false);
@@ -490,22 +422,30 @@ document.addEventListener( 'DOMContentLoaded', function () {
             logs = await eel.get_player_logs()();
             for (var i=0; i<4; i++) elements[i].innerText = logs[i];
 
-            var index = -1;
-            var maps = await eel.get_viewer_data(index)();
-            viewer_cache[maps['turn']] = maps;
+            var maps = await eel.get_viewer_data(-1)();
+            var turn = Math.floor(maps['turn']/4);
+            viewer_cache[turn] = maps;
 
-            max_turn = 0;
-            for (var turn in viewer_cache) {
-                if (turn > max_turn) max_turn = turn;
-            }
-
-            slider.max = max_turn;
+            slider.max = max_turn = turn;
 
             if (view_latest) {
-                slider.value = max_turn;
-                render_turn(max_turn);
+                slider.value = turn;
+                render_turn(turn);
             }
         },300);
+    }
+
+    document.onkeydown = function(e) {
+        //e = e || window.event;
+        if (e.keyCode == '37' && slider.value > 0) {
+           view_latest = false;
+           slider.value = slider.value - 1;
+           render_turn(slider.value);
+       } else if (e.keyCode == '39' && slider.value < slider.max) {
+           view_latest = false;
+           slider.value = slider.value + 1;
+           render_turn(slider.value);
+        }
     }
 
     var submit = document.getElementById("submit")
