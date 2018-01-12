@@ -351,6 +351,7 @@ GameMap.method(void.type.result(), 'validate', [], docs='''Validate the game map
 
  * InvalidMapObject - the game map is invalid.''')
 GameMap.method(GameMap.type, 'test_map', [], static=True)
+GameMap.method(GameMap.type.result(), 'parse_text_map', [Var(p.strref.type, 'map')], static=True, docs='parse a .bc18t map file')
 GameMap.clone()
 GameMap.serialize()
 
@@ -630,6 +631,9 @@ GameController.method(TurnApplication.type, 'apply_turn', [Var(TurnMessage.type.
 GameController.method(InitialTurnApplication.type, 'initial_start_turn_message', [])
 GameController.method(boolean.type, "is_over", [])
 GameController.method(Team.type.result(), "winning_team", [])
+GameController.method(p.string.type, "manager_viewer_message", [])
+GameController.method(void.type, "print_game_ansi", [])
+GameController.method(u32.type, "manager_karbonite", [Var(Team.type, 'team')])
 
 print('Generating...')
 with open("src/bindings.rs", "w+") as f:
@@ -641,6 +645,6 @@ with open("c/include/bc.h", "w+") as f:
 with open("c/include/bc.i", "w+") as f:
     f.write(p.to_swig())
 
-with open("python/battlecode/bc.py", "w+") as f:
+with open("python/battlecode/__init__.py", "w+") as f:
     f.write(p.to_python())
 print('Done.')

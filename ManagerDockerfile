@@ -3,7 +3,7 @@ FROM docker:18.01.0-ce-rc1-dind
 # Install Python3
 RUN apk add --update --no-cache \
     gcc musl-dev libffi-dev \
-    build-base \
+    build-base linux-headers \
     python3-dev && \
     python3 -m ensurepip && \
     rm -r /usr/lib/python*/ensurepip && \
@@ -13,21 +13,18 @@ RUN apk add --update --no-cache \
 # Install necessary python libs
 RUN pip3 install \
     tqdm docker boto3 werkzeug \
-    ujson cffi psycopg2
+    ujson cffi psycopg2 psutil eel
+
 
 # Install rust
 RUN apk add --update --no-cache \
     libffi-dev
 
 COPY ./docker-artifacts/battlebaby.tar /images/battlebaby.tar
-COPY ./docker-artifacts/battlecode /battlecode-python/battlecode
-ENV PYTHONPATH=/battlecode-python
-
-WORKDIR /battlecode/bindings
-
-RUN pip3 install eel
-
-WORKDIR /battlecode/bindings/python
+COPY ./docker-artifacts/linux-battlecode-musl /battlecode/battlecode
+ENV PYTHONPATH=/battlecode/battlecode/python
+# this is necessary because we don't need to copy this file into the target dir & it breaks shutil.copytree
+RUN rm /battlecode/battlecode/c/lib/libbattlecode.a
 
 ADD battlecode-manager /battlecode/battlecode-manager
 ADD battlecode-maps /battlecode/battlecode-maps

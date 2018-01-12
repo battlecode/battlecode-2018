@@ -1,4 +1,4 @@
-use std::os::unix::net::UnixStream;
+use std::net::TcpStream;
 use std::io::{Read, Write, ErrorKind};
 use std::path::Path;
 use std::convert::AsRef;
@@ -9,20 +9,21 @@ use failure::Error;
 use std::mem;
 use std::thread;
 use std::time::Duration;
+#[cfg(unix)]
+use std::os::unix::net::UnixStream;
 
-pub struct Streams {
-    stream: UnixStream,
+pub struct Stream<S: Read + Write> {
+    stream: S,
     // can't use BufReader because searching by lines is hard
     buf: Vec<u8>
 }
 
-impl Streams {
-    pub(crate) fn new<P: AsRef<Path>>(path: P) -> Result<Streams, Error> {
-        let stream = UnixStream::connect(path)?;
-        Ok(Streams {
+impl<S: Read + Write> Stream<S> {
+    pub(crate) fn new(stream: S) -> Stream<S> {
+        Stream {
             stream,
-            buf: Vec::new()
-        })
+            buf: vec![]
+        }
     }
 
     pub(crate) fn read<T: DeserializeOwned>(&mut self) -> Result<T, Error> {
@@ -74,24 +75,60 @@ impl Streams {
     }
 }
 
+#[cfg(unix)]
+pub enum Streams {
+    UnixStream(Stream<UnixStream>),
+    TcpStream(Stream<TcpStream>)
+}
+#[cfg(windows)]
+pub enum Streams {
+    // this is just here to keep the compiler happy, we never use it
+    UnixStream(Stream<TcpStream>),
+    TcpStream(Stream<TcpStream>)
+}
+
+impl Streams {
+    #[cfg(unix)]
+    pub(crate) fn new_unix<P: AsRef<Path>>(path: P) -> Result<Streams, Error> {
+        let stream = UnixStream::connect(path)?;
+        Ok(Streams::UnixStream(Stream::new(stream)))
+    }
+    #[cfg(windows)]
+    pub(crate) fn new_unix<P: AsRef<Path>>(path: P) -> Result<Streams, Error> {
+        bail!("unix streams not supported on windows");
+    }
+
+    pub(crate) fn new_tcp(port: u16) -> Result<Streams, Error> {
+        let stream = TcpStream::connect(("localhost", port))?;
+
+        Ok(Streams::TcpStream(Stream::new(stream)))
+    }
+    pub(crate) fn read<T: DeserializeOwned>(&mut self) -> Result<T, Error> {
+        match *self {
+            Streams::UnixStream(ref mut s) => s.read(),
+            Streams::TcpStream(ref mut s) => s.read()
+        }
+    }
+    pub(crate) fn write<T: Serialize>(&mut self, value: &T) -> Result<(), Error> {
+        match *self {
+            Streams::UnixStream(ref mut s) => s.write(value),
+            Streams::TcpStream(ref mut s) => s.write(value)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
     use std::os::unix::net::UnixStream;
 
+    #[cfg(unix)]
     #[test]
     fn write_read() {
         let (streama, streamb) = UnixStream::pair().unwrap();
-
-        let mut a = Streams {
-            stream: streama,
-            buf: Vec::new()
-        };
-
-        let mut b = Streams {
-            stream: streamb,
-            buf: Vec::new()
-        };
+        let mut a = Stream::new(streama);
+        let mut b = Stream::new(streamb);
 
         a.write(&27u8).unwrap();
         assert_eq!(b.read::<u8>().unwrap(), 27u8);
