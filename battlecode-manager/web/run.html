@@ -207,7 +207,7 @@
         <div class="container">
             <div class="content has-text-centered">
                 <p>
-                    <strong>Battlecode: Escape to Mars</strong> by <a href="http://battlecode.org/">MIT Battlecode</a>. Version 0.9.5.
+                    <strong>Battlecode: Escape to Mars</strong> by <a href="http://battlecode.org/">MIT Battlecode</a>. Version 0.9.6.
                 </p>
             </div>
         </div>
@@ -375,7 +375,8 @@
             logs = await eel.get_player_logs()();
             for (var i=0; i<4; i++) elements[i].innerText = logs[i];
 
-            var maps = await eel.get_viewer_data()();
+            var index = -1;
+            var maps = await eel.get_viewer_data(index)();
             draw_grid(earth,maps['width'],maps['height'],maps['earth'],true);
             draw_grid(mars,maps['width'],maps['height'],maps['mars'],false);
         },300);

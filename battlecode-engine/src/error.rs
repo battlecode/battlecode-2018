@@ -1,4 +1,6 @@
 //! Detailed game errors.
+use super::research::Level;
+use super::unit::UnitType;
 
 /// Detailed game errors.
 #[derive(Debug, Fail, PartialEq, Eq)]
@@ -76,8 +78,8 @@ pub enum GameError {
     ResearchLevelInvalid,
 
     /// The level of research has not been unlocked by your team.
-    #[fail(display = "The level of research has not been unlocked by your team.")]
-    ResearchNotUnlocked,
+    #[fail(display = "The level of research has not been unlocked by your team for the unit {:?}.", unit_type)]
+    ResearchNotUnlocked { unit_type: UnitType },
 
     /// The rocket has already been used.
     #[fail(display = "The rocket has already been used.")]

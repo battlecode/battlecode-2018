@@ -25,3 +25,15 @@ define green
 	@echo "$(1)"
 	@-tput sgr0
 endef
+
+ifeq ($(OS),Windows_NT)
+	CUR_OS := win32
+else
+    UNAME_S := $(shell uname -s)
+    ifeq ($(UNAME_S),Linux)
+        CUR_OS := linux
+    endif
+    ifeq ($(UNAME_S),Darwin)
+		CUR_OS := darwin
+    endif
+endif

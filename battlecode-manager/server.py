@@ -11,11 +11,27 @@ import random
 import sys
 import logging
 import os.path
-import ujson as json
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../bindings/python')))
+try:
+    import ujson as json
+except:
+    import json
 import battlecode as bc
 
 NUM_PLAYERS = 4
+
+PKEYS = {
+    int(bc.Planet.Earth): {
+        int(bc.Team.Red): 0,
+        int(bc.Team.Blue): 1,
+    },
+    int(bc.Planet.Mars): {
+        int(bc.Team.Red): 2,
+        int(bc.Team.Blue): 3,
+    }
+}
+def _key(p):
+    p = p['player']
+    return PKEYS[int(p.planet)][int(p.team)]
 
 class Game(object): # pylint: disable=too-many-instance-attributes
     '''
@@ -27,7 +43,11 @@ class Game(object): # pylint: disable=too-many-instance-attributes
     '''
 
     def __init__(self, game_map: bc.GameMap, logging_level=logging.DEBUG,
-                 logging_file="server.log", time_pool=10000, time_additional=50):
+                 logging_file="server.log", time_pool=10000, time_additional=50,
+                 terminal_viewer=False,
+                 extra_delay=0):
+        self.terminal_viewer = terminal_viewer
+        self.extra_delay = extra_delay
 
         self.time_pool = time_pool/1000.
         self.time_additional = time_additional/1000.
@@ -68,6 +88,8 @@ class Game(object): # pylint: disable=too-many-instance-attributes
             player['start_message'] = self.manager.start_game(player['player']).to_json()
         self.viewer_messages = []
         manager_start_message = self.manager.initial_start_turn_message(int(1000 * self.time_pool))
+        self.manager_viewer_messages = []
+        self.manager_viewer_messages.append(self.manager.manager_viewer_message())
         self.last_message = manager_start_message.start_turn.to_json()
         self.viewer_messages.append(manager_start_message.viewer.to_json())
         self.initialized = 0
@@ -128,6 +150,10 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         triggered when a game starts is stored here.
         '''
 
+        if self.terminal_viewer and sys.platform != 'win32':
+            # Clear the entire screen
+            sys.stdout.write("\033[2J")
+
         # Init the player who starts and then tell everyone we started
         self.current_player_index = 0
         self.set_player_turn(self.current_player_index)
@@ -144,6 +170,39 @@ class Game(object): # pylint: disable=too-many-instance-attributes
             client_id: The int of the client that this thread is related to
         '''
 
+        if self.terminal_viewer:
+            if sys.platform == 'win32':
+                # Windows terminal only supports escape codes starting from Windows 10 in the 'Threshold 2' update.
+                # So fall back to other commands to ensure compatibility
+                os.system('cls')
+            else:
+                # Move the cursor to coordinate (0,0) on the screen.
+                # Compared the clearing the entire screen, this reduces flicker.
+                # See https://en.wikipedia.org/wiki/ANSI_escape_code
+                sys.stdout.write("\033[0;0H")
+                # os.system('clear')
+
+            print('[rnd: {}] [rK: {}] [bK: {}]'.format(
+                self.manager.round(),
+                self.manager.manager_karbonite(bc.Team.Red),
+                self.manager.manager_karbonite(bc.Team.Blue),
+            ))
+            self.manager.print_game_ansi()
+
+            if sys.platform != 'win32':
+                # Clear the screen from the cursor to the end of the screen.
+                # Just in case some text has been left over there from earlier frames.
+                sys.stdout.write("\033[J")
+            for player in sorted(self.players, key=_key):
+                p = player['player']
+                print('-- [{}{}] --'.format('e' if p.planet == bc.Planet.Earth else 'm', 'b' if p.team == bc.Team.Red else 'r'))
+                logs = player['logger'].logs.getvalue()[-1000:].splitlines()[-5:]
+                for line in logs:
+                    print(line)
+
+        if self.extra_delay:
+            import time
+            time.sleep(self.extra_delay / 1000.)
 
         # Increment to the next player
         self.current_player_index = (self.current_player_index + 1) % len(self.players)
@@ -207,6 +266,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         application = self.manager.apply_turn(turn_message, projected_time_ms)
         self.last_message = application.start_turn.to_json()
         self.viewer_messages.append(application.viewer.to_json())
+        self.manager_viewer_messages.append(self.manager.manager_viewer_message())
         self.times[client_id] -= diff_time
         return
 
@@ -325,8 +385,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                             self.game.winner = 'player2'
                         else:
                             self.game.winner = 'player1'
-                print("Client %s: Game Over", self.client_id)
-                print("Cleaning up")
+                print("Game Over for player", self.game.player_id2index(self.client_id))
                 self.game.disconnected = True
                 self.game.game_over = True
                 wrapped_socket.close()
@@ -413,7 +472,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
 
             while not self.game.started and not self.game.game_over:
                 # Spin while waiting for game to start
-                time.sleep(0.5)
+                time.sleep(0.05)
 
 
             logging.info("Client %s: Game started", self.client_id)
@@ -487,9 +546,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             This does all the processing of the data we receive and we spend our
             time in this function.
             '''
-            print('got connection')
             if self.is_unix_stream:
-                print('handling player')
                 self.player_handler()
             else:
                 self.viewer_handler()
@@ -516,8 +573,12 @@ def start_server(sock_file: str, game: Game, dockers, use_docker=True) -> socket
     # Create handler for mangaing each connections to server
     receive_handler = create_receive_handler(game, dockers, use_docker, True)
 
-    # Start server
-    server = socketserver.ThreadingUnixStreamServer(sock_file, receive_handler)
+    if isinstance(sock_file, tuple):
+        # tcp port
+        server = socketserver.ThreadingTCPServer(sock_file, receive_handler)
+    else:
+        server = socketserver.ThreadingUnixStreamServer(sock_file, receive_handler)
+
     server_thread = threading.Thread(target=server.serve_forever, daemon=True)
     logging.info("Server Started at %s", sock_file)
     server_thread.start()
@@ -548,7 +609,3 @@ def start_viewer_server(port: int, game: Game) -> socketserver.BaseServer:
     server_thread.start()
 
     return server
-
-if __name__ == "__main__":
-    print("Do not run this fuction call battlecode cli to start a game")
-    sys.exit(1)

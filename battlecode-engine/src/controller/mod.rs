@@ -109,11 +109,27 @@ impl GameController {
     /// It will connect to the manager and block until it's your turn. (Don't worry, you'll be
     /// paused during the blocking anyway.)
     pub fn new_player_env() -> Result<GameController, Error> {
-        let socket_file = env::var("SOCKET_FILE")?;
-        let player_key = env::var("PLAYER_KEY")?;
+        let tcp_port = env::var("TCP_PORT");
+        let socket_file = env::var("SOCKET_FILE");
+        let mut stream = if let Ok(port) = tcp_port {
+            println!("Player connecting to tcp://localhost:{}", port);
+            Streams::new_tcp(port.parse::<u16>()?)?
+        } else if let Ok(file) = socket_file {
+            println!("Player connecting to unix://{}", file);
+            Streams::new_unix(file)?
+        } else {
+            println!("Neither SOCKET_FILE nor PLAYER_KEY environment variables are set, are you running in the manager?");
+            bail!("Neither SOCKET_FILE nor PLAYER_KEY environment variables are set, are you running in the manager?");
+        };
+        let player_key = env::var("PLAYER_KEY");
+        let player_key = if let Ok(player_key) = player_key {
+            player_key
+        } else {
+            println!("Neither SOCKET_FILE nor PLAYER_KEY environment variables are set, are you running in the manager?");
+            bail!("PLAYER_KEY environment variable is unset, are you running in the manager?");
+        };
 
         // send login
-        let mut stream = Streams::new(socket_file)?;
         stream.write(&LoginMessage {
             client_id: player_key.clone()
         })?;
@@ -1211,8 +1227,6 @@ impl GameController {
         use serde_json::to_string;
 
         to_string(&message).unwrap()
-
-
     }
 
     pub fn print_game_ansi(&self) {
@@ -1302,6 +1316,11 @@ impl GameController {
         edge(eb);
         edge(mb);
         println!("");
+    }
+
+    // Get team karbonite from manager.
+    pub fn manager_karbonite(&self, team: Team) -> u32 {
+        self.world.manager_karbonite(team)
     }
 }
 
