@@ -1147,8 +1147,8 @@ impl GameController {
             mars: vec![0; 2*width*height],
         };
 
-        for x in (0..width) {
-            for y in (0..height) {
+        for x in 0..width {
+            for y in 0..height {
                 let loc = MapLocation::new(Earth, x as i32, y as i32);
                 if let Some(id) = earth_units.and_then(|eu| eu.units_by_loc.get(&loc)) {
                     let unit = &earth_units.unwrap().units[&id];
