@@ -44,6 +44,7 @@ clean:
 	@$(MAKE) -wC bindings clean
 	-rm -rf docker-artifacts
 	-rm -rf docker-manager/working_dir
+	rm -rf battlecode
 	# run build first, to generate code and stuff
 
 generate:
