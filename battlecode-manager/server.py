@@ -19,9 +19,6 @@ import battlecode as bc
 
 NUM_PLAYERS = 4
 
-import threading
-l = threading.Lock()
-
 PKEYS = {
     int(bc.Planet.Earth): {
         int(bc.Team.Red): 0,
