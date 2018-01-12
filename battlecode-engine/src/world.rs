@@ -450,6 +450,21 @@ impl GameWorld {
     /// abilities like units garrisoned in a rocket.
     ///
     /// * NoSuchUnit - the unit does not exist (inside the vision range).
+    fn unit_mut(&mut self, id: UnitID) -> Result<&mut Unit, Error> {
+        if self.my_planet().units.contains_key(&id) {
+            Ok(self.my_planet_mut().units.get_mut(&id).unwrap())
+        } else if self.my_team().units_in_space.contains_key(&id) {
+            Ok(self.my_team_mut().units_in_space.get_mut(&id).unwrap())
+        } else {
+            Err(GameError::NoSuchUnit)?
+        }
+    }
+
+    /// The single unit with this ID. Use this method to get detailed
+    /// statistics on a unit: heat, cooldowns, and properties of special
+    /// abilities like units garrisoned in a rocket.
+    ///
+    /// * NoSuchUnit - the unit does not exist (inside the vision range).
     pub fn unit(&self, id: UnitID) -> Result<Unit, Error> {
         if let Some(unit) = self.my_planet().units.get(&id) {
             Ok(unit.clone())
@@ -568,7 +583,7 @@ impl GameWorld {
         let mut units: Vec<Unit> = vec![];
         for nearby_loc in self.all_locations_within(location, radius) {
             if let Some(id) = self.my_planet().units_by_loc.get(&nearby_loc) {
-                units.push(self.get_unit(*id).expect("unit exists").clone());
+                units.push(self.unit(*id).expect("unit exists").clone());
             }
         }
         units
@@ -602,7 +617,7 @@ impl GameWorld {
                                   -> Result<Option<Unit>, Error> {
         self.ok_if_can_sense_location(location)?;
         let unit_id = self.my_planet().units_by_loc.get(&location);
-        Ok(unit_id.map(|id| self.get_unit(*id).expect("unit exists").clone()))
+        Ok(unit_id.map(|id| self.unit(*id).expect("unit exists").clone()))
     }
 
     // ************************************************************************
@@ -905,7 +920,7 @@ impl GameWorld {
     ///
     /// If the unit is a rocket or factory, also destroys units in its garrison.
     fn destroy_unit(&mut self, id: UnitID) {
-        match self.get_unit(id)
+        match self.unit(id)
                   .expect("Unit does not exist and cannot be destroyed.")
                   .location() {
             OnMap(loc) => {
@@ -925,9 +940,9 @@ impl GameWorld {
         };
 
         // If this unit's garrison is visible, destroy those units too.
-        let unit_type = self.get_unit(id).unwrap().unit_type();
+        let unit_type = self.unit(id).unwrap().unit_type();
         if unit_type == UnitType::Rocket || unit_type == UnitType::Factory {
-            let units_to_destroy = self.get_unit_mut(id).unwrap()
+            let units_to_destroy = self.unit_mut(id).unwrap()
                                        .structure_garrison().unwrap();
             for utd_id in units_to_destroy.iter() {
                 self.my_planet_mut().units.remove(&utd_id);
@@ -1035,7 +1050,7 @@ impl GameWorld {
 
     fn damage_unit(&mut self, unit_id: UnitID, damage: i32) {
         let should_destroy_unit = {
-            let unit = self.get_unit_mut(unit_id).unwrap();
+            let unit = self.unit_mut(unit_id).unwrap();
             unit.take_damage(damage)
         };
         if should_destroy_unit {
@@ -1065,7 +1080,7 @@ impl GameWorld {
         }
         self.my_unit(robot_id)?.ok_if_on_map()?;
 
-        let target_loc = self.get_unit(target_id).unwrap().location();
+        let target_loc = self.unit(target_id).unwrap().location();
         if !target_loc.is_on_map() {
             Err(GameError::UnitNotOnMap)?;
         }
@@ -1118,7 +1133,7 @@ impl GameWorld {
         self.ok_if_attack_ready(robot_id)?;
         let damage = self.my_unit_mut(robot_id).unwrap().use_attack();
         if self.my_unit(robot_id).unwrap().unit_type() == UnitType::Mage {
-            let epicenter = self.get_unit(target_id).unwrap().location().map_location().unwrap();
+            let epicenter = self.unit(target_id).unwrap().location().map_location().unwrap();
             for direction in Direction::all().iter() {
                 self.damage_location(epicenter.add(*direction), damage);
             }
@@ -1451,7 +1466,7 @@ impl GameWorld {
 
     fn ok_if_can_javelin(&self, knight_id: UnitID, target_id: UnitID) -> Result<(), Error> {
         let knight = self.my_unit(knight_id)?;
-        let target = self.get_unit(target_id)?;
+        let target = self.unit(target_id)?;
         knight.ok_if_on_map()?;
         knight.ok_if_javelin_unlocked()?;
         knight.ok_if_within_ability_range(target.location())?;
@@ -1969,7 +1984,7 @@ impl GameWorld {
         let blast_damage = self.my_unit(rocket_id).unwrap().rocket_blast_damage().unwrap();
         if self.my_planet().units_by_loc.contains_key(&destination) {
             let victim_id = *self.my_planet().units_by_loc.get(&destination).unwrap();
-            let should_destroy_rocket = match self.get_unit(victim_id).unwrap().unit_type() {
+            let should_destroy_rocket = match self.unit(victim_id).unwrap().unit_type() {
                 UnitType::Rocket => true,
                 UnitType::Factory => true,
                 _ => false,
@@ -2055,6 +2070,12 @@ impl GameWorld {
                 Player::new(Red, Earth)
             },
         };
+
+        // Land rockets.
+        if self.planet() == Mars {
+            let team = self.team();
+            self.process_rockets(team);
+        }
 
         let player = self.player_to_move;
         let world = self.filter(player);
@@ -2152,10 +2173,6 @@ impl GameWorld {
 
         // Add produced factory robots to the garrison.
         self.process_factories();
-
-        // Land rockets.
-        self.process_rockets(Team::Red);
-        self.process_rockets(Team::Blue);
 
         // Process any potential asteroid impacts.
         self.process_asteroids();
@@ -3461,5 +3478,34 @@ mod tests {
         world.get_unit_mut(blueprint).unwrap().take_damage(10);
         assert!(!world.can_repair(non_worker, blueprint));
         assert_err!(world.repair(non_worker, blueprint), GameError::InappropriateUnitType);
+    }
+
+    #[test]
+    fn test_player_methods_on_mars_shouldnt_use_get_unit() {
+        let mut world = GameWorld::test_world();
+        let mars_loc = MapLocation::new(Planet::Mars, 10, 5);
+        let mars_unit = world.create_unit(Team::Red, mars_loc, UnitType::Knight).unwrap();
+        let mars_enemy = world.create_unit(Team::Blue, mars_loc.add(Direction::East), UnitType::Healer).unwrap();
+
+        // go to red mars turn
+        world.end_turn();
+        world.end_turn();
+
+        // sense that unit
+        let player = Player::new(Team::Red, Planet::Mars);
+        let mut mars_world = world.filter(player);
+        assert_eq!(mars_world.sense_nearby_units(mars_loc, 100).len(), 2);
+        assert_eq!(mars_world.sense_nearby_units_by_team(mars_loc, 100, Team::Red).len(), 1);
+        assert_eq!(mars_world.sense_nearby_units_by_type(mars_loc, 100, UnitType::Healer).len(), 1);
+        assert_eq!(mars_world.sense_nearby_units_by_type(mars_loc, 100, UnitType::Mage).len(), 0);
+        assert!(mars_world.sense_unit_at_location(mars_loc).unwrap().is_some());
+
+        // disintegrate that unit
+        assert!(world.disintegrate_unit(mars_unit).is_ok());
+        assert!(mars_world.disintegrate_unit(mars_unit).is_ok());
+
+        // check attacking
+        assert!(!world.can_attack(mars_unit, mars_enemy));
+        assert!(!mars_world.can_attack(mars_unit, mars_enemy));
     }
 }
