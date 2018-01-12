@@ -168,7 +168,6 @@ def get_map(map_name):
             print("Loading test map...")
             return bc.GameMap.test_map()
 
-
 def create_game(args):
     '''
     Create all the semi-permanent game structures (i.e. sockets and dockers and
@@ -177,8 +176,11 @@ def create_game(args):
 
     # Load the Game state info
     game = server.Game(logging_level=logging.ERROR,
-                       game_map=args['map'], time_pool=args['time_pool'],
-                       time_additional=args['time_additional'])
+                       game_map=args['map'],
+                       time_pool=args['time_pool'],
+                       time_additional=args['time_additional'],
+                       terminal_viewer=args['terminal_viewer'],
+                       extra_delay=args['extra_delay'])
 
     working_dir = abspath("working_dir")
     prepare_working_directory(working_dir)

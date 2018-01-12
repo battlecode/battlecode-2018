@@ -29,7 +29,11 @@ class Game(object): # pylint: disable=too-many-instance-attributes
     '''
 
     def __init__(self, game_map: bc.GameMap, logging_level=logging.DEBUG,
-                 logging_file="server.log", time_pool=1000, time_additional=50):
+                 logging_file="server.log", time_pool=1000, time_additional=50,
+                 terminal_viewer=False,
+                 extra_delay=0):
+        self.terminal_viewer = terminal_viewer
+        self.extra_delay = extra_delay
 
         self.time_pool = time_pool/1000.
         self.time_additional = time_additional/1000.
@@ -148,6 +152,20 @@ class Game(object): # pylint: disable=too-many-instance-attributes
             client_id: The int of the client that this thread is related to
         '''
 
+        if self.terminal_viewer:
+            if sys.platform == 'win32':
+                os.system('cls')
+            else:
+                os.system('clear')
+            print('[rnd: {}] [rK: {}] [bK: {}]'.format(
+                self.manager.round(),
+                self.manager.manager_karbonite(bc.Team.Red),
+                self.manager.manager_karbonite(bc.Team.Blue),
+            ))
+            self.manager.print_game_ansi()
+        if self.extra_delay:
+            import time
+            time.sleep(self.extra_delay / 1000.)
 
         # Increment to the next player
         self.current_player_index = (self.current_player_index + 1) % len(self.players)

@@ -120,8 +120,10 @@ impl Streams {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
     use std::os::unix::net::UnixStream;
 
+    #[cfg(unix)]
     #[test]
     fn write_read() {
         let (streama, streamb) = UnixStream::pair().unwrap();

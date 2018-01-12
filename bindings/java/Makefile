@@ -31,6 +31,7 @@ release:
 	$(call build_command,cd src/bc && swig -java -package bc -outcurrentdir ../../../c/include/bc.i)
 	$(call build_command,javac src/bc/*.java)
 	$(call build_command,gcc -c -O3 -fPIC src/bc/bc_wrap.c $(JAVAINCLUDE) -I../c/include/ -o src/bc/bc_wrap.o)
+	$(call build_command,gcc -shared -O3 -fPIC src/bc/bc_wrap.o ../../target/release/deps/libbattlecode.a $(LIBS) -o $(TARGET))
 
 clean:
 	-rm -rf src/bc/*
