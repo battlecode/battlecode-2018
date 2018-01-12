@@ -24,14 +24,16 @@ PORT = 16147
 
 
 class Logger(object):
-    def __init__(self, prefix):
+    def __init__(self, prefix, print=True):
         self.logs = io.StringIO()
         self.prefix = prefix
+        self.print = print
 
     def __call__(self, v):
         data = v.decode()
         self.logs.write(data)
-        print(self.prefix, data, end='')
+        if self.print:
+            print(self.prefix, data, end='')
 
 
 def working_dir_message(working_dir):
@@ -85,7 +87,7 @@ def run_game(game, dockers, args, sock_file):
             else:
                 team = 'red'
             name = f'[{planet}:{team}]'
-            logger = Logger(name)
+            logger = Logger(name, print=not args['terminal_viewer'])
             docker_inst.stream_logs(line_action=logger)
             player_['logger'] = logger
 

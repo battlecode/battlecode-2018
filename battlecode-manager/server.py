@@ -19,6 +19,20 @@ import battlecode as bc
 
 NUM_PLAYERS = 4
 
+PKEYS = {
+    int(bc.Planet.Earth): {
+        int(bc.Team.Red): 0,
+        int(bc.Team.Blue): 1,
+    },
+    int(bc.Planet.Mars): {
+        int(bc.Team.Red): 2,
+        int(bc.Team.Blue): 3,
+    }
+}
+def _key(p):
+    p = p['player']
+    return PKEYS[int(p.planet)][int(p.team)]
+
 class Game(object): # pylint: disable=too-many-instance-attributes
     '''
     This function contains the game information, and is started at the begining
@@ -179,6 +193,12 @@ class Game(object): # pylint: disable=too-many-instance-attributes
                 # Clear the screen from the cursor to the end of the screen.
                 # Just in case some text has been left over there from earlier frames.
                 sys.stdout.write("\033[J")
+            for player in sorted(self.players, key=_key):
+                p = player['player']
+                print('-- [{}{}] --'.format('e' if p.planet == bc.Planet.Earth else 'm', 'b' if p.team == bc.Team.Red else 'r'))
+                logs = player['logger'].logs.getvalue()[-1000:].splitlines()[-5:]
+                for line in logs:
+                    print(line)
 
         if self.extra_delay:
             import time
