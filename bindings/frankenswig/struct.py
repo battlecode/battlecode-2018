@@ -17,7 +17,7 @@ class StructType(Type):
     def __init__(self, wrapper, kind=0):
         self.wrapper = wrapper
         super(StructType, self).__init__(
-            '*mut '+wrapper.module+'::'+wrapper.name,
+            '*mut '+wrapper.module+'::'+unturbofish(wrapper.name),
             wrapper.c_name+'*',
             sanitize_rust_name(wrapper.name),
             default='0 as *mut _'
@@ -33,7 +33,7 @@ class StructType(Type):
         return StructType(self.wrapper, kind=StructType.RUST_MUT_REF)
 
     def wrap_c_value(self, name):
-        pre_check = f'let _{name} = check_null!({name}, default);'
+        pre_check = f'let _{name} = check_null!({name}, _default);'
         if self.kind == StructType.RUST_BY_VALUE:
             value = f'_{name}.clone()'
         elif self.kind == StructType.RUST_MUT_REF:
