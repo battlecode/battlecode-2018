@@ -9,10 +9,11 @@ cd bindings
 python generate.py
 if %errorlevel% neq 0 exit /b %errorlevel%
 
-rem cargo build
+cargo build
 @if %errorlevel% neq 0 exit /b %errorlevel%
 
 cd python
+set RELEASE=
 python setup.py build_ext --inplace
 @if %errorlevel% neq 0 exit /b %errorlevel%
 
