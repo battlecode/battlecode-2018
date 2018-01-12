@@ -71,6 +71,9 @@ RUN apk add --update --no-cache \
     rm -r /root/.cache
 RUN pip3 install numpy
 
+# for timing control
+RUN apk add shadow procps && useradd -M player -U -u 6147 && apk del shadow
+
 # Install battlecode bindings
 ADD . /battlecode
 
@@ -87,4 +90,6 @@ RUN ln -s -T /battlecode/c /battlecode-c
 RUN ln -s -T /battlecode/c/lib/libbattlecode-linux.a /battlecode-c/lib/libbattlecode.a
 RUN ln -s -T /battlecode/java /battlecode-java
 ENV PYTHONPATH=/battlecode/python
+
+ADD ./battlecode-manager/player_start.sh /player_start.sh
 

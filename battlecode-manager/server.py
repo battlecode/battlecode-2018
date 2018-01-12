@@ -496,11 +496,6 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                     state_diff = self.game.players[self.game.current_player_index]['start_message']
                     start_turn_msg = self.message(state_diff)
 
-                """# Start player code computing
-                if use_docker:
-                    self.docker.unpause()
-                """
-
                 # but i'm getting wierd results when testing?
                 start_time = time.perf_counter()
                 self.send_message(start_turn_msg)

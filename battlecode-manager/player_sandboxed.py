@@ -25,8 +25,8 @@ class SandboxedPlayer(AbstractPlayer):
             self.socket_file: {'bind': '/tmp/battlecode-socket', 'mode': 'rw'}
         }
 
-        working_dir = '/code'
-        command = 'sh run.sh'
+        working_dir = '/'
+        command = 'sh player_start.sh'
         env = {'PLAYER_KEY': self.player_key, 'SOCKET_FILE': '/tmp/battlecode-socket', 'RUST_BACKTRACE': 1,
                'BC_PLATFORM': self._detect_platform()}
 
@@ -50,17 +50,20 @@ class SandboxedPlayer(AbstractPlayer):
 
 
     def pause(self):
-        if self.container.status == 'running':
-            self.container.pause()
-        else:
-            raise RuntimeError('You attempted to pause a non-running container.')
+        # 6147 is the UID of player
+        # you can't escape ;;;)
+        self.container.exec('/bin/pkill -STOP -U 6147')
+        # we have to use /bin/pkill from procps, not /usr/bin/pkill from busybox
+        # because /usr/bin/pkill doesn't have -U
+
+        # we don't use this because it's slow:
+        # self.container.pause()
 
     def unpause(self, timeout=None):
-        if self.container.status == 'paused':
-            self.container.unpause()
-            Timer(timeout, self.pause).start()
-        else:
-            raise RuntimeError('You attempted to unpause a container that was not paused.')
+        self.container.exec('/bin/pkill -CONT -U 6147')
+
+        # we don't use this because it's slow:
+        # self.container.unpause()
 
     def destroy(self):
         try:
