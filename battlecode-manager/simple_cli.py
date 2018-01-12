@@ -87,8 +87,11 @@ if not os.path.isdir(replay_dir):
 if not map_path.endswith(map_extension):
     map_path += map_extension
 
-if map_path not in get_maps(map_directory):
-    print("Could not find any map named " + str(map_path) + ". Use --help to see a list of all available maps.")
+map_path = os.path.join(map_directory, map_path)
+if not os.path.isfile(map_path):
+    print("Could not find any map named " + str(args.map) + ". Use --help to see a list of all available maps.\nExpected path: " + str(map_path))
+    exit(1)
+
 
 if args.mem <= 0:
     print("Max memory to use cannot be negative")
