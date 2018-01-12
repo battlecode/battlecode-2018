@@ -1,10 +1,13 @@
 import os
 import argparse
 import battlecode_cli as cli
+import sys
 try:
     import colorama
     colorama.init()
+    CINIT=True
 except:
+    CINIT=False
     pass
 
 map_extension = ".bc18map"
@@ -28,6 +31,9 @@ def run_game(map_path, player1dir, player2dir, replay_dir, docker=False, termina
     args['extra_delay'] = extra_delay
     args['map'] = cli.get_map(map_path)
 
+    if terminal_viewer and sys.platform == 'win32' and not CINIT:
+        print('To get pretty output with -tv on windows, run `py -3 -m pip install colorama`')
+
     (game, sandboxes, sock_file) = cli.create_game(args)
 
     try:
@@ -38,13 +44,11 @@ def run_game(map_path, player1dir, player2dir, replay_dir, docker=False, termina
 
     print("Winner is player: " + str(1 if winner == 'player1' else 2))
 
-
 def get_maps(map_directory):
     maps = [o for o in os.listdir(map_directory) if o.endswith(map_extension)]
     # This map is built-in
     maps.append('testmap.bc18map')
     return maps
-
 
 file_dir = os.path.dirname(os.path.realpath(__file__))
 map_directory = os.path.abspath(file_dir + '/../battlecode-maps')
