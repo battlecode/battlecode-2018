@@ -58,17 +58,16 @@ symmetry: none
 
 # symbols carry over from above
 # can define more if we want
-# unicode symbols are valid as long as they're a single code point ;)
-Ξ = 1000k
+J = 1000k
 
 # spaces aren't needed
->111_xxxxxxxxxxxxxxxxxxx___x_xΞ
+>111_xxxxxxxxxxxxxxxxxxx___x_xJ
 >12___Q___1_2__2____3_3____x_x_
 >1___xxxxxxxxxxxxxxxxxxx___x_xx
 >____1__3___2_____3___Q____x___
 >____xxxxxxxxxxxxxxxxxxx___x___
 >_________________________xxx__
->_________________________xΞx__
+>_________________________xJx__
 >__________________1______x_x__
 >___________________1_____xxx__
 >___________1______121_________
