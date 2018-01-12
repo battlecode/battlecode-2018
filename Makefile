@@ -31,6 +31,7 @@ copy-win32:
 	cp win32-battlecode/python/battlecode/win32/* battlecode/python/battlecode/win32/
 
 battlecode:
+	rm -rf battlecode
 	mkdir -p battlecode/python/
 	mkdir -p battlecode/c/lib
 	mkdir -p battlecode/java/
