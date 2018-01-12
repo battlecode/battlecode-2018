@@ -13,6 +13,11 @@ except:
 map_extension = ".bc18map"
 replay_extension = ".bc18"
 
+# ANSI escape codes
+# See https://en.wikipedia.org/wiki/ANSI_escape_code#Colors
+color_red = "\033[31m"
+color_reset = "\033[0m"
+
 
 def run_game(map_path, player1dir, player2dir, replay_dir, docker, terminal_viewer, extra_delay, max_memory, initial_time, per_frame_time):
     args = {}
@@ -69,6 +74,8 @@ parser.add_argument('-ed', '--extra-delay', type=int, default=0, help="add extra
 args = parser.parse_args()
 map_path = args.map
 
+# Input validation
+
 replay_dir = os.path.abspath(args.replay_dir)
 if not os.path.isdir(replay_dir):
     prompt = "Replay directory '" + args.replay_dir + "' does not exist. Do you want to create it? [y/N] "
@@ -85,6 +92,33 @@ if map_path not in get_maps(map_directory):
 
 if args.mem <= 0:
     print("Max memory to use cannot be negative")
+    exit(1)
+
+
+def validate_player_dir(path, require_bat):
+    if not os.path.exists(path):
+        return "Cannot find the directory '" + path + "'. You should pass a relative or absolute path to a directory with your player code"
+
+    if not os.path.isdir(path):
+        return "'" + path + "' is not a directory. You should pass a relative or absolute path to a directory with your player code"
+
+    if not os.path.exists(os.path.join(path, "run.sh")):
+        return "Your player directory ('" + path + "') does not contain a run.sh file. See the example player folders to see how it should look."
+
+    if require_bat and not os.path.exists(os.path.join(path, "run.bat")):
+        return "Your player directory ('" + path + "') does not contain a run.bat file which is required when not using docker on Windows. See the example player folders to see how it should look."
+
+    return None
+
+
+require_run_bat = sys.platform == "win32" and not args.docker
+err1 = validate_player_dir(args.player1, require_run_bat)
+if err1 is not None:
+    print(color_red + "Player 1: " + err1 + color_reset)
+    exit(1)
+err2 = validate_player_dir(args.player2, require_run_bat)
+if err2 is not None:
+    print(color_red + "Player 2: " + err2 + color_reset)
     exit(1)
 
 initial_time = 1000000000 if args.unlimited_time else 10 * 1000
