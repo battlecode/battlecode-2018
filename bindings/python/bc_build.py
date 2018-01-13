@@ -50,7 +50,8 @@ ffibuilder.set_source(
     contents,
     library_dirs=library_dirs,
     libraries=libraries,
-    extra_link_args=extra_link_args
+    extra_link_args=extra_link_args,
+    depends=extra_link_args
 )
 
 if __name__ == '__main__':
