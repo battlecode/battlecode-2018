@@ -57,7 +57,7 @@ def prepare_working_directory(working_dir):
     # print("Working dir ready!")
 
 
-def run_game(game, dockers, args, sock_file):
+def run_game(game, dockers, args, sock_file, scrimmage=False):
     '''
     This contains the logic that needs to be cleaned up at the end of a game
     If there is something that needs to be cleaned up add it in the try catch
@@ -116,8 +116,8 @@ def run_game(game, dockers, args, sock_file):
         winner = game.winner
 
     match_file['metadata'] = {
-        'player1': args['dir_p1'][8:],
-        'player2': args['dir_p2'][8:],
+        'player1': 'player1' if scrimmage else args['dir_p1'][8:],
+        'player2': 'player2' if scrimmage else args['dir_p2'][8:],
         'winner': winner
     }
 
@@ -128,12 +128,17 @@ def run_game(game, dockers, args, sock_file):
         if not os.path.isabs(match_output):
             match_output = abspath(os.path.join('..', str(match_output)))
 
-    print("Saving replay to", match_output)
-    match_ptr = open(match_output, 'w')
-    json.dump(match_file, match_ptr)
-    match_ptr.close()
 
-    return winner
+    if not scrimmage:
+        print("Saving replay to", match_output)
+
+        match_ptr = open(match_output, 'w')
+        json.dump(match_file, match_ptr)
+        match_ptr.close()
+
+        return winner
+    else:
+        return winner, match_file
 
 
 def cleanup(dockers, args, sock_file):
