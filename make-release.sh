@@ -163,7 +163,6 @@ green
 echo $ git commit -m "$RELEASE Mac/Linux"
 plain
 git commit -m "$RELEASE Mac/Linux"
-step git push origin $RELEASE
 
 step cd ..
 step docker tag battledaddy battlecode/battlecode-2018:$RELEASE
@@ -175,9 +174,10 @@ red
 echo "=== MAKING FINAL RELEASE ==="
 plain
 step cd bc18-scaffold
-step git checkout master
-step git pull origin $RELEASE
 step git push origin $RELEASE
+step git checkout master
+step git merge $RELEASE
+step git push origin master
 step cd ..
 step docker push battlecode/battlecode-2018:$RELEASE
 step docker push battlecode/battlecode-2018:latest
