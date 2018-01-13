@@ -1,0 +1,96 @@
+# an example text-format map.
+# this is a comment.
+
+# random seed
+seed: 1337
+
+# orbit settings
+# a rocket launched on round n will take:
+# sin(n * 2pi/period) * amplitude + center
+# rounds to reach Mars
+orbit_amplitude: 50
+orbit_period: 40
+orbit_center: 100
+
+EARTH:
+width: 20
+height: 20
+# can also be horizontal, none
+symmetry: vertical
+
+# name the symbols on the map
+# symbols must be one character,
+# and can't be "#", "*", ":", "=", or ">"
+
+_ =
+x = impassable
+Q = 100k
+1 = 10k
+2 = 20k
+3 = 35k
+4 = 70k
+
+# can place workers
+r = red_worker
+b = blue_worker
+# workers can also have karbonite on their square
+R = red_worker 100k
+# note: when mirroring, teams will flip
+
+> 4 _ _ _ _ _ _ _ _ _ _ _ _ _ R _ _ _ 3 Q  
+> 4 _ r _ _ _ _ _ x x _ _ _ _ _ _ _ _ _ 2  
+> 4 _ r _ _ _ _ x x x _ _ _ _ _ _ _ _ _ _  
+> 4 _ r _ _ _ x x x _ _ 4 _ _ _ _ _ _ _ _  
+> 4 _ _ _ _ x x x _ _ 4 _ _ _ _ _ _ _ _ _  
+> _ _ _ 1 x x x _ _ _ _ _ _ _ _ _ _ _ _ _  
+> _ _ 1 x x x _ _ _ _ _ _ _ _ b _ b _ b _  
+> _ 1 2 x x _ _ _ 1 1 _ _ _ _ _ _ _ _ _ _  
+> 1 2 x x x _ _ 1 1 1 1 _ _ _ _ _ b _ _ _  
+> 1 2 x x x _ _ 1 3 2 1 _ _ _ _ _ _ _ _ _  
+
+# every line of a map must start with ">"
+# if you leave off squares they'll be left empty / overwritten by the symmetry maker
+
+MARS:
+width: 20
+height: 20
+symmetry: none
+
+# symbols carry over from above
+# can define more if we want
+J = 1000k
+
+# spaces aren't needed
+>Jx_________11____121
+>_x_______xxxxxxxxxxx
+>xx_______x________3x
+>_________x_____1_13x
+>_________x____12122x
+>_________xxxxxxxxxxx
+>_____xxxxxxxxxxxx___
+>_____x1_________x___
+>_____x22________x___
+>_____x233_______x___
+>_____x342_______x___
+>_____x4441______x___
+>_____xxxxxxxxxxxx___
+>_______xxxxxxxxxxxxx
+>_______x_11__11_____
+>_______x______1_____
+>_______x__1______1__
+>_______x__11_____1__
+>_______x_111_11_111_
+>_______xxxxxxxxxxxxx
+
+
+# pro tip: if you're using vim keybindings, try selecting somewhere on that map and typing ctrl-v kkjjjjrx 
+
+# asteroids:
+# * round x y karbonite
+# note that y starts at 0 at the bottom of the map
+
+* 200 2 3 150
+* 300 10 15 200
+* 700 5 5 170
+* 800 5 5 60
+

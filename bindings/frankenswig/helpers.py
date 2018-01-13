@@ -26,7 +26,7 @@ def make_safe_call(type, rust_function, args):
     call += '\n' + type.unwrap_rust_value('result')
     call = s(call, indent=4)
     exit = '\n});'
-    exit += '\ncheck_panic!(maybe_panic, default)'
+    exit += '\ncheck_panic!(maybe_panic, _default)'
 
     return entry + call + exit
 
@@ -36,6 +36,9 @@ def javadoc(docs):
 def doxygen(docs):
     sp = docs.split('\n')
     return '/// ' + '\n/// '.join(docs.split('\n')) + '\n'
+
+def unturbofish(name):
+    return name.replace('::<', '<')
 
 def sanitize_rust_name(name):
     if '<' in name:

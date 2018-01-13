@@ -115,7 +115,7 @@ class ResultType(Type):
     
     def unwrap_rust_value(self, value):
         v = self.wrapped.unwrap_rust_value('v')
-        return f'check_result!({value}.map(|v| {v}), default)'
+        return f'check_result!({value}.map(|v| {v}), _default)'
 
     def python_postfix(self):
         return self.wrapped.python_postfix()
@@ -134,7 +134,7 @@ class StringType(Type):
         return (pre, value, post)
 
     def unwrap_rust_value(self, value):
-        return f'check_result!(CString::new({value}).map(|s| s.into_raw()), default)'
+        return f'check_result!(CString::new({value}).map(|s| s.into_raw()), _default)'
 
     def wrap_python_value(self, value):
         return f'_ffi.new("char[]", {value}.encode())'

@@ -1,5 +1,4 @@
 //! Detailed game errors.
-use super::research::Level;
 use super::unit::UnitType;
 
 /// Detailed game errors.

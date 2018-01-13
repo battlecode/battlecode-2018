@@ -29,4 +29,4 @@ WORKDIR /battlecode/
 # we then move that folder to /battlecode
 # player code will be mounted in /code, so they can access the stuff they need at ../battlecode like always :)))
 
-RUN sh -c ". ~/.cargo/env && make && make clean && mv /battlecode/battlecode /bc && rm -rf /battlecode && mv /bc /battlecode"
+RUN sh -c ". ~/.cargo/env && make release && mv /battlecode/battlecode /bc && rm -rf /battlecode && mv /bc /battlecode"
