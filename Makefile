@@ -23,6 +23,10 @@ copy:
 	cp -R bindings/c/include battlecode/c/include
 
 copy-linux:
+	mkdir -p docker-artifacts
+	ID=$$(docker create linuxbuild);\
+	   docker cp $$ID:/battlecode docker-artifacts/linux-battlecode;\
+       docker rm -v $$ID
 	cp docker-artifacts/linux-battlecode/python/battlecode/linux/* battlecode/python/battlecode/linux/
 	cp docker-artifacts/linux-battlecode/java/bc/*linux* battlecode/java/bc/
 	cp docker-artifacts/linux-battlecode/c/lib/*linux* battlecode/c/lib/
@@ -53,9 +57,6 @@ generate:
 linux-libs:
 	docker build -t linuxbuild -f LinuxBuildDockerfile .
 	mkdir -p docker-artifacts/
-	ID=$$(docker create linuxbuild);\
-	   docker cp $$ID:/battlecode docker-artifacts/linux-battlecode;\
-       docker rm -v $$ID
 
 docker-sandbox:
 	docker build -t battlebaby -f SandboxDockerfile . --squash
