@@ -195,7 +195,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
                 sys.stdout.write("\033[J")
             for player in sorted(self.players, key=_key):
                 p = player['player']
-                print('-- [{}{}] --'.format('e' if p.planet == bc.Planet.Earth else 'm', 'b' if p.team == bc.Team.Red else 'r'))
+                print('-- [{}{}] --'.format('e' if p.planet == bc.Planet.Earth else 'm', 'r' if p.team == bc.Team.Red else 'b'))
                 logs = player['logger'].logs.getvalue()[-1000:].splitlines()[-5:]
                 for line in logs:
                     print(line)
