@@ -1320,7 +1320,7 @@ impl GameController {
         let th = usize::max(eh, mh);
 
         for py in (-1..th as i32).rev() {
-            if py > (th as i32 - eh as i32) {
+            if py >= (th as i32 - eh as i32) {
                 let y = py - (th as i32 - eh as i32);
                 print!("{}", eb.paint("|"));
                 for x in 0..ew {
@@ -1339,17 +1339,17 @@ impl GameController {
                     }
                 }
                 print!("{}", eb.paint("|"));
-            } else if py == (th as i32 - eh as i32) {
+            } else if py == (th as i32 - eh as i32) - 1 {
                 edge(eb, ew);
             } else {
                 for _ in 0..ew + 2 {
                     print!(" ");
                 }
             }
-            if py > (th as i32 - mh as i32) {
+            if py >= (th as i32 - mh as i32) {
                 let y = py - (th as i32 - mh as i32);
                 print!("{}", mb.paint("|"));
-                for x in 0..20 {
+                for x in 0..mw {
                     let loc = MapLocation::new(Mars, x as i32, y);
                     if let Some(id) = mars_units.and_then(|mu| mu.units_by_loc.get(&loc)) {
                         let unit = &mars_units.unwrap().units[&id];
@@ -1365,7 +1365,7 @@ impl GameController {
                     }
                 }
                 print!("{}", mb.paint("|"));
-            } else if py == (th as i32 - mh as i32) {
+            } else if py == (th as i32 - mh as i32) - 1 {
                 edge(mb, mw);
             }
             println!("");
