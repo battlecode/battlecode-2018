@@ -9,11 +9,14 @@ cd bindings
 python generate.py
 if %errorlevel% neq 0 exit /b %errorlevel%
 
+cd ..
 cargo build
 @if %errorlevel% neq 0 exit /b %errorlevel%
 
-cd python
+cd bindings\python
 set RELEASE=
+del battlecode\win32\_bc.pyd
+rmdir /s/q build
 python setup.py build_ext --inplace
 @if %errorlevel% neq 0 exit /b %errorlevel%
 
