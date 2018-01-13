@@ -14,6 +14,9 @@ blue() {
 red() {
     tput setaf 1
 }
+magenta() {
+    tput setaf 5
+}
 plain() {
     tput sgr0
 }
@@ -21,13 +24,13 @@ plain() {
 set -e
 step() {
     green
-    echo $$ $@
+    echo $ $@
     plain
     $@
 }
 step_ignore() {
     green
-    echo $$ $@
+    echo $ $@
     plain
     if $@; then
         true
@@ -40,10 +43,14 @@ prompt() {
     while true; do
         read good
         if [ "$good" = "y" ]; then
+            magenta
             echo "Okay, continuing."
+            plain
             break
-        elif [ "$good" = "y" ]; then
+        elif [ "$good" = "n" ]; then
+            red
             echo "Bailing out."
+            plain
             exit 1
         else
             echo "Huh?" $good
@@ -54,7 +61,8 @@ prompt() {
 RELEASE=0.10.3
 
 green
-echo "=== Starting release $(tput setaf 5)$RELEASE$(green) ==="
+echo "=== Starting release $(magenta)$RELEASE$(green) ==="
+magenta
 echo "Hope you know what you're doing"
 plain
 if [ ! -z "$(git status --porcelain | grep -v make-release.sh | grep -v web)" ]; then
@@ -98,7 +106,7 @@ fi
 step cd ..
 
 if [ $BINARY_RELEASE -eq 1 ]; then
-    green
+    magenta
     echo "Binary release, remaking artifacts."
     plain
     step make clean
@@ -109,32 +117,36 @@ if [ $BINARY_RELEASE -eq 1 ]; then
     step make copy-linux
     step make docker-sandbox
 else
-    green
+    magenta
     echo "Manager-only release, not remaking artifacts."
     plain
-    step make dump-sandbox
+    #step make dump-sandbox
 fi
-step make docker-manager
+#step make docker-manager
 
-tput setaf 2
-echo "Please wait for the following matches to finish."
-tput sgr0
-step ./battlecode.sh -p1 examplefuncsplayer-python -p2 examplefuncsplayer-java -m bananas
-step ./battlecode.sh -p1 examplefuncsplayer-c -p2 examplefuncsplayer-c -m bananas
-echo
-tput setaf 2
-echo "Please run matches between examplefuncsplayer-python, examplefuncsplayer-java, examplefuncsplayer-c, then terminate the manager with Stop Manager."
-tput sgr0
-prompt "Did it work?"
-step_ignore ./run_nodocker.sh
-tput setaf 2
-echo "Please run matches between examplefuncsplayer-python, examplefuncsplayer-python-old, examplefuncsplayer-java, examplefuncsplayer-java-old, examplefuncsplayer-c, examplefuncsplayer-c-old, then terminate the manager with Stop Manager."
-tput sgr0
-step_ignore docker run -it --privileged -p 16147:16147 -p 6147:6147 -v $DIR:/player --rm battledaddy
-prompt "Did it work?"
+#blue
+#echo "Please wait for the following matches to finish."
+#plain
+#step ./battlecode.sh -p1 examplefuncsplayer-python -p2 examplefuncsplayer-java -m bananas
+#step ./battlecode.sh -p1 examplefuncsplayer-c -p2 examplefuncsplayer-c -m bananas
+#echo
+#blue
+#echo "Please run matches between examplefuncsplayer-python, examplefuncsplayer-java, examplefuncsplayer-c, then terminate the manager with Stop Manager."
+#plain
+#step_ignore ./run_nodocker.sh
+#prompt "Did it work?"
+#blue
+#echo "Please run matches between examplefuncsplayer-python, examplefuncsplayer-python-old, examplefuncsplayer-java, examplefuncsplayer-java-old, examplefuncsplayer-c, examplefuncsplayer-c-old, then terminate the manager with Stop Manager."
+#plain
+#step_ignore docker run -it --privileged -p 16147:16147 -p 6147:6147 -v $DIR:/player --rm battledaddy
+#prompt "Did it work?"
 
 step git add battlecode-manager/web/run.html
-step git commit -m "Release $RELEASE"
+step git add .
+green
+echo $ git commit -m "Release $RELEASE"
+plain
+git commit -m "Release $RELEASE"
 step git tag $RELEASE
 step git push origin master
 step git push --tags origin $RELEASE
@@ -145,7 +157,10 @@ step git status
 prompt "Everything look good?"
 
 step git add .
-step git commit -m "$RELEASE Mac/Linux"
+green
+echo $ git commit -m "$RELEASE Mac/Linux"
+plain
+git commit -m "$RELEASE Mac/Linux"
 step git push origin $RELEASE
 
 step cd ..
@@ -165,7 +180,7 @@ step cd ..
 step docker push battlecode/battlecode-2018:$RELEASE
 step docker push battlecode/battlecode-2018:latest
 
-green
+magenta
 echo "Congratulations, release $RELEASE is complete."
 plain
 
