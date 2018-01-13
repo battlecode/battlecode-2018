@@ -1316,6 +1316,8 @@ impl GameController {
             }
         };
 
+        let sea = Style::new().on(Colour::Blue).paint("~");
+
         edge(eb, ew);
         edge(mb, mw);
         println!("");
@@ -1327,6 +1329,10 @@ impl GameController {
                 let y = py - (th as i32 - eh as i32);
                 print!("{}", eb.paint("|"));
                 for x in 0..ew {
+                    if self.round() > 750 {
+                        print!("{}", sea);
+                        continue;
+                    }
                     let loc = MapLocation::new(Earth, x as i32, y);
                     if let Some(id) = earth_units.and_then(|eu| eu.units_by_loc.get(&loc)) {
                         let unit = &earth_units.unwrap().units[&id];
