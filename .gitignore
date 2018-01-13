@@ -22,6 +22,5 @@ battlecode
 bc18-scaffold
 *.bc18
 bindings/java/bc_wrap.obj
-*-old
 jamesbot
 working_dir
