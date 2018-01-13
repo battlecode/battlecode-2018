@@ -197,7 +197,12 @@ pub(crate) fn parse_text_map(cur: &str) -> Result<GameMap, Error> {
                 if let Some(thing) = thing {
                     planets[p].things.insert((x, y), thing.clone());
                     if let Some(opposite) = get_opposite(&sym, (x, y), width, height) {
-                        planets[p].things.insert(opposite, thing.clone());
+                        let mut otherthing = thing.clone();
+                        // swap teams on inversion
+                        if let Some(team) = thing.team {
+                            otherthing.team = Some(team.other());
+                        }
+                        planets[p].things.insert(opposite, otherthing);
                     }
                 } else {
                     bail!("unknown map symbol: {} at line {} col {}", thing_, tok.line, tok.col)
@@ -393,15 +398,24 @@ mod tests {
         assert_eq!(map.asteroids.pattern[&200].karbonite, 150);
         assert_eq!(map.mars_map.initial_karbonite[29][29], 1000);
 
-        let mut found = false;
+        let mut founda = false;
+        let mut foundb = false;
         for unit in &map.earth_map.initial_units {
             if unit.location().map_location().unwrap().x == 2
                 && unit.location().map_location().unwrap().y == 18
                 && unit.team() == Team::Red
                 && unit.unit_type() == UnitType::Worker {
-                found = true;
+                founda = true;
             }
+            if unit.location().map_location().unwrap().x == 2
+                && unit.location().map_location().unwrap().y == 1
+                && unit.team() == Team::Blue
+                && unit.unit_type() == UnitType::Worker {
+                foundb = true;
+            }
+
         }
-        assert!(found);
+        assert!(founda);
+        assert!(foundb);
     }
 }

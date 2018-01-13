@@ -52,8 +52,8 @@ R = red_worker 100k
 # if you leave off squares they'll be left empty / overwritten by the symmetry maker
 
 MARS:
-width: 30
-height: 30
+width: 20
+height: 20
 symmetry: none
 
 # symbols carry over from above
@@ -61,36 +61,26 @@ symmetry: none
 J = 1000k
 
 # spaces aren't needed
->111_xxxxxxxxxxxxxxxxxxx___x_xJ
->12___Q___1_2__2____3_3____x_x_
->1___xxxxxxxxxxxxxxxxxxx___x_xx
->____1__3___2_____3___Q____x___
->____xxxxxxxxxxxxxxxxxxx___x___
->_________________________xxx__
->_________________________xJx__
->__________________1______x_x__
->___________________1_____xxx__
->___________1______121_________
->___________11____121__________
->_________xxxxxxxxxxx__________
->_________x________3x__________
->_________x_____1_13x__________
->_________x____12122x__________
->_________xxxxxxxxxxx__________
->_____xxxxxxxxxxxx_____________
->_____x1_________x_____________
->_____x22________x_____________
->_____x233_______x_____________
->_____x342_______x_______xxxxxx
->_____x4441______x_______xQ2___
->_____xxxxxxxxxxxx_______x22___
->_______xxxxxxxxxxxxxx___x2____
->_______x_11__11_____x___x22___
->_______x______1_____x___x_11__
->_______x__1______1__x___x__1__
->_______x__11_____1__x___x_____
->_______x_111_11_111_x___x_____
->_______xxxxxxxxxxxxxx___xxxxxx
+>Jx_________11____121
+>_x_______xxxxxxxxxxx
+>xx_______x________3x
+>_________x_____1_13x
+>_________x____12122x
+>_________xxxxxxxxxxx
+>_____xxxxxxxxxxxx___
+>_____x1_________x___
+>_____x22________x___
+>_____x233_______x___
+>_____x342_______x___
+>_____x4441______x___
+>_____xxxxxxxxxxxx___
+>_______xxxxxxxxxxxxx
+>_______x_11__11_____
+>_______x______1_____
+>_______x__1______1__
+>_______x__11_____1__
+>_______x_111_11_111_
+>_______xxxxxxxxxxxxx
 
 
 # pro tip: if you're using vim keybindings, try selecting somewhere on that map and typing ctrl-v kkjjjjrx 
