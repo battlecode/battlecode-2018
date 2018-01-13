@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # set to 1 if we need to rebuild the bindings
-BINARY_RELEASE=0
+BINARY_RELEASE=1
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd $DIR
 
@@ -122,33 +122,31 @@ else
     plain
     #step make dump-sandbox
 fi
-#step make docker-manager
+step make docker-manager
 
-#blue
-#echo "Please wait for the following matches to finish."
-#plain
-#step ./battlecode.sh -p1 examplefuncsplayer-python -p2 examplefuncsplayer-java -m bananas
-#step ./battlecode.sh -p1 examplefuncsplayer-c -p2 examplefuncsplayer-c -m bananas
-#echo
-#blue
-#echo "Please run matches between examplefuncsplayer-python, examplefuncsplayer-java, examplefuncsplayer-c, then terminate the manager with Stop Manager."
-#plain
-#step_ignore ./run_nodocker.sh
-#prompt "Did it work?"
-#blue
-#echo "Please run matches between examplefuncsplayer-python, examplefuncsplayer-python-old, examplefuncsplayer-java, examplefuncsplayer-java-old, examplefuncsplayer-c, examplefuncsplayer-c-old, then terminate the manager with Stop Manager."
-#plain
-#step_ignore docker run -it --privileged -p 16147:16147 -p 6147:6147 -v $DIR:/player --rm battledaddy
-#prompt "Did it work?"
+blue
+echo "Please wait for the following matches to finish."
+plain
+step ./battlecode.sh -p1 examplefuncsplayer-python -p2 examplefuncsplayer-java -m bananas
+step ./battlecode.sh -p1 examplefuncsplayer-c -p2 examplefuncsplayer-c -m bananas
+echo
+blue
+echo "Please run matches between examplefuncsplayer-python, examplefuncsplayer-java, examplefuncsplayer-c, then terminate the manager with Stop Manager."
+plain
+step_ignore ./run_nodocker.sh
+prompt "Did it work?"
+blue
+echo "Please run matches between examplefuncsplayer-python, examplefuncsplayer-python-old, examplefuncsplayer-java, examplefuncsplayer-java-old, examplefuncsplayer-c, examplefuncsplayer-c-old, then terminate the manager with Stop Manager."
+plain
+step_ignore docker run -it --privileged -p 16147:16147 -p 6147:6147 -v $DIR:/player --rm battledaddy
+prompt "Did it work?"
 
 step git add battlecode-manager/web/run.html
 step git add .
 green
 echo $ git commit -m "Release $RELEASE"
 plain
-if git commit -m "Release $RELEASE"; then
-    true
-fi
+git commit -m "Release $RELEASE"
 step git tag $RELEASE
 step git push origin master
 step git push --tags origin $RELEASE
@@ -178,8 +176,8 @@ echo "=== MAKING FINAL RELEASE ==="
 plain
 step cd bc18-scaffold
 step git checkout master
-step git pull $RELEASE
-step git push
+step git pull origin $RELEASE
+step git push origin $RELEASE
 step cd ..
 step docker push battlecode/battlecode-2018:$RELEASE
 step docker push battlecode/battlecode-2018:latest
