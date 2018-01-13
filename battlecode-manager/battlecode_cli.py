@@ -86,7 +86,7 @@ def run_game(game, dockers, args, sock_file):
                 team = 'blue'
             else:
                 team = 'red'
-            name = f'[{planet}:{team}]'
+            name = '[{}:{}]'.format(planet, team)
             logger = Logger(name, print=not args['terminal_viewer'])
             docker_inst.stream_logs(line_action=logger)
             player_['logger'] = logger
