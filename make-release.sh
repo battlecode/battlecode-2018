@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# set to 1 if we need to rebuild the bindings
+BINARY_RELEASE=0
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd $DIR
 
@@ -56,7 +58,7 @@ echo "=== Starting release $(tput setaf 5)$RELEASE$(green) ==="
 echo "Hope you know what you're doing"
 plain
 
-if [ ! -z "$(git status --porcelain)" ]; then
+if [ ! -z "$(git status --porcelain | egrep make-release.sh)" ]; then
     red
     echo "Oy, there are uncommitted files!"
     echo "Not continuing."
@@ -98,13 +100,22 @@ fi
 
 step cd ..
 
-step make clean
-step make test
-step make clean
-step make release
-step make linux-libs
-step make copy-linux
-step make docker-sandbox
+if [ $BINARY_RELEASE -eq 1 ]; then
+    green
+    echo "Binary release, remaking artifacts."
+    plain
+    step make clean
+    step make test
+    step make clean
+    step make release
+    step make linux-libs
+    step make copy-linux
+    step make docker-sandbox
+else
+    green
+    echo "Manager-only release, not remaking artifacts."
+    plain
+fi
 step make docker-manager
 
 tput setaf 2

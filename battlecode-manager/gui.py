@@ -111,9 +111,12 @@ def get_maps():
 
     maps.append('testmap.bc18map')
     if 'NODOCKER' not in os.environ:
-        for o in os.listdir('/player/battlecode-maps'):
-            if o not in maps:
-                maps.append(o)
+        try:
+            for o in os.listdir('/player/battlecode-maps'):
+                if o not in maps:
+                    maps.append(o)
+        except:
+            pass
 
     return maps
 
