@@ -106,19 +106,41 @@ class ResultType(Type):
     def __init__(self, wrapped):
         super().__init__(wrapped.rust, wrapped.swig, wrapped.python, wrapped.default)
         self.wrapped = wrapped
-    
+
     def wrap_c_value(self, value):
         raise Exception("Results can only be returned")
-    
+
     def wrap_python_value(self, value):
         raise Exception("Results can only be returned")
-    
+
     def unwrap_rust_value(self, value):
         v = self.wrapped.unwrap_rust_value('v')
         return f'check_result!({value}.map(|v| {v}), _default)'
 
     def python_postfix(self):
         return self.wrapped.python_postfix()
+
+    def to_swig(self):
+        '''Formatting for embedding in a swig .i file.'''
+        return self.wrapped.to_swig()
+
+    def to_c(self):
+        '''Formatting for embedding in c .h file.'''
+        return self.wrapped.to_c()
+
+    def to_rust(self):
+        '''Formatting for embedding in c .h file.'''
+        return self.wrapped.to_rust()
+
+    def to_python(self):
+        return self.wrapped.to_python()
+
+    def result(self):
+        return ResultType(self)
+
+    def orig_rust(self):
+        return self.wrapped.orig_rust()
+
 
 # TODO: make sure this works with utf-8 stuff in python 2, java, etc.
 class StringType(Type):
