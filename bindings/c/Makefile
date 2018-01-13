@@ -1,16 +1,6 @@
 # Makefile to build C code.
 include ../../helpers.mk
 
-ifeq ($(CUR_OS),win32)
-
-default:
-	@echo "nothing to do"
-test: default
-clean: default
-release: default
-
-else
-
 CC = gcc
 default: c_test
 
@@ -29,5 +19,3 @@ release:
 .PHONY: clean
 clean:
 	rm test/*o test/c_test
-
-endif
