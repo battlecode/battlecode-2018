@@ -15,6 +15,11 @@ RUN pip3 install \
     tqdm docker boto3 werkzeug \
     ujson cffi psutil eel
 
+
+# Install rust
+RUN apk add --update --no-cache \
+    libffi-dev py3-psycopg2
+
 COPY ./docker-artifacts/battlebaby.tar /images/battlebaby.tar
 COPY ./docker-artifacts/linux-battlecode-musl /battlecode/battlecode
 ENV PYTHONPATH=/battlecode/battlecode/python
