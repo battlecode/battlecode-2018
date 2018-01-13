@@ -15,8 +15,9 @@ bindings/java/src/bc/*.class
 bindings/java/src/bc/*.so
 bindings/c/include/bc.h
 bindings/c/include/bc.i
-bindings/python/battlecode/darwin/_bc.abi3.so
-bindings/python/battlecode/darwin/_bc.abi3.so
+bindings/python/battlecode/darwin/*
+bindings/python/battlecode/linux/*
+bindings/python/battlecode/win32/*
 bindings/src/bindings.rs
 
 */__pycache__

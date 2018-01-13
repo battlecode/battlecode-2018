@@ -24,14 +24,16 @@ PORT = 16147
 
 
 class Logger(object):
-    def __init__(self, prefix):
+    def __init__(self, prefix, print=True):
         self.logs = io.StringIO()
         self.prefix = prefix
+        self.print = print
 
     def __call__(self, v):
         data = v.decode()
         self.logs.write(data)
-        print(self.prefix, data, end='')
+        if self.print:
+            print(self.prefix, data, end='')
 
 
 def working_dir_message(working_dir):
@@ -67,37 +69,41 @@ def run_game(game, dockers, args, sock_file):
 
     viewer_server = server.start_viewer_server(PORT, game) if args['use_viewer'] else None
 
-    # Start the docker instances
-    for player_key in dockers:
-        docker_inst = dockers[player_key]
-        docker_inst.start()
-        for player_ in game.players:
-            if player_['id'] == player_key:
-                player = player_['player']
-                break
-        if player.planet == bc.Planet.Earth:
-            planet = 'earth'
-        else:
-            planet = 'mars'
-        if player.team == bc.Team.Blue:
-            team = 'blue'
-        else:
-            team = 'red'
-        name = f'[{planet}:{team}]'
-        logger = Logger(name)
-        docker_inst.stream_logs(line_action=logger)
-        player_['logger'] = logger
-
-    # Wait until all the code is done then clean up
-    while not game.game_over:
-        time.sleep(0.1)
-
-    print('Killing game server.')
-    main_server.shutdown()
     try:
-        main_server.server_close()
-    except e:
-        print(e)
+        # Start the docker instances
+        for player_key in dockers:
+            docker_inst = dockers[player_key]
+            docker_inst.start()
+            for player_ in game.players:
+                if player_['id'] == player_key:
+                    player = player_['player']
+                    break
+            if player.planet == bc.Planet.Earth:
+                planet = 'earth'
+            else:
+                planet = 'mars'
+            if player.team == bc.Team.Blue:
+                team = 'blue'
+            else:
+                team = 'red'
+            name = f'[{planet}:{team}]'
+            logger = Logger(name, print=not args['terminal_viewer'])
+            docker_inst.stream_logs(line_action=logger)
+            player_['logger'] = logger
+
+        # Wait until all the code is done then clean up
+        while not game.game_over:
+            time.sleep(0.1)
+
+    finally:
+        main_server.shutdown()
+        try:
+            main_server.server_close()
+        except e:
+            print(e)
+
+        if viewer_server is not None:
+            viewer_server.shutdown()
 
     match_file = {}
     match_file['message'] = game.viewer_messages
@@ -122,12 +128,10 @@ def run_game(game, dockers, args, sock_file):
         if not os.path.isabs(match_output):
             match_output = abspath(os.path.join('..', str(match_output)))
 
-    print("Dumping matchfile to", match_output)
+    print("Saving replay to", match_output)
     match_ptr = open(match_output, 'w')
     json.dump(match_file, match_ptr)
     match_ptr.close()
-    if viewer_server is not None:
-        viewer_server.shutdown()
 
     return winner
 
@@ -136,7 +140,6 @@ def cleanup(dockers, args, sock_file):
     '''
     Clean up that needs to be done at the end of a game
     '''
-    print("Cleaning up Docker and Socket...")
     for player_key in dockers:
         docker_inst = dockers[player_key]
         docker_inst.destroy()
@@ -144,8 +147,6 @@ def cleanup(dockers, args, sock_file):
     if isinstance(sock_file, str) or isinstance(sock_file, bytes):
         # only unlink unix sockets
         os.unlink(sock_file)
-
-    print("Ready to run next game.")
 
 
 def get_map(map_name):
@@ -157,16 +158,35 @@ def get_map(map_name):
         with open(map_name) as f:
             contents = f.read()
         print("Loading map " + map_name)
-        return bc.GameMap.from_json(contents)
+        if map_name.endswith('.bc18map'):
+            return bc.GameMap.from_json(contents)
+        elif map_name.endswith('.bc18t'):
+            return bc.GameMap.parse_text_map(contents)
     except Exception as e:
+        if 'testmap' not in map_name:
+            print('failed to load map:', e)
         try:
             with open('/player/' + map_name) as f:
                contents = f.read()
             print("Loading map " + map_name)
-            return bc.GameMap.from_json(contents)
+            if map_name.endswith('.bc18map'):
+                return bc.GameMap.from_json(contents)
+            elif map_name.endswith('.bc18t'):
+                return bc.GameMap.parse_text_map(contents)
         except Exception as e:
-            print("Loading test map...")
-            return bc.GameMap.test_map()
+            if 'testmap' not in map_name:
+                print('failed to load map:', e)
+            try:
+                with open('/player/' + map_name) as f:
+                   contents = f.read()
+                print("Loading map " + map_name)
+                if map_name.endswith('.bc18map'):
+                    return bc.GameMap.from_json(contents)
+                elif map_name.endswith('.bc18t'):
+                    return bc.GameMap.parse_text_map(contents)
+            except Exception as e:
+                print("Loading test map...")
+                return bc.GameMap.test_map()
 
 def create_game(args):
     '''

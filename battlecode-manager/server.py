@@ -19,6 +19,20 @@ import battlecode as bc
 
 NUM_PLAYERS = 4
 
+PKEYS = {
+    int(bc.Planet.Earth): {
+        int(bc.Team.Red): 0,
+        int(bc.Team.Blue): 1,
+    },
+    int(bc.Planet.Mars): {
+        int(bc.Team.Red): 2,
+        int(bc.Team.Blue): 3,
+    }
+}
+def _key(p):
+    p = p['player']
+    return PKEYS[int(p.planet)][int(p.team)]
+
 class Game(object): # pylint: disable=too-many-instance-attributes
     '''
     This function contains the game information, and is started at the begining
@@ -136,6 +150,10 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         triggered when a game starts is stored here.
         '''
 
+        if self.terminal_viewer and sys.platform != 'win32':
+            # Clear the entire screen
+            sys.stdout.write("\033[2J")
+
         # Init the player who starts and then tell everyone we started
         self.current_player_index = 0
         self.set_player_turn(self.current_player_index)
@@ -154,15 +172,34 @@ class Game(object): # pylint: disable=too-many-instance-attributes
 
         if self.terminal_viewer:
             if sys.platform == 'win32':
+                # Windows terminal only supports escape codes starting from Windows 10 in the 'Threshold 2' update.
+                # So fall back to other commands to ensure compatibility
                 os.system('cls')
             else:
-                os.system('clear')
+                # Move the cursor to coordinate (0,0) on the screen.
+                # Compared the clearing the entire screen, this reduces flicker.
+                # See https://en.wikipedia.org/wiki/ANSI_escape_code
+                sys.stdout.write("\033[0;0H")
+                # os.system('clear')
+
             print('[rnd: {}] [rK: {}] [bK: {}]'.format(
                 self.manager.round(),
                 self.manager.manager_karbonite(bc.Team.Red),
                 self.manager.manager_karbonite(bc.Team.Blue),
             ))
             self.manager.print_game_ansi()
+
+            if sys.platform != 'win32':
+                # Clear the screen from the cursor to the end of the screen.
+                # Just in case some text has been left over there from earlier frames.
+                sys.stdout.write("\033[J")
+            for player in sorted(self.players, key=_key):
+                p = player['player']
+                print('-- [{}{}] --'.format('e' if p.planet == bc.Planet.Earth else 'm', 'b' if p.team == bc.Team.Red else 'r'))
+                logs = player['logger'].logs.getvalue()[-1000:].splitlines()[-5:]
+                for line in logs:
+                    print(line)
+
         if self.extra_delay:
             import time
             time.sleep(self.extra_delay / 1000.)
@@ -343,8 +380,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                             self.game.winner = 'player2'
                         else:
                             self.game.winner = 'player1'
-                print("Client %s: Game Over", self.client_id)
-                print("Cleaning up")
+                print("Game Over for player", self.game.player_id2index(self.client_id))
                 self.game.disconnected = True
                 self.game.game_over = True
                 wrapped_socket.close()
@@ -536,7 +572,6 @@ def start_server(sock_file: str, game: Game, dockers, use_docker=True) -> socket
         # tcp port
         server = socketserver.ThreadingTCPServer(sock_file, receive_handler)
     else:
-        print('starting server', sock_file)
         server = socketserver.ThreadingUnixStreamServer(sock_file, receive_handler)
 
     server_thread = threading.Thread(target=server.serve_forever, daemon=True)

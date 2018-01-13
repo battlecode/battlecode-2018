@@ -7,6 +7,7 @@ import json
 import signal
 import psutil
 import player_plain
+import battlecode as bc
 
 target_dir = os.path.abspath(os.path.dirname(__file__))
 print('Moving into', target_dir)
@@ -27,7 +28,24 @@ def start_game(return_args):
     global WINNER
     WINNER = 0
 
-    return_args['map'] = cli.get_map(os.path.abspath(os.path.join('..', 'battlecode-maps', return_args['map'])))
+    # check mountpoint for maps first
+    c2 = os.path.abspath(os.path.join('/player/battlecode-maps', return_args['map']))
+    if 'NODOCKER' not in os.environ and os.path.exists(c2):
+        return_args['map'] = cli.get_map(c2)
+    else:
+        c1 = os.path.abspath(os.path.join('..', 'battlecode-maps', return_args['map']))
+        if os.path.exists(c1):
+            return_args['map'] = cli.get_map(c1)
+        else:
+            if 'testmap' not in return_args['map']:
+                print("Can't find map {} in {}, falling back to test map..",
+                    return_args['map'],
+                    os.path.abspath(os.path.join('..', 'battlecode-maps'))
+                )
+                if 'NODOCKER' not in os.environ:
+                    print('(Also looked in /player/battlecode-maps, which should be mounted to the battlecode-maps directory of your scaffold)')
+                return_args['map'] = bc.GameMap.test_map()
+
     if 'NODOCKER' in os.environ:
         return_args['docker'] = False
         return_args['dir_p1'] = os.path.abspath(os.path.join('..', return_args['dir_p1']))
@@ -56,6 +74,8 @@ def start_game(return_args):
         eel.trigger_end_game(2)()
     else:
         eel.trigger_end_game(0)()
+
+    print("Ready to run next game.")
 
 
 @eel.expose
@@ -88,9 +108,14 @@ def get_maps():
         map_dir = '/battlecode/battlecode-maps'
 
     maps = [o for o in os.listdir(map_dir)
-                        if 'bc18map' in o]
+                        if 'bc18map' in o or 'bc18t' in o]
 
     maps.append('testmap.bc18map')
+    if 'NODOCKER' not in os.environ:
+        for o in os.listdir('/player/battlecode-maps'):
+            if o not in maps:
+                maps.append(o)
+
     return maps
 
 @eel.expose
@@ -133,20 +158,18 @@ def end_game():
 def reap_children(timeout=3):
     "Tries hard to terminate and ultimately kill all the children of this process."
     def on_terminate(proc):
-        print("process {} terminated with exit code {}".format(proc, proc.returncode))
-
-    print("Killing manager children...")
+        pass
+        # print("process {} terminated with exit code {}".format(proc, proc.returncode))
 
     procs = psutil.Process().children(recursive=True)
     # send SIGTERM
     for p in procs:
-        print("Killing ", p.pid)
         p.terminate()
     gone, alive = psutil.wait_procs(procs, timeout=timeout, callback=on_terminate)
     if alive:
         # send SIGKILL
         for p in alive:
-            print("process {} survived SIGTERM; trying SIGKILL" % p.pid)
+            # print("process {} survived SIGTERM; trying SIGKILL" % p.pid)
             p.kill()
         gone, alive = psutil.wait_procs(alive, timeout=timeout, callback=on_terminate)
         if alive:

@@ -44,6 +44,7 @@ clean:
 	@$(MAKE) -wC bindings clean
 	-rm -rf docker-artifacts
 	-rm -rf docker-manager/working_dir
+	rm -rf battlecode
 	# run build first, to generate code and stuff
 
 generate:
@@ -97,5 +98,7 @@ package:
 	cp run_nodocker.bat bc18-scaffold/
 	cp battlecode.sh bc18-scaffold/
 	cp battlecode.bat bc18-scaffold/
+	cp run.sh bc18-scaffold/
+	cp run.bat bc18-scaffold/
 
 .PHONY: build test dockers battlecode
