@@ -78,7 +78,6 @@ RUN apk add --no-cache --virtual=.build-dependencies wget ca-certificates tar xz
     cert-sync /etc/ssl/certs/ca-certificates.crt && \
     apk del .build-dependencies && \
     rm /tmp/*
-added to dockerfile setup
 
 # Install battlecode bindings
 ADD . /battlecode
