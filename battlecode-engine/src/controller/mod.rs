@@ -1264,6 +1264,38 @@ impl GameController {
             }
             print!("{}", st.paint("+"));
         };
+        
+        use ansi_term::Colour::Fixed;
+        // https://stackoverflow.com/questions/4842424/list-of-ansi-color-escape-sequences
+        let k_levels = [
+            (0,  Style::new()),
+            (11,  Style::new().on(Fixed(17))),
+            (20,  Style::new().on(Fixed(18))),
+            (30,  Style::new().on(Fixed(19))),
+            (40,  Style::new().on(Fixed(20))),
+            (50,  Style::new().on(Fixed(21))),
+            (60,  Style::new().on(Fixed(57))),
+            (70,  Style::new().on(Fixed(93))),
+            (80,  Style::new().on(Fixed(129))),
+            (90,  Style::new().on(Fixed(165))),
+            (100, Style::new().on(Fixed(201))),
+            (120, Style::new().on(Fixed(206))),
+            (120, Style::new().on(Fixed(205))),
+            (140, Style::new().on(Fixed(210))),
+            (180, Style::new().on(Fixed(209))),
+            (200, Style::new().on(Fixed(208))),
+            (400, Style::new().on(Fixed(220))),
+            (800, Style::new().on(Fixed(226))),
+            (u32::max_value(), Style::new().on(Fixed(160))),
+        ];
+        let k = |karb: u32| {
+            for &(l, s) in k_levels.iter() {
+                if l >= karb {
+                    print!("{}", s.paint(" "));
+                    return;
+                }
+            }
+        };
 
         edge(eb);
         edge(mb);
@@ -1279,7 +1311,11 @@ impl GameController {
                 } else if !earth_map.is_passable_terrain[y as usize][x as usize] {
                     print!("{}", bg.paint(" "));
                 } else {
-                    print!(" ");
+                    if let &Some(ref eu) = earth_units {
+                        k(eu.karbonite[y as usize][x as usize]);
+                    } else {
+                        print!(" ");
+                    }
                 }
             }
             print!("{}", eb.paint("|"));
@@ -1292,7 +1328,11 @@ impl GameController {
                 } else if !mars_map.is_passable_terrain[y as usize][x as usize] {
                     print!("{}", bg.paint(" "));
                 } else {
-                    print!(" ");
+                    if let &Some(ref mu) = mars_units {
+                        k(mu.karbonite[y as usize][x as usize]);
+                    } else {
+                        print!(" ");
+                    }
                 }
             }
             println!("{}", mb.paint("|"));
