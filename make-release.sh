@@ -120,7 +120,7 @@ else
     magenta
     echo "Manager-only release, not remaking artifacts."
     plain
-    #step make dump-sandbox
+    step make dump-sandbox
 fi
 step make docker-manager
 
