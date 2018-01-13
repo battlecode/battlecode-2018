@@ -75,6 +75,8 @@ def end_game(data,winner,match_file,logs):
     pg.commit()
     DB_LOCK = False
 
+    print("Finsihed game " + str(data['id']))
+
 def match_thread(data):
     global BUSY
     BUSY = True
@@ -131,18 +133,18 @@ def poll_thread():
         row = cur.fetchone()
 
         if row is not None:
-            BUSY = True
-
             if len(row) == 1:
                 row = row[0][1:-1].split(",")
                 row[0] = int(row[0])
 
             data = {'id':row[0],'red_key':row[1],'blue_key':row[2],'map':row[3]}
 
-            cur.execute("UPDATE " + os.environ['TABLE_NAME'] + " SET status=1 WHERE id=%s",(data['id'],))
-            pg.commit()
+            if not BUSY:
+                BUSY = True
+                cur.execute("UPDATE " + os.environ['TABLE_NAME'] + " SET status=1, start=NOW() WHERE id=%s",(data['id'],))
+                pg.commit()
 
-            run_match(data)
+                run_match(data)
 
         DB_LOCK = False
 
