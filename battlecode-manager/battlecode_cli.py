@@ -246,11 +246,16 @@ def create_scrimmage_game(args):
     Create all the semi-permanent game structures (i.e. sockets and dockers and
     stuff
     '''
-
+    args['replay_filename'] = 'k'
     # Load the Game state info
     game = server.Game(logging_level=logging.ERROR,
                        game_map=args['map'], time_pool=int(os.environ['TIME_POOL']),
-                       time_additional=int(os.environ['TIME_ADDITIONAL']))
+                       time_additional=int(os.environ['TIME_ADDITIONAL']),
+                       terminal_viewer=False,
+                       extra_delay=0)
+
+    working_dir = abspath("working_dir")
+    prepare_working_directory(working_dir)
 
     # Find a good filename to use as socket file
     for index in range(10000):
@@ -259,12 +264,15 @@ def create_scrimmage_game(args):
             break
 
     # Assign the docker instances client ids
+    import docker
+    docker_instance = docker.from_env()
     dockers = {}
-    Sandbox.initialize()
     for index in range(len(game.players)):
         key = [player['id'] for player in game.players][index]
-        dockers[key] = Sandbox(sock_file, player_key=key,
+        dockers[key] = SandboxedPlayer(sock_file, player_key=key,
                                s3_bucket=args['s3_bucket'],
-                               s3_key=args['red_key' if index % 2 == 0 else 'blue_key'])
+                               s3_key=args['red_key' if index % 2 == 0 else 'blue_key'],
+                               docker_client=docker_instance,
+                               working_dir=working_dir)
 
     return (game, dockers, sock_file)

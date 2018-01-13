@@ -3,6 +3,9 @@ import psycopg2
 import json
 import os
 import battlecode_cli as cli
+import threading
+import boto3
+from time import sleep
 
 
 ##### SCRIMMAGE SERVER 2K18 #######
@@ -31,36 +34,72 @@ import battlecode_cli as cli
 pg = None
 cur = None
 BUSY = False
-s3_bucket = None
+DB_LOCK = False
 GAMES_RUN = []
 
+s3 = boto3.resource('s3')
+bucket = s3.Bucket(os.environ['BUCKET_NAME'])
 
 def random_key(length):
     return ''.join([random.choice(string.ascii_letters + string.digits + string.digits) for _ in range(length)])
 
 def end_game(data,winner,match_file,logs):
-    print(winner)
-    print(logs)
+    global BUSY
+    global DB_LOCK
+
+    BUSY = False
+
+    status = -1
+    if winner == 'player1':
+        status = 2
+    elif winner == 'player2':
+        status = 3
+
+    replay_key = 'replays/' + str(data['id']) + '.bc18';
+    replay = s3.Object(os.environ['BUCKET_NAME'], replay_key)
+    replay.put(Body=json.dumps(match_file).encode())
+
+    red_log_key = 'logs/' + str(data['id']) + '_0.bc18log'
+    blue_log_key = 'logs/' + str(data['id']) + '_1.bc18log'
+
+    red_log = s3.Object(os.environ['BUCKET_NAME'], red_log_key)
+    red_log.put(Body=json.dumps({'earth':logs[0],'mars':logs[2]}).encode())
+
+    blue_log = s3.Object(os.environ['BUCKET_NAME'], blue_log_key)
+    blue_log.put(Body=json.dumps({'earth':logs[1],'mars':logs[3]}).encode())
+
+    while DB_LOCK == True:
+        sleep(0.1)
+    DB_LOCK = True
+    cur.execute("UPDATE " + os.environ["TABLE_NAME"] + " SET (status, replay, red_logs, blue_logs)=(%s,%s,%s,%s)  WHERE id=%s", (status,replay_key,red_log_key,blue_log_key,data['id']))
+    pg.commit()
+    DB_LOCK = False
 
 def match_thread(data):
+    global BUSY
     BUSY = True
     GAMES_RUN.append(data['id'])
 
-    data['s3_bucket'] = s3_bucket
+    data['s3_bucket'] = bucket
+
+    data['player_memory'] = 256
+    data['player_cpu'] = 20
 
     data['map'] = cli.get_map(os.path.abspath(os.path.join('..', 'battlecode-maps', data['map'])))
     data['docker'] = True
     data['terminal_viewer'] = False
+    data['use_viewer'] = False
+
     data['extra_delay'] = 0
 
     (game, dockers, sock_file) = cli.create_scrimmage_game(data)
     winner = None
     match_file = None
     try:
-        print("Running game...")
-        winner, match_file = cli.run_game(game, dockers, return_args, sock_file,scrimmage=True)
+        print("Running match " + str(data['id']))
+        winner, match_file = cli.run_game(game, dockers, data, sock_file,scrimmage=True)
     finally:
-        cli.cleanup(dockers, return_args, sock_file)
+        cli.cleanup(dockers, data, sock_file)
 
     logs = None
     if all('logger' in player for player in game.players):
@@ -74,8 +113,42 @@ def run_match(data):
 
     return t1
 
+def poll_thread():
+    global DB_LOCK
+    global BUSY
+
+    while True:
+        sleep(1)
+        if BUSY:
+            continue
+
+        while DB_LOCK == True:
+            sleep(0.1)
+        DB_LOCK = True
+
+        cur.execute("SELECT (id, red_key, blue_key, map) FROM " + os.environ["TABLE_NAME"] + " WHERE status=0 or (status=1 and start < (NOW() - INTERVAL '5 min')) ORDER BY start ASC")
+
+        row = cur.fetchone()
+
+        if row is not None:
+            BUSY = True
+
+            if len(row) == 1:
+                row = row[0][1:-1].split(",")
+                row[0] = int(row[0])
+
+            data = {'id':row[0],'red_key':row[1],'blue_key':row[2],'map':row[3]}
+
+            cur.execute("UPDATE " + os.environ['TABLE_NAME'] + " SET status=1 WHERE id=%s",(data['id'],))
+            pg.commit()
+
+            run_match(data)
+
+        DB_LOCK = False
+
 @Request.application
 def application(request):
+    global DB_LOCK
     if request.method == 'GET':
         return Response(json.dumps({'games_run':GAMES_RUN,'busy':BUSY}))
     elif request.method == 'POST':
@@ -89,10 +162,14 @@ def application(request):
         if not ('red_key' in data and 'blue_key' in data and 'map' in data):
             return Response(json.dumps({'error':'Not all fields provided.'}),400)
 
-        cur.execute("INSERT INTO " + os.environ["TABLE_NAME"] + " (red_key, blue_key, map, status, start, replay) VALUES (%s, %s, %s," + str(0 if BUSY else 1) + ", now(), '') RETURNING id", (data['red_key'],data['blue_key'],data['map']))
+        while DB_LOCK == True:
+            sleep(0.1)
+        DB_LOCK = True
+        cur.execute("INSERT INTO " + os.environ["TABLE_NAME"] + " (red_key, blue_key, map, status, start) VALUES (%s, %s, %s," + str(0 if BUSY else 1) + ", now()) RETURNING id", (data['red_key'],data['blue_key'],data['map']))
 
         pg.commit()
         game_id = cur.fetchone()[0]
+        DB_LOCK = False
         if not BUSY:
             data['id'] = game_id
             run_match(data)
@@ -108,4 +185,5 @@ if __name__ == "__main__":
     except:
         print("Could not connect to postgres.")
 
+    threading.Thread(target=poll_thread).start()
     run_simple('0.0.0.0', 410, application, use_reloader=True)

@@ -13,12 +13,12 @@ RUN apk add --update --no-cache \
 # Install necessary python libs
 RUN pip3 install \
     tqdm docker boto3 werkzeug \
-    ujson cffi psycopg2 psutil eel
+    ujson cffi psutil eel
 
 
 # Install rust
 RUN apk add --update --no-cache \
-    libffi-dev
+    libffi-dev py3-psycopg2
 
 COPY ./docker-artifacts/battlebaby.tar /images/battlebaby.tar
 COPY ./docker-artifacts/linux-battlecode-musl /battlecode/battlecode

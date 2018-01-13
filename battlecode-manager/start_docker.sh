@@ -8,4 +8,9 @@ sleep 3
 docker load -i /images/battlebaby.tar
 export RUST_BACKTRACE=1
 echo "=== random garbage complete! ==="
-python3 gui.py
+
+if [ -z "$SCRIMMAGE" ]; then
+    python3 gui.py
+else
+    python3 scrimmage.py
+fi
