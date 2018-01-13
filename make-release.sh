@@ -146,17 +146,21 @@ step git add .
 green
 echo $ git commit -m "Release $RELEASE"
 plain
-git commit -m "Release $RELEASE"
+if git commit -m "Release $RELEASE"; then
+    true
+fi
 step git tag $RELEASE
 step git push origin master
 step git push --tags origin $RELEASE
 
 step make package
 step cd bc18-scaffold
+step git checkout -- battlecode/c/lib/libbattlecode-win32.lib
+step git checkout -- battlecode/python/battlecode/win32/_bc.pyd
+step git add .
 step git status
 prompt "Everything look good?"
 
-step git add .
 green
 echo $ git commit -m "$RELEASE Mac/Linux"
 plain
