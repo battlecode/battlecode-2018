@@ -248,7 +248,7 @@ pub struct AsteroidStrike {
 /// strike.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AsteroidPattern {
-    pattern: FnvHashMap<Rounds, AsteroidStrike>,
+    pub(crate) pattern: FnvHashMap<Rounds, AsteroidStrike>,
 }
 
 /// The orbit pattern that determines a rocket's flight duration. This pattern

@@ -19,6 +19,7 @@ use unit::UnitType::*;
 use failure::Error;
 use fnv::FnvHashMap;
 use ansi_term::{Colour, Style};
+use ansi_term::Colour::Fixed;
 
 use std::mem;
 use std::env;
@@ -1271,6 +1272,9 @@ impl GameController {
         let eb = Style::new().fg(Colour::Green);
         let mb = Style::new().fg(Colour::Yellow);
 
+        let strike = self.world.asteroids.pattern.get(&self.round());
+        let sb = Style::new().on(Fixed(11));
+
         let edge = |st: Style, w: usize| {
             print!("{}", st.paint("+"));
             for _ in 0..w {
@@ -1279,7 +1283,6 @@ impl GameController {
             print!("{}", st.paint("+"));
         };
         
-        use ansi_term::Colour::Fixed;
         // https://stackoverflow.com/questions/4842424/list-of-ansi-color-escape-sequences
         let k_levels = [
             (0,  Style::new()),
@@ -1351,6 +1354,12 @@ impl GameController {
                 print!("{}", mb.paint("|"));
                 for x in 0..mw {
                     let loc = MapLocation::new(Mars, x as i32, y);
+                    if let Some(strike) = strike {
+                        if loc == strike.location {
+                            print!("{}", sb.paint(" "));
+                            continue;
+                        }
+                    }
                     if let Some(id) = mars_units.and_then(|mu| mu.units_by_loc.get(&loc)) {
                         let unit = &mars_units.unwrap().units[&id];
                         print!("{}", log_unit(&unit));
