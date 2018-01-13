@@ -62,6 +62,9 @@ docker-sandbox:
 	docker build -t battlebaby -f SandboxDockerfile . --squash
 	mkdir -p docker-artifacts/
 	docker save battlebaby -o docker-artifacts/battlebaby.tar
+	make dump-sandbox
+
+dump-sandbox:
 	ID=$$(docker create battlebaby);\
 	   docker cp $$ID:/battlecode docker-artifacts/linux-battlecode-musl;\
        docker rm -v $$ID

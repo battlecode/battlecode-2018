@@ -21,24 +21,24 @@ plain() {
 set -e
 step() {
     green
-    echo $@
-    $@
+    echo $$ $@
     plain
+    $@
 }
 step_ignore() {
     green
-    echo $@
+    echo $$ $@
+    plain
     if $@; then
         true
     fi
-    plain
 }
 prompt() {
     blue
-    printf "$@ [y/n]"
+    printf "$@ [y/n] "
     plain
     while true; do
-        read $good
+        read good
         if [ "$good" = "y" ]; then
             echo "Okay, continuing."
             break
@@ -46,7 +46,7 @@ prompt() {
             echo "Bailing out."
             exit 1
         else
-            echo "Huh?"
+            echo "Huh?" $good
         fi
     done
 }
@@ -57,8 +57,7 @@ green
 echo "=== Starting release $(tput setaf 5)$RELEASE$(green) ==="
 echo "Hope you know what you're doing"
 plain
-
-if [ ! -z "$(git status --porcelain | egrep make-release.sh)" ]; then
+if [ ! -z "$(git status --porcelain | grep -v make-release.sh | grep -v web)" ]; then
     red
     echo "Oy, there are uncommitted files!"
     echo "Not continuing."
@@ -83,14 +82,12 @@ gsed -i 's/Version .*/Version '"$RELEASE/" battlecode-manager/web/run.html
 if [ ! -z "$(git status --porcelain)" ]; then
     red
     echo "Version on web page didn't update?"
-    echo "Not continuing."
-    exit 1
+    prompt "Should I continue?"
 fi
-
-prompt bananas
 
 step cd bc18-scaffold
 if git checkout $RELEASE; then
+    true
 else
     red
     echo "Couldn't checkout $RELEASE in bc18-scaffold, have you run the windows build yet?"
@@ -115,6 +112,7 @@ else
     green
     echo "Manager-only release, not remaking artifacts."
     plain
+    step make dump-sandbox
 fi
 step make docker-manager
 
