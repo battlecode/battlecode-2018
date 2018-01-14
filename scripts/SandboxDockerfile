@@ -71,20 +71,49 @@ RUN apk add --update --no-cache \
     rm -r /root/.cache
 RUN pip3 install numpy
 
-# Install battlecode bindings
-ADD . /battlecode
 
-WORKDIR /battlecode/
-# this creates stuff at /battlecode/battlecode
-# we then move that folder to /battlecode
-# player code will be mounted in /code, so they can access the stuff they need at ../battlecode like always :)))
+# Install pypy3
+# the pypy3 package we're using depends on an older version of libcrypto, which is only available in alpine 3.6
+RUN echo 'http://dl-cdn.alpinelinux.org/alpine/v3.6/main' >> /etc/apk/repositories
+# ensure local pypy is preferred over distribution python
+ENV PATH /usr/local/bin:$PATH
+# http://bugs.python.org/issue19846
+# > At the moment, setting "LANG=C" on a Linux system *fundamentally breaks Python 3*, and that's not OK.
+ENV LANG C.UTF-8
+ENV PYPY_VERSION 5.9.0
+ENV PYPY_SHA256SUM a85abaaa01f8db9210e7526ed36350c3269d008b7626c1202efd86b3c426f1ef
+# if this is called "PIP_VERSION", pip explodes with "ValueError: invalid truth value '<VERSION>'"
+ENV PYTHON_PIP_VERSION 9.0.1
+RUN set -ex; \
+    wget -O pypy.tar.bz2 "https://github.com/JayH5/alpine-pypy/releases/download/3-$PYPY_VERSION/pypy3-v${PYPY_VERSION}-linux64.tar.bz2"; \
+    echo "$PYPY_SHA256SUM *pypy.tar.bz2" | sha256sum -c -; \
+    tar -xjC /usr/local --strip-components=1 -f pypy.tar.bz2; \
+    rm pypy.tar.bz2; \
+    \
+    runDeps="$( \
+        scanelf --needed --nobanner --recursive /usr/local \
+            | awk '{ gsub(/,/, "\nso:", $2); print "so:" $2 }' \
+            | sort -u \
+            | grep -v 'libpypy3-c' \
+    )"; \
+    apk add --no-cache --virtual .pypy-rundeps $runDeps
+# warn players about numpy; only occurs when running with pypy3 (normal code will hit the python3 install of numpy)
+RUN echo 'raise ImportError("Numpy is not supported when running with pypy3 in the Battlecode docker image. Either use python3 or write your hot loops yourself.")' > /usr/local/lib-python/3/numpy.py
+# add pip for pypy3
+RUN set -ex; \
+    \
+    wget -O get-pip.py 'https://bootstrap.pypa.io/get-pip.py'; \
+    \
+    pypy3 get-pip.py \
+        --disable-pip-version-check \
+        --no-cache-dir \
+        "pip==$PYTHON_PIP_VERSION" \
+    ; \
+    pip --version; \
+    \
+rm -f get-pip.py
 
-RUN make release && mv /battlecode/battlecode /bc && rm -rf /battlecode && mv /bc /battlecode
+RUN apk add ncurses
 
-# backwards compatibility w/ original image layout
-
-RUN ln -s -T /battlecode/c /battlecode-c
-RUN ln -s -T /battlecode/c/lib/libbattlecode-linux.a /battlecode-c/lib/libbattlecode.a
-RUN ln -s -T /battlecode/java /battlecode-java
 ENV PYTHONPATH=/battlecode/python
-
+# remaining build is run in sandboxbuild.sh
