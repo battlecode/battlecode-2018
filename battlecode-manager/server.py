@@ -342,8 +342,9 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 wrapped_socket.close()
 
             data = data.decode("utf-8").strip()
-            unpacked_data = json.loads(data)
-            return unpacked_data
+            return data
+            #unpacked_data = json.loads(data)
+            #return unpacked_data
 
         def send_message(self, obj: object) -> None:
             '''
@@ -434,7 +435,8 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
 
             # Handle Login phase
             while not self.logged_in:
-                unpacked_data = self.get_next_message()
+                # do the json parsing ourself instead of handing it off to rust
+                unpacked_data = json.loads(self.get_next_message())
 
                 verify_out = self.game.verify_login(unpacked_data)
 
@@ -484,33 +486,37 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                     state_diff = self.game.players[self.game.current_player_index]['start_message']
                     start_turn_msg = self.message(state_diff)
 
-                # but i'm getting wierd results when testing?
-                start_time = time.perf_counter()
-                my_sandbox.unpause()
-                self.send_message(start_turn_msg)
-
-                if self.game.initialized > 3:
-                    unpacked_data = self.get_next_message()
-                    end_time = time.perf_counter()
-                    diff_time = end_time-start_time
-                    my_sandbox.pause()
-
-                    # Check client is who they claim they are
-                    if int(unpacked_data['client_id']) != self.client_id:
-                        assert False, "Wrong Client id"
-
-                    # Get the moves to pass to the game
-                    turn_message = bc.TurnMessage.from_json(json.dumps(unpacked_data['turn_message']))
-
-                    self.game.make_action(turn_message, self.client_id, diff_time)
-                else:
+                if self.game.initialized <= 3:
+                    my_sandbox.unpause()
+                    self.send_message(start_turn_msg)
                     self.game.initialized += 1
+                    self.game.end_turn()
+                    continue
 
+                if self.game.times[self.client_id] > 0:
+                    my_sandbox.unpause()
 
-                """
-                if use_docker:
-                    self.docker.pause()
-                """
+                    start_time = time.perf_counter()
+                    self.send_message(start_turn_msg)
+                    data = self.get_next_message()
+                    end_time = time.perf_counter()
+
+                    diff_time = end_time-start_time
+
+                    my_sandbox.pause()
+                    sent_message = bc.SentMessage.from_json(data)
+
+                    assert int(sent_message.client_id) == self.client_id, \
+                            "Wrong client id: {}, should be: {}".format(sent_message.client_id, self.client_id)
+
+                    turn_message = sent_message.turn_message
+                else:
+                    # don't run the player; instead, forge a message from them
+                    # this way, if you accidentally overshoot one turn, you can still come back later in the game
+                    diff_time = 0
+                    turn_message = bc.TurnMessage.from_json('{"changes":[]}')
+
+                self.game.make_action(turn_message, self.client_id, diff_time)
                 self.game.end_turn()
 
         def viewer_handler(self):

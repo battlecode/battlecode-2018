@@ -299,6 +299,16 @@ ErrorMessage.member(p.string.type, "error")
 ErrorMessage.serialize()
 ErrorMessage.debug()
 
+ReceivedTurnMessage = p.struct('schema::ReceivedMessage<bc::schema::TurnMessage>')
+ReceivedTurnMessage.serialize()
+ReceivedTurnMessage.debug()
+
+SentMessage = p.struct('schema::SentMessage')
+SentMessage.serialize()
+SentMessage.debug()
+SentMessage.member(p.string.type, "client_id")
+SentMessage.member(TurnMessage.type, "turn_message")
+
 TurnApplication = p.struct("controller::TurnApplication")
 TurnApplication.member(StartTurnMessage.type, 'start_turn')
 TurnApplication.member(ViewerMessage.type, 'viewer')

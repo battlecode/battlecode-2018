@@ -1,5 +1,4 @@
 #!/bin/sh
-ls -alt /tmp/battlecode-socket
 export "PYTHONPATH=../battlecode/python:$PYTHONPATH"
 python3 run.py
 
