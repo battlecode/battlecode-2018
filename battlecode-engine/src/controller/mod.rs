@@ -15,7 +15,7 @@ use world::*;
 use location::Planet::*;
 use world::Team::*;
 use unit::UnitType::*;
-    
+
 use failure::Error;
 use fnv::FnvHashMap;
 use ansi_term::{Colour, Style};
@@ -59,7 +59,8 @@ pub struct GameController {
     config: Config,
     turn: TurnMessage,
     stream: Option<Streams>,
-    player_key: Option<String>
+    player_key: Option<String>,
+    time_left_ms: Option<i32>,
 }
 
 fn check_message<T>(msg: ReceivedMessage<T>, player_key: &str) -> Result<T, Error> {
@@ -165,7 +166,8 @@ impl GameController {
             config: Config::player_config(),
             turn: TurnMessage { changes: vec![] },
             stream: Some(stream),
-            player_key: Some(player_key)
+            player_key: Some(player_key),
+            time_left_ms: 10000,
         })
     }
 
@@ -197,9 +199,16 @@ impl GameController {
         self.old_world.start_turn(&start_turn);
         self.world = self.old_world.clone();
 
+        // set the time left
+        self.time_left_ms = Some(start_turn.time_left_ms);
 
         // yield control to the player
         Ok(())
+    }
+
+    /// Get the time left at the start of this player's turn, in milliseconds.
+    pub fn get_time_left_ms(&self) -> i32 {
+        self.time_left_ms.expect("only the player controller should call get_time_left_ms()")
     }
 
     /// Initializes the game world and creates a new controller
@@ -212,7 +221,8 @@ impl GameController {
             config: Config::player_config(),
             turn: TurnMessage { changes: vec![] },
             stream: None,
-            player_key: None
+            player_key: None,
+            time_left_ms: None,
         }
     }
 
@@ -222,6 +232,7 @@ impl GameController {
         self.old_world.start_turn(turn);
         self.world = self.old_world.clone();
         self.turn = TurnMessage { changes: vec![] };
+        self.time_left_ms = Some(turn.time_left_ms);
     }
 
     /// Ends the current turn. Returns the list of changes made in this turn.
@@ -513,7 +524,7 @@ impl GameController {
     // ************************************************************************
     // *************************** ATTACK METHODS *****************************
     // ************************************************************************
-   
+
     /// Whether the robot can attack the given unit, without taking into
     /// account the robot's attack heat. Takes into account only the robot's
     /// attack range, and the location of the robot and target.
@@ -531,7 +542,7 @@ impl GameController {
         self.world.is_attack_ready(robot_id)
     }
 
-    /// Commands a robot to attack a unit, dealing the 
+    /// Commands a robot to attack a unit, dealing the
     /// robot's standard amount of damage.
     ///
     /// Healers cannot attack, and should use `heal()` instead.
@@ -588,7 +599,7 @@ impl GameController {
     // ************************************************************************
 
     /// Whether the worker is ready to harvest, and the given direction contains
-    /// karbonite to harvest. The worker cannot already have performed an action 
+    /// karbonite to harvest. The worker cannot already have performed an action
     /// this round.
     pub fn can_harvest(&self, worker_id: UnitID, direction: Direction) -> bool {
         self.world.can_harvest(worker_id, direction)
@@ -815,7 +826,7 @@ impl GameController {
     // ************************************************************************
     // **************************** MAGE METHODS ******************************
     // ************************************************************************
-    
+
     /// Whether the mage can blink to the given location, without taking into
     /// account the mage's ability heat. Takes into account only the mage's
     /// ability range, the map terrain, positions of other units, and the edge
@@ -959,7 +970,7 @@ impl GameController {
         self.world.can_unload(structure_id, direction)
     }
 
-    /// Unloads a robot from the garrison of the specified structure into an 
+    /// Unloads a robot from the garrison of the specified structure into an
     /// adjacent space. Robots are unloaded in the order they were loaded.
     ///
     /// * NoSuchUnit - the unit does not exist (inside the vision range).
@@ -1071,7 +1082,8 @@ impl GameController {
             config: Config::runner_config(),
             turn: TurnMessage { changes: vec![] },
             stream: None,
-            player_key: None
+            player_key: None,
+            time_left_ms: None,
         }
     }
 
@@ -1080,13 +1092,16 @@ impl GameController {
     ///
     /// Panics if we're past Round 1...
     ///
+    /// The time left is the amount of time left for the initial player,
+    /// which also happens to be the total amount of time in the initial pool.
+    ///
     /// DO NOT CALL THIS FUNCTION UNLESS YOU ARE THE MANAGER!
-    pub fn initial_start_turn_message(&self) -> InitialTurnApplication {
+    pub fn initial_start_turn_message(&self, time_left_ms: i32) -> InitialTurnApplication {
         let mut world = self.world.clone();
         world.cached_world.clear();
         InitialTurnApplication {
-            start_turn: self.world.initial_start_turn_message(), 
-            viewer: ViewerKeyframe { world }
+            start_turn: self.world.initial_start_turn_message(time_left_ms),
+            viewer: ViewerKeyframe { world },
         }
     }
 
@@ -1102,12 +1117,15 @@ impl GameController {
     /// Given a TurnMessage from a player, apply those changes.
     /// Receives the StartTurnMessage for the next player.
     ///
+    /// The time left is the amount of time left for the next player to go,
+    /// and not the player whose turn you are applying.
+    ///
     /// DO NOT CALL THIS FUNCTION UNLESS YOU ARE THE MANAGER!
-    pub fn apply_turn(&mut self, turn: &TurnMessage) -> TurnApplication {
+    pub fn apply_turn(&mut self, turn: &TurnMessage, time_left_ms: i32) -> TurnApplication {
         // Serialize the filtered game state to send to the player
-        let start_turn = self.world.apply_turn(turn);
+        let start_turn = self.world.apply_turn(turn, time_left_ms);
         // Serialize the game state to send to the viewer
-        let viewer = ViewerMessage { 
+        let viewer = ViewerMessage {
             changes: turn.changes.clone(),
             units: self.world.get_viewer_units(),
             additional_changes: self.world.flush_viewer_changes(),
@@ -1116,8 +1134,8 @@ impl GameController {
         TurnApplication {
             start_turn, viewer
         }
-    }    
-    
+    }
+
     /// Determines if the game has ended, returning the winning team if so.
     ///
     /// DO NOT CALL THIS FUNCTION UNLESS YOU ARE THE MANAGER!
@@ -1282,7 +1300,7 @@ impl GameController {
             }
             print!("{}", st.paint("+"));
         };
-        
+
         // https://stackoverflow.com/questions/4842424/list-of-ansi-color-escape-sequences
         let k_levels = [
             (0,  Style::new()),
@@ -1410,10 +1428,12 @@ pub struct InitialTurnApplication {
 }
 
 /// Run a test game between two rust bots.
-pub fn run_game_ansi<R, B>(mut r: R, mut b: B, turns: usize, delay: u32) 
+pub fn run_game_ansi<R, B>(mut r: R, mut b: B, turns: usize, delay: u32)
         where R: FnMut(&mut GameController) -> Result<(), Error>,
               B: FnMut(&mut GameController) -> Result<(), Error> {
 
+    // A filler time that doesn't matter for this test game.
+    let time = 10000;
     let mut map = GameMap::test_map();
 
     map.earth_map.is_passable_terrain[5][16] = false;
@@ -1437,7 +1457,7 @@ pub fn run_game_ansi<R, B>(mut r: R, mut b: B, turns: usize, delay: u32)
             mem::swap(&mut lastturn, &mut nx);
             pcs[p].start_turn(&nx.unwrap());
         } else {
-            pcs[p].start_turn(&master.initial_start_turn_message().start_turn);
+            pcs[p].start_turn(&master.initial_start_turn_message(time).start_turn);
         }
 
         if players[p].team == Red {
@@ -1449,7 +1469,7 @@ pub fn run_game_ansi<R, B>(mut r: R, mut b: B, turns: usize, delay: u32)
         println!("round: {:?} team: {:?} planet: {:?} karbonite: {:?}",
             pcs[p].round(), pcs[p].team(), pcs[p].planet(), pcs[p].karbonite());
 
-        let TurnApplication { start_turn, .. } = master.apply_turn(&pcs[p].end_turn());
+        let TurnApplication { start_turn, .. } = master.apply_turn(&pcs[p].end_turn(), time);
         lastturn = Some(start_turn);
 
         println!("-- master view --");
@@ -1488,7 +1508,7 @@ mod tests {
         let mut manager_controller = GameController::new_manager(map);
         let red_robot = 1;
         let blue_robot = 2;
-        
+
         // Create controllers for each Earth player, so the first
         // player can see the new robots, then start red's turn.
         let red_start_game_msg = manager_controller.start_game(red_player);
@@ -1496,19 +1516,33 @@ mod tests {
         let mut player_controller_red = GameController::new_player(red_start_game_msg);
         let mut player_controller_blue = GameController::new_player(blue_start_game_msg);
 
+        // The manager keeps track of the times for each player somewhere.
+        let red_time = 10000;
+        let blue_time = 10000;
+        assert_eq![manager_controller.time_left_ms, None];
+        assert_eq![player_controller_red.time_left_ms, None];
+        assert_eq![player_controller_blue.time_left_ms, None];
+
         // Send the first STM to red and test that red can move as expected.
-        let initial_start_turn_msg = manager_controller.initial_start_turn_message();
+        // The initial stm should take the time of the first player to move.
+        let initial_start_turn_msg = manager_controller.initial_start_turn_message(red_time);
         player_controller_red.start_turn(&initial_start_turn_msg.start_turn);
         assert![!player_controller_red.can_move(red_robot, Direction::East)];
         assert![player_controller_red.can_move(red_robot, Direction::Northeast)];
         assert![player_controller_red.move_robot(red_robot, Direction::Northeast).is_ok()];
+        assert_eq![player_controller_red.get_time_left_ms(), red_time];
 
         // End red's turn, and pass the message to the manager, which
         // generates blue's start turn message and starts blue's turn.
         let red_turn_msg = player_controller_red.end_turn();
-        let application = manager_controller.apply_turn(&red_turn_msg);
+        assert_eq![player_controller_red.get_time_left_ms(), red_time];
+
+        // Update the red time, but pass in the blue time to apply_turn().
+        // red_time = red_time - delta + time per round;
+        let application = manager_controller.apply_turn(&red_turn_msg, blue_time);
         let blue_start_turn_msg = application.start_turn;
         player_controller_blue.start_turn(&blue_start_turn_msg);
+        assert_eq![player_controller_blue.get_time_left_ms(), blue_time];
 
         // Test that blue can move as expected. This demonstrates
         // it has received red's actions in its own state.
@@ -1521,10 +1555,11 @@ mod tests {
     fn test_serialization() {
         use serde_json::to_string;
         let mut c = GameController::new_manager(GameMap::test_map());
+        let filler_time = 10000;
         println!("----start");
         println!("{}", to_string(&c.start_game(Player::new(Team::Red, Planet::Earth))).unwrap());
         println!("----initial");
-        let initial = c.initial_start_turn_message();
+        let initial = c.initial_start_turn_message(filler_time);
         println!("----initial planet_maps");
         println!("{}", to_string(&initial.viewer.world.planet_maps).unwrap());
         println!("----initial planet_states");
@@ -1535,9 +1570,8 @@ mod tests {
         println!("{}", to_string(&initial.viewer.world.cached_world).unwrap());
         println!("----apply");
         let t = TurnMessage { changes: vec![] };
-        let a = c.apply_turn(&t);
+        let a = c.apply_turn(&t, filler_time);
         println!("{}", to_string(&a.viewer).unwrap());
-
     }
 
     #[test]

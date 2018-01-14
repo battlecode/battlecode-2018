@@ -285,6 +285,7 @@ TurnMessage = p.struct('schema::TurnMessage')
 TurnMessage.serialize()
 
 StartTurnMessage = p.struct('schema::StartTurnMessage')
+StartTurnMessage.member(i32.type, 'time_left_ms')
 StartTurnMessage.member(Rounds.type, 'round')
 StartTurnMessage.serialize()
 
@@ -391,6 +392,7 @@ RocketLandingInfo.eq()
 GameController = p.struct('controller::GameController')
 GameController.constructor("new_player_env", [], docs="Use environment variables to connect to the manager.", result=True)
 GameController.method(void.type.result(), "next_turn", [], docs="Send the moves from the current turn and wait for the next turn.")
+GameController.method(i32.type, "get_time_left_ms", [], docs="Get the time left at the start of this player's turn, in milliseconds.")
 
 GameController.method(Rounds.type, 'round', [], docs='''The current round, starting at round 1 and up to ROUND_LIMIT rounds. A round consists of a turn from each team on each planet.''')
 GameController.method(Planet.type, 'planet', [], docs='''The current planet.''')
@@ -627,8 +629,8 @@ GameController.method(void.type.result(), 'launch_rocket', [Var(UnitID.type, 'ro
 
 GameController.method(GameController.type, 'new_manager', [Var(GameMap.type, 'map')], static=True)
 GameController.method(StartGameMessage.type, 'start_game', [Var(Player.type, 'player')])
-GameController.method(TurnApplication.type, 'apply_turn', [Var(TurnMessage.type.ref(), 'turn')])
-GameController.method(InitialTurnApplication.type, 'initial_start_turn_message', [])
+GameController.method(TurnApplication.type, 'apply_turn', [Var(TurnMessage.type.ref(), 'turn'), Var(i32.type, 'time_left_ms')])
+GameController.method(InitialTurnApplication.type, 'initial_start_turn_message', [Var(i32.type, 'time_left_ms')])
 GameController.method(boolean.type, "is_over", [])
 GameController.method(Team.type.result(), "winning_team", [])
 GameController.method(p.string.type, "manager_viewer_message", [])
