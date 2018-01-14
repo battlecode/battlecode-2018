@@ -794,7 +794,7 @@ impl Unit {
         if self.ranger_is_sniping()? {
             Ok(self.countdown)
         } else {
-            bail!("Ranger is not sniping");
+            Err(GameError::NullValue)
         }
     }
 
