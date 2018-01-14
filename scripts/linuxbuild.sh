@@ -29,10 +29,12 @@ BINDS="
 -v $PWD/.cache/cargo-linux-git:/root/.cargo/git
 "
 
-echo binds: $BINDS
+tput setaf 5
+echo $ docker create --rm $BINDS linuxbuild sh -c '/*build script*/'
+tput sgr0
 
 ID=$(docker create --rm $BINDS linuxbuild sh -c '
-export TERM=xterm-256color
+export TERM=xterm
 . ~/.cargo/env
 cd /battlecode
 

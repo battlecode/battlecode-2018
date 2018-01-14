@@ -113,11 +113,7 @@ RUN set -ex; \
     \
 rm -f get-pip.py
 
-# Install battlecode bindings
-ADD . /battlecode
+RUN apk add ncurses
 
-WORKDIR /battlecode/
-# this creates stuff at /battlecode/battlecode
-# we then move that folder to /battlecode
-# player code will be mounted in /code, so they can access the stuff they need at ../battlecode like always :)))
-
+ENV PYTHONPATH=/battlecode/python
+# remaining build is run in sandboxbuild.sh

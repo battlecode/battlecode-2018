@@ -14,7 +14,7 @@ step() {
 }
 
 # build the initial image, just containing deps
-step docker build -t Sandbox -f scripts/SandboxDockerfile .
+step docker build -t battlebaby -f scripts/SandboxDockerfile .
 
 # run build in the image
 tput setaf 5
@@ -29,18 +29,17 @@ BINDS="
 -v $PWD/.cache/cargo-sandbox-git:/root/.cargo/git
 "
 
-echo binds: $BINDS
+tput setaf 5
+echo $ docker create $BINDS battlebaby sh -c '/*build script*/'
+tput sgr0
 
-ID=$(docker create $BINDS Sandbox sh -c '
-export TERM=xterm-256color
-. ~/.cargo/env
+
+ID=$(docker create $BINDS battlebaby sh -c '
 cd /battlecode_src
 set -e
 
 step() {
-    tput setaf 2
     echo sandboxbuild:/battlecode_src$ $@
-    tput sgr0
     $@
 }
 
@@ -54,6 +53,9 @@ tput setaf 2
 echo == Moving results into place ==
 tput sgr0
 
+step mkdir -p docker-artifacts/
+step "rm -rf docker-artifacts/linux-battlecode-musl || true"
+step cp -R battlecode docker-artifacts/linux-battlecode-musl
 step mv /battlecode_src/battlecode /battlecode
 
 # backwards compatibility w/ original image layout
@@ -62,4 +64,8 @@ step ln -s -T /battlecode/c/lib/libbattlecode-linux.a /battlecode-c/lib/libbattl
 step ln -s -T /battlecode/java /battlecode-java
 ')
 step docker start $ID -a -i
-step docker commit -a "Teh Devs battlecode@mit.edu" $ID -m "Final build step" -c "ENV PYTHONPATH=/battlecode/python" battlebaby-fat
+
+tput setaf 5
+echo $ docker commit -a "Teh Devs battlecode@mit.edu" $ID -m "Final build step" -c "ENV PYTHONPATH=/battlecode/python" battlebaby-fat
+tput sgr0
+docker commit -a "Teh Devs battlecode@mit.edu" -m "Final build step" $ID battlebaby-fat
