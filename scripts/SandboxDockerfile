@@ -114,6 +114,7 @@ RUN set -ex; \
 rm -f get-pip.py
 
 RUN apk add ncurses
+RUN apk add mono --update-cache --repository http://dl-3.alpinelinux.org/alpine/edge/testing/ --allow-untrusted
 
 ENV PYTHONPATH=/battlecode/python
 # remaining build is run in sandboxbuild.sh
