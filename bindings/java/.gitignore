@@ -1,0 +1,6 @@
+.build-marker
+.release-marker
+src/bc/*.o
+src/bc/*.so
+src/bc/*.java
+src/bc/*.class

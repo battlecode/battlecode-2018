@@ -25,3 +25,4 @@ bindings/java/bc_wrap.obj
 jamesbot
 working_dir
 replay*
+.cache

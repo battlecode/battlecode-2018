@@ -189,7 +189,7 @@ pub struct GameWorld {
     id_generator: IDGenerator,
 
     /// The asteroid strike pattern on Mars.
-    asteroids: AsteroidPattern,
+    pub(crate) asteroids: AsteroidPattern,
 
     /// The orbit pattern that determines a rocket's flight duration.
     orbit: OrbitPattern,

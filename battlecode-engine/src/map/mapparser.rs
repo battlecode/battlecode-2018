@@ -95,12 +95,14 @@ impl<'a> Tok<'a> {
 enum Symmetry {
     Horiz,
     Vert,
+    Spiral,
     None
 }
 fn get_opposite(sym: &Symmetry, loc: (usize, usize), width: usize, height: usize) -> Option<(usize, usize)> {
     match sym {
         &Symmetry::Horiz => Some((width - 1 - loc.0, loc.1)),
         &Symmetry::Vert => Some((loc.0, height - 1 - loc.1)),
+        &Symmetry::Spiral => Some((width - 1 - loc.0, height - 1 - loc.1)),
         &Symmetry::None => None
     }
 }
@@ -281,6 +283,7 @@ pub(crate) fn parse_text_map(cur: &str) -> Result<GameMap, Error> {
                 planets[p].symmetry = Some(match value {
                     "vert" | "vertical" | "v" => Symmetry::Vert,
                     "hor" | "horizontal" | "h" => Symmetry::Horiz,
+                    "spiral" => Symmetry::Spiral,
                     "none" => Symmetry::None,
                     _ => bail!("unknown symmetry {} at line {} col {}", value, tok.line, tok.col)
                 });
@@ -339,8 +342,8 @@ pub(crate) fn parse_text_map(cur: &str) -> Result<GameMap, Error> {
             height: height,
             width: width,
             initial_units: vec![],
-            is_passable_terrain: vec![vec![false; height]; width],
-            initial_karbonite: vec![vec![0; height]; width],
+            is_passable_terrain: vec![vec![true; width]; height],
+            initial_karbonite: vec![vec![0; width]; height],
         };
 
         let mut id = 1;
@@ -417,5 +420,10 @@ mod tests {
         }
         assert!(founda);
         assert!(foundb);
+    }
+    #[test]
+    fn parse_fat() {
+        let fat = include_str!("fat.bc18t");
+        let map = parse_text_map(fat).unwrap();
     }
 }

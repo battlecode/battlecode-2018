@@ -20,13 +20,12 @@ RUN curl https://sh.rustup.rs -sSf | \
 
 RUN sh -c ". ~/.cargo/env && python3 --version && rustc --version"
 
-# Install battlecode bindings
-ADD . /battlecode
+RUN apt install -y --no-install-recommends bzip2 wget
 
-WORKDIR /battlecode/
+RUN wget https://bitbucket.org/squeaky/portable-pypy/downloads/pypy3.5-5.10.0-linux_x86_64-portable.tar.bz2 && tar -xvf pypy3.5-5.10.0-linux_x86_64-portable.tar.bz2
 
-# this creates stuff at /battlecode/battlecode
-# we then move that folder to /battlecode
-# player code will be mounted in /code, so they can access the stuff they need at ../battlecode like always :)))
+ENV PATH="/pypy3.5-5.10.0-linux_x86_64-portable/bin:${PATH}"
+ENV LD_LIBRARY_PATH="/pypy3.5-5.10.0-linux_x86_64-portable/bin:${LD_LIBRARY_PATH}"
+ENV INCLUDE="/pypy3.5-5.10.0-linux_x86_64-portable/include:${INCLUDE}"
 
-RUN sh -c ". ~/.cargo/env && make release && mv /battlecode/battlecode /bc && rm -rf /battlecode && mv /bc /battlecode"
+RUN pypy3 -m ensurepip && pypy3 -m pip install --upgrade pip setuptools cffi
