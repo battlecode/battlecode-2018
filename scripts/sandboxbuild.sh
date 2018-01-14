@@ -61,6 +61,9 @@ step ln -s -T /battlecode/c /battlecode-c
 step ln -s -T /battlecode/c/lib/libbattlecode-linux.a /battlecode-c/lib/libbattlecode.a
 step ln -s -T /battlecode/java /battlecode-java
 
+# needed to keep java from trying to compile these
+step rm /battlecode/java/bc/*.java
+
 step cp scripts/player_startup.sh /player_startup.sh
 step cp scripts/suspender.py /suspender.py
 ')
