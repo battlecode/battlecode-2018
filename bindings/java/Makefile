@@ -12,8 +12,8 @@ ifeq ($(CUR_OS),darwin)
 endif
 
 build: .build-marker
-.build-marker: ../c/include/bc.i ../../target/debug/deps/libbattlecode.a src/bc/bc_wrap.o src/bc/bcJNI.class
-	$(call build_command,gcc -shared -O0 -fPIC src/bc/bc_wrap.o ../../target/debug/deps/libbattlecode.a $(LIBS) -o $(TARGET))
+.build-marker: ../c/include/bc.i $(CARGO_TARGET_DIR)/debug/deps/libbattlecode.a src/bc/bc_wrap.o src/bc/bcJNI.class
+	$(call build_command,gcc -shared -O0 -fPIC src/bc/bc_wrap.o $(CARGO_TARGET_DIR)/debug/deps/libbattlecode.a $(LIBS) -o $(TARGET))
 	$(call build_command,touch .build-marker && rm .release-marker 2&>/dev/null || true)
 
 test: build
@@ -21,8 +21,8 @@ test: build
 	java -classpath ./tests:./src Test
 
 release: .release-marker
-.release-marker: ../c/include/bc.i ../../target/release/deps/libbattlecode.a src/bc/bc_wrap.o src/bc/bcJNI.class
-	$(call build_command,gcc -shared -O3 -fPIC src/bc/bc_wrap.o ../../target/release/deps/libbattlecode.a $(LIBS) -o $(TARGET))
+.release-marker: ../c/include/bc.i $(CARGO_TARGET_DIR)/release/deps/libbattlecode.a src/bc/bc_wrap.o src/bc/bcJNI.class
+	$(call build_command,gcc -shared -O3 -fPIC src/bc/bc_wrap.o $(CARGO_TARGET_DIR)/release/deps/libbattlecode.a $(LIBS) -o $(TARGET))
 	$(call build_command,touch .release-marker && rm .build-marker 2&>/dev/null || true)
 
 src/bc/bc_wrap.o: src/bc/bc_wrap.c

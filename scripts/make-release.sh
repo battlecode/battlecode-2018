@@ -3,7 +3,7 @@
 # set to 1 if we need to rebuild the bindings
 BINARY_RELEASE=1
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-cd $DIR
+cd $DIR/..
 
 green() {
     tput setaf 2

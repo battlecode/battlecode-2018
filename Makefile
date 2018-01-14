@@ -9,30 +9,18 @@ endif
 
 build: battlecode
 	@$(MAKE) -wC bindings
-	cp -R target/debug/deps/libbattlecode.a $(LIB_TARGET)
+	cp -R $(CARGO_TARGET_DIR)/debug/deps/libbattlecode.a $(LIB_TARGET)
 	@$(MAKE) copy
 
 release: battlecode
 	@$(MAKE) -wC bindings release
-	cp -R target/release/deps/libbattlecode.a $(LIB_TARGET)
+	cp -R $(CARGO_TARGET_DIR)/release/deps/libbattlecode.a $(LIB_TARGET)
 	@$(MAKE) copy
 
 copy:
 	cp -R bindings/python/battlecode battlecode/python/battlecode
 	cp -R bindings/java/src/bc battlecode/java/bc
 	cp -R bindings/c/include battlecode/c/include
-
-copy-linux:
-	mkdir -p docker-artifacts
-	ID=$$(docker create linuxbuild);\
-	   docker cp $$ID:/battlecode docker-artifacts/linux-battlecode;\
-       docker rm -v $$ID
-	cp docker-artifacts/linux-battlecode/python/battlecode/linux/* battlecode/python/battlecode/linux/
-	cp docker-artifacts/linux-battlecode/java/bc/*linux* battlecode/java/bc/
-	cp docker-artifacts/linux-battlecode/c/lib/*linux* battlecode/c/lib/
-
-copy-win32:
-	cp win32-battlecode/python/battlecode/win32/* battlecode/python/battlecode/win32/
 
 battlecode:
 	rm -rf battlecode
@@ -55,8 +43,7 @@ generate:
 	@$(MAKE) -wC bindings generate
 
 linux-libs:
-	docker build -t linuxbuild -f LinuxBuildDockerfile .
-	mkdir -p docker-artifacts/
+	sh scripts/linuxbuild.sh
 
 docker-sandbox:
 	docker build -t battlebaby -f SandboxDockerfile . --squash

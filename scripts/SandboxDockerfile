@@ -121,16 +121,3 @@ WORKDIR /battlecode/
 # we then move that folder to /battlecode
 # player code will be mounted in /code, so they can access the stuff they need at ../battlecode like always :)))
 
-# clean first to avoid confusing Make with host system artifacts
-RUN make clean && \
-    make release && \
-    mv /battlecode/battlecode /bc && rm -rf /battlecode && mv /bc /battlecode
-
-# backwards compatibility w/ original image layout
-
-RUN ln -s -T /battlecode/c /battlecode-c
-RUN ln -s -T /battlecode/c/lib/libbattlecode-linux.a /battlecode-c/lib/libbattlecode.a
-RUN ln -s -T /battlecode/java /battlecode-java
-ENV PYTHONPATH=/battlecode/python
-
-RUN apk del rust cargo swig .pypy-rundeps --purge

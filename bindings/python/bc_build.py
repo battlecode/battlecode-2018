@@ -28,27 +28,28 @@ elif sys.platform == 'win32':
 else:
     raise Exception("I don't understand"+sys.platform+'.')
 
+if 'CARGO_TARGET_DIR' in os.environ:
+    CTD = os.environ['CARGO_TARGET_DIR']
+else:
+    CTD = os.path.join('..','..','target')
+
+if 'RELEASE' in os.environ:
+    KIND = 'release'
+else:
+    KIND = 'debug'
+
 if sys.platform == 'darwin' or sys.platform.startswith('linux'):
-    if 'RELEASE' in os.environ:
-        library_dirs=['../../target/release/deps']
-        extra_link_args=['../../target/release/deps/libbattlecode.a']
-    else:
-        library_dirs=['../../target/debug/deps']
-        extra_link_args=['../../target/debug/deps/libbattlecode.a']
-elif sys.platform == 'win32':
-    if 'RELEASE' in os.environ:
-        library_dirs=['..\\..\\target\\release\\deps']
-        extra_link_args=['..\\..\\target\\release\\deps\\battlecode.lib']
-    else:
-        library_dirs=['..\\..\\target\\debug\\deps']
-        extra_link_args=['..\\..\\target\\debug\\deps\\battlecode.lib']
+    ARTIFACT = 'libbattlecode.a'
+else:
+    ARTIFACT = 'battlecode.lib'
+
+extra_link_args = [os.path.join(CTD, KIND, 'deps', ARTIFACT)]
 
 ffibuilder = cffi.FFI()
 ffibuilder.cdef(stripped)
 ffibuilder.set_source(
     source,
     contents,
-    library_dirs=library_dirs,
     libraries=libraries,
     extra_link_args=extra_link_args
 )
