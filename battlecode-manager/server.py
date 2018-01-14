@@ -259,7 +259,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         '''
         # get the time left of the next player to go
         next_index = (self.player_id2index(client_id) + 1) % len(self.players)
-        next_client_id = self.players[next_player_index]['id']
+        next_client_id = self.players[next_index]['id']
         projected_time_ms = int(1000 * (self.times[next_client_id] + self.time_additional))
 
         # interact with the engine
