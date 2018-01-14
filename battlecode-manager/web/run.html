@@ -1,18 +1,34 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Battlecode '18</title>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.1/css/bulma.min.css">
-    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.1/css/bulma.min.css" />
+    <link rel="icon" type="image/png" href="favicon.png" />
     <style>
         canvas { width:100%; }
+		.tile.is-child.box {white-space: pre-wrap; font-family: monospace; word-break: break-all; background: #111; color: #faebd7;}
+		.tile.is-child.box>.title {margin: 0; text-align: center; color: #faebd7!important}
+		#warning-text::after {color: yellow; content: "\a\a[[Alternatively, press and hold the Alt, Ctrl, and Shift keys while clicking on the \"Run Game\" button to bypass this check. !!!NOT RECCOMENDED UNLESS YOU KNOW EXACTLY WHAT YOU ARE DOING!!! This can Can crash the application or worse]]"; white-space:pre-wrap;font-size:70%}
+		/*For the console output*/
+		blink {animation:.8s blinker linear infinite}
+		blink.fast {animation:.333s blinker linear infinite!important}
+		@-webkit-keyframes blinker {
+			0% { opacity: 1.0; }
+			50% { opacity: 0.0; }
+			100% { opacity: 1.0; }
+		}
+		@keyframes blinker {  
+			0% { opacity: 1.0; }
+			50% { opacity: 0.0; }
+			100% { opacity: 1.0; }
+		}
     </style>
 </head>
 <body style="display: flex;min-height: 100vh;flex-direction: column;">
-    <section class="hero is-primary" style="background-color:#A31F34">
+    <section class="hero is-primary" style="background-color:#A31F34" id="battlecodeheader">
         <div class="hero-body">
             <div class="container">
                 <h1 class="title">
@@ -52,19 +68,19 @@
                                 <tbody>
                                     <tr>
                                         <td>Player memory limit (in mb)</td>
-                                        <td><input class="input" type="text" value="256" id="memory"></td>
+                                        <td><input class="input" type="number" value="256" placeholder="256" id="memory"></td>
                                     </tr>
                                     <tr>
                                         <td>Player CPU percent</td>
-                                        <td><input class="input" type="text" value="20" id="cpu"></td>
+                                        <td><input class="input" type="number" value="20" placeholder="20" id="cpu"></td>
                                     </tr>
                                     <tr>
                                         <td>Initial timing pool (ms)</td>
-                                        <td><input class="input" type="text" value="1000" id="pool"></td>
+                                        <td><input class="input" type="number" value="1000" placeholder="1000" id="pool"></td>
                                     </tr>
                                     <tr>
                                         <td>Additional time/turn (ms)</td>
-                                        <td><input class="input" type="text" value="50" id="additional"></td>
+                                        <td><input class="input" type="number" value="50" placeholder="50" id="additional"></td>
                                     </tr>
                                     <tr>
                                         <td>Replay filename</td>
@@ -78,7 +94,7 @@
                                                 True
                                             </label>
                                             <label class="radio">
-                                                <input type="radio" name="viewer" value="0" checked>
+                                                <input type="radio" name="viewer" value="0">
                                                 False
                                             </label>
                                         </div></td>
@@ -176,25 +192,25 @@
 
         <div class="tile is-ancestor">
             <div class="tile is-parent">
-                <div class="tile is-child box" style="overflow:scroll">
+                <div class="tile is-child box" style="overflow:hidden">
                     <p class="title">Red Earth</p>
                     <p id="red_earth"></p>
                 </div>
             </div>
             <div class="tile is-parent">
-                <div class="tile is-child box" style="overflow:scroll">
+                <div class="tile is-child box" style="overflow:hidden">
                     <p class="title">Red Mars</p>
                     <p id="red_mars"></p>
                 </div>
             </div>
             <div class="tile is-parent">
-                <div class="tile is-child box" style="overflow:scroll">
+                <div class="tile is-child box" style="overflow:hidden">
                     <p class="title">Blue Earth</p>
                     <p id="blue_earth"></p>
                 </div>
             </div>
             <div class="tile is-parent">
-                <div class="tile is-child box" style="overflow:scroll">
+                <div class="tile is-child box" style="overflow:hidden">
                     <p class="title">Blue Mars</p>
                     <p id="blue_mars"></p>
                 </div>
@@ -207,7 +223,7 @@
         <div class="container">
             <div class="content has-text-centered">
                 <p>
-                    <strong>Battlecode: Escape to Mars</strong> by <a href="http://battlecode.org/">MIT Battlecode</a>. Version 0.10.3
+                    <strong>Battlecode: Escape to Mars</strong> by <a href="http://battlecode.org/">MIT Battlecode</a>. Version 0.9.6.
                 </p>
             </div>
         </div>
@@ -215,196 +231,355 @@
 
     <script type="text/javascript" src="/eel.js"></script>
     <script>
+	document.addEventListener("DOMContentLoaded", function(){
+		var modal = document.querySelector('.modal');
+		var earth = document.getElementById("earth");
+		var mars = document.getElementById("mars");
+		function alert_error(message) {
+			document.getElementById('warning-text').innerText = message;
+			document.getElementById('warning').style.display='block';
+		}
 
-    var modal = document.querySelector('.modal');
-    var html = document.querySelector('html');
-    var earth = document.getElementById("earth");
-    var mars = document.getElementById("mars");
-    function alert_error(message) {
-        document.getElementById('warning-text').innerText = message;
-        document.getElementById('warning').style.display='block';
-    }
+		function report_winner(winner) {
+			message = winner==1 ? "red team" : "blue team";
+			document.getElementById('winner-text').innerText = message;
+			document.getElementById('winner').style.display='block';
+		}
 
-    function report_winner(winner) {
-        message = winner==1 ? "red team" : "blue team";
-        document.getElementById('winner-text').innerText = message;
-        document.getElementById('winner').style.display='block';
-    }
+		function draw_grid(canvas, width, height, pixels, mapIsOfEarth) {
+			const p = 10;
+			const b = 2;
+			const s = p-2*b;
+			
+			/*var cw = 10*width + (p*2) + 1;
+			var ch = 10*height + (p*2) + 1;*/
+			canvas.width = 10*width + 2*p;
+			canvas.height = 10*height + 2*p;
+			
+			var context = canvas.getContext("2d");
+			//context.clearRect(0, 0, canvas.width, canvas.height);
+			context.fillStyle = mapIsOfEarth ? "#6FB76F" : "#FF8F66";
+			context.fillRect(p, p, 10*width, 10*height);
+			context.font = "9px monospace";
+			var len = pixels.length,
+				col = 0, row = 0,
+				x_in = 0, y_in = 0;
+			
+			for (var i=0; i<len; i+=2) {
+				row = height - Math.floor((i/2)/width) - 1;
+				col = (i/2)%width;
 
-    function draw_grid(canvas, width, height, pixels, earth)  {
-        var p = 10;
-        var b = 2;
+				x_in = 1.5*p + col*p - s/2
+				y_in = 1.5*p + row*p - s/2
 
-        var s = p-2*b
-        canvas.width = 10*width + 2*p;
-        canvas.height = 10*height + 2*p;
+				if (pixels[i+1]==0) {
+					context.fillStyle="#ff0000";
+					context.fillRect(x_in,y_in,s+1,s+1);
+				} else if (pixels[i+1]==1) {
+					context.fillStyle="#0000ff";
+					context.fillRect(x_in,y_in,s+1,s+1);
+				} else if (pixels[i] != 0) {
+					context.fillStyle="#000000"
+					context.fillRect(x_in-b,y_in-b,s+1 + 2*b,s+1 + 2*b);
+				}
 
-        var cw = 10*width + (p*2) + 1;
-        var ch = 10*height + (p*2) + 1;
+				if (pixels[i+1]==0 || pixels[i+1]==1) {
+					context.fillStyle="#ffffff";
+					context.fillText(
+						"WKRMHF^".charAt(pixels[i] - 1),
+						x_in + b/2,
+						y_in + s
+					);
+				}
+			}
+
+			for (var x = 0; x <= 10*width; x += 10) {
+				context.moveTo(0.5 + x + p, p);
+				context.lineTo(0.5 + x + p, 10*height + p);
+			} for (var x = 0; x <= 10*height; x += 10) {
+				context.moveTo(p, 0.5 + x + p);
+				context.lineTo(10*width + p, 0.5 + x + p);
+			}
+			context.strokeStyle = "black";
+			context.stroke();
+		}
+
+		addEventListener("load", async function() {
+			var maps = await eel.get_maps()();
+			var folders = await eel.get_player_dirs()();
+
+			var red = document.getElementById("red");
+			var blue = document.getElementById("blue");
+			folders.forEach(function(folder) {
+				if (folder.charAt(0) != '.') {
+					red.innerHTML += "<option value='" + folder + "'>" + folder + "</option>";
+					blue.innerHTML += "<option value='" + folder + "'>" + folder + "</option>";
+				}
+			});
+			
+			var mapselect = document.getElementById("map");
+			maps.forEach(function(map) {
+				if (map.charAt(0) != '.') {
+					mapselect.innerHTML += "<option value='" + map + "'>" + map + "</option>";
+				}
+			});
+		});
 
 
-        context = canvas.getContext("2d");
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        context.fillStyle = earth ? "#6FB76F" : "#FF8F66";
-        context.fillRect(p,p,10*width,10*height);
-        context.font = "9px monospace";
-        for (var i=0; i<pixels.length; i+=2) {
-            row = height - Math.floor((i/2)/width) - 1;
-            col = (i/2)%width;
+		function validate(params) {
+			if (isNaN(params['player_memory'])) {
+				alert_error("Must give a numeric amount of memory in mb. The default player memory limit is 256mb.");
+				return false;
+			} else if (params['player_memory'] < 100) {
+				alert_error("Must give at least 100mb of memory.");
+				return false;
+			}
 
-            x_in = 1.5*p + col*p - s/2
-            y_in = 1.5*p + row*p - s/2
+			if (isNaN(params['player_cpu'])) {
+				alert_error("Must give a numeric CPU percentage.");
+				return false;
+			} else if (params['player_cpu'] < 10) {
+				alert_error("Must give at least 10% of CPU.");
+				return false;
+			} else {
+			}
 
-            if (pixels[i+1]==0) {
-                context.fillStyle="#ff0000";
-                context.fillRect(x_in,y_in,s+1,s+1);
-            } else if (pixels[i+1]==1) {
-                context.fillStyle="#0000ff";
-                context.fillRect(x_in,y_in,s+1,s+1);
-            } else if (pixels[i] != 0) {
-                context.fillStyle="#000000"
-                context.fillRect(x_in-b,y_in-b,s+1 + 2*b,s+1 + 2*b);
-            }
+			if (isNaN(params['time_pool'])) {
+				alert_error("Must give a numeric initial time pool.");
+				return false;
+			}
 
-            vals = ['W','K','R','M','H','F','^']
-            if (pixels[i+1]==0 || pixels[i+1]==1) {
-                context.fillStyle="#ffffff";
-                char = vals[pixels[i]-1];
-                context.fillText(char,x_in+b/2,y_in+s);
-            }
-        }
+			if (isNaN(params['time_additional'])) {
+				alert_error("Must give a numeric additional time per turn.");
+				return false;
+			}
 
-        for (var x = 0; x <= 10*width; x += 10) {
-            context.moveTo(0.5 + x + p, p);
-            context.lineTo(0.5 + x + p, 10*height + p);
-        } for (var x = 0; x <= 10*height; x += 10) {
-            context.moveTo(p, 0.5 + x + p);
-            context.lineTo(10*width + p, 0.5 + x + p);
-        } context.strokeStyle = "black";
-        context.stroke();
+			if (!params['replay_filename']) {
+				alert_error('Must enter a replay filename.')
+				return false;
+			}
 
+			params['use_viewer'] = 1;//(params['use_viewer'] == '1');
+			document.getElementById('warning').style.display='none';
 
-    }
+			return true;
+		}
+		var drawMapInterval = -1,
+			isCurrentlyInGame = false;
+		/*addEventListener("beforeunload", function(){
+			if (isCurrentlyInGame) eel.end_game(); // make sure to end the manager instance
+		});*/
+		
+		eel.expose(trigger_end_game);
+		window.trigger_end_game = trigger_end_game;
+		function trigger_end_game(winner) {
+			isCurrentlyInGame = false;
+			document.getElementById('runner_view').style.display = "block";
+			document.getElementById('running_view').style.display = "none";
+			document.getElementById('battlecodeheader').style.display = "block";
 
-    window.onload = async function() {
-        maps = await eel.get_maps()();
-        folders = await eel.get_player_dirs()();
+			clearTimeout(drawMapInterval);
+			cancelAnimationFrame(drawMapInterval);
+			eel.end_game();
+			report_winner(winner);
+		}
+		var consoleelements = [document.getElementById('red_earth'), document.getElementById('blue_earth'), document.getElementById('red_mars'), document.getElementById('blue_mars')];
+		var previous_texts = [];
+		
+		function toHex(r,g,b){return "color:#" + r.toString(16).padStart(2,"0") + g.toString(16).padStart(2,"0") + b.toString(16).padStart(2,"0");}
+		var asciiColorCodes = (new Array(107)).fill("");
+		// Source: https://en.wikipedia.org/wiki/ANSI_escape_code#Colors -> Ubuntu (whose color scheme I think looks the most functional & pretty)
+		//	BackGround Code						ForeGround Code
+		asciiColorCodes[ 40] = "background-" + (asciiColorCodes[30] = toHex(1,1,1));
+		asciiColorCodes[ 41] = "background-" + (asciiColorCodes[31] = toHex(222,56,43));
+		asciiColorCodes[ 42] = "background-" + (asciiColorCodes[32] = toHex(57,181,74));
+		asciiColorCodes[ 43] = "background-" + (asciiColorCodes[33] = toHex(255,199,6));
+		asciiColorCodes[ 44] = "background-" + (asciiColorCodes[34] = toHex(0,111,184));
+		asciiColorCodes[ 45] = "background-" + (asciiColorCodes[35] = toHex(118,38,113));
+		asciiColorCodes[ 46] = "background-" + (asciiColorCodes[36] = toHex(44,181,233));
+		asciiColorCodes[ 47] = "background-" + (asciiColorCodes[37] = toHex(204,204,204));
+		// "Bright" Codes:
+		asciiColorCodes[100] = "background-" + (asciiColorCodes[90] = toHex(128,128,128));
+		asciiColorCodes[101] = "background-" + (asciiColorCodes[91] = toHex(255,0,0));
+		asciiColorCodes[102] = "background-" + (asciiColorCodes[92] = toHex(0,255,0));
+		asciiColorCodes[103] = "background-" + (asciiColorCodes[93] = toHex(255,255,0));
+		asciiColorCodes[104] = "background-" + (asciiColorCodes[94] = toHex(0,0,255));
+		asciiColorCodes[105] = "background-" + (asciiColorCodes[95] = toHex(255,0,255));
+		asciiColorCodes[106] = "background-" + (asciiColorCodes[96] = toHex(0,255,255));
+		asciiColorCodes[107] = "background-" + (asciiColorCodes[97] = toHex(255,255,255));
+		var ascii8bithexs = [
+			"000000","800000","008000","808000","000080","800080","008080","c0c0c0","808080","ff0000","00ff00","ffff00","0000ff","ff00ff","00ffff","ffffff",
+			"000000","00005f","000087","0000af","0000d7","0000ff","005f00","005f5f","005f87","005faf","005fd7","005fff","008700","00875f","008787","0087af",
+			"0087d7","0087ff","00af00","00af5f","00af87","00afaf","00afd7","00afff","00d700","00d75f","00d787","00d7af","00d7d7","00d7ff","00ff00","00ff5f",
+			"00ff87","00ffaf","00ffd7","00ffff","5f0000","5f005f","5f0087","5f00af","5f00d7","5f00ff","5f5f00","5f5f5f","5f5f87","5f5faf","5f5fd7","5f5fff",
+			"5f8700","5f875f","5f8787","5f87af","5f87d7","5f87ff","5faf00","5faf5f","5faf87","5fafaf","5fafd7","5fafff","5fd700","5fd75f","5fd787","5fd7af",
+			"5fd7d7","5fd7ff","5fff00","5fff5f","5fff87","5fffaf","5fffd7","5fffff","870000","87005f","870087","8700af","8700d7","8700ff","875f00","875f5f",
+			"875f87","875faf","875fd7","875fff","878700","87875f","878787","8787af","8787d7","8787ff","87af00","87af5f","87af87","87afaf","87afd7","87afff",
+			"87d700","87d75f","87d787","87d7af","87d7d7","87d7ff","87ff00","87ff5f","87ff87","87ffaf","87ffd7","87ffff","af0000","af005f","af0087","af00af",
+			"af00d7","af00ff","af5f00","af5f5f","af5f87","af5faf","af5fd7","af5fff","af8700","af875f","af8787","af87af","af87d7","af87ff","afaf00","afaf5f",
+			"afaf87","afafaf","afafd7","afafff","afd700","afd75f","afd787","afd7af","afd7d7","afd7ff","afff00","afff5f","afff87","afffaf","afffd7","afffff",
+			"d70000","d7005f","d70087","d700af","d700d7","d700ff","d75f00","d75f5f","d75f87","d75faf","d75fd7","d75fff","d78700","d7875f","d78787","d787af",
+			"d787d7","d787ff","d7af00","d7af5f","d7af87","d7afaf","d7afd7","d7afff","d7d700","d7d75f","d7d787","d7d7af","d7d7d7","d7d7ff","d7ff00","d7ff5f",
+			"d7ff87","d7ffaf","d7ffd7","d7ffff","ff0000","ff005f","ff0087","ff00af","ff00d7","ff00ff","ff5f00","ff5f5f","ff5f87","ff5faf","ff5fd7","ff5fff",
+			"ff8700","ff875f","ff8787","ff87af","ff87d7","ff87ff","ffaf00","ffaf5f","ffaf87","ffafaf","ffafd7","ffafff","ffd700","ffd75f","ffd787","ffd7af",
+			"ffd7d7","ffd7ff","ffff00","ffff5f","ffff87","ffffaf","ffffd7","ffffff","080808","121212","1c1c1c","262626","303030","3a3a3a","444444","4e4e4e",
+			"585858","626262","6c6c6c","767676","808080","8a8a8a","949494","9e9e9e","a8a8a8","b2b2b2","bcbcbc","c6c6c6","d0d0d0","dadada","e4e4e4","eeeeee"
+		];
 
-        red = document.getElementById("red")
-        blue = document.getElementById("blue")
-        folders.forEach(function(folder) {
-            if (folder.charAt(0) != '.') {
-                red.innerHTML += "<option value='" + folder + "'>" + folder + "</option>";
-                blue.innerHTML += "<option value='" + folder + "'>" + folder + "</option>";
-            }
-        });
+		var consoleTextToHTML = function (str) {
+			// get rid \b and \r escaped characters
+			str = str.replace(/(?:[^\n]+[\r])|(?:(?:[^]|^)[\b])/g, "");
+			// Escape special HTML characters
+			str = str.replace(/[<>&]/g, x=>"&#"+x.charCodeAt(0)+";");
+			// For the Total-Reset
+			str = "<ssection>" + str;
+			
+			//
+			// `\033[Xm` == `\033[0;Xm` sets foreground color to `X`.
+			//
+			str = str.replace(
+				/\033\[((?:(?:3|4|9|10)[0-7];)?)((?:3|4|9|10)[0-7])m/g,
+				(a,f,b) => '<span style="' + asciiColorCodes[b] + (
+					f ? ";" + asciiColorCodes[f] : ""
+				) + '>'
+			)/*.replace(
+			  new RegExp('\033\\[0;' + ansi + 'm', 'g'),
+			  span
+			)*/;
+			
+			// 8 bit colors
+			str = str.replace(
+				/\033\[(38|48);5;(\d{0,3})m/g,
+				(a,m,n)=>("<span style=" + (m==="48"?"background-":"") + 
+							"color:#" + (ascii8bithexs[n]||"unset") + '">')
+			);
+			
+			// 24 bit colors
+			str = str.replace(
+				/\033\[(38|48);2;(\d{1,3};\d{1,3};\d{1,3})m/g,
+				(a,m,RGB)=>{debugger;return "<span style=" + (m==="48"?"background-":"") + 
+							"color:rgb(" + RGB.replace(/;/g, ",") + '")>'}
+			);
+			
+			// HSL colors
+			str = str.replace(
+				/\033\[(38|48):2:(\d{1,3}):(\d{1,3}):(\d{1,3})::[^:]+:[^:]+m/g,
+				(a,m,HSL)=>("<span style=" + (m==="48"?"background-":"") + 
+							"color:hsl(" + HSL.replace(/;/g, ",") + '")>')
+			);
+			
+			//
+			// `\033[1m` enables bold font, `\033[22m` disables it
+			//
+			str = str.replace(/\033\[61m/g, '<b style="font-weight:unset;text-decoration:underline;border-bottom:1px solid">');
+			str = str.replace(/\033\[63m/g, '<b style="font-weight:unset;text-decoration:overline;border-top:1px solid">');
+			str = str.replace(/\033\[1m/g, '<b>').replace(/\033\[(?:22|65)m/g, '</b>');
 
-        mapselect = document.getElementById("map")
-        maps.forEach(function(map) {
-            if (map.charAt(0) != '.') {
-                mapselect.innerHTML += "<option value='" + map + "'>" + map + "</option>";
-            }
-        });
-    }
+			//
+			// `\033[3m` enables italics font, `\033[23m` disables it
+			//
+			str = str.replace(/\033\[3m/g, '<i>').replace(/\033\[23m/g, '</i>');
+			
+			str = str.replace(/\033\[8m/g, '<conceal style="visibility:hidden">').replace(/\033\[28m/g, '</conceal>');
+			
+			str = str.replace(/\033\[5m/g, '<blink>').replace(/\033\[6m/g, '<blink class="fast">').replace(/\033\[25m/g, '</blink>');
+			
+			str = str.replace(/\033\[39m/g, '<span style="color:white">');
+			str = str.replace(/\033\[49m/g, '<span style="background:transparent">');
+			
+			str = str.replace(/\033\[9m/g, '<crossout style="text-decoration:line-through">').replace(/\033\[29m/g, '</crossout>');
+			
+			str = str.replace(/\033\[8m/g, '<overline style="text-decoration:overline">').replace(/\033\[28m/g, '</overline>');
+			str = str.replace(/\033\[53m/g, '<underline style="text-decoration:underline">').replace(/\033\[55m/g, '</underline>');
+			str = str.replace(/\033\[24m/g, '<span style="text-decoration:none;border:none">');
+			str = str.replace(/\033\[(?:51|52)m/g, '<framed style="outline:1px solid black">').replace(/\033\[54m/g, '</framed>');
+			// WhyTF is Franktur one of the few thing they actually did decide to implement in DOS? Didn't they have anything better to do with their life than implementing outdated fonts in a masochistic terminal?
+			str = str.replace(/\033\[20m/g, '<i style="font-family:Franktur">');
+			// Total reset
+			str = str.replace(/\033\[(?:0|)m/g, '</ssection><ssection>');
+			
+			// Remove reserved ascii sequences that would be hidden in a console
+			str = str.replace(/\033[0x40–0x5F]/g, "");
+			return str;
+		}
+		
+		function display_logs(params) {
+			document.getElementById('runner_view').style.display = "none";
+			document.getElementById('running_view').style.display = "block";
+			document.getElementById('battlecodeheader').style.display = "none";
+			previous_texts = [];
+			
+			async function drawFunc() {
+				var logs = await eel.get_player_logs()();
+				if (logs[0] === null) { // if it hasn't started yet
+					drawMapInterval = requestAnimationFrame(drawFunc);
+					return;
+				}
+				for (var i=0; i<logs.length; i++) {
+					var prevTxt	= previous_texts[i];
+					if (logs[i].startsWith(previous_texts[i])){
+						// if they are both the same length and one bigins with another, then they both begin with eachother, and thus they are equal
+						if (logs[i].length === previous_texts[i].length) continue;
+						consoleelements[i].insertAdjacentHTML("beforeend", consoleTextToHTML(logs[i].substring(previous_texts[i].length)));
+					} else {
+						consoleelements[i].innerHTML = consoleTextToHTML(logs[i]||"");
+					}
+					previous_texts[i] = logs[i];
+				}
 
-    var interval = null;
+				var index = -1;
+				var maps = await eel.get_viewer_data(index)();
+				draw_grid(earth,	maps['width'],	maps['height'],	maps['earth'],	true);
+				draw_grid(mars,		maps['width'],	maps['height'],	maps['mars'],	false);
+				drawMapInterval = requestAnimationFrame(drawFunc);
+			};
+			drawMapInterval = requestAnimationFrame(drawFunc);
+		}
 
-    function validate(params) {
-        if (isNaN(params['player_memory'])) {
-            alert_error("Must give a numeric amount of memory in mb.");
-            return false;
-        } else if (parseInt(params['player_memory'] < 100)) {
-            alert_error("Must give at least 100mb of memory.");
-            return false;
-        } else {
-            params['player_memory'] = parseInt(params['player_memory'])
-        }
+		document.getElementById("submit").addEventListener("click", async function(evt) {
+			var params = {};
+			params['use_viewer'] = 1;//document.querySelector('input[name="viewer"]:checked').value;
+			params['player_memory'] = +document.getElementById('memory').value;
+			params['player_cpu'] = +document.getElementById('cpu').value;
+			params['time_pool'] = +document.getElementById('pool').value;
+			params['time_additional'] = +document.getElementById('additional').value;
+			params['replay_filename'] = document.getElementById('replay').value;
+			var dir_cur_ele = document.getElementById("red")
+			params['dir_p1'] = dir_cur_ele.options[dir_cur_ele.selectedIndex].value;
+			var dir_cur_ele = document.getElementById("blue")
+			params['dir_p2'] = dir_cur_ele.options[dir_cur_ele.selectedIndex].value;
+			
+			try { // Always put calls to the localStorage in a try/catch
+				let stringified = JSON.stringify(params);
+				localStorage.setItem("params", stringified); 
+				sessionStorage.setItem("params", stringified); // secondarily using sessionStorage will make managing things across many tabs much easier because it will allow each tab to store it's own semi-persistant data apart from the rest of the tabs
+			} catch(e) {}
+			
+			params['map'] = document.getElementById("map")
+			params['map'] = params['map'].options[params['map'].selectedIndex].value;
 
-        if (isNaN(params['player_cpu'])) {
-            alert_error("Must give a numeric CPU percentage.");
-            return false;
-        } else if (parseInt(params['player_cpu'] < 10)) {
-            alert_error("Must give at least 10% of CPU.");
-            return false;
-        } else {
-            params['player_cpu'] = parseInt(params['player_cpu'])
-        }
-
-        if (isNaN(params['time_pool'])) {
-            alert_error("Must give a numeric initial time pool.");
-            return false;
-        } else {
-            params['time_pool'] = parseInt(params['time_pool'])
-        }
-
-        if (isNaN(params['time_additional'])) {
-            alert_error("Must give a numeric additional time per turn.");
-            return false;
-        } else {
-            params['time_additional'] = parseInt(params['time_additional'])
-        }
-
-        if (!params['replay_filename']) {
-            alert_error('Must enter a replay filename.')
-            return false;
-        }
-
-        params['use_viewer'] = 1;//(params['use_viewer'] == '1');
-        document.getElementById('warning').style.display='none';
-
-        return true;
-    }
-
-    eel.expose(trigger_end_game);
-    function trigger_end_game(winner) {
-        document.getElementById('runner_view').style.display = "block";
-        document.getElementById('running_view').style.display = "none";
-
-        clearInterval(interval);
-        eel.end_game();
-        report_winner(winner);
-    }
-
-    function display_logs(params) {
-        document.getElementById('runner_view').style.display = "none";
-        document.getElementById('running_view').style.display = "block";
-
-        elements = [document.getElementById('red_earth'), document.getElementById('blue_earth'), document.getElementById('red_mars'), document.getElementById('blue_mars')]
-
-        return setInterval(async function() {
-            logs = await eel.get_player_logs()();
-            for (var i=0; i<4; i++) elements[i].innerText = logs[i];
-
-            var index = -1;
-            var maps = await eel.get_viewer_data(index)();
-            draw_grid(earth,maps['width'],maps['height'],maps['earth'],true);
-            draw_grid(mars,maps['width'],maps['height'],maps['mars'],false);
-        },300);
-    }
-
-    var submit = document.getElementById("submit")
-    submit.onclick = async function() {
-        var params = {}
-        //params['use_viewer'] = document.querySelector('input[name="viewer"]:checked').value;
-        params['player_memory'] = document.getElementById('memory').value;
-        params['player_cpu'] = document.getElementById('cpu').value;
-        params['time_pool'] = document.getElementById('pool').value;
-        params['time_additional'] = document.getElementById('additional').value;
-        params['replay_filename'] = document.getElementById('replay').value;
-
-        params['dir_p1'] = document.getElementById("red")
-        params['dir_p1'] = params['dir_p1'].options[params['dir_p1'].selectedIndex].value;
-        params['dir_p2'] = document.getElementById("blue")
-        params['dir_p2'] = params['dir_p2'].options[params['dir_p2'].selectedIndex].value;
-        params['map'] = document.getElementById("map")
-        params['map'] = params['map'].options[params['map'].selectedIndex].value;
-
-        if (validate(params)) {
-            eel.run_game(params)();
-            interval = display_logs(params);
-        }
-    }
-
+			if ((evt["altKey"] && evt["ctrlKey"] && evt["shiftKey"]) || validate(params)) {
+				isCurrentlyInGame = true;
+				await eel.run_game(params)();
+				display_logs(params);
+			}
+		}, {passive: 1});
+		
+		// Try to load the saved values of the params
+		try { // use try/catch because in some circumstances (such as secure iframes), even trying to do "localStorage" in window will throw an exception
+			  // also use try/catch because JSON.parse may throw an error
+			if (window.localStorage && (sessionStorage.hasOwnProperty("params") || localStorage.hasOwnProperty("params"))){
+				// let scopes the params variable to this if-block
+				let params = JSON.parse( sessionStorage.getItem("params") || localStorage.getItem("params") );
+				//if ("use_viewer" in params)	 document.querySelector('input[name="viewer"][value="' + params['use_viewer'] + '"]').checked = true;
+				if ("player_memory" in params)	 document.getElementById('memory').value 	= params['player_memory'];
+				if ("player_cpu" in params)		 document.getElementById('cpu').value		= params['player_cpu'];
+				if ("time_pool" in params)		 document.getElementById('pool').value		= params['time_pool'];
+				if ("time_additional" in params) document.getElementById('additional').value= params['time_additional'];
+				if ("replay_filename" in params) document.getElementById('replay').value	= params['replay_filename'];
+			}
+		} catch(e) {}
+	});
     </script>
 </body>
 </html>
