@@ -38,6 +38,8 @@ clean:
 	-rm -rf src/bc/*.class
 	-rm -rf src/bc/*.java
 	-rm -rf src/bc/*.so
+	-rm -rf src/bc/*.o
+	-rm -rf src/bc/bc_wrap.c
 	-rm .build-marker .release-marker 2&>/dev/null
 	
 .PHONY: build test clean
