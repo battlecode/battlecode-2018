@@ -81,7 +81,7 @@ class Method(Function):
 
     def to_swig(self):
         result = s(f'''\
-            %newobject {self.name};
+            %newobject {self.method_name};
             {self.type.to_swig()} {self.method_name}({', '.join(a.to_swig() for a in self.args[1:])});
         ''')
         return result
