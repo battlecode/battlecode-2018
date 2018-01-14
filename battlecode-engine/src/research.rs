@@ -8,7 +8,6 @@
 //! The types `Branch` and [`UnitType`](../unit/enum.UnitType.html) are
 //! equivalent and can be used interchangeably.
 
-use failure::Error;
 use fnv::FnvHashMap;
 use super::constants;
 use super::error::GameError;
@@ -39,7 +38,7 @@ pub fn max_level(branch: &Branch) -> Level {
 ///
 /// * ResearchLevelInvalid - errors if the research level can't be researched
 ///   i.e. not in the range [0, max_level(branch)].
-pub fn cost_of(branch: &Branch, level: Level) -> Result<Rounds, Error> {
+pub fn cost_of(branch: &Branch, level: Level) -> Result<Rounds, GameError> {
     if let Some(cost) = cost_array(branch).get(level) {
         Ok(*cost)
     } else {
@@ -128,7 +127,7 @@ impl ResearchInfo {
     /// front of the research queue.
     ///
     /// * NullValue - There is no branch to be researched.
-    pub fn next_in_queue(&self) -> Result<Branch, Error> {
+    pub fn next_in_queue(&self) -> Result<Branch, GameError> {
         if let Some(branch) = self.queue.get(0) {
             Ok(branch.clone())
         } else {
@@ -140,7 +139,7 @@ impl ResearchInfo {
     /// research queue is applied.
     ///
     /// * NullValue - There is no branch to be researched.
-    pub fn rounds_left(&self) -> Result<Rounds, Error> {
+    pub fn rounds_left(&self) -> Result<Rounds, GameError> {
         if let Some(rounds_left) = self.rounds_left {
             Ok(rounds_left)
         } else {

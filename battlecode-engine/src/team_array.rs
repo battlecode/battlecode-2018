@@ -4,7 +4,6 @@
 //! recent team array for its planet, but reads a delayed version of the team
 //! array for the other planet.
 
-use failure::Error;
 use fnv::FnvHashMap;
 use std::collections::VecDeque;
 
@@ -86,7 +85,7 @@ impl TeamArrayInfo {
     /// Writes the value at the index of this planet's team array.
     ///
     /// * ArrayOutOfBounds - the array index is accessed out of bounds.
-    pub fn write(&mut self, planet: Planet, index: usize, value: i32) -> Result<(), Error> {
+    pub fn write(&mut self, planet: Planet, index: usize, value: i32) -> Result<(), GameError> {
         let array = self.get_arrays_mut(planet).front_mut().unwrap();
         if index < array.len() {
             array[index] = value;

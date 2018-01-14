@@ -1,5 +1,6 @@
 use super::*;
 use super::super::world::Rounds;
+use failure::Error;
 use fnv::FnvHashMap;
 
 /// Tokenizer.

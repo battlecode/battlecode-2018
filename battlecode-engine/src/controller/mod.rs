@@ -282,7 +282,7 @@ impl GameController {
     /// abilities like units garrisoned in a rocket.
     ///
     /// * NoSuchUnit - the unit does not exist (inside the vision range).
-    pub fn unit_ref(&self, id: UnitID) -> Result<&Unit, Error> {
+    pub fn unit_ref(&self, id: UnitID) -> Result<&Unit, GameError> {
         self.world.unit_ref(id)
     }
 
@@ -291,7 +291,7 @@ impl GameController {
     /// abilities like units garrisoned in a rocket.
     ///
     /// * NoSuchUnit - the unit does not exist (inside the vision range).
-    pub fn unit(&self, id: UnitID) -> Result<Unit, Error> {
+    pub fn unit(&self, id: UnitID) -> Result<Unit, GameError> {
         self.world.unit(id)
     }
 
@@ -336,7 +336,7 @@ impl GameController {
     ///
     /// * LocationOffMap - the location is off the map.
     /// * LocationNotVisible - the location is outside the vision range.
-    pub fn karbonite_at(&self, location: MapLocation) -> Result<u32, Error> {
+    pub fn karbonite_at(&self, location: MapLocation) -> Result<u32, GameError> {
         self.world.karbonite_at(location)
     }
 
@@ -388,7 +388,7 @@ impl GameController {
     /// * LocationOffMap - the location is off the map.
     /// * LocationNotVisible - the location is outside the vision range.
     pub fn sense_unit_at_location_opt(&self, location: MapLocation)
-                                  -> Result<Option<Unit>, Error> {
+                                  -> Result<Option<Unit>, GameError> {
         self.world.sense_unit_at_location(location)
     }
 
@@ -406,7 +406,7 @@ impl GameController {
     /// * LocationNotVisible - the location is outside the vision range.
     /// * NullValue - there is no unit at that location.
     pub fn sense_unit_at_location(&self, location: MapLocation)
-                                  -> Result<Unit, Error> {
+                                  -> Result<Unit, GameError> {
         let loc = self.world.sense_unit_at_location(location)?;
         if let Some(loc) = loc {
             Ok(loc)
@@ -450,7 +450,7 @@ impl GameController {
     ///
     /// * ArrayOutOfBounds - the index of the array is out of
     ///   bounds. It must be within [0, COMMUNICATION_ARRAY_LENGTH).
-    pub fn write_team_array(&mut self, index: usize, value: i32) -> Result<(), Error> {
+    pub fn write_team_array(&mut self, index: usize, value: i32) -> Result<(), GameError> {
         let delta = Delta::WriteTeamArray { index, value };
         self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
@@ -468,7 +468,7 @@ impl GameController {
     ///
     /// * NoSuchUnit - the unit does not exist (inside the vision range).
     /// * TeamNotAllowed - the unit is not on the current player's team.
-    pub fn disintegrate_unit(&mut self, unit_id: UnitID) -> Result<(), Error> {
+    pub fn disintegrate_unit(&mut self, unit_id: UnitID) -> Result<(), GameError> {
         let delta = Delta::Disintegrate { unit_id };
         self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
@@ -486,7 +486,7 @@ impl GameController {
     ///
     /// * LocationOffMap - the location is off the map.
     /// * LocationNotVisible - the location is outside the vision range.
-    pub fn is_occupiable(&self, location: MapLocation) -> Result<bool, Error> {
+    pub fn is_occupiable(&self, location: MapLocation) -> Result<bool, GameError> {
         self.world.is_occupiable(location)
     }
 
@@ -512,7 +512,7 @@ impl GameController {
     /// * LocationOffMap - the location is off the map.
     /// * LocationNotEmpty - the location is occupied by a unit or terrain.
     /// * Overheated - the robot is not ready to move again.
-    pub fn move_robot(&mut self, robot_id: UnitID, direction: Direction) -> Result<(), Error> {
+    pub fn move_robot(&mut self, robot_id: UnitID, direction: Direction) -> Result<(), GameError> {
         let delta = Delta::Move { robot_id, direction };
         self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
@@ -553,7 +553,7 @@ impl GameController {
     /// * UnitNotOnMap - the unit or target is not on the map.
     /// * OutOfRange - the target location is not in range.
     /// * Overheated - the unit is not ready to attack.
-    pub fn attack(&mut self, robot_id: UnitID, target_unit_id: UnitID) -> Result<(), Error> {
+    pub fn attack(&mut self, robot_id: UnitID, target_unit_id: UnitID) -> Result<(), GameError> {
         let delta = Delta::Attack { robot_id, target_unit_id };
         self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
@@ -568,13 +568,13 @@ impl GameController {
 
     /// The research info of the current team, including what branch is
     /// currently being researched, the number of rounds left.
-    pub fn research_info(&self) -> Result<ResearchInfo, Error> {
+    pub fn research_info(&self) -> Result<ResearchInfo, GameError> {
         Ok(self.world.research_info())
     }
 
     /// Resets the research queue to be empty. Returns true if the queue was
     /// not empty before, and false otherwise.
-    pub fn reset_research(&mut self) -> Result<bool, Error> {
+    pub fn reset_research(&mut self) -> Result<bool, GameError> {
         let delta = Delta::ResetResearchQueue;
         if self.config.generate_turn_messages {
             self.turn.changes.push(delta.clone());
@@ -586,7 +586,7 @@ impl GameController {
     /// starts research if it is the first in the queue.
     ///
     /// Returns whether the branch was successfully added.
-    pub fn queue_research(&mut self, branch: UnitType) -> Result<bool, Error> {
+    pub fn queue_research(&mut self, branch: UnitType) -> Result<bool, GameError> {
         let delta = Delta::QueueResearch { branch };
         if self.config.generate_turn_messages {
             self.turn.changes.push(delta.clone());
@@ -617,7 +617,7 @@ impl GameController {
     /// * LocationNotVisible - the location is not in the vision range.
     /// * KarboniteDepositEmpty - the location described contains no Karbonite.
     pub fn harvest(&mut self, worker_id: UnitID, direction: Direction)
-                   -> Result<(), Error> {
+                   -> Result<(), GameError> {
         let delta = Delta::Harvest { worker_id, direction };
         self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
@@ -653,7 +653,7 @@ impl GameController {
     /// * InsufficientKarbonite - your team does not have enough Karbonite to
     ///   build the requested structure.
     pub fn blueprint(&mut self, worker_id: UnitID, structure_type: UnitType,
-                     direction: Direction) -> Result<(), Error> {
+                     direction: Direction) -> Result<(), GameError> {
         let delta = Delta::Blueprint { worker_id, structure_type, direction };
         self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
@@ -682,7 +682,7 @@ impl GameController {
     /// * OutOfRange - the worker is not adjacent to the blueprint.
     /// * StructureAlreadyBuilt - the blueprint has already been completed.
     pub fn build(&mut self, worker_id: UnitID, blueprint_id: UnitID)
-                 -> Result<(), Error> {
+                 -> Result<(), GameError> {
         let delta = Delta::Build { worker_id, blueprint_id };
         self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
@@ -709,7 +709,7 @@ impl GameController {
     /// * Overheated - the worker has already performed an action this turn.
     /// * OutOfRange - the worker is not adjacent to the structure.
     /// * StructureNotYetBuilt - the structure has not been completed.
-    pub fn repair(&mut self, worker_id: UnitID, structure_id: UnitID) -> Result<(), Error> {
+    pub fn repair(&mut self, worker_id: UnitID, structure_id: UnitID) -> Result<(), GameError> {
         let delta = Delta::Repair { worker_id, structure_id };
         self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
@@ -741,7 +741,7 @@ impl GameController {
     /// * LocationNotEmpty - the location in the target direction is already
     ///   occupied.
     pub fn replicate(&mut self, worker_id: UnitID, direction: Direction)
-                     -> Result<(), Error> {
+                     -> Result<(), GameError> {
         let delta = Delta::Replicate { worker_id, direction };
         self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
@@ -776,7 +776,7 @@ impl GameController {
     /// * ResearchNotUnlocked - you do not have the needed research to use javelin.
     /// * OutOfRange - the target does not lie within ability range of the knight.
     /// * Overheated - the knight is not ready to use javelin again.
-    pub fn javelin(&mut self, knight_id: UnitID, target_unit_id: UnitID) -> Result<(), Error> {
+    pub fn javelin(&mut self, knight_id: UnitID, target_unit_id: UnitID) -> Result<(), GameError> {
         let delta = Delta::Javelin { knight_id, target_unit_id };
         self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
@@ -814,7 +814,7 @@ impl GameController {
     /// * ResearchNotUnlocked - you do not have the needed research to use snipe.
     /// * Overheated - the ranger is not ready to use snipe again.
     pub fn begin_snipe(&mut self, ranger_id: UnitID, location: MapLocation)
-                       -> Result<(), Error> {
+                       -> Result<(), GameError> {
         let delta = Delta::BeginSnipe { ranger_id, location };
         self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
@@ -853,7 +853,7 @@ impl GameController {
     /// * LocationNotVisible - the target location is outside the vision range.
     /// * LocationNotEmpty - the target location is already occupied.
     /// * Overheated - the mage is not ready to use blink again.
-    pub fn blink(&mut self, mage_id: UnitID, location: MapLocation) -> Result<(), Error> {
+    pub fn blink(&mut self, mage_id: UnitID, location: MapLocation) -> Result<(), GameError> {
         let delta = Delta::Blink { mage_id, location };
         self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
@@ -888,7 +888,7 @@ impl GameController {
     /// * UnitNotOnMap - the healer is not on the map.
     /// * OutOfRange - the target does not lie within "attack" range of the healer.
     /// * Overheated - the healer is not ready to heal again.
-    pub fn heal(&mut self, healer_id: UnitID, target_robot_id: UnitID) -> Result<(), Error> {
+    pub fn heal(&mut self, healer_id: UnitID, target_robot_id: UnitID) -> Result<(), GameError> {
         let delta = Delta::Heal { healer_id, target_robot_id };
         self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
@@ -922,7 +922,7 @@ impl GameController {
     /// * OutOfRange - the target does not lie within ability range of the healer.
     /// * Overheated - the healer is not ready to use overcharge again.
     pub fn overcharge(&mut self, healer_id: UnitID, target_robot_id: UnitID)
-                      -> Result<(), Error> {
+                      -> Result<(), GameError> {
         let delta = Delta::Overcharge { healer_id, target_robot_id };
         self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
@@ -954,7 +954,7 @@ impl GameController {
     /// * GarrisonFull - the structure's garrison is already full.
     /// * OutOfRange - the robot is not adjacent to the structure.
     pub fn load(&mut self, structure_id: UnitID, robot_id: UnitID)
-                    -> Result<(), Error> {
+                    -> Result<(), GameError> {
         let delta = Delta::Load { structure_id, robot_id };
         self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
@@ -984,7 +984,7 @@ impl GameController {
     ///   occupied.
     /// * Overheated - the robot inside the structure is not ready to move again.
     pub fn unload(&mut self, structure_id: UnitID, direction: Direction)
-                      -> Result<(), Error> {
+                      -> Result<(), GameError> {
         let delta = Delta::Unload { structure_id, direction };
         self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
@@ -1015,7 +1015,7 @@ impl GameController {
     /// * InsufficientKarbonite - your team does not have enough Karbonite to
     ///   produce the given robot.
     pub fn produce_robot(&mut self, factory_id: UnitID, robot_type: UnitType)
-                       -> Result<(), Error> {
+                       -> Result<(), GameError> {
         let delta = Delta::ProduceRobot { factory_id, robot_type };
         self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
@@ -1053,7 +1053,7 @@ impl GameController {
     /// * LocationOffMap - the given location is off the map.
     /// * LocationNotEmpty - the given location contains impassable terrain.
     pub fn launch_rocket(&mut self, rocket_id: UnitID, location: MapLocation)
-                         -> Result<(), Error> {
+                         -> Result<(), GameError> {
         let delta = Delta::LaunchRocket { rocket_id, location };
         self.world.apply(&delta)?;
         if self.config.generate_turn_messages {
@@ -1429,8 +1429,8 @@ pub struct InitialTurnApplication {
 
 /// Run a test game between two rust bots.
 pub fn run_game_ansi<R, B>(mut r: R, mut b: B, turns: usize, delay: u32)
-        where R: FnMut(&mut GameController) -> Result<(), Error>,
-              B: FnMut(&mut GameController) -> Result<(), Error> {
+        where R: FnMut(&mut GameController) -> Result<(), GameError>,
+              B: FnMut(&mut GameController) -> Result<(), GameError> {
 
     // A filler time that doesn't matter for this test game.
     let time = 10000;

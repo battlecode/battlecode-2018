@@ -34,7 +34,7 @@ impl GameMap {
     /// Validate the game map.
     ///
     /// * InvalidMapObject - the game map is invalid.
-    pub fn validate(&self) -> Result<(), Error> {
+    pub fn validate(&self) -> Result<(), GameError> {
         self.earth_map.validate()?;
         self.mars_map.validate()?;
         self.asteroids.validate()?;
@@ -107,7 +107,7 @@ impl PlanetMap {
     /// Validates the map and checks some invariants are followed.
     ///
     /// * InvalidMapObject - the planet map is invalid.
-    pub fn validate(&self) -> Result<(), Error> {
+    pub fn validate(&self) -> Result<(), GameError> {
         // The width and height are of valid dimensions.
         if !(self.height >= MAP_HEIGHT_MIN && self.height <= MAP_HEIGHT_MAX &&
              self.width >= MAP_WIDTH_MIN && self.width <= MAP_WIDTH_MAX) {
@@ -191,7 +191,7 @@ impl PlanetMap {
     /// containing a building, for instance).
     ///
     /// * LocationOffMap - the location is off the map.
-    pub fn is_passable_terrain_at(&self, location: MapLocation) -> Result<bool, Error> {
+    pub fn is_passable_terrain_at(&self, location: MapLocation) -> Result<bool, GameError> {
         if self.on_map(location) {
             Ok(self.is_passable_terrain[location.y as usize][location.x as usize])
         } else {
@@ -202,7 +202,7 @@ impl PlanetMap {
     /// The amount of Karbonite initially deposited at the given location.
     ///
     /// * LocationOffMap - the location is off the map.
-    pub fn initial_karbonite_at(&self, location: MapLocation) -> Result<u32, Error> {
+    pub fn initial_karbonite_at(&self, location: MapLocation) -> Result<u32, GameError> {
         if self.on_map(location) {
             Ok(self.initial_karbonite[location.y as usize][location.x as usize])
         } else {
@@ -320,7 +320,7 @@ impl AsteroidPattern {
     /// Validates the asteroid pattern.
     ///
     /// * InvalidMapObject - the asteroid pattern is invalid.
-    pub fn validate(&self) -> Result<(), Error> {
+    pub fn validate(&self) -> Result<(), GameError> {
         // The Karbonite on each asteroid is in the range
         // [ASTEROID_KARB_MIN, ASTEROID_KARB_MAX], inclusive.
         for (round, asteroid) in self.pattern.clone() {
@@ -363,7 +363,7 @@ impl AsteroidPattern {
     /// Get the asteroid strike at the given round.
     ///
     /// * NullValue - There is no asteroid strike at this round.
-    pub fn asteroid(&self, round: Rounds) -> Result<&AsteroidStrike, Error> {
+    pub fn asteroid(&self, round: Rounds) -> Result<&AsteroidStrike, GameError> {
         if let Some(asteroid) = self.pattern.get(&round) {
             Ok(asteroid)
         } else {
@@ -397,7 +397,7 @@ impl OrbitPattern {
     /// Validates the orbit pattern.
     ///
     /// * InvalidMapObject - the orbit pattern is invalid.
-    pub fn validate(&self) -> Result<(), Error> {
+    pub fn validate(&self) -> Result<(), GameError> {
         // The flight times are within [ORIBIT_FLIGHT_MIN, ORBIT_FLIGHT_MAX].
         if self.center - self.amplitude < ORBIT_FLIGHT_MIN {
             Err(GameError::InvalidMapObject)?
