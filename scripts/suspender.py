@@ -8,8 +8,8 @@ import subprocess
 key = os.environ['PLAYER_KEY']
 
 def log(*args, **kwargs):
-    print("suspender", key, ':', *args, **kwargs)
-    # pass
+    #print("suspender", key, ':', *args, **kwargs)
+    pass
 
 log('connecting to /tmp/battlecode-suspender')
 sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)

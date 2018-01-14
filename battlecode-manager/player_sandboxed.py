@@ -72,8 +72,6 @@ class SandboxedPlayer(AbstractPlayer):
         #cap_drop=['chown, dac_override, fowner, fsetid, kill, setgid, setuid, setpcap, net_bind_service, net_raw, sys_chroot, mknod, audit_write, setfcap'],cpu_period=100000,cpu_quota=self.player_cpu_fraction*100000,
 
     def pause(self):
-        import time
-        s = time.time()
         # see suspender.py
         # we don't go through docker.suspend or docker.exec because they're too slow (100ms)
         self.suspender_file.write('suspend\n')
@@ -84,11 +82,7 @@ class SandboxedPlayer(AbstractPlayer):
         except Exception as e:
             print("SUSPENSION FAILED!!! SUSPICIOUS:", e)
 
-        print('susp time:', time.time() - s)
-
     def unpause(self, timeout=None):
-        import time
-        s = time.time()
         # see suspender.py
         # we don't go through docker.suspend or docker.exec because they're too slow (100ms)
         self.suspender_file.write('resume\n')
@@ -98,8 +92,6 @@ class SandboxedPlayer(AbstractPlayer):
             assert response.strip() == 'ack', response.strip() + ' != ack'
         except Exception as e:
             print("resumption failed:", e)
-
-        print('susp time:', time.time() - s)
 
     def destroy(self):
         try:

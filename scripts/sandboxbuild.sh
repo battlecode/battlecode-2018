@@ -67,14 +67,13 @@ step cp scripts/suspender.py /suspender.py
 step docker start $ID -a -i
 
 tput setaf 5
-echo $ docker commit -a "Teh Devs battlecode@mit.edu" $ID -m "Final build step" -c "ENV PYTHONPATH=/battlecode/python" battlebaby-fat -c 'CMD ["/bin/ash"]'
+echo $ docker commit -a "Teh Devs battlecode@mit.edu" -m "Final build step" -c "ENV PYTHONPATH=/battlecode/python" -c 'CMD ["/bin/ash"]' $ID battlebaby-fat
 tput sgr0
-docker commit -a "Teh Devs battlecode@mit.edu" -m "Final build step" $ID battlebaby-fat -c 'CMD ["/bin/ash"]'
+docker commit -a "Teh Devs battlecode@mit.edu" -m "Final build step" -c 'CMD ["/bin/ash"]' $ID battlebaby-fat
 # cmd is just there for debugging, we don't use it in prod
 step "docker-squash --version || echo 'please pip3 install docker-squash' && exit 1"
 
-#step docker-squash battlebaby-fat -t battlebaby
-step docker tag battlebaby-fat battlebaby
+step docker-squash battlebaby-fat -t battlebaby
 
 step mkdir -p docker-artifacts
 step docker save battlebaby -o docker-artifacts/battlebaby.tar
