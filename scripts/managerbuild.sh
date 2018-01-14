@@ -6,6 +6,8 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 # note: we run in the above directory
 cd $DIR/..
 
+set -e
+
 step() {
     tput setaf 5
     echo $ $@
@@ -32,6 +34,8 @@ echo $ docker create --privileged $BINDS battledaddy sh -c '/*build script*/'
 tput sgr0
 
 ID=$(docker create --privileged $BINDS battledaddy sh -c '
+set -e
+
 cd /battlecode_src
 set -e
 

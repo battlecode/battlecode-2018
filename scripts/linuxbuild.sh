@@ -1,6 +1,7 @@
 #!/bin/bash 
 # Some slightly wacky stuff that allows us to cache the build artifacts used by the Linux dockerfile build.
 # Essentially, instead of running the last few build steps in a Dockerfile, we run them in a docker image, then use "docker checkpoint" to export that image.
+set -e
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 # note: we run in the above directory
@@ -34,6 +35,8 @@ echo $ docker create --rm $BINDS linuxbuild sh -c '/*build script*/'
 tput sgr0
 
 ID=$(docker create --rm $BINDS linuxbuild sh -c '
+set -e
+
 export TERM=xterm
 . ~/.cargo/env
 cd /battlecode
