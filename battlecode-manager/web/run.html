@@ -31,11 +31,6 @@
             <strong> Fatal error. </strong> <span id="warning-text"></span>
         </div>
 
-        <div class="notification is-success" style="display:none" id="winner">
-            <button class="delete" onclick="document.getElementById('winner').style.display='none'"></button>
-            <strong> Game completed. </strong> Winner is <span id="winner-text">.</span>
-        </div>
-
 
         <div class="tile is-ancestor">
             <div class="tile is-vertical is-8">
@@ -131,6 +126,12 @@
         </div>
 
         <div class="field has-addons" style="float:right">
+            <button onclick="upload_modal()" style="margin-right:10px"
+                                             class="button is-primary">
+                <span class="icon">
+                    <i class="fa fa-cloud-upload"></i>
+                </span><span>Upload Player</span>
+            </button>
             <button onclick="eel.stop_manager()()" style="margin-right:10px" class="button is-danger">
                 <span class="icon">
                     <i class="fa fa-stop-circle-o"></i>
@@ -143,9 +144,16 @@
                 <span>Run Game</span>
             </button>
         </div>
+
     </section>
 
+
     <section class="section" style="flex:1;display:none" id="running_view">
+        <div class="notification is-success" style="display:none" id="winner">
+            <button class="delete" onclick="document.getElementById('winner').style.display='none'"></button>
+            <strong> Game completed. </strong> Winner is <span id="winner-text">.</span>
+        </div>
+
         <div class="tile is-ancestor">
             <div class="tile is-vertical is-8">
                 <div class="tile is-parent">
@@ -171,11 +179,18 @@
             <div class="tile is-parent">
                 <article class="tile is-child">
                     <div class="content" style="text-align:center">
+                        <a onclick="trigger_exit_viewer()" style="width:100%" class="button is-warning">
+                            <span class="icon">
+                                <i class="fa fa-arrow-up"></i>
+                            </span><span>Exit Viewer</span>
+                        </a><br /><br />
+
                         <a onclick="use_latest()" style="width:100%" class="button is-primary">
                             <span class="icon">
                                 <i class="fa fa-refresh"></i>
                             </span><span>View live</span>
                         </a><br /><br />
+
 
                         <a onclick="trigger_end_game()" style="width:100%" class="button is-warning">
                             <span class="icon">
@@ -190,6 +205,14 @@
                         </a><br /><br />
 
                         <h1 class="title" id="turn_field">0</h1>
+                    </div>
+                    <div>
+                        <a onclick="trigger_save_logs()" style="width:100%"
+                                                         class="button is-link">
+                            <span class="icon">
+                                <i class="fa fa-download"></i>
+                            </span><span>Save Logs</span>
+                        </a><br /><br />
                     </div>
                 </article>
             </div>
@@ -232,6 +255,105 @@
             </div>
         </div>
     </footer>
+    <div class="modal" id="upload_modal">
+        <div class="modal-background"></div>
+        <div class="modal-content">
+            <div class="modal-card">
+                <div class="modal-card-head">
+                    <span style="float:right">
+                        <p class="title">
+                            Upload Bot
+                        </p>
+                    </span>
+                    <span styple="text-align:right; widht:100%; float:right"
+                          align="right">
+                        <a onclick="close_upload()" style="float:right"
+                            class="button" align="right">
+                            <span class="icon">
+                                <i class="fa fa-window-close"></i>
+                        </a><br /><br />
+                    </span>
+                </div>
+                <div class="modal-card-body">
+                <article class="tile is-child notification is-white">
+                    <div class="content">
+                        <div class="content">
+                            <div class="field">
+                                <label class="label" style="color:#000">Player Directory:</label>
+                                <div class="control">
+                                    <div class="select" style="width:100%">
+                                        <select style="width:100%"
+                                            id='upload_players'>
+                                        </select>
+                                    </div>
+                                </div>
+                                <tr>
+                                    <td>Upload Name</td>
+                                    <td><input class="input" type="text"
+                                                             value="bot 1"
+                                                             id="upload_name"></td>
+                                </tr>
+                            </div>
+                            <button id="upload" class="button is-success"
+                                align="right">
+                                <span class="icon">
+                                    <i class="fa fa-rocket"></i>
+                                </span>
+                                <span>Upload bot</span>
+                            </button>
+                        </div>
+                    </div>
+                </article>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="download_modal">
+        <div class="modal-background"></div>
+        <div class="modal-content">
+            <div class="modal-card">
+                <div class="modal-card-head">
+                    <span style="float:right">
+                        <p class="title">
+                        Download Logs
+                        </p>
+                    </span>
+                    <span styple="text-align:right; widht:100%; float:right"
+                          align="right">
+                        <a onclick="close_download()" style="float:right"
+                            class="button" align="right">
+                            <span class="icon">
+                                <i class="fa fa-window-close"></i>
+                        </a><br /><br />
+                    </span>
+                </div>
+                <div class="modal-card-body">
+                <article class="tile is-child notification is-white">
+                    <div class="content">
+                        <div class="content">
+                            <div class="field">
+                                <tr>
+                                    <td>Log File Name</td>
+                                    <td><input class="input" type="text"
+                                                             value="logs.txt"
+                                                             id="download_file_name"></td>
+                                </tr>
+                            </div>
+                            <button id="download" class="button is-success"
+                                align="right">
+                                <span class="icon">
+                                    <i class="fa fa-download"></i>
+                                </span>
+                                <span>Download logs</span>
+                            </button>
+                        </div>
+                    </div>
+                </article>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script type="text/javascript" src="/eel.js"></script>
 
@@ -240,12 +362,13 @@
     var viewer_cache = {}
     var view_latest = true;
 
-    var modal = document.querySelector('.modal');
+    var modal = document.getElementById("upload_modal")
     var html = document.querySelector('html');
     var earth = document.getElementById("earth");
     var mars = document.getElementById("mars");
     var slider = document.getElementById("slider");
     var turn_field = document.getElementById("turn_field")
+    var log_modal = document.getElementById("download_modal")
 
     function alert_error(message) {
         document.getElementById('warning-text').innerText = message;
@@ -319,10 +442,12 @@
 
         red = document.getElementById("red")
         blue = document.getElementById("blue")
+        upload = document.getElementById("upload_players")
         folders.forEach(function(folder) {
             if (folder.charAt(0) != '.') {
                 red.innerHTML += "<option value='" + folder + "'>" + folder + "</option>";
                 blue.innerHTML += "<option value='" + folder + "'>" + folder + "</option>";
+                upload .innerHTML +="<option value='" + folder + "'>" + folder + "</option>";
             }
         });
 
@@ -382,16 +507,37 @@
         return true;
     }
 
-    eel.expose(trigger_end_game);
-    function trigger_end_game(winner) {
+    function trigger_save_logs() {
+      download_modal.classList.add('is-active')
+    }
+
+   function close_download(){
+      download_modal.classList.remove('is-active')
+   }
+
+    function trigger_exit_viewer() {
         document.getElementById('runner_view').style.display = "block";
         document.getElementById('running_view').style.display = "none";
-
         viewer_cache = {}
         clearInterval(interval);
         eel.end_game();
+   }
+
+   function close_upload(){
+      modal.classList.remove('is-active')
+   }
+
+   function upload_modal(){
+      modal.classList.add('is-active')
+
+   }
+
+    eel.expose(trigger_end_game);
+    function trigger_end_game(winner) {
+        eel.end_game();
         report_winner(winner);
     }
+
 
     slider.addEventListener('input', function (evt) {
         view_latest = false;
@@ -437,6 +583,7 @@
 
     document.onkeydown = function(e) {
         //e = e || window.event;
+       e.preventDefault();
         if (e.keyCode == '37' && slider.value > 0) {
            view_latest = false;
            slider.value = slider.value - 1;
@@ -447,6 +594,25 @@
            render_turn(slider.value);
         }
     }
+    var upload = document.getElementById("upload")
+    upload.onclick = async function() {
+        var params = {}
+        params['file_name'] = document.getElementById('upload_name').value;
+
+        params['player'] = document.getElementById("upload_players");
+        params['player'] = params['player'].options[params['player'].selectedIndex].value;
+
+        eel.upload_scrim_server(params)();
+   }
+
+    var download = document.getElementById("download")
+    download.onclick = async function() {
+        var file_name = document.getElementById('download_file_name').value;
+        var error = await eel.save_logs(file_name)()();
+
+        console.log(error);
+        
+   }
 
     var submit = document.getElementById("submit")
     submit.onclick = async function() {

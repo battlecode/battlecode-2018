@@ -8,6 +8,7 @@ import signal
 import psutil
 import player_plain
 import battlecode as bc
+import zipfile
 
 target_dir = os.path.abspath(os.path.dirname(__file__))
 print('Moving into', target_dir)
@@ -23,6 +24,70 @@ print('Starting eel')
 eel.init('web')
 
 game = None
+
+def zipdir(path, zip_file):
+    excess_name = os.path.dirname(path)
+    for _, _, files in os.walk(path):
+        for file_name in files:
+            zip_file.write(file_name)
+
+@eel.expose
+def upload_scrim_server(return_args):
+    print(return_args)
+    cwd = os.getcwd()
+    if 'NODOCKER' in os.environ:
+        os.chdir('..')
+    else:
+        os.chdir('./player')
+    os.chdir(return_args['player'])
+    zip_file_name = os.path.abspath(os.path.join('../',
+        return_args['file_name']))
+    print(zip_file_name)
+    if not zip_file_name.endswith('.zip'):
+        zip_file_name += '.zip'
+    zip_file = zipfile.ZipFile(zip_file_name, 'w', zipfile.ZIP_DEFLATED)
+    zipdir('./', zip_file)
+    os.chdir(cwd)
+
+
+@eel.expose
+def save_logs(file_name):
+    print(file_name)
+    if 'NODOCKER':
+        file_name = os.path.abspath(os.path.join('..', file_name))
+    else:
+        file_name = os.path.abspath(os.path.join('/player/', file_name))
+
+    output_string = ""
+    if game != None:
+        if all('logger' in player for player in game.players):
+            for i in range(len(game.players)):
+                player = game.players[i]
+                log_header = "\n\n\n\n\n\n======================================\n"
+                if i % 2 == 0:
+                    log_header += "Red "
+                else:
+                    log_header += "Blue "
+                if i < 2:
+                    log_header += "Earth"
+                else:
+                    log_header += "Mars"
+                log_header += "\n\n"
+                logs = log_header + player['logger'].logs.getvalue()
+                output_string += logs
+    else:
+        # This should never run. Game needs to be started to call this modal
+        return ""
+
+    try:
+        with open(file_name, 'w') as f:
+            f.write(output_string)
+        return ""
+
+    except Exception as e:
+        print("There was an error dumping the logs")
+        print(e)
+        return str(e)
 
 def start_game(return_args):
     global WINNER
