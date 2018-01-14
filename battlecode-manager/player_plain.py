@@ -13,11 +13,11 @@ class PlainPlayer(AbstractPlayer):
     def __init__(self, socket_file, working_dir, local_dir=None,
                  player_key="", player_mem_limit=256, player_cpu=20):
 
-        super().__init__(socket_file, working_dir, local_dir, None, None, player_key, player_mem_limit, player_cpu)
-
         self.paused = False
         self.streaming = False
         self.process = None
+
+        super().__init__(socket_file, working_dir, local_dir, None, None, player_key, player_mem_limit, player_cpu)
 
     def stream_logs(self, stdout=True, stderr=True, line_action=lambda line: print(line.decode())):
         assert not self.streaming
