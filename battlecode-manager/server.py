@@ -428,7 +428,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             else:
                 logged_in = "false"
 
-            message = f'{{"logged_in":{logged_in},"client_id":"{self.client_id}","error":{error},"message":{state_diff}}}'
+            message = '{{"logged_in":{},"client_id":"{}","error":{},"message":{}}}'.format(logged_in, self.client_id, error, state_diff)
             return message
 
         def player_handler(self):
