@@ -14,7 +14,7 @@ endif
 build: .build-marker
 .build-marker: ../c/include/bc.i $(CARGO_TARGET_DIR)/debug/deps/libbattlecode.a src/bc/bc_wrap.o src/bc/bcJNI.class
 	$(call build_command,gcc -shared -O0 -fPIC src/bc/bc_wrap.o $(CARGO_TARGET_DIR)/debug/deps/libbattlecode.a $(LIBS) -o $(TARGET))
-	$(call build_command,touch .build-marker && rm .release-marker 2&>/dev/null || true)
+	$(call build_command,touch .build-marker && rm -f .release-marker)
 
 test: build
 	javac tests/*.java -classpath ./tests:./src
@@ -23,7 +23,7 @@ test: build
 release: .release-marker
 .release-marker: ../c/include/bc.i $(CARGO_TARGET_DIR)/release/deps/libbattlecode.a src/bc/bc_wrap.o src/bc/bcJNI.class
 	$(call build_command,gcc -shared -O3 -fPIC src/bc/bc_wrap.o $(CARGO_TARGET_DIR)/release/deps/libbattlecode.a $(LIBS) -o $(TARGET))
-	$(call build_command,touch .release-marker && rm .build-marker 2&>/dev/null || true)
+	$(call build_command,touch .release-marker && rm -f .build-marker)
 
 src/bc/bc_wrap.o: src/bc/bc_wrap.c
 	$(call build_command,gcc -c -O3 -fPIC src/bc/bc_wrap.c $(JAVAINCLUDE) -I../c/include/ -o src/bc/bc_wrap.o)
@@ -40,6 +40,6 @@ clean:
 	-rm -rf src/bc/*.so
 	-rm -rf src/bc/*.o
 	-rm -rf src/bc/bc_wrap.c
-	-rm .build-marker .release-marker 2&>/dev/null
+	-rm -f .build-marker .release-marker
 	
 .PHONY: build test clean
