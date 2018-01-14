@@ -11,6 +11,7 @@ except:
     pass
 
 map_extension = ".bc18map"
+map_extension_text = ".bc18t"
 replay_extension = ".bc18"
 
 # ANSI escape codes
@@ -48,7 +49,7 @@ def run_game(map_path, player1dir, player2dir, replay_dir, docker, terminal_view
     print("Winner is player " + str(1 if winner == 'player1' else 2))
 
 def get_maps(map_directory):
-    maps = [o for o in os.listdir(map_directory) if o.endswith(map_extension)]
+    maps = [o for o in os.listdir(map_directory) if o.endswith(map_extension) or o.endswith(map_extension_text)]
     # This map is built-in
     maps.append('testmap.bc18map')
     return maps
@@ -62,7 +63,7 @@ parser = argparse.ArgumentParser(
 
 parser.add_argument('-p1', '--player1', help="Path to the directory for player 1", required=True)
 parser.add_argument('-p2', '--player2', help="Path to the directory for player 2", required=True)
-map_names = ", ".join(s.replace(map_extension, "") for s in get_maps(map_directory))
+map_names = ", ".join(s.replace(map_extension, "").replace(map_extension_text, "") for s in get_maps(map_directory))
 parser.add_argument('-m', '--map', help="The map to play on. The available maps are:\n" + map_names, required=True)
 parser.add_argument('--replay-dir', help="Directory to save replays to. This may not work with docker. (default: %(default)s)", default="replays", required=False)
 parser.add_argument('--mem', type=int, help='Memory in megabytes that a player is allowed to use. (default: %(default)s)', default=256)
@@ -84,11 +85,17 @@ if not os.path.isdir(replay_dir):
     else:
         exit(1)
 
-if not map_path.endswith(map_extension):
-    map_path += map_extension
+if not map_path.endswith(map_extension) or map_path.endswith(map_extension_text):
+    for ext in (map_extension, map_extension_text):
+        t = os.path.join(map_directory, map_path + ext)
+        print(t)
+        if os.path.isfile(t):
+            map_path = t
 
-if map_path not in get_maps(map_directory):
-    print("Could not find any map named " + str(map_path) + ". Use --help to see a list of all available maps.")
+if not os.path.isfile(map_path):
+    print("Could not find any map named " + str(args.map) + ". Use --help to see a list of all available maps.\nExpected path: " + str(map_path))
+    exit(1)
+
 
 if args.mem <= 0:
     print("Max memory to use cannot be negative")

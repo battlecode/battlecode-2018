@@ -21,7 +21,7 @@ class Function(object):
         result = s(f'''\
             #[no_mangle]
             pub extern "C" fn {self.name}({', '.join(a.to_rust() for a in self.args)}) -> {self.type.rust} {{
-                let default: {self.type.rust} = {self.type.default};
+                let _default: {self.type.rust} = {self.type.default};
             '''
         )
         result += s(self.body, indent=4)
@@ -81,7 +81,7 @@ class Method(Function):
 
     def to_swig(self):
         result = s(f'''\
-            %newobject {self.name};
+            %newobject {self.method_name};
             {self.type.to_swig()} {self.method_name}({', '.join(a.to_swig() for a in self.args[1:])});
         ''')
         return result

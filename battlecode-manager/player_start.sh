@@ -9,5 +9,8 @@ chown -R player:player /code
 # so, we'll chmod for good measure.
 chmod -R a+rw /code
 
+# additionally, let players access the messaging socket
+chmod a+rw /tmp/battlecode-socket
+
 # now run their script!
 cd /code && su player -s /bin/sh -m -c 'sh run.sh'

@@ -43,7 +43,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
     '''
 
     def __init__(self, game_map: bc.GameMap, logging_level=logging.DEBUG,
-                 logging_file="server.log", time_pool=1000, time_additional=50,
+                 logging_file="server.log", time_pool=10000, time_additional=50,
                  terminal_viewer=False,
                  extra_delay=0):
         self.terminal_viewer = terminal_viewer
@@ -87,7 +87,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         for player in self.players:
             player['start_message'] = self.manager.start_game(player['player']).to_json()
         self.viewer_messages = []
-        manager_start_message = self.manager.initial_start_turn_message()
+        manager_start_message = self.manager.initial_start_turn_message(int(1000 * self.time_pool))
         self.manager_viewer_messages = []
         self.manager_viewer_messages.append(self.manager.manager_viewer_message())
         self.last_message = manager_start_message.start_turn.to_json()
@@ -195,7 +195,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
                 sys.stdout.write("\033[J")
             for player in sorted(self.players, key=_key):
                 p = player['player']
-                print('-- [{}{}] --'.format('e' if p.planet == bc.Planet.Earth else 'm', 'b' if p.team == bc.Team.Red else 'r'))
+                print('-- [{}{}] --'.format('e' if p.planet == bc.Planet.Earth else 'm', 'r' if p.team == bc.Team.Red else 'b'))
                 logs = player['logger'].logs.getvalue()[-1000:].splitlines()[-5:]
                 for line in logs:
                     print(line)
@@ -251,8 +251,13 @@ class Game(object): # pylint: disable=too-many-instance-attributes
             data: the data received from the stream
 
         '''
+        # get the time left of the next player to go
+        next_index = (self.player_id2index(client_id) + 1) % len(self.players)
+        next_client_id = self.players[next_index]['id']
+        projected_time_ms = int(1000 * (self.times[next_client_id] + self.time_additional))
+
         # interact with the engine
-        application = self.manager.apply_turn(turn_message)
+        application = self.manager.apply_turn(turn_message, projected_time_ms)
         self.last_message = application.start_turn.to_json()
         self.viewer_messages.append(application.viewer.to_json())
         self.manager_viewer_messages.append(self.manager.manager_viewer_message())
@@ -416,7 +421,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             else:
                 logged_in = "false"
 
-            message = f'{{"logged_in":{logged_in},"client_id":"{self.client_id}","error":{error},"message":{state_diff}}}'
+            message = '{{"logged_in":{},"client_id":"{}","error":{},"message":{}}}'.format(logged_in, self.client_id, error, state_diff)
             return message
 
         def player_handler(self):

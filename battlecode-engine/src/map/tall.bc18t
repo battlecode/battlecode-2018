@@ -1,0 +1,31 @@
+seed: 1337
+
+orbit_amplitude: 50
+orbit_period: 40
+orbit_center: 100
+
+EARTH:
+width: 20
+height: 40
+
+symmetry: horizontal
+
+_ =
+x = impassable
+Q = 100k
+1 = 10k
+2 = 20k
+3 = 35k
+4 = 70k
+
+r = red_worker
+b = blue_worker
+
+>r
+
+MARS:
+width: 20
+height: 20
+symmetry: none
+
+>_
