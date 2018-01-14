@@ -45,7 +45,7 @@ step() {
 
 step export CARGO_TARGET_DIR=$PWD/.cache/target-sandbox
 
-#step make clean
+step make clean
 step make release
 step apk del rust cargo swig .pypy-rundeps --purge
 

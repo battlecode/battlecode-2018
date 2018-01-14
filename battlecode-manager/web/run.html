@@ -55,12 +55,8 @@
                                         <td><input class="input" type="text" value="256" id="memory"></td>
                                     </tr>
                                     <tr>
-                                        <td>Player CPU percent</td>
-                                        <td><input class="input" type="text" value="20" id="cpu"></td>
-                                    </tr>
-                                    <tr>
                                         <td>Initial timing pool (ms)</td>
-                                        <td><input class="input" type="text" value="1000" id="pool"></td>
+                                        <td><input class="input" type="text" value="10000" id="pool"></td>
                                     </tr>
                                     <tr>
                                         <td>Additional time/turn (ms)</td>
@@ -317,18 +313,10 @@
             alert_error("Must give at least 100mb of memory.");
             return false;
         } else {
-            params['player_memory'] = parseInt(params['player_memory'])
+            params['player_memory'] = parseInt(params['player_memory']);
         }
 
-        if (isNaN(params['player_cpu'])) {
-            alert_error("Must give a numeric CPU percentage.");
-            return false;
-        } else if (parseInt(params['player_cpu'] < 10)) {
-            alert_error("Must give at least 10% of CPU.");
-            return false;
-        } else {
-            params['player_cpu'] = parseInt(params['player_cpu'])
-        }
+        params['player_cpu'] = 100;
 
         if (isNaN(params['time_pool'])) {
             alert_error("Must give a numeric initial time pool.");
@@ -387,7 +375,7 @@
         var params = {}
         //params['use_viewer'] = document.querySelector('input[name="viewer"]:checked').value;
         params['player_memory'] = document.getElementById('memory').value;
-        params['player_cpu'] = document.getElementById('cpu').value;
+        params['player_cpu'] = 100;
         params['time_pool'] = document.getElementById('pool').value;
         params['time_additional'] = document.getElementById('additional').value;
         params['replay_filename'] = document.getElementById('replay').value;
