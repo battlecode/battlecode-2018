@@ -12,5 +12,8 @@ chmod -R a+rw /code
 # additionally, let players access the messaging socket
 chmod a+rw /tmp/battlecode-socket
 
+# start the player suspender script
+python3 /suspender.py &
+
 # now run their script!
 cd /code && su player -s /bin/sh -m -c 'sh run.sh'

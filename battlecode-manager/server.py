@@ -68,7 +68,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
 
         # Initialize the players
         for index in range(NUM_PLAYERS):
-            new_id = random.randrange(65536)
+            new_id = random.randrange(10**30)
             self.players.append({'id':new_id})
             self.players[-1]['player'] = bc.Player(bc.Team.Red if index % 2 == 0 else bc.Team.Blue, bc.Planet.Earth if index < 2 else bc.Planet.Mars)
             self.player_logged[new_id] = False

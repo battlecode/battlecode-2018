@@ -45,7 +45,7 @@ step() {
 
 step export CARGO_TARGET_DIR=$PWD/.cache/target-sandbox
 
-step make clean
+#step make clean
 step make release
 step apk del rust cargo swig .pypy-rundeps --purge
 
@@ -61,18 +61,20 @@ step ln -s -T /battlecode/c /battlecode-c
 step ln -s -T /battlecode/c/lib/libbattlecode-linux.a /battlecode-c/lib/libbattlecode.a
 step ln -s -T /battlecode/java /battlecode-java
 
-step cp battlecode-manager/player_start.sh /player_start.sh
+step cp scripts/player_startup.sh /player_startup.sh
+step cp scripts/suspender.py /suspender.py
 ')
 step docker start $ID -a -i
 
 tput setaf 5
-echo $ docker commit -a "Teh Devs battlecode@mit.edu" $ID -m "Final build step" -c "ENV PYTHONPATH=/battlecode/python" battlebaby-fat
+echo $ docker commit -a "Teh Devs battlecode@mit.edu" $ID -m "Final build step" -c "ENV PYTHONPATH=/battlecode/python" battlebaby-fat -c 'CMD ["/bin/ash"]'
 tput sgr0
-docker commit -a "Teh Devs battlecode@mit.edu" -m "Final build step" $ID battlebaby-fat
-
+docker commit -a "Teh Devs battlecode@mit.edu" -m "Final build step" $ID battlebaby-fat -c 'CMD ["/bin/ash"]'
+# cmd is just there for debugging, we don't use it in prod
 step "docker-squash --version || echo 'please pip3 install docker-squash' && exit 1"
 
+#step docker-squash battlebaby-fat -t battlebaby
+step docker tag battlebaby-fat battlebaby
 
-step docker-squash battlebaby-fat -t battlebaby
 step mkdir -p docker-artifacts
 step docker save battlebaby -o docker-artifacts/battlebaby.tar

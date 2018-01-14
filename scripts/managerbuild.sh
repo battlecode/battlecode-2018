@@ -51,6 +51,7 @@ step cp -r ./battlecode-manager /battlecode/battlecode-manager
 step cp -r ./battlecode-maps /battlecode/battlecode-maps
 step mkdir -p /images
 step cp -r ./docker-artifacts/battlebaby.tar /images
+step cp ./scripts/manager_startup.sh /manager_startup.sh
 ')
 echo "== ID: $ID =="
 step docker start $ID -a -i
