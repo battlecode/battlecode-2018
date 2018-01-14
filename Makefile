@@ -18,14 +18,14 @@ release: battlecode
 	@$(MAKE) copy
 
 copy:
-	cp -R bindings/python/battlecode battlecode/python/battlecode
-	cp -R bindings/java/src/bc battlecode/java/bc
-	cp -R bindings/c/include battlecode/c/include
+	cp -R bindings/python/battlecode battlecode/python/
+	cp -R bindings/java/src/bc battlecode/java/
+	cp -R bindings/c/include battlecode/c/
 
 battlecode:
 	rm -rf battlecode
 	mkdir -p battlecode/python/
-	mkdir -p battlecode/c/lib
+	mkdir -p battlecode/c/lib/
 	mkdir -p battlecode/java/
 
 test:
