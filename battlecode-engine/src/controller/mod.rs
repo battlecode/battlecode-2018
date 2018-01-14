@@ -15,10 +15,11 @@ use world::*;
 use location::Planet::*;
 use world::Team::*;
 use unit::UnitType::*;
-    
+
 use failure::Error;
 use fnv::FnvHashMap;
 use ansi_term::{Colour, Style};
+use ansi_term::Colour::Fixed;
 
 use std::mem;
 use std::env;
@@ -87,6 +88,11 @@ fn check_message<T>(msg: ReceivedMessage<T>, player_key: &str) -> Result<T, Erro
 
 #[derive(Serialize)]
 struct ManagerViewMessage {
+    earth_width: u32,
+    earth_height: u32,
+    mars_width: u32,
+    mars_height: u32,
+    // backcompat
     width: u32,
     height: u32,
     earth: Vec<u32>,
@@ -388,7 +394,10 @@ impl GameController {
 
     /// Whether there is a visible unit at a location.
     pub fn has_unit_at_location(&self, location: MapLocation) -> bool {
-        self.world.sense_unit_at_location(location).is_ok()
+        match self.world.sense_unit_at_location(location) {
+            Ok(unit) => unit.is_some(),
+            Err(_) => false
+        }
     }
 
     /// The unit at the location, if it exists.
@@ -515,7 +524,7 @@ impl GameController {
     // ************************************************************************
     // *************************** ATTACK METHODS *****************************
     // ************************************************************************
-   
+
     /// Whether the robot can attack the given unit, without taking into
     /// account the robot's attack heat. Takes into account only the robot's
     /// attack range, and the location of the robot and target.
@@ -533,7 +542,7 @@ impl GameController {
         self.world.is_attack_ready(robot_id)
     }
 
-    /// Commands a robot to attack a unit, dealing the 
+    /// Commands a robot to attack a unit, dealing the
     /// robot's standard amount of damage.
     ///
     /// Healers cannot attack, and should use `heal()` instead.
@@ -590,7 +599,7 @@ impl GameController {
     // ************************************************************************
 
     /// Whether the worker is ready to harvest, and the given direction contains
-    /// karbonite to harvest. The worker cannot already have performed an action 
+    /// karbonite to harvest. The worker cannot already have performed an action
     /// this round.
     pub fn can_harvest(&self, worker_id: UnitID, direction: Direction) -> bool {
         self.world.can_harvest(worker_id, direction)
@@ -817,7 +826,7 @@ impl GameController {
     // ************************************************************************
     // **************************** MAGE METHODS ******************************
     // ************************************************************************
-    
+
     /// Whether the mage can blink to the given location, without taking into
     /// account the mage's ability heat. Takes into account only the mage's
     /// ability range, the map terrain, positions of other units, and the edge
@@ -961,7 +970,7 @@ impl GameController {
         self.world.can_unload(structure_id, direction)
     }
 
-    /// Unloads a robot from the garrison of the specified structure into an 
+    /// Unloads a robot from the garrison of the specified structure into an
     /// adjacent space. Robots are unloaded in the order they were loaded.
     ///
     /// * NoSuchUnit - the unit does not exist (inside the vision range).
@@ -1116,7 +1125,7 @@ impl GameController {
         // Serialize the filtered game state to send to the player
         let start_turn = self.world.apply_turn(turn, time_left_ms);
         // Serialize the game state to send to the viewer
-        let viewer = ViewerMessage { 
+        let viewer = ViewerMessage {
             changes: turn.changes.clone(),
             units: self.world.get_viewer_units(),
             additional_changes: self.world.flush_viewer_changes(),
@@ -1125,8 +1134,8 @@ impl GameController {
         TurnApplication {
             start_turn, viewer
         }
-    }    
-    
+    }
+
     /// Determines if the game has ended, returning the winning team if so.
     ///
     /// DO NOT CALL THIS FUNCTION UNLESS YOU ARE THE MANAGER!
@@ -1148,25 +1157,30 @@ impl GameController {
         }
     }
 
-    pub fn manager_viewer_message(&self) -> String{
-        let earth_map = &self.world.planet_maps[&Earth];
-        let height = earth_map.height;
-        let width = earth_map.width;
-
+    pub fn manager_viewer_message(&self) -> String {
         let earth_map = &self.world.planet_maps[&Earth];
         let earth_units = &self.world.planet_states.get(&Earth);
         let mars_map = &self.world.planet_maps[&Mars];
         let mars_units = &self.world.planet_states.get(&Mars);
+        let eh = earth_map.height;
+        let ew = earth_map.width;
+        let mh = mars_map.height;
+        let mw = mars_map.width;
 
         let mut message = ManagerViewMessage {
-            width: width as u32,
-            height: height as u32,
-            earth: vec![0; 2*width*height],
-            mars: vec![0; 2*width*height],
+            earth_width: ew as u32,
+            earth_height: eh as u32,
+            mars_width: mw as u32,
+            mars_height: mh as u32,
+            earth: vec![0; 2*ew*eh],
+            mars: vec![0; 2*mw*mh],
+            // backcompat
+            width: ew as u32,
+            height: eh as u32,
         };
 
-        for x in (0..width) {
-            for y in (0..height) {
+        for x in 0..ew {
+            for y in 0..eh {
                 let loc = MapLocation::new(Earth, x as i32, y as i32);
                 if let Some(id) = earth_units.and_then(|eu| eu.units_by_loc.get(&loc)) {
                     let unit = &earth_units.unwrap().units[&id];
@@ -1183,17 +1197,19 @@ impl GameController {
                         Red => 0,
                         Blue => 1,
                     };
-                    message.earth[(x+y*width)*2] = unit_int;
-                    message.earth[(x+y*width)*2+1] = team_int;
-
+                    message.earth[(x+y*ew)*2] = unit_int;
+                    message.earth[(x+y*ew)*2+1] = team_int;
                 } else if !earth_map.is_passable_terrain[y as usize][x as usize] {
-                    message.earth[(x+y*width)*2] = 8;
-                    message.earth[(x+y*width)*2+1] = 3;
+                    message.earth[(x+y*ew)*2] = 8;
+                    message.earth[(x+y*ew)*2+1] = 3;
                 } else {
-                    message.earth[(x+y*width)*2] = 0;
-                    message.earth[(x+y*width)*2+1] = 3;
+                    message.earth[(x+y*ew)*2] = 0;
+                    message.earth[(x+y*ew)*2+1] = 3;
                 }
-
+            }
+        }
+        for x in 0..mw {
+            for y in 0..mh {
                 let loc = MapLocation::new(Mars, x as i32, y as i32);
                 if let Some(id) = mars_units.and_then(|mu| mu.units_by_loc.get(&loc)) {
                     let unit = &mars_units.unwrap().units[&id];
@@ -1210,25 +1226,22 @@ impl GameController {
                         Red => 0,
                         Blue => 1,
                     };
-                    message.mars[(x+y*width)*2] = unit_int;
-                    message.mars[(x+y*width)*2+1] = team_int;
+                    message.mars[(x+y*mw)*2] = unit_int;
+                    message.mars[(x+y*mw)*2+1] = team_int;
                 } else if !mars_map.is_passable_terrain[y as usize][x as usize] {
-                    message.mars[(x+y*width)*2] = 8;
-                    message.mars[(x+y*width)*2+1] = 3;
+                    message.mars[(x+y*mw)*2] = 8;
+                    message.mars[(x+y*mw)*2+1] = 3;
                 } else {
-                    message.mars[(x+y*width)*2] = 0;
-                    message.mars[(x+y*width)*2+1] = 3;
+                    message.mars[(x+y*mw)*2] = 0;
+                    message.mars[(x+y*mw)*2+1] = 3;
                 }
-
             }
-
         }
-
         use serde_json::to_string;
-
         to_string(&message).unwrap()
     }
 
+    #[inline(never)]
     pub fn print_game_ansi(&self) {
         let log_unit = |unit: &Unit| {
             let symbol = match unit.unit_type() {
@@ -1269,52 +1282,127 @@ impl GameController {
         let mars_units = &self.world.planet_states.get(&Mars);
         let bg = Style::new().on(Colour::White);
 
+        let ew = earth_map.width;
+        let eh = earth_map.height;
+        let mw = mars_map.width;
+        let mh = mars_map.height;
+
         let eb = Style::new().fg(Colour::Green);
         let mb = Style::new().fg(Colour::Yellow);
 
-        let edge = |st: Style| {
+        let strike = self.world.asteroids.pattern.get(&self.round());
+        let sb = Style::new().on(Fixed(11));
+
+        let edge = |st: Style, w: usize| {
             print!("{}", st.paint("+"));
-            for _ in 0..20 {
+            for _ in 0..w {
                 print!("{}", st.paint("-"));
             }
             print!("{}", st.paint("+"));
         };
 
-        edge(eb);
-        edge(mb);
+        // https://stackoverflow.com/questions/4842424/list-of-ansi-color-escape-sequences
+        let k_levels = [
+            (0,  Style::new()),
+            (3,  Style::new().on(Fixed(16))),
+            (6,  Style::new().on(Fixed(17))),
+            (9,  Style::new().on(Fixed(18))),
+            (12,  Style::new().on(Fixed(19))),
+            (15,  Style::new().on(Fixed(20))),
+            (18,  Style::new().on(Fixed(21))),
+            (21,  Style::new().on(Fixed(56))),
+            (24,  Style::new().on(Fixed(57))),
+            (27,  Style::new().on(Fixed(93))),
+            (32,  Style::new().on(Fixed(129))),
+            (40,  Style::new().on(Fixed(165))),
+            (50, Style::new().on(Fixed(201))),
+            (60, Style::new().on(Fixed(206))),
+            (75, Style::new().on(Fixed(205))),
+            (95, Style::new().on(Fixed(210))),
+            (120, Style::new().on(Fixed(209))),
+            (200, Style::new().on(Fixed(208))),
+            (400, Style::new().on(Fixed(220))),
+            (800, Style::new().on(Fixed(226))),
+            (u32::max_value(), Style::new().on(Fixed(160))),
+        ];
+        let k = |karb: u32| {
+            for &(l, s) in k_levels.iter() {
+                if l >= karb {
+                    print!("{}", s.paint(" "));
+                    return;
+                }
+            }
+        };
+
+        let sea = Style::new().on(Colour::Blue).paint("~");
+
+        edge(eb, ew);
+        edge(mb, mw);
         println!("");
 
-        for y in (0..20).rev() {
-            print!("{}", eb.paint("|"));
-            for x in 0..20 {
-                let loc = MapLocation::new(Earth, x, y);
-                if let Some(id) = earth_units.and_then(|eu| eu.units_by_loc.get(&loc)) {
-                    let unit = &earth_units.unwrap().units[&id];
-                    print!("{}", log_unit(unit));
-                } else if !earth_map.is_passable_terrain[y as usize][x as usize] {
-                    print!("{}", bg.paint(" "));
-                } else {
-                    print!(" ");
-                }
-            }
-            print!("{}", eb.paint("|"));
-            print!("{}", mb.paint("|"));
-            for x in 0..20 {
-                let loc = MapLocation::new(Mars, x, y);
-                if let Some(id) = mars_units.and_then(|mu| mu.units_by_loc.get(&loc)) {
-                    let unit = &mars_units.unwrap().units[&id];
-                    print!("{}", log_unit(&unit));
-                } else if !mars_map.is_passable_terrain[y as usize][x as usize] {
-                    print!("{}", bg.paint(" "));
-                } else {
-                    print!(" ");
-                }
-            }
-            println!("{}", mb.paint("|"));
-        }
+        let th = usize::max(eh, mh);
 
-        edge(eb);
-        edge(mb);
+        for py in (-1..th as i32).rev() {
+            if py >= (th as i32 - eh as i32) {
+                let y = py - (th as i32 - eh as i32);
+                print!("{}", eb.paint("|"));
+                for x in 0..ew {
+                    if self.round() > 750 {
+                        print!("{}", sea);
+                        continue;
+                    }
+                    let loc = MapLocation::new(Earth, x as i32, y);
+                    if let Some(id) = earth_units.and_then(|eu| eu.units_by_loc.get(&loc)) {
+                        let unit = &earth_units.unwrap().units[&id];
+                        print!("{}", log_unit(unit));
+                    } else if !earth_map.is_passable_terrain[y as usize][x as usize] {
+                        print!("{}", bg.paint(" "));
+                    } else {
+                        if let &Some(ref eu) = earth_units {
+                            k(eu.karbonite[y as usize][x as usize]);
+                        } else {
+                            print!(" ");
+                        }
+                    }
+                }
+                print!("{}", eb.paint("|"));
+            } else if py == (th as i32 - eh as i32) - 1 {
+                edge(eb, ew);
+            } else {
+                for _ in 0..ew + 2 {
+                    print!(" ");
+                }
+            }
+            if py >= (th as i32 - mh as i32) {
+                let y = py - (th as i32 - mh as i32);
+                print!("{}", mb.paint("|"));
+                for x in 0..mw {
+                    let loc = MapLocation::new(Mars, x as i32, y);
+                    if let Some(strike) = strike {
+                        if loc == strike.location {
+                            print!("{}", sb.paint(" "));
+                            continue;
+                        }
+                    }
+                    if let Some(id) = mars_units.and_then(|mu| mu.units_by_loc.get(&loc)) {
+                        let unit = &mars_units.unwrap().units[&id];
+                        print!("{}", log_unit(&unit));
+                    } else if !mars_map.is_passable_terrain[y as usize][x as usize] {
+                        print!("{}", bg.paint(" "));
+                    } else {
+                        if let &Some(ref mu) = mars_units {
+                            k(mu.karbonite[y as usize][x as usize]);
+                        } else {
+                            print!(" ");
+                        }
+                    }
+                }
+                print!("{}", mb.paint("|"));
+            } else if py == (th as i32 - mh as i32) - 1 {
+                edge(mb, mw);
+            }
+            println!("");
+        }
         println!("");
     }
 
@@ -1340,7 +1428,7 @@ pub struct InitialTurnApplication {
 }
 
 /// Run a test game between two rust bots.
-pub fn run_game_ansi<R, B>(mut r: R, mut b: B, turns: usize, delay: u32) 
+pub fn run_game_ansi<R, B>(mut r: R, mut b: B, turns: usize, delay: u32)
         where R: FnMut(&mut GameController) -> Result<(), Error>,
               B: FnMut(&mut GameController) -> Result<(), Error> {
 
@@ -1484,5 +1572,16 @@ mod tests {
         let t = TurnMessage { changes: vec![] };
         let a = c.apply_turn(&t, filler_time);
         println!("{}", to_string(&a.viewer).unwrap());
+    }
+
+    #[test]
+    fn uneven_viewer_message() {
+        let manager = GameController::new_manager(GameMap::parse_text_map(include_str!("../map/fat.bc18t")).unwrap());
+        manager.manager_viewer_message();
+        manager.print_game_ansi();
+
+        let manager = GameController::new_manager(GameMap::parse_text_map(include_str!("../map/tall.bc18t")).unwrap());
+        manager.manager_viewer_message();
+        manager.print_game_ansi();
     }
 }

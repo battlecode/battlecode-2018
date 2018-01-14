@@ -352,6 +352,7 @@ GameMap.method(void.type.result(), 'validate', [], docs='''Validate the game map
 
  * InvalidMapObject - the game map is invalid.''')
 GameMap.method(GameMap.type, 'test_map', [], static=True)
+GameMap.method(GameMap.type.result(), 'parse_text_map', [Var(p.strref.type, 'map')], static=True, docs='parse a .bc18t map file')
 GameMap.clone()
 GameMap.serialize()
 

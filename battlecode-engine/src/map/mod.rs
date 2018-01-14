@@ -13,6 +13,8 @@ use location::*;
 use unit::*;
 use world::*;
 
+mod mapparser;
+
 /// The map defining the starting state for an entire game.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct GameMap {
@@ -50,6 +52,10 @@ impl GameMap {
             asteroids: AsteroidPattern::random(seed, &mars_map),
             orbit: OrbitPattern::new(100, 100, 300),
         }
+    }
+
+    pub fn parse_text_map(map: &str) -> Result<GameMap, Error> {
+        self::mapparser::parse_text_map(map)
     }
 }
 
@@ -242,7 +248,7 @@ pub struct AsteroidStrike {
 /// strike.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AsteroidPattern {
-    pattern: FnvHashMap<Rounds, AsteroidStrike>,
+    pub(crate) pattern: FnvHashMap<Rounds, AsteroidStrike>,
 }
 
 /// The orbit pattern that determines a rocket's flight duration. This pattern
