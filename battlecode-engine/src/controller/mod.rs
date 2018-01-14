@@ -167,7 +167,7 @@ impl GameController {
             turn: TurnMessage { changes: vec![] },
             stream: Some(stream),
             player_key: Some(player_key),
-            time_left_ms: 10000,
+            time_left_ms: Some(turn.time_left_ms)
         })
     }
 
