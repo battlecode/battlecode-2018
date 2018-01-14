@@ -1192,7 +1192,7 @@ impl GameWorld {
                     unit.research().expect("research level is valid");
                 }
             }
-            self.viewer_changes.push(ViewerDelta::ResearchComplete { branch });
+            self.viewer_changes.push(ViewerDelta::ResearchComplete { branch, team });
         }
     }
 

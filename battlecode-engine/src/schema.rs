@@ -124,7 +124,7 @@ pub enum ViewerDelta {
     KarboniteChanged { location: MapLocation, new_amount: u32 },
     ProductionDone { factory_id: UnitID, unit_type: UnitType },
     RangerSnipe { ranger_id: UnitID, target_location: MapLocation },
-    ResearchComplete { branch: UnitType },
+    ResearchComplete { branch: UnitType, team: Team },
     RocketLanding { rocket_id: UnitID, location: MapLocation },
 }
 
