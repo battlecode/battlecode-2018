@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# set to 1 if we need to rebuild the bindings
-BINARY_RELEASE=1
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd $DIR/..
 
@@ -105,23 +103,9 @@ fi
 
 step cd ..
 
-if [ $BINARY_RELEASE -eq 1 ]; then
-    magenta
-    echo "Binary release, remaking artifacts."
-    plain
-    step make clean
-    step make test
-    step make clean
-    step make release
-    step make linux-libs
-    step make copy-linux
-    step make docker-sandbox
-else
-    magenta
-    echo "Manager-only release, not remaking artifacts."
-    plain
-    step make dump-sandbox
-fi
+step make release
+step make linux-libs
+step make docker-sandbox
 step make docker-manager
 
 blue

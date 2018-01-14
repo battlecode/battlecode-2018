@@ -33,13 +33,12 @@ tput setaf 5
 echo $ docker create $BINDS battlebaby sh -c '/*build script*/'
 tput sgr0
 
-
 ID=$(docker create $BINDS battlebaby sh -c '
 cd /battlecode_src
 set -e
 
 step() {
-    echo sandboxbuild:/battlecode_src$ $@
+    echo battlebaby:/battlecode_src$ $@
     $@
 }
 
@@ -49,9 +48,7 @@ step make clean
 step make release
 step apk del rust cargo swig .pypy-rundeps --purge
 
-tput setaf 2
 echo == Moving results into place ==
-tput sgr0
 
 step mkdir -p docker-artifacts/
 step "rm -rf docker-artifacts/linux-battlecode-musl || true"
@@ -69,3 +66,9 @@ tput setaf 5
 echo $ docker commit -a "Teh Devs battlecode@mit.edu" $ID -m "Final build step" -c "ENV PYTHONPATH=/battlecode/python" battlebaby-fat
 tput sgr0
 docker commit -a "Teh Devs battlecode@mit.edu" -m "Final build step" $ID battlebaby-fat
+
+step "docker-squash --version || echo 'please pip3 install docker-squash' && exit 1"
+
+step docker-squash battlebaby-fat -t battlebaby
+step mkdir -p docker-artifacts
+step docker save battlebaby -o docker-artifacts/battlebaby.tar

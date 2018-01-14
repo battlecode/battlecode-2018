@@ -46,24 +46,10 @@ linux-libs:
 	sh scripts/linuxbuild.sh
 
 docker-sandbox:
-	docker build -t battlebaby -f SandboxDockerfile . --squash
-	mkdir -p docker-artifacts/
-	make dump-sandbox
-
-dump-sandbox:
-	docker save battlebaby -o docker-artifacts/battlebaby.tar
-	ID=$$(docker create battlebaby);\
-	   docker cp $$ID:/battlecode docker-artifacts/linux-battlecode-musl;\
-       docker rm -v $$ID
-
-nodocker: build create-bundle
+	sh scripts/sandboxbuild.sh
 
 docker-manager:
-	#???
-	-rm -rf docker-artifacts/linux-battlecode-musl/battlecode
-	docker build -t battledaddy -f ManagerDockerfile .
-
-dockers: docker-py3 docker-java
+	sh scripts/managerbuild.sh
 
 bc18-scaffold:
 	git clone https://github.com/battlecode/bc18-scaffold
