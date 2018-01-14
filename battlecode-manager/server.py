@@ -33,6 +33,11 @@ def _key(p):
     p = p['player']
     return PKEYS[int(p.planet)][int(p.team)]
 
+TIMEOUT = 60 # seconds
+
+class TimeoutError(Exception):
+    pass
+
 class Game(object): # pylint: disable=too-many-instance-attributes
     '''
     This function contains the game information, and is started at the begining
@@ -315,6 +320,10 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             try:
                 data = next(wrapped_socket)
             except (StopIteration, IOError):
+                print("{} has not sent message for {} seconds, assuming they're dead".format(
+                    [p for p in self.game.players if p['id'] == self.client_id][0]['player'], 
+                    TIMEOUT
+                ))
                 wrapped_socket.close()
                 recv_socket.close()
                 for i in range(NUM_PLAYERS):
@@ -325,7 +334,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                             self.game.winner = 'player1'
                 self.game.disconnected = True
                 self.game.game_over = True
-                sys.exit(0)
+                raise TimeoutError()
             except KeyboardInterrupt:
                 wrapped_socket.close()
                 recv_socket.close()
@@ -337,7 +346,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                             self.game.winner = 'player1'
                 self.game.disconnected = True
                 self.game.game_over = True
-                raise KeyboardInterrupt
+                raise KeyboardInterrupt()
             finally:
                 wrapped_socket.close()
 
@@ -373,19 +382,24 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             try:
                 wrapped_socket.write(encoded_message)
             except IOError:
+                wrapped_socket.close()
+                send_socket.close()
+                print("{} has not accepted message for {} seconds, assuming they're dead".format(
+                    [p for p in self.game.players if p['id'] == self.client_id][0]['player'], 
+                    TIMEOUT
+                ))
                 for i in range(NUM_PLAYERS):
                     if self.client_id == self.game.players[i]['id']:
                         if i < 2:
                             self.game.winner = 'player2'
                         else:
                             self.game.winner = 'player1'
-                print("Game Over for player", self.game.player_id2index(self.client_id))
                 self.game.disconnected = True
                 self.game.game_over = True
-                wrapped_socket.close()
-                send_socket.close()
-                sys.exit(0)
+                raise TimeoutError()
             except KeyboardInterrupt:
+                wrapped_socket.close()
+                send_socket.close()
                 for i in range(NUM_PLAYERS):
                     if self.client_id == self.game.players[i]['id']:
                         if i < 2:
@@ -394,13 +408,10 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                             self.game.winner = 'player1'
                 self.game.disconnected = True
                 self.game.game_over = True
-                wrapped_socket.close()
-                send_socket.close()
-                sys.exit(0)
+                raise KeyboardInterrupt()
             finally:
                 wrapped_socket.close()
             return
-
 
         def message(self, state_diff):
             '''
@@ -431,7 +442,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             '''
             self.logged_in = False
             logging.debug("Client connected to server")
-            self.request.settimeout(50)
+            self.request.settimeout(TIMEOUT)
 
             # Handle Login phase
             while not self.logged_in:
@@ -533,7 +544,10 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             time in this function.
             '''
             if self.is_unix_stream:
-                self.player_handler()
+                try:
+                    self.player_handler()
+                except TimeoutError:
+                    return
             else:
                 self.viewer_handler()
 
