@@ -10,6 +10,7 @@ import player_plain
 import battlecode as bc
 import zipfile
 import requests
+import base64
 
 
 target_dir = os.path.abspath(os.path.dirname(__file__))
@@ -25,9 +26,7 @@ print('Starting eel')
 
 eel.init('web')
 
-
 CLIENT_ID = 'YmF0dGxlY29kZXdlYmFwcDpKQlVZOVZFNjkyNDNCWUM5MDI0Mzg3SEdWWTNBUUZL'
-
 game = None
 
 def zipdir(path, zip_file):
@@ -37,7 +36,17 @@ def zipdir(path, zip_file):
             zip_file.write(file_name)
 
 def get_token(username, password):
-    pass
+    headers = {}
+    headers = "Basic " + CLIENT_ID
+    data = {}
+    data['grant_type'] = 'password'
+    data['username'] = username
+    data['password'] = password
+    data['client_id'] = CLIENT_ID
+    req = requests.post("http://www.battlecode.org/oauth/token", headers=headers, data=data)
+    print(req.text)
+    return req
+
 
 @eel.expose
 def upload_scrim_server(return_args):
@@ -57,6 +66,25 @@ def upload_scrim_server(return_args):
     zipdir('./', zip_file)
 
     os.chdir(cwd)
+    username = return_args['username']
+    password = return_args['password']
+    req = get_token(username, password)
+    if req.status != 200:
+        # Handle Error Case
+        # Trigger some js error message saying try again
+        return
+
+    token = req.text['access_token']
+    headers = {}
+    headers['Authorization'] = 'Bearer ' + token
+    data = {}
+    data['label'] = return_args['file_name']
+    with open(zip_file_name, 'rb') as image_file:
+        encoded_string = base64.b64encode(image_file.read)
+    data['src'] = encoded_string
+    res =  requests.post("http://battlecode.org/apis/submission", headers=headers, data=data)
+    print(res)
+    
 
 
 @eel.expose

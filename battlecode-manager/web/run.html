@@ -279,6 +279,16 @@
                     <div class="content">
                         <div class="content">
                             <div class="field">
+                                <tr>
+                                    <td>Username</td>
+                                    <td><input class="input" type="text"
+                                                             id="upload_username"></td>
+                                </tr>
+                                <tr>
+                                    <td>Password</td>
+                                    <td><input class="input" type="password"
+                                                             id="upload_password"></td>
+                                </tr>
                                 <label class="label" style="color:#000">Player Directory:</label>
                                 <div class="control">
                                     <div class="select" style="width:100%">
@@ -598,6 +608,8 @@
     upload.onclick = async function() {
         var params = {}
         params['file_name'] = document.getElementById('upload_name').value;
+        params['username'] = document.getElementById('upload_username').value;
+        params['password'] = document.getElementById('upload_password').value;
 
         params['player'] = document.getElementById("upload_players");
         params['player'] = params['player'].options[params['player'].selectedIndex].value;
