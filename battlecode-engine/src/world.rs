@@ -1562,24 +1562,25 @@ impl GameWorld {
         Ok(())
     }
 
-    fn process_rangers(&mut self, planet: Planet) {
-        let mut rangers: Vec<UnitID> = vec![];
-        for unit in self.get_planet(planet).units.values() {
-            if unit.unit_type() == UnitType::Ranger {
-                rangers.push(unit.id());
+    fn process_rangers(&mut self) {
+        let team = self.team();
+        let mut targets: Vec<(MapLocation, i32, UnitID)> = vec![];
+
+        for unit in self.my_planet_mut().units.values_mut() {
+            if unit.team() == team && unit.unit_type() == UnitType::Ranger {
+                let target = unit.process_snipe();
+                if let Some(target) = target {
+                    targets.push((target, unit.damage().unwrap(), unit.id()));
+                }
             }
         }
 
-        for id in rangers {
-            let target_location = self.get_planet_mut(planet).units.get_mut(&id).unwrap().process_snipe();
-            if target_location.is_some() {
-                let damage = self.get_planet(planet).units.get(&id).unwrap().damage().unwrap();
-                self.damage_location(target_location.unwrap(), damage);
-                self.viewer_changes.push(ViewerDelta::RangerSnipe { 
-                    ranger_id: id, 
-                    target_location: target_location.unwrap(), 
-                });
-            }
+        for (target, damage, id) in targets {
+            self.damage_location(target, damage);
+            self.viewer_changes.push(ViewerDelta::RangerSnipe {
+                ranger_id: id,
+                target_location: target
+            });
         }
     }
 
@@ -2076,6 +2077,9 @@ impl GameWorld {
             self.process_rockets(team);
         }
 
+        // Process ranger snipes.
+        self.process_rangers();
+
         let player = self.player_to_move;
         let world = self.filter(player);
         let mut stm = StartTurnMessage {
@@ -2166,10 +2170,6 @@ impl GameWorld {
         // Passive karbonite production.
         self.process_karbonite(Team::Red);
         self.process_karbonite(Team::Blue);
-
-        // Process ranger snipes.
-        self.process_rangers(Planet::Earth);
-        self.process_rangers(Planet::Mars);
 
         // Add produced factory robots to the garrison.
         self.process_factories();
@@ -2756,8 +2756,8 @@ mod tests {
 
         // Enough rounds pass where Ranger's snipe is processed
         let rounds = 200;
-        for _ in 0..rounds {
-            world.end_round();
+        for _ in 0..4*rounds {
+            world.end_turn(FILLER_TIME);
         }
         
         // Robot at sniped location should take damage
@@ -3492,8 +3492,8 @@ mod tests {
         let mars_enemy = world.create_unit(Team::Blue, mars_loc.add(Direction::East), UnitType::Healer).unwrap();
 
         // go to red mars turn
-        world.end_turn();
-        world.end_turn();
+        world.end_turn(FILLER_TIME);
+        world.end_turn(FILLER_TIME);
 
         // sense that unit
         let player = Player::new(Team::Red, Planet::Mars);
