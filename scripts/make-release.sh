@@ -109,7 +109,7 @@ fi
 #step make linux-libs
 #step make clean
 #step make docker-sandbox
-#step make docker-manager
+step make docker-manager
 #
 #step mv battlecode-mac battlecode
 #step cp -R docker-artifacts/battlecode-linux/* battlecode/
