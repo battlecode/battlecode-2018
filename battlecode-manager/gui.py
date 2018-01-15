@@ -9,6 +9,8 @@ import psutil
 import player_plain
 import battlecode as bc
 import zipfile
+import requests
+
 
 target_dir = os.path.abspath(os.path.dirname(__file__))
 print('Moving into', target_dir)
@@ -23,6 +25,9 @@ print('Starting eel')
 
 eel.init('web')
 
+
+CLIENT_ID = 'YmF0dGxlY29kZXdlYmFwcDpKQlVZOVZFNjkyNDNCWUM5MDI0Mzg3SEdWWTNBUUZL'
+
 game = None
 
 def zipdir(path, zip_file):
@@ -30,6 +35,9 @@ def zipdir(path, zip_file):
     for _, _, files in os.walk(path):
         for file_name in files:
             zip_file.write(file_name)
+
+def get_token(username, password):
+    pass
 
 @eel.expose
 def upload_scrim_server(return_args):
@@ -47,6 +55,7 @@ def upload_scrim_server(return_args):
         zip_file_name += '.zip'
     zip_file = zipfile.ZipFile(zip_file_name, 'w', zipfile.ZIP_DEFLATED)
     zipdir('./', zip_file)
+
     os.chdir(cwd)
 
 
