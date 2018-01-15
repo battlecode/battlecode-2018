@@ -57,11 +57,15 @@ class PlainPlayer(AbstractPlayer):
         self.process = psutil.Popen(args, env=env, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=-1)
 
     def pause(self):
+        # pausing too slow on windows
+        if sys.platform == 'win32': return
         if not self.paused:
             self.paused = True
             suspend(self.process)
 
     def unpause(self, timeout=None):
+        # pausing too slow on windows
+        if sys.platform == 'win32': return
         if self.paused:
             resume(self.process)
             self.paused = False
@@ -104,6 +108,7 @@ def reap(process, timeout=3):
         print("Killing failed; assuming process exited early.")
 
 def suspend(process):
+
     procs = process.children(recursive=False)
     # to enterprising players reading this code:
     # yes, it is possible to escape the pausing using e.g. `nohup` when running without docker.
