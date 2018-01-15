@@ -501,6 +501,12 @@ impl Unit {
         self.location = OnMap(location);
     }
 
+    /// Updates the unit's location as it if has moved, but without increasing
+    /// the movement heat.
+    pub(crate) fn move_to_noheat(&mut self, location: MapLocation) {
+        self.location = OnMap(location);
+    }
+
     /// Ok if the robot can attack the target location. Overloaded for the
     /// healer's heal.
     ///

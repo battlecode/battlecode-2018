@@ -1792,12 +1792,10 @@ impl GameWorld {
         let structure = self.my_unit(structure_id)?;
         structure.ok_if_on_map()?;
         structure.ok_if_can_unload_unit()?;
-        let robot = self.my_unit(structure.structure_garrison()?[0])?;
         let loc = structure.location().map_location()?.add(direction);
         if !self.is_occupiable(loc)? {
             Err(GameError::LocationNotEmpty)?;
         }
-        robot.ok_if_move_ready()?;
         Ok(())
     }
 
@@ -1829,7 +1827,7 @@ impl GameWorld {
             (structure.unload_unit(), structure.location().map_location()?)
         };
         let robot_loc = structure_loc.add(direction);
-        self.my_unit_mut(robot_id)?.move_to(robot_loc);
+        self.my_unit_mut(robot_id)?.move_to_noheat(robot_loc);
         self.place_unit(robot_id);
         Ok(())
     }
@@ -2984,15 +2982,14 @@ mod tests {
         let landing_loc = MapLocation::new(Planet::Mars, 0, 0);
         assert![world.launch_rocket(rocket, landing_loc).is_ok()];
 
+        // Cannot unload in space.
+        assert![!world.can_unload(rocket, Direction::North)];
+        assert_err![world.unload(rocket, Direction::North), GameError::UnitNotOnMap];
+
         // Go forward two turns so that we're on Mars.
         world.end_turn(FILLER_TIME);
         world.end_turn(FILLER_TIME);
         world.land_rocket(rocket, landing_loc);
-
-        // Cannot unload in the same round. But can after one turn.
-        assert![!world.can_unload(rocket, Direction::North)];
-        assert_err![world.unload(rocket, Direction::North), GameError::Overheated];
-        world.end_round();
 
         // Correct unloading.
         assert![world.can_unload(rocket, Direction::North)];
