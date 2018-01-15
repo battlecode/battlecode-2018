@@ -444,6 +444,8 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             logging.debug("Client connected to server")
             self.request.settimeout(TIMEOUT)
 
+            TIMEDOUTLOG = False
+
             # Handle Login phase
             while not self.logged_in:
                 # do the json parsing ourself instead of handing it off to rust
@@ -522,9 +524,11 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
 
                     turn_message = sent_message.turn_message
                 else:
-                    # don't run the player; instead, forge a message from them
-                    # this way, if you accidentally overshoot one turn, you can still come back later in the game
-                    diff_time = 0
+                    if not TIMEDOUTLOG:
+                        TIMEDOUTLOG = True
+                        self.game.players[self.game.current_player_index]['logger'](b'PLAYER HAS TIMED OUT!!!')
+                    # 1 second; never let them play again
+                    diff_time = 1
                     turn_message = bc.TurnMessage.from_json('{"changes":[]}')
 
                 self.game.make_action(turn_message, self.client_id, diff_time)
