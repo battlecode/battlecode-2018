@@ -33,7 +33,8 @@ def _key(p):
     p = p['player']
     return PKEYS[int(p.planet)][int(p.team)]
 
-TIMEOUT = 60 # seconds
+BUILD_TIMEOUT = 60
+TIMEOUT = 50 # seconds
 
 class TimeoutError(Exception):
     pass
@@ -49,7 +50,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
 
     def __init__(self, game_map: bc.GameMap, logging_level=logging.DEBUG,
                  logging_file="server.log", time_pool=10000, time_additional=50,
-                 terminal_viewer=False,
+                 terminal_viewer=False, map_name="unknown",
                  extra_delay=0):
         self.terminal_viewer = terminal_viewer
         self.extra_delay = extra_delay
@@ -76,6 +77,14 @@ class Game(object): # pylint: disable=too-many-instance-attributes
             new_id = random.randrange(10**30)
             self.players.append({'id':new_id})
             self.players[-1]['player'] = bc.Player(bc.Team.Red if index % 2 == 0 else bc.Team.Blue, bc.Planet.Earth if index < 2 else bc.Planet.Mars)
+            self.players[-1]['running_stats'] = {
+                "tl": time_pool,
+                "atu": 0,
+                "lng": "?",
+                "bld": True
+            }
+            self.players[-1]['built_successfully'] = False
+
             self.player_logged[new_id] = False
             self.times[new_id] = self.time_pool
 
@@ -99,11 +108,42 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         self.viewer_messages.append(manager_start_message.viewer.to_json())
         self.initialized = 0
 
+        self.map_name = map_name
+        self.start_time = time.time()
+
+    def state_report(self):
+        name = self.map_name
+        if '/' in name:
+            name = name[name.rfind('/') + 1:]
+        if '.' in name:
+            name = name[:name.find('.')]
+        game = {
+            "id": 0, #unknown
+            "map": name,
+            "round": self.manager.round(),
+            "time": int((time.time() - self.start_time) * 1000),
+            "red": {
+                "id": 0,
+            },
+            "blue": {
+                "id": 0,
+            }
+        }
+        for player in self.players:
+            p = player["player"]
+            t = "red" if p.team == bc.Team.Red else "blue"
+            p = "earth" if p.planet == bc.Planet.Earth else "mars"
+            game[t][p] = player["running_stats"]
+        return game
+
     def player_id2index(self, client_id):
         for i in range(len(self.players)):
             if self.players[i]['id'] ==client_id:
                 return i
         raise Exception("Invalid id")
+
+    def get_player(self, client_id):
+        return self.players[self.player_id2index(client_id)]
 
     @property
     def num_log_in(self):
@@ -321,29 +361,25 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 data = next(wrapped_socket)
             except (StopIteration, IOError):
                 print("{} has not sent message for {} seconds, assuming they're dead".format(
-                    [p for p in self.game.players if p['id'] == self.client_id][0]['player'], 
+                    self.game.get_player(self.client_id)['player'],
                     TIMEOUT
                 ))
                 wrapped_socket.close()
                 recv_socket.close()
-                for i in range(NUM_PLAYERS):
-                    if self.client_id == self.game.players[i]['id']:
-                        if i < 2:
-                            self.game.winner = 'player2'
-                        else:
-                            self.game.winner = 'player1'
+                if bc.Team.Red == self.game.get_player(self.client_id)['player'].team:
+                    self.game.winner = 'player1'
+                else:
+                    self.game.winner = 'player2'
                 self.game.disconnected = True
                 self.game.game_over = True
                 raise TimeoutError()
             except KeyboardInterrupt:
                 wrapped_socket.close()
                 recv_socket.close()
-                for i in range(NUM_PLAYERS):
-                    if self.client_id == self.game.players[i]['id']:
-                        if i < 2:
-                            self.game.winner = 'player2'
-                        else:
-                            self.game.winner = 'player1'
+                if bc.Team.Red == self.game.get_player(self.client_id)['player'].team:
+                    self.game.winner = 'player1'
+                else:
+                    self.game.winner = 'player2'
                 self.game.disconnected = True
                 self.game.game_over = True
                 raise KeyboardInterrupt()
@@ -388,24 +424,20 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                     [p for p in self.game.players if p['id'] == self.client_id][0]['player'], 
                     TIMEOUT
                 ))
-                for i in range(NUM_PLAYERS):
-                    if self.client_id == self.game.players[i]['id']:
-                        if i < 2:
-                            self.game.winner = 'player2'
-                        else:
-                            self.game.winner = 'player1'
+                if bc.Team.Red == self.game.get_player(self.client_id)['player'].team:
+                    self.game.winner = 'player1'
+                else:
+                    self.game.winner = 'player2'
                 self.game.disconnected = True
                 self.game.game_over = True
                 raise TimeoutError()
             except KeyboardInterrupt:
                 wrapped_socket.close()
                 send_socket.close()
-                for i in range(NUM_PLAYERS):
-                    if self.client_id == self.game.players[i]['id']:
-                        if i < 2:
-                            self.game.winner = 'player2'
-                        else:
-                            self.game.winner = 'player1'
+                if bc.Team.Red == self.game.get_player(self.client_id)['player'].team:
+                    self.game.winner = 'player1'
+                else:
+                    self.game.winner = 'player2'
                 self.game.disconnected = True
                 self.game.game_over = True
                 raise KeyboardInterrupt()
@@ -447,7 +479,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             TIMEDOUTLOG = False
 
             # Handle Login phase
-            while not self.logged_in:
+            while not self.logged_in and not self.game.game_over:
                 # do the json parsing ourself instead of handing it off to rust
                 unpacked_data = json.loads(self.get_next_message())
 
@@ -462,10 +494,14 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                     logging.info("Client %s: logged in succesfully", self.client_id)
                     self.logged_in = True
                     self.client_id = verify_out
+                    self.game.get_player(self.client_id)['built_successfully'] = True
 
                 log_success = self.message("")
 
                 self.send_message(log_success)
+
+            if self.game.game_over:
+                return
 
             logging.debug("Client %s: Spinning waiting for game to start",
                           self.client_id)
@@ -477,6 +513,10 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             logging.info("Client %s: Game started", self.client_id)
 
             my_sandbox = dockers[self.client_id]
+            running_stats = self.game.get_player(self.client_id)['running_stats']
+
+            # average time used, in seconds
+            atu = 0
 
             while self.game.started and not self.game.game_over:
                 # This is the loop that the code will always remain in
@@ -498,6 +538,9 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 else:
                     state_diff = self.game.players[self.game.current_player_index]['start_message']
                     start_turn_msg = self.message(state_diff)
+                    running_stats["lng"] = my_sandbox.guess_language()
+                    running_stats["bld"] = False
+                    print(running_stats)
 
                 if self.game.initialized <= 3:
                     my_sandbox.unpause()
@@ -530,6 +573,12 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                     # 1 second; never let them play again
                     diff_time = 1
                     turn_message = bc.TurnMessage.from_json('{"changes":[]}')
+
+                atu = atu * .9 + diff_time * .1
+
+                # convert to ms
+                running_stats["tl"] = int(self.game.times[self.client_id] * 1000)
+                running_stats["atu"] = int(atu * 1000)
 
                 self.game.make_action(turn_message, self.client_id, diff_time)
                 self.game.end_turn()
@@ -584,9 +633,24 @@ def start_server(sock_file: str, game: Game, dockers, use_docker=True) -> socket
     else:
         server = socketserver.ThreadingUnixStreamServer(sock_file, receive_handler)
 
+    def wait_for_connections():
+        time.sleep(BUILD_TIMEOUT)
+        print('checking builds...')
+        for player in game.players:
+            if not player['built_successfully']:
+                print('Player failed to connect to manager after',BUILD_TIMEOUT,'seconds:', player['player'])
+                if bc.Team.Red == player['player'].team:
+                    game.winner = 'player1'
+                else:
+                    game.winner = 'player2'
+                game.disconnected = True
+                game.game_over = True
+
     server_thread = threading.Thread(target=server.serve_forever, daemon=True)
     logging.info("Server Started at %s", sock_file)
     server_thread.start()
+    waiter_thread = threading.Thread(target=wait_for_connections, daemon=True)
+    waiter_thread.start()
 
     return server
 

@@ -26,3 +26,6 @@ jamesbot
 working_dir
 replay*
 .cache
+*Test.class
+*.dSYM
+docs

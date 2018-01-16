@@ -18,7 +18,6 @@ use super::research::*;
 use super::rockets::*;
 use super::team_array::*;
 use super::error::GameError;
-use failure::Error;
 
 /// A round consists of a turn from each player.
 pub type Rounds = u32;
@@ -435,7 +434,7 @@ impl GameWorld {
     /// abilities like units garrisoned in a rocket.
     ///
     /// * NoSuchUnit - the unit does not exist (inside the vision range).
-    pub fn unit_ref(&self, id: UnitID) -> Result<&Unit, Error> {
+    pub fn unit_ref(&self, id: UnitID) -> Result<&Unit, GameError> {
         if let Some(unit) = self.my_planet().units.get(&id) {
             Ok(unit)
         } else if let Some(unit) = self.my_team().units_in_space.get(&id) {
@@ -450,7 +449,7 @@ impl GameWorld {
     /// abilities like units garrisoned in a rocket.
     ///
     /// * NoSuchUnit - the unit does not exist (inside the vision range).
-    fn unit_mut(&mut self, id: UnitID) -> Result<&mut Unit, Error> {
+    fn unit_mut(&mut self, id: UnitID) -> Result<&mut Unit, GameError> {
         if self.my_planet().units.contains_key(&id) {
             Ok(self.my_planet_mut().units.get_mut(&id).unwrap())
         } else if self.my_team().units_in_space.contains_key(&id) {
@@ -465,7 +464,7 @@ impl GameWorld {
     /// abilities like units garrisoned in a rocket.
     ///
     /// * NoSuchUnit - the unit does not exist (inside the vision range).
-    pub fn unit(&self, id: UnitID) -> Result<Unit, Error> {
+    pub fn unit(&self, id: UnitID) -> Result<Unit, GameError> {
         if let Some(unit) = self.my_planet().units.get(&id) {
             Ok(unit.clone())
         } else if let Some(unit) = self.my_team().units_in_space.get(&id) {
@@ -509,7 +508,7 @@ impl GameWorld {
     ///
     /// * LocationOffMap - the location is off the map.
     /// * LocationNotVisible - the location is outside the vision range.
-    pub fn karbonite_at(&self, location: MapLocation) -> Result<u32, Error> {
+    pub fn karbonite_at(&self, location: MapLocation) -> Result<u32, GameError> {
         self.ok_if_can_sense_location(location)?;
         Ok(self.my_planet().karbonite[location.y as usize][location.x as usize])
     }
@@ -544,7 +543,7 @@ impl GameWorld {
 
     /// * LocationOffMap - the location is off the map.
     /// * LocationNotVisible - the location is outside the vision range.
-    fn ok_if_can_sense_location(&self, location: MapLocation) -> Result<(), Error> {
+    fn ok_if_can_sense_location(&self, location: MapLocation) -> Result<(), GameError> {
         if self.planet() != location.planet {
             return Err(GameError::LocationOffMap)?;
         }
@@ -614,7 +613,7 @@ impl GameWorld {
     /// * LocationOffMap - the location is off the map.
     /// * LocationNotVisible - the location is outside the vision range.
     pub fn sense_unit_at_location(&self, location: MapLocation)
-                                  -> Result<Option<Unit>, Error> {
+                                  -> Result<Option<Unit>, GameError> {
         self.ok_if_can_sense_location(location)?;
         let unit_id = self.my_planet().units_by_loc.get(&location);
         Ok(unit_id.map(|id| self.unit(*id).expect("unit exists").clone()))
@@ -684,7 +683,7 @@ impl GameWorld {
     ///
     /// * ArrayOutOfBounds - the index of the array is out of
     ///   bounds. It must be within [0, COMMUNICATION_ARRAY_LENGTH).
-    pub fn write_team_array(&mut self, index: usize, value: i32) -> Result<(), Error> {
+    pub fn write_team_array(&mut self, index: usize, value: i32) -> Result<(), GameError> {
         let planet = self.planet();
         self.my_team_mut().team_arrays.write(planet, index, value)
     }
@@ -766,7 +765,7 @@ impl GameWorld {
     ///
     /// * NoSuchUnit - the unit does not exist (inside the vision range).
     /// * TeamNotAllowed - the unit is not on the current player's team.
-    fn my_unit(&self, id: UnitID) -> Result<&Unit, Error> {
+    fn my_unit(&self, id: UnitID) -> Result<&Unit, GameError> {
         let unit = {
             if let Some(unit) = self.my_planet().units.get(&id) {
                 unit
@@ -788,7 +787,7 @@ impl GameWorld {
     ///
     /// * NoSuchUnit - the unit does not exist (inside the vision range).
     /// * TeamNotAllowed - the unit is not on the current player's team.
-    fn my_unit_mut(&mut self, id: UnitID) -> Result<&mut Unit, Error> {
+    fn my_unit_mut(&mut self, id: UnitID) -> Result<&mut Unit, GameError> {
         if self.my_unit(id)?.team() == self.team() {
             if self.my_planet().units.contains_key(&id) {
                 Ok(self.my_planet_mut().units.get_mut(&id).expect("key exists"))
@@ -805,7 +804,7 @@ impl GameWorld {
     /// Gets this unit from space or the current planet.
     ///
     /// * NoSuchUnit - the unit does not exist.
-    fn get_unit(&self, id: UnitID) -> Result<&Unit, Error> {
+    fn get_unit(&self, id: UnitID) -> Result<&Unit, GameError> {
         if let Some(unit) = self.get_planet(Planet::Earth).units.get(&id) {
             Ok(unit)
         } else if let Some(unit) = self.get_planet(Planet::Mars).units.get(&id) {
@@ -822,7 +821,7 @@ impl GameWorld {
     /// Gets a mutable version of this unit from space or the current planet.
     ///
     /// * NoSuchUnit - the unit does not exist.
-    fn get_unit_mut(&mut self, id: UnitID) -> Result<&mut Unit, Error> {
+    fn get_unit_mut(&mut self, id: UnitID) -> Result<&mut Unit, GameError> {
         if self.get_planet(Planet::Earth).units.contains_key(&id) {
             Ok(self.get_planet_mut(Planet::Earth).units.get_mut(&id).expect("key exists"))
         } else if self.get_planet(Planet::Mars).units.contains_key(&id) {
@@ -907,7 +906,7 @@ impl GameWorld {
     ///
     /// * ResearchLevelInvalid - the research level is invalid.
     pub(crate) fn create_unit(&mut self, team: Team, location: MapLocation,
-                       unit_type: UnitType) -> Result<UnitID, Error> {
+                       unit_type: UnitType) -> Result<UnitID, GameError> {
         let id = self.id_generator.next_id();
         let level = self.get_team(team).research.get_level(&unit_type);
         let unit = Unit::new(id, team, unit_type, level, OnMap(location))?;
@@ -957,7 +956,7 @@ impl GameWorld {
     ///
     /// * NoSuchUnit - the unit does not exist (inside the vision range).
     /// * TeamNotAllowed - the unit is not on the current player's team.
-    pub fn disintegrate_unit(&mut self, id: UnitID) -> Result<(), Error> {
+    pub fn disintegrate_unit(&mut self, id: UnitID) -> Result<(), GameError> {
         self.my_unit(id)?;
         self.destroy_unit(id);
         Ok(())
@@ -972,7 +971,7 @@ impl GameWorld {
     ///
     /// * LocationOffMap - the location is off the map.
     /// * LocationNotVisible - the location is outside the vision range.
-    pub fn is_occupiable(&self, location: MapLocation) -> Result<bool, Error> {
+    pub fn is_occupiable(&self, location: MapLocation) -> Result<bool, GameError> {
         self.ok_if_can_sense_location(location)?;
 
         let planet_map = &self.starting_map(location.planet);
@@ -986,7 +985,7 @@ impl GameWorld {
     /// * LocationNotVisible - the location is outside the vision range.
     /// * LocationOffMap - the location is off the map.
     /// * LocationNotEmpty - the location is occupied by a unit or terrain.
-    fn ok_if_can_move(&self, robot_id: UnitID, direction: Direction) -> Result<(), Error> {
+    fn ok_if_can_move(&self, robot_id: UnitID, direction: Direction) -> Result<(), GameError> {
         let unit = self.my_unit(robot_id)?;
         let new_location = unit.location().map_location()?.add(direction);
 
@@ -1007,7 +1006,7 @@ impl GameWorld {
     /// * NoSuchUnit - the unit does not exist (inside the vision range).
     /// * TeamNotAllowed - the unit is not on the current player's team.
     /// * Overheated - the robot is not ready to move again.
-    fn ok_if_move_ready(&self, robot_id: UnitID) -> Result<(), Error> {
+    fn ok_if_move_ready(&self, robot_id: UnitID) -> Result<(), GameError> {
         self.my_unit(robot_id)?.ok_if_move_ready()?;
         Ok(())
     }
@@ -1027,7 +1026,7 @@ impl GameWorld {
     /// * LocationOffMap - the location is off the map.
     /// * LocationNotEmpty - the location is occupied by a unit or terrain.
     /// * Overheated - the robot is not ready to move again.
-    pub fn move_robot(&mut self, robot_id: UnitID, direction: Direction) -> Result<(), Error> {
+    pub fn move_robot(&mut self, robot_id: UnitID, direction: Direction) -> Result<(), GameError> {
         self.ok_if_can_move(robot_id, direction)?;
         self.ok_if_move_ready(robot_id)?;
         let dest = match self.my_unit(robot_id).unwrap().location() {
@@ -1074,7 +1073,7 @@ impl GameWorld {
     /// * InappropriateUnitType - the unit is not a robot, or is a healer.
     /// * UnitNotOnMap - the unit or target is not on the map.
     /// * OutOfRange - the target location is not in range.
-    fn ok_if_can_attack(&self, robot_id: UnitID, target_id: UnitID) -> Result<(), Error> {
+    fn ok_if_can_attack(&self, robot_id: UnitID, target_id: UnitID) -> Result<(), GameError> {
         if self.my_unit(robot_id)?.unit_type() == UnitType::Healer {
             Err(GameError::InappropriateUnitType)?;
         }
@@ -1099,7 +1098,7 @@ impl GameWorld {
     /// * TeamNotAllowed - the unit is not on the current player's team.
     /// * InappropriateUnitType - the unit is not a robot, or is a healer.
     /// * Overheated - the unit is not ready to attack.
-    fn ok_if_attack_ready(&self, robot_id: UnitID) -> Result<(), Error> {
+    fn ok_if_attack_ready(&self, robot_id: UnitID) -> Result<(), GameError> {
         if self.my_unit(robot_id)?.unit_type() == UnitType::Healer {
             Err(GameError::InappropriateUnitType)?;
         }
@@ -1126,7 +1125,7 @@ impl GameWorld {
     /// * UnitNotOnMap - the unit or target is not on the map.
     /// * OutOfRange - the target location is not in range.
     /// * Overheated - the unit is not ready to attack.
-    pub fn attack(&mut self, robot_id: UnitID, target_id: UnitID) -> Result<(), Error> {
+    pub fn attack(&mut self, robot_id: UnitID, target_id: UnitID) -> Result<(), GameError> {
         self.ok_if_can_attack(robot_id, target_id)?;
         self.ok_if_attack_ready(robot_id)?;
         let damage = self.my_unit_mut(robot_id).unwrap().use_attack();
@@ -1192,7 +1191,7 @@ impl GameWorld {
                     unit.research().expect("research level is valid");
                 }
             }
-            self.viewer_changes.push(ViewerDelta::ResearchComplete { branch });
+            self.viewer_changes.push(ViewerDelta::ResearchComplete { branch, team });
         }
     }
 
@@ -1200,7 +1199,7 @@ impl GameWorld {
     // *************************** WORKER METHODS *****************************
     // ************************************************************************
 
-    fn ok_if_can_harvest(&self, worker_id: UnitID, direction: Direction) -> Result<(), Error> {
+    fn ok_if_can_harvest(&self, worker_id: UnitID, direction: Direction) -> Result<(), GameError> {
         let unit = self.my_unit(worker_id)?;
         unit.ok_if_can_worker_act()?;
         let harvest_loc = unit.location().map_location()?.add(direction);
@@ -1230,7 +1229,7 @@ impl GameWorld {
     /// * LocationNotVisible - the location is not in the vision range.
     /// * KarboniteDepositEmpty - the location described contains no Karbonite.
     pub fn harvest(&mut self, worker_id: UnitID, direction: Direction)
-                   -> Result<(), Error> {
+                   -> Result<(), GameError> {
         self.ok_if_can_harvest(worker_id, direction)?;
         let (harvest_loc, harvest_amount) = {
             let worker = self.my_unit_mut(worker_id).unwrap();
@@ -1250,7 +1249,7 @@ impl GameWorld {
     }
 
     fn ok_if_can_blueprint(&self, worker_id: UnitID, unit_type: UnitType,
-                         direction: Direction) -> Result<(), Error> {
+                         direction: Direction) -> Result<(), GameError> {
         let unit = self.my_unit(worker_id)?;
         // Players should never attempt to build a non-structure.
         if !unit_type.is_structure() {
@@ -1305,7 +1304,7 @@ impl GameWorld {
     /// * InsufficientKarbonite - your team does not have enough Karbonite to
     ///   build the requested structure.
     pub fn blueprint(&mut self, worker_id: UnitID, unit_type: UnitType,
-                     direction: Direction) -> Result<(), Error> {
+                     direction: Direction) -> Result<(), GameError> {
         self.ok_if_can_blueprint(worker_id, unit_type, direction)?;
         let build_loc = {
             let worker = self.my_unit_mut(worker_id).unwrap();
@@ -1320,7 +1319,7 @@ impl GameWorld {
     }
 
     fn ok_if_can_build(&self, worker_id: UnitID, blueprint_id: UnitID)
-                       -> Result<(), Error> {
+                       -> Result<(), GameError> {
         let worker = self.my_unit(worker_id)?;
         let blueprint = self.my_unit(blueprint_id)?;
         // The worker must be on the map.
@@ -1356,7 +1355,7 @@ impl GameWorld {
     /// * OutOfRange - the worker is not adjacent to the blueprint.
     /// * StructureAlreadyBuilt - the blueprint has already been completed.
     pub fn build(&mut self, worker_id: UnitID, blueprint_id: UnitID)
-                 -> Result<(), Error> {
+                 -> Result<(), GameError> {
         self.ok_if_can_build(worker_id, blueprint_id)?;
         let build_health = {
             let worker = self.my_unit_mut(worker_id).unwrap();
@@ -1367,7 +1366,7 @@ impl GameWorld {
         Ok(())
     }
 
-    fn ok_if_can_repair(&self, worker_id: UnitID, structure_id: UnitID) -> Result<(), Error> {
+    fn ok_if_can_repair(&self, worker_id: UnitID, structure_id: UnitID) -> Result<(), GameError> {
         let worker = self.my_unit(worker_id)?;
         let structure = self.my_unit(structure_id)?;
         worker.ok_if_on_map()?;
@@ -1399,7 +1398,7 @@ impl GameWorld {
     /// * Overheated - the worker has already performed an action this turn.
     /// * OutOfRange - the worker is not adjacent to the structure.
     /// * StructureNotYetBuilt - the structure has not been completed.
-    pub fn repair(&mut self, worker_id: UnitID, structure_id: UnitID) -> Result<(), Error> {
+    pub fn repair(&mut self, worker_id: UnitID, structure_id: UnitID) -> Result<(), GameError> {
         self.ok_if_can_repair(worker_id, structure_id)?;
         self.my_unit_mut(worker_id).unwrap().worker_act();
 
@@ -1409,7 +1408,7 @@ impl GameWorld {
     }
 
     fn ok_if_can_replicate(&self, worker_id: UnitID, direction: Direction) 
-                           -> Result<(), Error> {
+                           -> Result<(), GameError> {
         let worker = self.my_unit(worker_id)?;
         worker.ok_if_ability_ready()?;
         if self.karbonite() < worker.unit_type().replicate_cost()? {
@@ -1445,7 +1444,7 @@ impl GameWorld {
     /// * LocationNotEmpty - the location in the target direction is already
     ///   occupied.
     pub fn replicate(&mut self, worker_id: UnitID, direction: Direction)
-                     -> Result<(), Error> {
+                     -> Result<(), GameError> {
         self.ok_if_can_replicate(worker_id, direction)?;
         self.my_unit_mut(worker_id)?.worker_act();
         self.my_unit_mut(worker_id)?.replicate();
@@ -1462,7 +1461,7 @@ impl GameWorld {
     // *************************** KNIGHT METHODS *****************************
     // ************************************************************************
 
-    fn ok_if_can_javelin(&self, knight_id: UnitID, target_id: UnitID) -> Result<(), Error> {
+    fn ok_if_can_javelin(&self, knight_id: UnitID, target_id: UnitID) -> Result<(), GameError> {
         let knight = self.my_unit(knight_id)?;
         let target = self.unit(target_id)?;
         knight.ok_if_on_map()?;
@@ -1478,7 +1477,7 @@ impl GameWorld {
         self.ok_if_can_javelin(knight_id, target_id).is_ok()
     }
 
-    fn ok_if_javelin_ready(&self, knight_id: UnitID) -> Result<(), Error> {
+    fn ok_if_javelin_ready(&self, knight_id: UnitID) -> Result<(), GameError> {
         let knight = self.my_unit(knight_id)?;
         knight.ok_if_javelin_unlocked()?;
         knight.ok_if_ability_ready()?;
@@ -1500,7 +1499,7 @@ impl GameWorld {
     /// * ResearchNotUnlocked - you do not have the needed research to use javelin.
     /// * OutOfRange - the target does not lie within ability range of the knight.
     /// * Overheated - the knight is not ready to use javelin again.
-    pub fn javelin(&mut self, knight_id: UnitID, target_id: UnitID) -> Result<(), Error> {
+    pub fn javelin(&mut self, knight_id: UnitID, target_id: UnitID) -> Result<(), GameError> {
         self.ok_if_can_javelin(knight_id, target_id)?;
         self.ok_if_javelin_ready(knight_id)?;
         let damage = self.my_unit_mut(knight_id).unwrap().javelin();
@@ -1512,7 +1511,7 @@ impl GameWorld {
     // *************************** RANGER METHODS *****************************
     // ************************************************************************
 
-    fn ok_if_can_begin_snipe(&self, ranger_id: UnitID, location: MapLocation) -> Result<(), Error> {
+    fn ok_if_can_begin_snipe(&self, ranger_id: UnitID, location: MapLocation) -> Result<(), GameError> {
         let ranger = self.my_unit(ranger_id)?;
         ranger.ok_if_on_map()?;
         ranger.ok_if_snipe_unlocked()?;
@@ -1530,7 +1529,7 @@ impl GameWorld {
         self.ok_if_can_begin_snipe(ranger_id, location).is_ok()
     }
 
-    fn ok_if_begin_snipe_ready(&self, ranger_id: UnitID) -> Result<(), Error> {
+    fn ok_if_begin_snipe_ready(&self, ranger_id: UnitID) -> Result<(), GameError> {
         let ranger = self.my_unit(ranger_id)?;
         ranger.ok_if_snipe_unlocked()?;
         ranger.ok_if_ability_ready()?;
@@ -1555,7 +1554,7 @@ impl GameWorld {
     /// * ResearchNotUnlocked - you do not have the needed research to use snipe.
     /// * Overheated - the ranger is not ready to use snipe again.
     pub fn begin_snipe(&mut self, ranger_id: UnitID, location: MapLocation)
-                       -> Result<(), Error> {
+                       -> Result<(), GameError> {
         self.ok_if_can_begin_snipe(ranger_id, location)?;
         self.ok_if_begin_snipe_ready(ranger_id)?;
         self.my_unit_mut(ranger_id).unwrap().begin_snipe(location);
@@ -1588,7 +1587,7 @@ impl GameWorld {
     // **************************** MAGE METHODS ******************************
     // ************************************************************************
     
-    fn ok_if_can_blink(&self, mage_id: UnitID, location: MapLocation) -> Result<(), Error> {
+    fn ok_if_can_blink(&self, mage_id: UnitID, location: MapLocation) -> Result<(), GameError> {
         let mage = self.my_unit(mage_id)?;
         mage.ok_if_on_map()?;
         mage.ok_if_blink_unlocked()?;
@@ -1607,7 +1606,7 @@ impl GameWorld {
         self.ok_if_can_blink(mage_id, location).is_ok()
     }
 
-    fn ok_if_blink_ready(&self, mage_id: UnitID) -> Result<(), Error> {
+    fn ok_if_blink_ready(&self, mage_id: UnitID) -> Result<(), GameError> {
         let mage = self.my_unit(mage_id)?;
         mage.ok_if_blink_unlocked()?;
         mage.ok_if_ability_ready()?;
@@ -1632,7 +1631,7 @@ impl GameWorld {
     /// * LocationNotVisible - the target location is outside the vision range.
     /// * LocationNotEmpty - the target location is already occupied.
     /// * Overheated - the mage is not ready to use blink again.
-    pub fn blink(&mut self, mage_id: UnitID, location: MapLocation) -> Result<(), Error> {
+    pub fn blink(&mut self, mage_id: UnitID, location: MapLocation) -> Result<(), GameError> {
         self.ok_if_can_blink(mage_id, location)?;
         self.ok_if_blink_ready(mage_id)?;
         self.remove_unit(mage_id);
@@ -1645,7 +1644,7 @@ impl GameWorld {
     // *************************** HEALER METHODS *****************************
     // ************************************************************************
 
-    fn ok_if_can_heal(&self, healer_id: UnitID, robot_id: UnitID) -> Result<(), Error> {
+    fn ok_if_can_heal(&self, healer_id: UnitID, robot_id: UnitID) -> Result<(), GameError> {
         self.my_unit(healer_id)?.ok_if_on_map()?;
 
         let target_loc = self.my_unit(robot_id)?.location();
@@ -1664,7 +1663,7 @@ impl GameWorld {
         self.ok_if_can_heal(healer_id, robot_id).is_ok()
     }
 
-    fn ok_if_heal_ready(&self, healer_id: UnitID) -> Result<(), Error> {
+    fn ok_if_heal_ready(&self, healer_id: UnitID) -> Result<(), GameError> {
         Ok(self.my_unit(healer_id)?.ok_if_attack_ready()?)
     }
 
@@ -1683,7 +1682,7 @@ impl GameWorld {
     /// * UnitNotOnMap - the healer is not on the map.
     /// * OutOfRange - the target does not lie within "attack" range of the healer.
     /// * Overheated - the healer is not ready to heal again.
-    pub fn heal(&mut self, healer_id: UnitID, robot_id: UnitID) -> Result<(), Error> {
+    pub fn heal(&mut self, healer_id: UnitID, robot_id: UnitID) -> Result<(), GameError> {
         self.ok_if_can_heal(healer_id, robot_id)?;
         self.ok_if_heal_ready(healer_id)?;
         let damage = self.my_unit_mut(healer_id).unwrap().use_attack();
@@ -1692,7 +1691,7 @@ impl GameWorld {
     }
 
     fn ok_if_can_overcharge(&self, healer_id: UnitID, robot_id: UnitID)
-                            -> Result<(), Error> {
+                            -> Result<(), GameError> {
         let healer = self.my_unit(healer_id)?;
         let robot = self.my_unit(robot_id)?;
         healer.ok_if_on_map()?;
@@ -1709,7 +1708,7 @@ impl GameWorld {
         self.ok_if_can_overcharge(healer_id, robot_id).is_ok()
     }
 
-    fn ok_if_overcharge_ready(&self, healer_id: UnitID) -> Result<(), Error> {
+    fn ok_if_overcharge_ready(&self, healer_id: UnitID) -> Result<(), GameError> {
         let healer = self.my_unit(healer_id)?;
         healer.ok_if_overcharge_unlocked()?;
         healer.ok_if_ability_ready()?;
@@ -1734,7 +1733,7 @@ impl GameWorld {
     /// * OutOfRange - the target does not lie within ability range of the healer.
     /// * Overheated - the healer is not ready to use overcharge again.
     pub fn overcharge(&mut self, healer_id: UnitID, robot_id: UnitID)
-                      -> Result<(), Error> {
+                      -> Result<(), GameError> {
         self.ok_if_can_overcharge(healer_id, robot_id)?;
         self.ok_if_overcharge_ready(healer_id)?;
         self.my_unit_mut(healer_id)?.overcharge();
@@ -1747,7 +1746,7 @@ impl GameWorld {
     // ************************************************************************
 
     fn ok_if_can_load(&self, structure_id: UnitID, robot_id: UnitID)
-                      -> Result<(), Error> {
+                      -> Result<(), GameError> {
         let robot = self.my_unit(robot_id)?;
         let structure = self.my_unit(structure_id)?;
         robot.ok_if_on_map()?;
@@ -1779,7 +1778,7 @@ impl GameWorld {
     /// * GarrisonFull - the structure's garrison is already full.
     /// * OutOfRange - the robot is not adjacent to the structure.
     pub fn load(&mut self, structure_id: UnitID, robot_id: UnitID)
-                    -> Result<(), Error> {
+                    -> Result<(), GameError> {
         self.ok_if_can_load(structure_id, robot_id)?;
         self.remove_unit(robot_id);
         self.my_unit_mut(structure_id).unwrap().load(robot_id);
@@ -1788,7 +1787,7 @@ impl GameWorld {
     }
 
     fn ok_if_can_unload(&self, structure_id: UnitID, direction: Direction)
-                        -> Result<(), Error> {
+                        -> Result<(), GameError> {
         let structure = self.my_unit(structure_id)?;
         structure.ok_if_on_map()?;
         structure.ok_if_can_unload_unit()?;
@@ -1822,7 +1821,7 @@ impl GameWorld {
     ///   occupied.
     /// * Overheated - the robot inside the structure is not ready to move again.
     pub fn unload(&mut self, structure_id: UnitID, direction: Direction)
-                  -> Result<(), Error> {
+                  -> Result<(), GameError> {
         self.ok_if_can_unload(structure_id, direction)?;
         let (robot_id, structure_loc) = {
             let structure = self.my_unit_mut(structure_id)?;
@@ -1839,7 +1838,7 @@ impl GameWorld {
     // ************************************************************************
 
     fn ok_if_can_produce_robot(&self, factory_id: UnitID, robot_type: UnitType)
-                                 -> Result<(), Error> {
+                                 -> Result<(), GameError> {
         let factory = self.my_unit(factory_id)?;
         factory.ok_if_can_produce_robot(robot_type)?;
         let cost = robot_type.factory_cost().expect("unit type is ok");
@@ -1867,7 +1866,7 @@ impl GameWorld {
     /// * InsufficientKarbonite - your team does not have enough Karbonite to
     ///   produce the given robot.
     pub fn produce_robot(&mut self, factory_id: UnitID, robot_type: UnitType)
-                       -> Result<(), Error> {
+                       -> Result<(), GameError> {
         self.ok_if_can_produce_robot(factory_id, robot_type)?;
         self.my_team_mut().karbonite -= robot_type.factory_cost().expect("unit type is ok");
         let factory = self.my_unit_mut(factory_id).expect("factory exists");
@@ -1920,7 +1919,7 @@ impl GameWorld {
     }
 
     fn ok_if_can_launch_rocket(&self, rocket_id: UnitID, destination: MapLocation)
-                               -> Result<(), Error> {
+                               -> Result<(), GameError> {
         let rocket = self.my_unit(rocket_id)?;
         if destination.planet == self.planet() {
             Err(GameError::SamePlanet)?;
@@ -1956,7 +1955,7 @@ impl GameWorld {
     /// * LocationOffMap - the given location is off the map.
     /// * LocationNotEmpty - the given location contains impassable terrain.
     pub fn launch_rocket(&mut self, rocket_id: UnitID, destination: MapLocation)
-                         -> Result<(), Error> {
+                         -> Result<(), GameError> {
         self.ok_if_can_launch_rocket(rocket_id, destination)?;
         let takeoff_loc = self.my_unit(rocket_id)?.location().map_location()?;
         let blast_damage = self.my_unit(rocket_id)?.rocket_blast_damage()?;
@@ -2183,7 +2182,7 @@ impl GameWorld {
     }
 
     /// Applies a single delta to this GameWorld.
-    pub(crate) fn apply(&mut self, delta: &Delta) -> Result<(), Error> {
+    pub(crate) fn apply(&mut self, delta: &Delta) -> Result<(), GameError> {
         match *delta {
             Delta::Attack {robot_id, target_unit_id} => self.attack(robot_id, target_unit_id),
             Delta::BeginSnipe {ranger_id, location} => self.begin_snipe(ranger_id, location),

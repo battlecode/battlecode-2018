@@ -13,19 +13,19 @@ class PlainPlayer(AbstractPlayer):
     def __init__(self, socket_file, working_dir, local_dir=None,
                  player_key="", player_mem_limit=256, player_cpu=20):
 
-        super().__init__(socket_file, working_dir, local_dir, None, None, player_key, player_mem_limit, player_cpu)
-
         self.paused = False
         self.streaming = False
         self.process = None
+
+        super().__init__(socket_file, working_dir, local_dir, None, None, player_key, player_mem_limit, player_cpu)
 
     def stream_logs(self, stdout=True, stderr=True, line_action=lambda line: print(line.decode())):
         assert not self.streaming
         self.streaming = True
         if stdout:
-            threading.Thread(target=self._stream_logs, args=(self.process.stdout, line_action)).start()
+            threading.Thread(target=self._stream_logs, args=(self.process.stdout, line_action), daemon=True).start()
         if stderr:
-            threading.Thread(target=self._stream_logs, args=(self.process.stderr, line_action)).start()
+            threading.Thread(target=self._stream_logs, args=(self.process.stderr, line_action), daemon=True).start()
 
     def _stream_logs(self, stream, line_action):
         for line in stream:
@@ -55,6 +55,20 @@ class PlainPlayer(AbstractPlayer):
 
         cwd = self.working_dir
         self.process = psutil.Popen(args, env=env, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=-1)
+
+    def guess_language(self):
+        children = self.process.children(recursive=True)
+        for c in children:
+            name = c.exe()
+            if "java" in name:
+                return "jvm"
+            elif "python" in name:
+                return "python"
+            elif "pypy" in name:
+                return "pypy"
+            elif "mono" in name:
+                return "mono"
+        return "c"
 
     def pause(self):
         # pausing too slow on windows

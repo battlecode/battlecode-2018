@@ -32,6 +32,12 @@ test:
 	@$(MAKE) -wC bindings test
 	$(call test_command,cargo test)
 
+docs:
+	rm -rf docs
+	pdoc --html battlecode/python/battlecode --html-dir docs/python/
+	mv docs/python/battlecode/index.html docs/python/battlecode/bc.m.html
+	javadoc battlecode/java/bc/*.java -d docs/java/
+
 clean:
 	@$(MAKE) -wC bindings clean
 	-rm -rf docker-manager/working_dir
@@ -77,4 +83,4 @@ package:
 	cp run.sh bc18-scaffold/
 	cp run.bat bc18-scaffold/
 
-.PHONY: build test dockers battlecode
+.PHONY: build test dockers battlecode docs

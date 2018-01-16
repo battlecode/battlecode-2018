@@ -116,13 +116,13 @@ pub enum GameError {
 macro_rules! assert_err {
     ($left:expr, $right:expr) => ({
         assert_eq!(
-            $left.unwrap_err().downcast::<GameError>().expect("wrong error type"),
+            $left.unwrap_err(),
             $right
         )
     });
     ($left:expr, $right:expr, $($arg:tt)+) => ({
         assert_eq!(
-            $left.unwrap_err().downcast::<GameError>().expect("wrong error type"),
+            $left.unwrap_err(),
             $right,
             format_args!($($arg)+)
         )

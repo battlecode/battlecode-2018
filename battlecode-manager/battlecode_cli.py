@@ -208,7 +208,8 @@ def create_game(args):
                        time_pool=args['time_pool'],
                        time_additional=args['time_additional'],
                        terminal_viewer=args['terminal_viewer'],
-                       extra_delay=args['extra_delay'])
+                       extra_delay=args['extra_delay'],
+                       map_name=args['map_name'])
 
     working_dir = abspath("working_dir")
     prepare_working_directory(working_dir)

@@ -6,7 +6,11 @@ import battlecode_cli as cli
 import threading
 import boto3
 from time import sleep
-
+import socket
+import time
+import nonsense
+import random
+import proxyuploader
 
 ##### SCRIMMAGE SERVER 2K18 #######
 ##
@@ -42,6 +46,8 @@ bucket = s3.Bucket(os.environ['BUCKET_NAME'])
 
 def random_key(length):
     return ''.join([random.choice(string.ascii_letters + string.digits + string.digits) for _ in range(length)])
+
+UPLOADER = proxyuploader.ProxyUploader()
 
 def end_game(data,winner,match_file,logs):
     global BUSY
@@ -81,6 +87,7 @@ def match_thread(data):
 
     data['player_memory'] = 256
     data['player_cpu'] = 20
+    data['map_name'] = data['map']
 
     data['map'] = cli.get_map(os.path.abspath(os.path.join('..', 'battlecode-maps', data['map'])))
     data['docker'] = True
@@ -90,6 +97,7 @@ def match_thread(data):
     data['extra_delay'] = 0
 
     (game, dockers, sock_file) = cli.create_scrimmage_game(data)
+    UPLOADER.game = game
     winner = None
     match_file = None
     try:
@@ -97,6 +105,7 @@ def match_thread(data):
         winner, match_file = cli.run_game(game, dockers, data, sock_file,scrimmage=True)
     finally:
         cli.cleanup(dockers, data, sock_file)
+    UPLOADER.game = None
 
     logs = None
     if all('logger' in player for player in game.players):
@@ -123,7 +132,7 @@ def poll_thread():
             sleep(0.1)
         DB_LOCK = True
 
-        cur.execute("SELECT (id, red_key, blue_key, map) FROM " + os.environ["TABLE_NAME"] + " WHERE status='queued' or (status='running' and start < (NOW() - INTERVAL '5 min')) ORDER BY start ASC")
+        cur.execute("SELECT (id, red_key, blue_key, map, red_team, blue_team) FROM " + os.environ["TABLE_NAME"] + " WHERE status='queued' or (status='running' and start < (NOW() - INTERVAL '5 min')) ORDER BY start ASC")
 
         row = cur.fetchone()
 
@@ -138,6 +147,13 @@ def poll_thread():
                 BUSY = True
                 cur.execute("UPDATE " + os.environ['TABLE_NAME'] + " SET status='running', start=NOW() WHERE id=%s",(data['id'],))
                 pg.commit()
+
+                try:
+                    PROXY_UPLOADER.game_id = row[0]
+                    PROXY_UPLOADER.red_id = row[4]
+                    PROXY_UPLOADER.blue_id = row[5]
+                except Exception as e:
+                    print("error setting team data:", e)
 
                 run_match(data)
 
