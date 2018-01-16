@@ -5,7 +5,6 @@ from player_abstract import AbstractPlayer
 
 import random
 import socket
-import secrets
 
 def _stream_logs(container, stdout, stderr, line_action):
     for line in container.logs(stdout=stdout, stderr=stderr, stream=True):
