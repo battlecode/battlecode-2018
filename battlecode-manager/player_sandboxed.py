@@ -5,6 +5,7 @@ from player_abstract import AbstractPlayer
 
 import random
 import socket
+import server
 
 def _stream_logs(container, stdout, stderr, line_action):
     for line in container.logs(stdout=stdout, stderr=stderr, stream=True):
@@ -25,7 +26,7 @@ class SandboxedPlayer(AbstractPlayer):
         self.socket_name = '/tmp/battlecode-suspender-{}'.format(random.randint(0, 10**50))
         self.suspender_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.suspender_socket.bind(self.socket_name)
-        self.suspender_socket.settimeout(10.) # seconds
+        self.suspender_socket.settimeout(server.BUILD_TIMEOUT) # seconds
         self.suspender_socket.listen(1)
 
         volumes = {
