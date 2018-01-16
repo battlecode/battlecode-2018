@@ -21,8 +21,8 @@ color_reset = "\033[0m"
 
 def run_game(map_path, player1dir, player2dir, replay_dir, docker, terminal_viewer, extra_delay, max_memory, initial_time, per_frame_time, proxy_test):
     args = {}
-    args['dir_p2'] = player1dir
-    args['dir_p1'] = player2dir
+    args['dir_p1'] = player1dir
+    args['dir_p2'] = player2dir
     args['docker'] = docker
     # TODO: Will cause name collisions if multiple instances run at the same time!
     args['replay_filename'] = os.path.join(replay_dir, "replay_" + str(len(os.listdir(replay_dir))) + replay_extension)
