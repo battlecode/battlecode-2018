@@ -45,7 +45,6 @@ def get_token(username, password):
 
 @eel.expose
 def upload_scrim_server(return_args):
-    print(return_args)
     cwd = os.getcwd()
     if 'NODOCKER' in os.environ:
         os.chdir('..')
@@ -54,14 +53,12 @@ def upload_scrim_server(return_args):
     os.chdir(return_args['file_name'])
     zip_file_name = os.path.abspath(os.path.join('../',
         return_args['file_name']))
-    print(zip_file_name)
     if not zip_file_name.endswith('.zip'):
         zip_file_name += '.zip'
     files = [f for f in os.listdir('.')]
 
     with zipfile.ZipFile(zip_file_name, 'w', zipfile.ZIP_DEFLATED) as myzip:
         for f in files:
-            print('file ' + str(f))
             myzip.write(f)
 
     os.chdir(cwd)
@@ -70,9 +67,7 @@ def upload_scrim_server(return_args):
     req = get_token(username, password)
     if req.status_code != 200:
         print("Error authenticating.")
-        # Handle Error Case
-        # Trigger some js error message saying try again
-        return
+        return "Error authenticating."
 
     token = json.loads(req.text)['access_token']
     headers = {}
@@ -83,13 +78,12 @@ def upload_scrim_server(return_args):
         encoded_string = base64.b64encode(image_file.read())
     data['src'] = encoded_string
     res =  requests.post("https://battlecode.org/apis/submissions", headers=headers, data=data)
-    print(res)
+    return "success"
 
 
 
 @eel.expose
 def save_logs(file_name):
-    print(file_name)
     if 'NODOCKER':
         file_name = os.path.abspath(os.path.join('..', file_name))
     else:

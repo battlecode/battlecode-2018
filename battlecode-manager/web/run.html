@@ -30,6 +30,10 @@
             <button class="delete" onclick="document.getElementById('warning').style.display='none'"></button>
             <strong> Fatal error. </strong> <span id="warning-text"></span>
         </div>
+        <div class="notification is-success" style="display:none" id="upload-report">
+            <button class="delete" onclick="document.getElementById('upload-report').style.display='none'"></button>
+            <strong> Upload success! </strong> <span id="upload-text"></span>
+        </div>
 
 
         <div class="tile is-ancestor">
@@ -253,63 +257,51 @@
     </footer>
     <div class="modal" id="upload_modal">
         <div class="modal-background"></div>
-        <div class="modal-content">
-            <div class="modal-card">
-                <div class="modal-card-head">
-                    <span style="float:right">
-                        <p class="title">
-                            Upload Bot
-                        </p>
-                    </span>
-                    <span styple="text-align:right; widht:100%; float:right"
-                          align="right">
-                        <a onclick="close_upload()" style="float:right"
-                            class="button" align="right">
-                            <span class="icon">
-                                <i class="fa fa-window-close"></i>
-                        </a><br /><br />
-                    </span>
+        <div class="modal-card">
+            <header class="modal-card-head">
+                <p class="modal-card-title">Upload Bot</p>
+                <button onclick="close_upload()" class="delete" aria-label="close"></button>
+            </header>
+            <div class="modal-card-body">
+                <div class="notification is-warning" style="display:none" id="upload-error">
+                    <button class="delete" onclick="document.getElementById('upload-error').style.display='none'"></button>
+                    <strong> Upload failed. </strong> <span id="upload-error-text"></span>
                 </div>
-                <div class="modal-card-body">
-                <article class="tile is-child notification is-white">
-                    <div class="content">
-                        <div class="content">
-                            <div class="field">
-                                <tr>
-                                    <td>Username</td>
-                                    <td><input class="input" type="text"
-                                                             id="upload_username"></td>
-                                </tr>
-                                <tr>
-                                    <td>Password</td>
-                                    <td><input class="input" type="password"
-                                                             id="upload_password"></td>
-                                </tr>
-                                <label class="label" style="color:#000">Player Directory:</label>
-                                <div class="control">
-                                    <div class="select" style="width:100%">
-                                        <select style="width:100%"
-                                            id='upload_players'>
-                                        </select>
-                                    </div>
-                                </div>
-                                <tr>
-                                    <td>Upload Name</td>
-                                    <td><input class="input" type="text"
-                                                             value="bot 1"
-                                                             id="upload_name"></td>
-                                </tr>
-                            </div>
-                            <button id="upload" class="button is-success"
-                                align="right">
-                                <span class="icon">
-                                    <i class="fa fa-rocket"></i>
-                                </span>
-                                <span>Upload bot</span>
-                            </button>
-                        </div>
-                    </div>
-                </article>
+                <div class="content">
+                    <table class="table is-fullwidth"><tbody>
+                        <tr>
+                            <td>Username</td>
+                            <td><input class="input" type="text"
+                                                     id="upload_username"></td>
+                        </tr>
+                        <tr>
+                            <td>Password</td>
+                            <td><input class="input" type="password"
+                                                     id="upload_password"></td>
+                        </tr>
+                        <tr>
+                            <td>Player Directory</td>
+                            <td><div class="select" style="width:100%">
+                                <select style="width:100%"
+                                    id='upload_players'>
+                                </select>
+                            </div></td>
+                        </tr>
+
+                        <tr>
+                            <td>Upload Name</td>
+                            <td><input class="input" type="text"
+                                                     value="bot 1"
+                                                     id="upload_name"></td>
+                        </tr>
+                    </tbody></table>
+                    <button id="upload" class="button is-success"
+                        align="right">
+                        <span class="icon">
+                            <i class="fa fa-rocket"></i>
+                        </span>
+                        <span>Upload bot</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -385,6 +377,17 @@
         message = winner==1 ? "red team" : "blue team";
         document.getElementById('winner-text').innerText = message;
         document.getElementById('winner').style.display='block';
+    }
+
+    function upload_success(message) {
+        document.getElementById('upload-text').innerText = message;
+        document.getElementById('upload-report').style.display='block';
+        document.getElementById('upload-error').style.display='none';
+    }
+
+    function upload_error(message) {
+        document.getElementById('upload-error-text').innerText = message;
+        document.getElementById('upload-error').style.display='block';
     }
 
     function draw_grid(canvas, width, height, pixels, earth)  {
@@ -603,7 +606,11 @@
         params['file_name'] = document.getElementById("upload_players");
         params['file_name'] = params['file_name'].options[params['file_name'].selectedIndex].value;
 
-        eel.upload_scrim_server(params)();
+        var response = await eel.upload_scrim_server(params)();
+        if (response == 'success') {
+            close_upload();
+            upload_success("Uploaded " + params['file_name'] + ".");
+        } else upload_error(response);
    }
 
     var download = document.getElementById("download")
