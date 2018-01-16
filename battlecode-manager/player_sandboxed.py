@@ -60,16 +60,17 @@ class SandboxedPlayer(AbstractPlayer):
             network_disabled=True
         )
 
-        # wait for suspender script to connect from player host
-        connection, _ = self.suspender_socket.accept()
-        self.suspender_connection = connection
-        self.suspender_file = self.suspender_connection.makefile('rw', 64)
+        try:
+            # wait for suspender script to connect from player host
+            connection, _ = self.suspender_socket.accept()
+            self.suspender_connection = connection
+            self.suspender_file = self.suspender_connection.makefile('rw', 64)
+        except:
+            print('suspender timed out')
 
         login = next(self.suspender_file)
 
         assert int(login.strip()) == self.player_key, 'mismatched suspension login: {} != {}'.format(repr(login.strip()), repr(self.player_key))
-
-        #cap_drop=['chown, dac_override, fowner, fsetid, kill, setgid, setuid, setpcap, net_bind_service, net_raw, sys_chroot, mknod, audit_write, setfcap'],cpu_period=100000,cpu_quota=self.player_cpu_fraction*100000,
 
     def guess_language(self):
         procs = self.container.top()['Processes']
@@ -88,9 +89,9 @@ class SandboxedPlayer(AbstractPlayer):
     def pause(self):
         # see suspender.py
         # we don't go through docker.suspend or docker.exec because they're too slow (100ms)
-        self.suspender_file.write('suspend\n')
-        self.suspender_file.flush()
         try:
+            self.suspender_file.write('suspend\n')
+            self.suspender_file.flush()
             response = next(self.suspender_file)
             assert response.strip() == 'ack', response.strip() + ' != ack'
         except Exception as e:
@@ -99,9 +100,9 @@ class SandboxedPlayer(AbstractPlayer):
     def unpause(self, timeout=None):
         # see suspender.py
         # we don't go through docker.suspend or docker.exec because they're too slow (100ms)
-        self.suspender_file.write('resume\n')
-        self.suspender_file.flush()
         try:
+            self.suspender_file.write('resume\n')
+            self.suspender_file.flush()
             response = next(self.suspender_file)
             assert response.strip() == 'ack', response.strip() + ' != ack'
         except Exception as e:
