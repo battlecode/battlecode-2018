@@ -553,8 +553,8 @@
     async function render_turn(turn) {
         var maps = (turn in viewer_cache) ? viewer_cache[turn] : await eel.get_viewer_data(4*turn)();
 
-        draw_grid(earth,maps['width'],maps['height'],maps['earth'],true);
-        draw_grid(mars,maps['width'],maps['height'],maps['mars'],false);
+        draw_grid(earth,maps['earth_width'],maps['earth_height'],maps['earth'],true);
+        draw_grid(mars,maps['mars_width'],maps['mars_height'],maps['mars'],false);
 
         turn_field.innerText = turn;
     }
