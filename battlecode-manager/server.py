@@ -421,7 +421,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 wrapped_socket.close()
                 send_socket.close()
                 print("{} has not accepted message for {} seconds, assuming they're dead".format(
-                    [p for p in self.game.players if p['id'] == self.client_id][0]['player'], 
+                    [p for p in self.game.players if p['id'] == self.client_id][0]['player'],
                     TIMEOUT
                 ))
                 if bc.Team.Red == self.game.get_player(self.client_id)['player'].team:
@@ -639,9 +639,9 @@ def start_server(sock_file: str, game: Game, dockers, use_docker=True) -> socket
             if not player['built_successfully']:
                 print('Player failed to connect to manager after',BUILD_TIMEOUT,'seconds:', player['player'])
                 if bc.Team.Red == player['player'].team:
-                    game.winner = 'player1'
-                else:
                     game.winner = 'player2'
+                else:
+                    game.winner = 'player1'
                 game.disconnected = True
                 game.game_over = True
 
