@@ -43,6 +43,7 @@ step() {
     echo battledaddy:/battlecode_src$ $@
     $@
 }
+step make clean
 step mkdir -p /battlecode
 step cp -r ./docker-artifacts/linux-battlecode-musl /battlecode/battlecode
 # this is necessary because we dont need to copy this file into the target dir & it breaks shutil.copytree

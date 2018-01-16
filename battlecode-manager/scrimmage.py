@@ -47,7 +47,7 @@ bucket = s3.Bucket(os.environ['BUCKET_NAME'])
 def random_key(length):
     return ''.join([random.choice(string.ascii_letters + string.digits + string.digits) for _ in range(length)])
 
-UPLOADER = proxyuploader.ProxyUploader()
+PROXY_UPLOADER = proxyuploader.ProxyUploader()
 
 def end_game(data,winner,match_file,logs):
     global BUSY
@@ -102,7 +102,7 @@ def match_thread(data):
     data['extra_delay'] = 0
 
     (game, dockers, sock_file) = cli.create_scrimmage_game(data)
-    UPLOADER.game = game
+    PROXY_UPLOADER.game = game
     winner = None
     match_file = None
     try:
@@ -110,7 +110,7 @@ def match_thread(data):
         winner, match_file = cli.run_game(game, dockers, data, sock_file,scrimmage=True)
     finally:
         cli.cleanup(dockers, data, sock_file)
-    UPLOADER.game = None
+    PROXY_UPLOADER.game = None
 
     logs = None
     if all('logger' in player for player in game.players):
