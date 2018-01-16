@@ -19,7 +19,6 @@ replay_extension = ".bc18"
 color_red = "\033[31m"
 color_reset = "\033[0m"
 
-
 def run_game(map_path, player1dir, player2dir, replay_dir, docker, terminal_viewer, extra_delay, max_memory, initial_time, per_frame_time):
     args = {}
     args['dir_p2'] = player1dir

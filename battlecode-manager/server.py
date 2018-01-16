@@ -247,8 +247,6 @@ class Game(object): # pylint: disable=too-many-instance-attributes
             import time
             time.sleep(self.extra_delay / 1000.)
 
-        print(json.dumps(self.state_report()))
-
         # Increment to the next player
         self.current_player_index = (self.current_player_index + 1) % len(self.players)
         self.set_player_turn(self.current_player_index)

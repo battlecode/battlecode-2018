@@ -10,6 +10,7 @@ import socket
 import time
 import nonsense
 import random
+import proxyuploader
 
 ##### SCRIMMAGE SERVER 2K18 #######
 ##
@@ -46,59 +47,7 @@ bucket = s3.Bucket(os.environ['BUCKET_NAME'])
 def random_key(length):
     return ''.join([random.choice(string.ascii_letters + string.digits + string.digits) for _ in range(length)])
 
-class ProxyUploader():
-    def __init__(self):
-        if 'SCRIMMAGE_PROXY_URL' in os.environ and 'SCRIMMAGE_PROXY_SECRET' in os.environ:
-            self.url = os.environ['SCRIMMAGE_PROXY_URL']
-            self.secret = os.environ['SCRIMMAGE_PROXY_SECRET']
-            self.thread = threading.Thread(self.run_forever, args=())
-            self.thread.start()
-        if 'SCRIMMAGE_UPDATE_EVERY' in os.environ:
-            self.update_every = os.environ['SCRIMMAGE_UPDATE_EVERY']
-        else:
-            self.update_every = 1
-        self.red_id = 0
-        self.blue_id = 0
-        self.red_name = 0
-        self.blue_name = 0
-        self.game_id = 0
-        self.game = None
-        self.start = time.time()
-        self.games_run = 0
-        self.id = random.choice(nonsense.NONSENSE) + '-' + random.choice(nonsense.NONSENSE)
-
-    def run_forever(self):
-        import json
-        while True:
-            try:
-                self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                self.socket.settimeout(30)
-                self.socket.connect(self.url, 56147)
-                self.f = self.socket.makefile('rwb')
-                while True:
-                    msg = {
-                        "id": self.id,
-                        "secret": self.secret,
-                        "uptime_ms": int((time.time() - self.start) * 1000),
-                        "games_run": self.games_run
-                    }
-                    if self.game is not None:
-                        game = self.game.state_report()
-                        game['id'] = self.game_id
-                        game['red']['id'] = self.red_id
-                        game['blue']['id'] = self.blue_id
-                        msg['game'] = game
-
-                    self.f.write((json.dumps(msg) + '\n').encode('utf-8'))
-                    self.f.flush()
-                    m = next(self.f)
-                    assert m.strip() == 'ok', 'wrong resp: {}'.format(m.strip())
-                    time.sleep(self.update_every)
-            except Exception as e:
-                print('some sort of failure', e)
-            time.sleep(30)
-
-UPLOADER = ProxyUploader()
+UPLOADER = proxyuploader.ProxyUploader()
 
 def end_game(data,winner,match_file,logs):
     global BUSY
@@ -153,6 +102,7 @@ def match_thread(data):
     data['extra_delay'] = 0
 
     (game, dockers, sock_file) = cli.create_scrimmage_game(data)
+    UPLOADER.game = game
     winner = None
     match_file = None
     try:
@@ -160,6 +110,7 @@ def match_thread(data):
         winner, match_file = cli.run_game(game, dockers, data, sock_file,scrimmage=True)
     finally:
         cli.cleanup(dockers, data, sock_file)
+    UPLOADER.game = None
 
     logs = None
     if all('logger' in player for player in game.players):
