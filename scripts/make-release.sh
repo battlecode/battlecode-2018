@@ -56,7 +56,7 @@ prompt() {
     done
 }
 
-RELEASE=0.11.0
+RELEASE=0.11.1
 
 green
 echo "=== Starting release $(magenta)$RELEASE$(green) ==="
@@ -131,37 +131,37 @@ step make docker-manager
 #plain
 #step_ignore ./run_nodocker.sh
 #prompt "Did it work?"
-
-blue
-echo "Please run matches between examplefuncsplayer-python, examplefuncsplayer-python-old, examplefuncsplayer-java, examplefuncsplayer-java-old, examplefuncsplayer-c, examplefuncsplayer-c-old, then terminate the manager with Stop Manager."
-plain
-step_ignore docker run -it --privileged -p 16147:16147 -p 6147:6147 -v $PWD:/player --rm battledaddy
-prompt "Did it work?"
-
-step git add battlecode-manager/web/run.html
-step git add .
-green
-echo $ git commit -m "Release $RELEASE"
-plain
-git commit -m "Release $RELEASE"
-step git tag $RELEASE
-step git push origin master
-step git push --tags origin $RELEASE
-
-step make package
-step cd bc18-scaffold
-step git checkout -- battlecode/c/lib/libbattlecode-win32.lib
-step git checkout -- battlecode/python/battlecode/win32/_bc.pyd
-step git add .
-step git status
-prompt "Everything look good?"
-
-green
-echo $ git commit -m "$RELEASE Mac/Linux"
-plain
-git commit -m "$RELEASE Mac/Linux"
-
-step cd ..
+#
+#blue
+#echo "Please run matches between examplefuncsplayer-python, examplefuncsplayer-python-old, examplefuncsplayer-java, examplefuncsplayer-java-old, examplefuncsplayer-c, examplefuncsplayer-c-old, then terminate the manager with Stop Manager."
+#plain
+#step_ignore docker run -it --privileged -p 16147:16147 -p 6147:6147 -v $PWD:/player --rm battledaddy
+#prompt "Did it work?"
+##
+##step git add battlecode-manager/web/run.html
+##step git add .
+##green
+##echo $ git commit -m "Release $RELEASE"
+##plain
+##git commit -m "Release $RELEASE"
+##step git tag $RELEASE
+##step git push origin master
+##step git push --tags origin $RELEASE
+#
+#step make package
+#step cd bc18-scaffold
+#step git checkout -- battlecode/c/lib/libbattlecode-win32.lib
+#step git checkout -- battlecode/python/battlecode/win32/_bc.pyd
+#step git add .
+#step git status
+#prompt "Everything look good?"
+#
+#green
+#echo $ git commit -m "$RELEASE Mac/Linux"
+#plain
+#git commit -m "$RELEASE Mac/Linux"
+#
+#step cd ..
 step docker tag battledaddy battlecode/battlecode-2018:$RELEASE
 step docker tag battledaddy battlecode/battlecode-2018:latest
 
