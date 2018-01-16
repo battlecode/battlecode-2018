@@ -17,6 +17,7 @@ use world::Team::*;
 use unit::UnitType::*;
 
 use failure::Error;
+use failure;
 use fnv::FnvHashMap;
 use ansi_term::{Colour, Style};
 use ansi_term::Colour::Fixed;
@@ -1429,8 +1430,8 @@ pub struct InitialTurnApplication {
 
 /// Run a test game between two rust bots.
 pub fn run_game_ansi<R, B>(mut r: R, mut b: B, turns: usize, delay: u32)
-        where R: FnMut(&mut GameController) -> Result<(), GameError>,
-              B: FnMut(&mut GameController) -> Result<(), GameError> {
+        where R: FnMut(&mut GameController) -> Result<(), failure::Error>,
+              B: FnMut(&mut GameController) -> Result<(), failure::Error> {
 
     // A filler time that doesn't matter for this test game.
     let time = 10000;
