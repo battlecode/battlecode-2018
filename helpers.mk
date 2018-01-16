@@ -37,3 +37,10 @@ else
 		CUR_OS := darwin
     endif
 endif
+
+ifeq ($(CARGO_TARGET_DIR),)
+	# set current_dir to path to helpers.mk (i.e. the path of battlecode-2018
+	ROOT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+	# use the standard rust `target` directory
+	CARGO_TARGET_DIR := $(ROOT_DIR)/target
+endif

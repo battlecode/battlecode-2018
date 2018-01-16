@@ -87,6 +87,9 @@ pub struct TurnMessage {
 /// A list of updates since the player's last turn sent to the player.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct StartTurnMessage {
+    // Time left, in milliseconds.
+    pub time_left_ms: i32,
+    // Current round.
     pub round: Rounds,
 
     // PlanetInfo

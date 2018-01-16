@@ -57,7 +57,7 @@ def prepare_working_directory(working_dir):
     # print("Working dir ready!")
 
 
-def run_game(game, dockers, args, sock_file):
+def run_game(game, dockers, args, sock_file, scrimmage=False):
     '''
     This contains the logic that needs to be cleaned up at the end of a game
     If there is something that needs to be cleaned up add it in the try catch
@@ -87,8 +87,9 @@ def run_game(game, dockers, args, sock_file):
                 team = 'blue'
             else:
                 team = 'red'
-            name = f'[{planet}:{team}]'
-            logger = Logger(name, print=not args['terminal_viewer'])
+
+            name = '[{}:{}]'.format(planet, team)
+            logger = Logger(name, print=(not args['terminal_viewer'] and not scrimmage))
             docker_inst.stream_logs(line_action=logger)
             player_['logger'] = logger
 
@@ -118,8 +119,8 @@ def run_game(game, dockers, args, sock_file):
         winner = game.winner
 
     match_file['metadata'] = {
-        'player1': args['dir_p1'][8:],
-        'player2': args['dir_p2'][8:],
+        'player1': 'player1' if scrimmage else args['dir_p1'][8:],
+        'player2': 'player2' if scrimmage else args['dir_p2'][8:],
         'winner': winner
     }
 
@@ -130,12 +131,17 @@ def run_game(game, dockers, args, sock_file):
         if not os.path.isabs(match_output):
             match_output = abspath(os.path.join('..', str(match_output)))
 
-    print("Saving replay to", match_output)
-    match_ptr = open(match_output, 'w')
-    json.dump(match_file, match_ptr)
-    match_ptr.close()
 
-    return winner
+    if not scrimmage:
+        print("Saving replay to", match_output)
+
+        match_ptr = open(match_output, 'w')
+        json.dump(match_file, match_ptr)
+        match_ptr.close()
+
+        return winner
+    else:
+        return winner, match_file
 
 
 def cleanup(dockers, args, sock_file):
@@ -235,5 +241,41 @@ def create_game(args):
             dockers[key] = SandboxedPlayer(sock_file, working_dir=working_dir, docker_client=docker_instance, player_key=key, local_dir=local_dir)
         else:
             dockers[key] = PlainPlayer(sock_file, working_dir=working_dir, player_key=key, local_dir=local_dir)
+
+    return (game, dockers, sock_file)
+
+def create_scrimmage_game(args):
+    '''
+    Create all the semi-permanent game structures (i.e. sockets and dockers and
+    stuff
+    '''
+    args['replay_filename'] = 'k'
+    # Load the Game state info
+    game = server.Game(logging_level=logging.ERROR,
+                       game_map=args['map'], time_pool=int(os.environ['TIME_POOL']),
+                       time_additional=int(os.environ['TIME_ADDITIONAL']),
+                       terminal_viewer=False,
+                       extra_delay=0)
+
+    working_dir = abspath("working_dir")
+    prepare_working_directory(working_dir)
+
+    # Find a good filename to use as socket file
+    for index in range(10000):
+        sock_file = "/tmp/battlecode-"+str(index)
+        if not os.path.exists(sock_file):
+            break
+
+    # Assign the docker instances client ids
+    import docker
+    docker_instance = docker.from_env()
+    dockers = {}
+    for index in range(len(game.players)):
+        key = [player['id'] for player in game.players][index]
+        dockers[key] = SandboxedPlayer(sock_file, player_key=key,
+                               s3_bucket=args['s3_bucket'],
+                               s3_key=args['red_key' if index % 2 == 0 else 'blue_key'],
+                               docker_client=docker_instance,
+                               working_dir=working_dir)
 
     return (game, dockers, sock_file)

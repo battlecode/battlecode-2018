@@ -144,9 +144,9 @@ def start_game(return_args):
                     return_args['map'],
                     os.path.abspath(os.path.join('..', 'battlecode-maps'))
                 )
-                if 'NODOCKER' not in os.environ:
-                    print('(Also looked in /player/battlecode-maps, which should be mounted to the battlecode-maps directory of your scaffold)')
-                return_args['map'] = bc.GameMap.test_map()
+            if 'NODOCKER' not in os.environ:
+                print('(Also looked in /player/battlecode-maps, which should be mounted to the battlecode-maps directory of your scaffold)')
+            return_args['map'] = bc.GameMap.test_map()
 
     if 'NODOCKER' in os.environ:
         return_args['docker'] = False
@@ -214,9 +214,12 @@ def get_maps():
 
     maps.append('testmap.bc18map')
     if 'NODOCKER' not in os.environ:
-        for o in os.listdir('/player/battlecode-maps'):
-            if o not in maps:
-                maps.append(o)
+        try:
+            for o in os.listdir('/player/battlecode-maps'):
+                if o not in maps:
+                    maps.append(o)
+        except:
+            pass
 
     return maps
 
