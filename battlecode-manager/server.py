@@ -540,7 +540,6 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                     start_turn_msg = self.message(state_diff)
                     running_stats["lng"] = my_sandbox.guess_language()
                     running_stats["bld"] = False
-                    print(running_stats)
 
                 if self.game.initialized <= 3:
                     my_sandbox.unpause()
