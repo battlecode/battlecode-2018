@@ -82,6 +82,7 @@ def match_thread(data):
     finally:
         cli.cleanup(dockers, data, sock_file)
     PROXY_UPLOADER.game = None
+    PROXY_UPLOADER.games_run += 1
 
     logs = None
     if all('logger' in player for player in game.players):
