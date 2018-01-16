@@ -55,18 +55,13 @@ def end_game(data,winner,match_file,logs):
     elif winner == 'player2':
         status = 'bluewon'
 
-    replay_key = 'replays/' + str(data['id']) + '.bc18';
-    replay = s3.ObjectAcl(os.environ['BUCKET_NAME'], replay_key)
-    replay.put(Body=json.dumps(match_file).encode(),ACL='public-read')
-
+    replay_key = 'replays/' + str(data['id']) + '.bc18'
     red_log_key = 'logs/' + str(data['id']) + '_0.bc18log'
     blue_log_key = 'logs/' + str(data['id']) + '_1.bc18log'
 
-    red_log = s3.ObjectAcl(os.environ['BUCKET_NAME'], red_log_key)
-    red_log.put(Body=json.dumps({'earth':logs[0],'mars':logs[2]}).encode(),ACL='public-read')
-
-    blue_log = s3.ObjectAcl(os.environ['BUCKET_NAME'], blue_log_key)
-    blue_log.put(Body=json.dumps({'earth':logs[1],'mars':logs[3]}).encode(),ACL='public-read')
+    bucket.put_object(Key=replay_key,Body=json.dumps(match_file).encode(),ACL='public-read')
+    bucket.put_object(Key=red_log_key,Body=json.dumps({'earth':logs[0],'mars':logs[2]}).encode(),ACL='public-read')
+    bucket.put_object(Key=blue_log_key,Body=json.dumps({'earth':logs[1],'mars':logs[3]}).encode(),ACL='public-read')
 
     while DB_LOCK == True:
         sleep(0.1)
