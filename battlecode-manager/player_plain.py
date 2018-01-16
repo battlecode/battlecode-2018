@@ -23,9 +23,9 @@ class PlainPlayer(AbstractPlayer):
         assert not self.streaming
         self.streaming = True
         if stdout:
-            threading.Thread(target=self._stream_logs, args=(self.process.stdout, line_action)).start()
+            threading.Thread(target=self._stream_logs, args=(self.process.stdout, line_action), daemon=True).start()
         if stderr:
-            threading.Thread(target=self._stream_logs, args=(self.process.stderr, line_action)).start()
+            threading.Thread(target=self._stream_logs, args=(self.process.stderr, line_action), daemon=True).start()
 
     def _stream_logs(self, stream, line_action):
         for line in stream:

@@ -16,7 +16,7 @@ class ProxyUploader():
             self.update_every = 1
         self.url = os.environ['SCRIMMAGE_PROXY_URL']
         self.secret = os.environ['SCRIMMAGE_PROXY_SECRET']
-        self.thread = threading.Thread(target=self.run_forever, args=())
+        self.thread = threading.Thread(target=self.run_forever, args=(), daemon=True)
         self.thread.start()
 
     def run_forever(self):
