@@ -4,8 +4,6 @@ class ProxyUploader():
     def __init__(self):
         self.red_id = 0
         self.blue_id = 0
-        self.red_name = 0
-        self.blue_name = 0
         self.game_id = 0
         self.game = None
         self.start = time.time()
@@ -16,11 +14,10 @@ class ProxyUploader():
             self.update_every = os.environ['SCRIMMAGE_UPDATE_EVERY']
         else:
             self.update_every = 1
-        if 'SCRIMMAGE_PROXY_URL' in os.environ and 'SCRIMMAGE_PROXY_SECRET' in os.environ:
-            self.url = os.environ['SCRIMMAGE_PROXY_URL']
-            self.secret = os.environ['SCRIMMAGE_PROXY_SECRET']
-            self.thread = threading.Thread(target=self.run_forever, args=())
-            self.thread.start()
+        self.url = os.environ['SCRIMMAGE_PROXY_URL']
+        self.secret = os.environ['SCRIMMAGE_PROXY_SECRET']
+        self.thread = threading.Thread(target=self.run_forever, args=())
+        self.thread.start()
 
     def run_forever(self):
         while not self.done:
