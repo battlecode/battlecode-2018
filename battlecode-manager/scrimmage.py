@@ -8,6 +8,8 @@ import boto3
 from time import sleep
 import socket
 import time
+import nonsense
+import random
 
 ##### SCRIMMAGE SERVER 2K18 #######
 ##
@@ -61,9 +63,9 @@ class ProxyUploader():
         self.blue_name = 0
         self.game_id = 0
         self.game = None
-        self.id = random_key(20)
         self.start = time.time()
         self.games_run = 0
+        self.id = random.choice(nonsense.NONSENSE) + '-' + random.choice(nonsense.NONSENSE)
 
     def run_forever(self):
         import json
@@ -72,12 +74,12 @@ class ProxyUploader():
                 self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.socket.settimeout(30)
                 self.socket.connect(self.url, 56147)
-                self.f = self.socket.makefile()
+                self.f = self.socket.makefile('rwb')
                 while True:
                     msg = {
                         "id": self.id,
                         "secret": self.secret,
-                        "uptime": int((time.time() - self.start) * 1000),
+                        "uptime_ms": int((time.time() - self.start) * 1000),
                         "games_run": self.games_run
                     }
                     if self.game is not None:
@@ -87,7 +89,7 @@ class ProxyUploader():
                         game['blue']['id'] = self.blue_id
                         msg['game'] = game
 
-                    self.f.write(json.dumps(msg))
+                    self.f.write((json.dumps(msg) + '\n').encode('utf-8'))
                     self.f.flush()
                     m = next(self.f)
                     assert m.strip() == 'ok', 'wrong resp: {}'.format(m.strip())
