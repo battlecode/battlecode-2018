@@ -538,7 +538,8 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             '''
             This handles the connection to the viewer
             '''
-            for message in self.game.get_next_message():
+            print("Got Here")
+            for message in self.game.get_viewer_messages():
                 # TODO check this schema works for the viewer
                 self.send_message(message)
 

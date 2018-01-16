@@ -8,6 +8,10 @@ import signal
 import psutil
 import player_plain
 import battlecode as bc
+import zipfile
+import requests
+import base64
+
 
 target_dir = os.path.abspath(os.path.dirname(__file__))
 print('Moving into', target_dir)
@@ -22,7 +26,99 @@ print('Starting eel')
 
 eel.init('web')
 
+CLIENT_ID = 'YmF0dGxlY29kZXdlYmFwcDpKQlVZOVZFNjkyNDNCWUM5MDI0Mzg3SEdWWTNBUUZL'
 game = None
+
+
+def get_token(username, password):
+    headers = {}
+    headers['authorization'] = "Basic " + CLIENT_ID
+    data = {}
+    data['grant_type'] = 'password'
+    data['username'] = username
+    data['password'] = password
+    data['client_id'] = CLIENT_ID
+    req = requests.post("http://www.battlecode.org/oauth/token", headers=headers, data=data)
+    print(req.text)
+    return req
+
+
+@eel.expose
+def upload_scrim_server(return_args):
+    cwd = os.getcwd()
+    if 'NODOCKER' in os.environ:
+        os.chdir('..')
+    else:
+        os.chdir('/player')
+    os.chdir(return_args['file_name'])
+    zip_file_name = os.path.abspath(os.path.join('../',
+        return_args['file_name']))
+    if not zip_file_name.endswith('.zip'):
+        zip_file_name += '.zip'
+    files = [f for f in os.listdir('.')]
+
+    with zipfile.ZipFile(zip_file_name, 'w', zipfile.ZIP_DEFLATED) as myzip:
+        for f in files:
+            myzip.write(f)
+
+    os.chdir(cwd)
+    username = return_args['username']
+    password = return_args['password']
+    req = get_token(username, password)
+    if req.status_code != 200:
+        print("Error authenticating.")
+        return "Error authenticating."
+
+    token = json.loads(req.text)['access_token']
+    headers = {}
+    headers['Authorization'] = 'Bearer ' + token
+    data = {}
+    data['label'] = return_args['player']
+    with open(zip_file_name, 'rb') as image_file:
+        encoded_string = base64.b64encode(image_file.read())
+    data['src'] = encoded_string
+    res =  requests.post("https://battlecode.org/apis/submissions", headers=headers, data=data)
+    return "success"
+
+
+
+@eel.expose
+def save_logs(file_name):
+    if 'NODOCKER':
+        file_name = os.path.abspath(os.path.join('..', file_name))
+    else:
+        file_name = os.path.abspath(os.path.join('/player/', file_name))
+
+    output_string = ""
+    if game != None:
+        if all('logger' in player for player in game.players):
+            for i in range(len(game.players)):
+                player = game.players[i]
+                log_header = "\n\n\n\n\n\n======================================\n"
+                if i % 2 == 0:
+                    log_header += "Red "
+                else:
+                    log_header += "Blue "
+                if i < 2:
+                    log_header += "Earth"
+                else:
+                    log_header += "Mars"
+                log_header += "\n\n"
+                logs = log_header + player['logger'].logs.getvalue()
+                output_string += logs
+    else:
+        # This should never run. Game needs to be started to call this modal
+        return ""
+
+    try:
+        with open(file_name, 'w') as f:
+            f.write(output_string)
+        return ""
+
+    except Exception as e:
+        print("There was an error dumping the logs")
+        print(e)
+        return str(e)
 
 def start_game(return_args):
     global WINNER
@@ -80,6 +176,7 @@ def start_game(return_args):
 
 @eel.expose
 def get_viewer_data(turn):
+    turn = int(turn)
     if game != None and len(game.manager_viewer_messages) >= 1:
         if turn >= len(game.manager_viewer_messages) or turn == -1:
             turn = len(game.manager_viewer_messages) - 1
@@ -87,7 +184,7 @@ def get_viewer_data(turn):
         message = json.loads(game.manager_viewer_messages[turn])
         message['turn'] = turn
         return message
-    else :
+    else:
         return {'width':0, 'height': 0, 'earth' : [], 'mars': [], 'turn':0}
 
 @eel.expose

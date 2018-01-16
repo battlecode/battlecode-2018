@@ -30,10 +30,9 @@
             <button class="delete" onclick="document.getElementById('warning').style.display='none'"></button>
             <strong> Fatal error. </strong> <span id="warning-text"></span>
         </div>
-
-        <div class="notification is-success" style="display:none" id="winner">
-            <button class="delete" onclick="document.getElementById('winner').style.display='none'"></button>
-            <strong> Game completed. </strong> Winner is <span id="winner-text">.</span>
+        <div class="notification is-success" style="display:none" id="upload-report">
+            <button class="delete" onclick="document.getElementById('upload-report').style.display='none'"></button>
+            <strong> Upload success! </strong> <span id="upload-text"></span>
         </div>
 
 
@@ -127,6 +126,12 @@
         </div>
 
         <div class="field has-addons" style="float:right">
+            <button onclick="upload_modal()" style="margin-right:10px"
+                                             class="button is-primary">
+                <span class="icon">
+                    <i class="fa fa-cloud-upload"></i>
+                </span><span>Upload Player</span>
+            </button>
             <button onclick="eel.stop_manager()()" style="margin-right:10px" class="button is-danger">
                 <span class="icon">
                     <i class="fa fa-stop-circle-o"></i>
@@ -139,37 +144,79 @@
                 <span>Run Game</span>
             </button>
         </div>
+
     </section>
 
+
     <section class="section" style="flex:1;display:none" id="running_view">
+        <div class="notification is-success" style="display:none" id="winner">
+            <button class="delete" onclick="document.getElementById('winner').style.display='none'"></button>
+            <strong> Game completed. </strong> Winner is <span id="winner-text">.</span>
+        </div>
+
         <div class="tile is-ancestor">
-            <div class="tile is-4 is-vertical is-parent">
-                <div class="tile is-child" style="text-align:center">
-                    <canvas id="earth"></canvas>
+            <div class="tile is-vertical is-8">
+                <div class="tile is-parent">
+                    <article class="tile is-child">
+                        <div class="content">
+                            <input id="slider" style="width:100%" type="range" min="0" max="0" value="0" >
+                        </div>
+                    </article>
                 </div>
-            </div>
-            <div class="tile is-4 is-vertical is-parent">
-                <div class="tile is-child" style="text-align:center">
-                    <canvas id="mars"></canvas>
+                <div class="tile">
+                    <div class="tile is-parent is-6 is-vertical">
+                        <article class="tile is-child">
+                            <canvas id="earth"></canvas>
+                        </article>
+                    </div>
+                    <div class="tile is-6 is-parent is-vertical">
+                        <article class="tile is-child">
+                            <canvas id="mars"></canvas>
+                        </article>
+                    </div>
                 </div>
             </div>
             <div class="tile is-parent">
-                <div class="tile is-child">
-                    <a onclick="trigger_end_game()" style="width:100%" class="button is-warning">
-                        <span class="icon">
-                            <i class="fa fa-times-circle"></i>
-                        </span><span>End game</span>
-                    </a><br /><br />
+                <article class="tile is-child">
+                    <div class="content" style="text-align:center">
+                        <a onclick="trigger_exit_viewer()" style="width:100%" class="button is-warning">
+                            <span class="icon">
+                                <i class="fa fa-arrow-up"></i>
+                            </span><span>Exit Viewer</span>
+                        </a><br /><br />
 
-                    <a onclick="eel.stop_manager()()" style="width:100%" class="button is-danger">
-                        <span class="icon">
-                            <i class="fa fa-stop-circle-o"></i>
-                        </span><span>Stop manager</span>
-                    </a>
-                </div>
+                        <a onclick="use_latest()" style="width:100%" class="button is-primary">
+                            <span class="icon">
+                                <i class="fa fa-refresh"></i>
+                            </span><span>View live</span>
+                        </a><br /><br />
+
+
+                        <a onclick="trigger_end_game()" style="width:100%" class="button is-warning">
+                            <span class="icon">
+                                <i class="fa fa-times-circle"></i>
+                            </span><span>End game</span>
+                        </a><br /><br />
+
+                        <a onclick="eel.stop_manager()()" style="width:100%" class="button is-danger">
+                            <span class="icon">
+                                <i class="fa fa-stop-circle-o"></i>
+                            </span><span>Stop manager</span>
+                        </a><br /><br />
+
+                        <h1 class="title" id="turn_field">0</h1>
+                    </div>
+                    <div>
+                        <a onclick="trigger_save_logs()" style="width:100%"
+                                                         class="button is-link">
+                            <span class="icon">
+                                <i class="fa fa-download"></i>
+                            </span><span>Save Logs</span>
+                        </a><br /><br />
+                    </div>
+                </article>
             </div>
         </div>
-
         <div class="tile is-ancestor">
             <div class="tile is-parent">
                 <div class="tile is-child box" style="overflow:scroll">
@@ -203,19 +250,124 @@
         <div class="container">
             <div class="content has-text-centered">
                 <p>
-                    <strong>Battlecode: Escape to Mars</strong> by <a href="http://battlecode.org/">MIT Battlecode</a>. Version 0.11.1
+                    <strong>Battlecode: Escape to Mars</strong> by <a href="http://battlecode.org/">MIT Battlecode</a>. Version 0.11.3
                 </p>
             </div>
         </div>
     </footer>
+    <div class="modal" id="upload_modal">
+        <div class="modal-background"></div>
+        <div class="modal-card">
+            <header class="modal-card-head">
+                <p class="modal-card-title">Upload Bot</p>
+                <button onclick="close_upload()" class="delete" aria-label="close"></button>
+            </header>
+            <div class="modal-card-body">
+                <div class="notification is-warning" style="display:none" id="upload-error">
+                    <button class="delete" onclick="document.getElementById('upload-error').style.display='none'"></button>
+                    <strong> Upload failed. </strong> <span id="upload-error-text"></span>
+                </div>
+                <div class="content">
+                    <table class="table is-fullwidth"><tbody>
+                        <tr>
+                            <td>Username</td>
+                            <td><input class="input" type="text"
+                                                     id="upload_username"></td>
+                        </tr>
+                        <tr>
+                            <td>Password</td>
+                            <td><input class="input" type="password"
+                                                     id="upload_password"></td>
+                        </tr>
+                        <tr>
+                            <td>Player Directory</td>
+                            <td><div class="select" style="width:100%">
+                                <select style="width:100%"
+                                    id='upload_players'>
+                                </select>
+                            </div></td>
+                        </tr>
+
+                        <tr>
+                            <td>Upload Name</td>
+                            <td><input class="input" type="text"
+                                                     value="bot 1"
+                                                     id="upload_name"></td>
+                        </tr>
+                    </tbody></table>
+                    <button id="upload" class="button is-success"
+                        align="right">
+                        <span class="icon">
+                            <i class="fa fa-rocket"></i>
+                        </span>
+                        <span>Upload bot</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="download_modal">
+        <div class="modal-background"></div>
+        <div class="modal-content">
+            <div class="modal-card">
+                <div class="modal-card-head">
+                    <span style="float:right">
+                        <p class="title">
+                        Download Logs
+                        </p>
+                    </span>
+                    <span styple="text-align:right; widht:100%; float:right"
+                          align="right">
+                        <a onclick="close_download()" style="float:right"
+                            class="button" align="right">
+                            <span class="icon">
+                                <i class="fa fa-window-close"></i>
+                        </a><br /><br />
+                    </span>
+                </div>
+                <div class="modal-card-body">
+                <article class="tile is-child notification is-white">
+                    <div class="content">
+                        <div class="content">
+                            <div class="field">
+                                <tr>
+                                    <td>Log File Name</td>
+                                    <td><input class="input" type="text"
+                                                             value="logs.txt"
+                                                             id="download_file_name"></td>
+                                </tr>
+                            </div>
+                            <button id="download" class="button is-success"
+                                align="right">
+                                <span class="icon">
+                                    <i class="fa fa-download"></i>
+                                </span>
+                                <span>Download logs</span>
+                            </button>
+                        </div>
+                    </div>
+                </article>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script type="text/javascript" src="/eel.js"></script>
+
     <script>
 
-    var modal = document.querySelector('.modal');
+    var viewer_cache = {}
+    var view_latest = true;
+
+    var modal = document.getElementById("upload_modal")
     var html = document.querySelector('html');
     var earth = document.getElementById("earth");
     var mars = document.getElementById("mars");
+    var slider = document.getElementById("slider");
+    var turn_field = document.getElementById("turn_field")
+    var log_modal = document.getElementById("download_modal")
+
     function alert_error(message) {
         document.getElementById('warning-text').innerText = message;
         document.getElementById('warning').style.display='block';
@@ -225,6 +377,17 @@
         message = winner==1 ? "red team" : "blue team";
         document.getElementById('winner-text').innerText = message;
         document.getElementById('winner').style.display='block';
+    }
+
+    function upload_success(message) {
+        document.getElementById('upload-text').innerText = message;
+        document.getElementById('upload-report').style.display='block';
+        document.getElementById('upload-error').style.display='none';
+    }
+
+    function upload_error(message) {
+        document.getElementById('upload-error-text').innerText = message;
+        document.getElementById('upload-error').style.display='block';
     }
 
     function draw_grid(canvas, width, height, pixels, earth)  {
@@ -288,10 +451,12 @@
 
         red = document.getElementById("red")
         blue = document.getElementById("blue")
+        upload = document.getElementById("upload_players")
         folders.forEach(function(folder) {
             if (folder.charAt(0) != '.') {
                 red.innerHTML += "<option value='" + folder + "'>" + folder + "</option>";
                 blue.innerHTML += "<option value='" + folder + "'>" + folder + "</option>";
+                upload .innerHTML +="<option value='" + folder + "'>" + folder + "</option>";
             }
         });
 
@@ -343,14 +508,55 @@
         return true;
     }
 
-    eel.expose(trigger_end_game);
-    function trigger_end_game(winner) {
+    function trigger_save_logs() {
+      download_modal.classList.add('is-active')
+    }
+
+   function close_download(){
+      download_modal.classList.remove('is-active')
+   }
+
+    function trigger_exit_viewer() {
         document.getElementById('runner_view').style.display = "block";
         document.getElementById('running_view').style.display = "none";
-
+        viewer_cache = {}
         clearInterval(interval);
         eel.end_game();
+   }
+
+   function close_upload(){
+      modal.classList.remove('is-active')
+   }
+
+   function upload_modal(){
+      modal.classList.add('is-active')
+
+   }
+
+    eel.expose(trigger_end_game);
+    function trigger_end_game(winner) {
+        eel.end_game();
         report_winner(winner);
+    }
+
+
+    slider.addEventListener('input', function (evt) {
+        view_latest = false;
+
+        render_turn(this.value);
+    });
+
+    function use_latest() {
+        view_latest = true;
+    }
+
+    async function render_turn(turn) {
+        var maps = (turn in viewer_cache) ? viewer_cache[turn] : await eel.get_viewer_data(4*turn)();
+
+        draw_grid(earth,maps['width'],maps['height'],maps['earth'],true);
+        draw_grid(mars,maps['width'],maps['height'],maps['mars'],false);
+
+        turn_field.innerText = turn;
     }
 
     function display_logs(params) {
@@ -363,12 +569,58 @@
             logs = await eel.get_player_logs()();
             for (var i=0; i<4; i++) elements[i].innerText = logs[i];
 
-            var index = -1;
-            var maps = await eel.get_viewer_data(index)();
-            draw_grid(earth,maps['width'],maps['height'],maps['earth'],true);
-            draw_grid(mars,maps['width'],maps['height'],maps['mars'],false);
+            var maps = await eel.get_viewer_data(-1)();
+            var turn = Math.floor(maps['turn']/4);
+            viewer_cache[turn] = maps;
+
+            slider.max = max_turn = turn;
+
+            if (view_latest) {
+                slider.value = turn;
+                render_turn(turn);
+            }
         },300);
     }
+
+    document.onkeydown = function(e) {
+        //e = e || window.event;
+        if (e.keyCode == '37' && slider.value > 0) {
+           e.preventDefault();
+           view_latest = false;
+           slider.value = slider.value - 1;
+           render_turn(slider.value);
+       } else if (e.keyCode == '39' && slider.value < slider.max) {
+           e.preventDefault();
+           view_latest = false;
+           slider.value = slider.value + 1;
+           render_turn(slider.value);
+        }
+    }
+    var upload = document.getElementById("upload")
+    upload.onclick = async function() {
+        var params = {}
+        params['player'] = document.getElementById('upload_name').value;
+        params['username'] = document.getElementById('upload_username').value;
+        params['password'] = document.getElementById('upload_password').value;
+
+        params['file_name'] = document.getElementById("upload_players");
+        params['file_name'] = params['file_name'].options[params['file_name'].selectedIndex].value;
+
+        var response = await eel.upload_scrim_server(params)();
+        if (response == 'success') {
+            close_upload();
+            upload_success("Uploaded " + params['file_name'] + ".");
+        } else upload_error(response);
+   }
+
+    var download = document.getElementById("download")
+    download.onclick = async function() {
+        var file_name = document.getElementById('download_file_name').value;
+        var error = await eel.save_logs(file_name)()();
+
+        console.log(error);
+
+   }
 
     var submit = document.getElementById("submit")
     submit.onclick = async function() {
