@@ -17,9 +17,9 @@ fi
 echo "=== STARTING THE MANAGER (no docker) ==="
 echo "=== ensuring dependencies ==="
 mtput setaf 5
-echo "$ pip3 install --user cffi eel tqdm werkzeug psutil"
+echo "$ pip3 install --user cffi eel tqdm werkzeug psutil requests"
 mtput sgr0
-pip3 install --user cffi eel tqdm werkzeug psutil
+pip3 install --user cffi eel tqdm werkzeug psutil requests
 RESULT=$?
 if [ $RESULT -ne 0 ]; then
     echo "Warning: pip install failed!"
