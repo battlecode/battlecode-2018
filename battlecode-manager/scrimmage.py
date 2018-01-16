@@ -6,7 +6,8 @@ import battlecode_cli as cli
 import threading
 import boto3
 from time import sleep
-
+import socket
+import time
 
 ##### SCRIMMAGE SERVER 2K18 #######
 ##
@@ -42,6 +43,60 @@ bucket = s3.Bucket(os.environ['BUCKET_NAME'])
 
 def random_key(length):
     return ''.join([random.choice(string.ascii_letters + string.digits + string.digits) for _ in range(length)])
+
+class ProxyUploader():
+    def __init__(self):
+        if 'SCRIMMAGE_PROXY_URL' in os.environ and 'SCRIMMAGE_PROXY_SECRET' in os.environ:
+            self.url = os.environ['SCRIMMAGE_PROXY_URL']
+            self.secret = os.environ['SCRIMMAGE_PROXY_SECRET']
+            self.thread = threading.Thread(self.run_forever, args=())
+            self.thread.start()
+        if 'SCRIMMAGE_UPDATE_EVERY' in os.environ:
+            self.update_every = os.environ['SCRIMMAGE_UPDATE_EVERY']
+        else:
+            self.update_every = 1
+        self.red_id = 0
+        self.blue_id = 0
+        self.red_name = 0
+        self.blue_name = 0
+        self.game_id = 0
+        self.game = None
+        self.id = random_key(20)
+        self.start = time.time()
+        self.games_run = 0
+
+    def run_forever(self):
+        import json
+        while True:
+            try:
+                self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.socket.settimeout(30)
+                self.socket.connect(self.url, 56147)
+                self.f = self.socket.makefile()
+                while True:
+                    msg = {
+                        "id": self.id,
+                        "secret": self.secret,
+                        "uptime": int((time.time() - self.start) * 1000),
+                        "games_run": self.games_run
+                    }
+                    if self.game is not None:
+                        game = self.game.state_report()
+                        game['id'] = self.game_id
+                        game['red']['id'] = self.red_id
+                        game['blue']['id'] = self.blue_id
+                        msg['game'] = game
+
+                    self.f.write(json.dumps(msg))
+                    self.f.flush()
+                    m = next(self.f)
+                    assert m.strip() == 'ok', 'wrong resp: {}'.format(m.strip())
+                    time.sleep(self.update_every)
+            except Exception as e:
+                print('some sort of failure', e)
+            time.sleep(30)
+
+UPLOADER = ProxyUploader()
 
 def end_game(data,winner,match_file,logs):
     global BUSY
@@ -86,6 +141,7 @@ def match_thread(data):
 
     data['player_memory'] = 256
     data['player_cpu'] = 20
+    data['map_name'] = data['map']
 
     data['map'] = cli.get_map(os.path.abspath(os.path.join('..', 'battlecode-maps', data['map'])))
     data['docker'] = True
@@ -128,7 +184,7 @@ def poll_thread():
             sleep(0.1)
         DB_LOCK = True
 
-        cur.execute("SELECT (id, red_key, blue_key, map) FROM " + os.environ["TABLE_NAME"] + " WHERE status='queued' or (status='running' and start < (NOW() - INTERVAL '5 min')) ORDER BY start ASC")
+        cur.execute("SELECT (id, red_key, blue_key, map, red_team, blue_team) FROM " + os.environ["TABLE_NAME"] + " WHERE status='queued' or (status='running' and start < (NOW() - INTERVAL '5 min')) ORDER BY start ASC")
 
         row = cur.fetchone()
 
@@ -143,6 +199,13 @@ def poll_thread():
                 BUSY = True
                 cur.execute("UPDATE " + os.environ['TABLE_NAME'] + " SET status='running', start=NOW() WHERE id=%s",(data['id'],))
                 pg.commit()
+
+                try:
+                    PROXY_UPLOADER.game_id = row[0]
+                    PROXY_UPLOADER.red_id = row[4]
+                    PROXY_UPLOADER.blue_id = row[5]
+                except Exception as e:
+                    print("error setting team data:", e)
 
                 run_match(data)
 

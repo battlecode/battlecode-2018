@@ -34,6 +34,7 @@ def run_game(map_path, player1dir, player2dir, replay_dir, docker, terminal_view
     args['use_viewer'] = False
     args['terminal_viewer'] = terminal_viewer
     args['extra_delay'] = extra_delay
+    args['map_name'] = map_path
     args['map'] = cli.get_map(map_path)
 
     if terminal_viewer and sys.platform == 'win32' and not CINIT:

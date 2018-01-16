@@ -27,6 +27,7 @@ game = None
 def start_game(return_args):
     global WINNER
     WINNER = 0
+    return_args['map_name'] = return_args['map']
 
     # check mountpoint for maps first
     c2 = os.path.abspath(os.path.join('/player/battlecode-maps', return_args['map']))

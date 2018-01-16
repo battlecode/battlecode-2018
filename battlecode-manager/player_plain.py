@@ -56,6 +56,20 @@ class PlainPlayer(AbstractPlayer):
         cwd = self.working_dir
         self.process = psutil.Popen(args, env=env, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=-1)
 
+    def guess_language(self):
+        children = self.process.children(recursive=True)
+        for c in children:
+            name = c.exe()
+            if "java" in name:
+                return "jvm"
+            elif "python" in name:
+                return "python"
+            elif "pypy" in name:
+                return "pypy"
+            elif "mono" in name:
+                return "mono"
+        return "c"
+
     def pause(self):
         # pausing too slow on windows
         if sys.platform == 'win32': return

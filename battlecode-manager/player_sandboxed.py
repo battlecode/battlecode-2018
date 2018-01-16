@@ -71,6 +71,20 @@ class SandboxedPlayer(AbstractPlayer):
 
         #cap_drop=['chown, dac_override, fowner, fsetid, kill, setgid, setuid, setpcap, net_bind_service, net_raw, sys_chroot, mknod, audit_write, setfcap'],cpu_period=100000,cpu_quota=self.player_cpu_fraction*100000,
 
+    def guess_language(self):
+        procs = self.container.top()['Processes']
+        for p in procs:
+            name = p[3]
+            if "java" in name:
+                return "jvm"
+            elif "python" in name:
+                return "python"
+            elif "pypy" in name:
+                return "pypy"
+            elif "mono" in name:
+                return "mono"
+        return "c"
+
     def pause(self):
         # see suspender.py
         # we don't go through docker.suspend or docker.exec because they're too slow (100ms)
