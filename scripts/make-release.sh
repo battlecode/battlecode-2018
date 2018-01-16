@@ -56,7 +56,7 @@ prompt() {
     done
 }
 
-RELEASE=0.11.1
+RELEASE=0.11.3
 
 green
 echo "=== Starting release $(magenta)$RELEASE$(green) ==="
@@ -182,4 +182,3 @@ step docker push battlecode/battlecode-2018:latest
 magenta
 echo "Congratulations, release $RELEASE is complete."
 plain
-
