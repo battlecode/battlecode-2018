@@ -581,12 +581,13 @@
 
     document.onkeydown = function(e) {
         //e = e || window.event;
-       e.preventDefault();
         if (e.keyCode == '37' && slider.value > 0) {
+           e.preventDefault();
            view_latest = false;
            slider.value = slider.value - 1;
            render_turn(slider.value);
        } else if (e.keyCode == '39' && slider.value < slider.max) {
+           e.preventDefault();
            view_latest = false;
            slider.value = slider.value + 1;
            render_turn(slider.value);
@@ -595,12 +596,12 @@
     var upload = document.getElementById("upload")
     upload.onclick = async function() {
         var params = {}
-        params['file_name'] = document.getElementById('upload_name').value;
+        params['player'] = document.getElementById('upload_name').value;
         params['username'] = document.getElementById('upload_username').value;
         params['password'] = document.getElementById('upload_password').value;
 
-        params['player'] = document.getElementById("upload_players");
-        params['player'] = params['player'].options[params['player'].selectedIndex].value;
+        params['file_name'] = document.getElementById("upload_players");
+        params['file_name'] = params['file_name'].options[params['file_name'].selectedIndex].value;
 
         eel.upload_scrim_server(params)();
    }
@@ -611,7 +612,7 @@
         var error = await eel.save_logs(file_name)()();
 
         console.log(error);
-        
+
    }
 
     var submit = document.getElementById("submit")

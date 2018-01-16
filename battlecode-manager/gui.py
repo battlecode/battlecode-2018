@@ -29,15 +29,10 @@ eel.init('web')
 CLIENT_ID = 'YmF0dGxlY29kZXdlYmFwcDpKQlVZOVZFNjkyNDNCWUM5MDI0Mzg3SEdWWTNBUUZL'
 game = None
 
-def zipdir(path, zip_file):
-    excess_name = os.path.dirname(path)
-    for _, _, files in os.walk(path):
-        for file_name in files:
-            zip_file.write(file_name)
 
 def get_token(username, password):
     headers = {}
-    headers = "Basic " + CLIENT_ID
+    headers['authorization'] = "Basic " + CLIENT_ID
     data = {}
     data['grant_type'] = 'password'
     data['username'] = username
@@ -55,36 +50,41 @@ def upload_scrim_server(return_args):
     if 'NODOCKER' in os.environ:
         os.chdir('..')
     else:
-        os.chdir('./player')
-    os.chdir(return_args['player'])
+        os.chdir('/player')
+    os.chdir(return_args['file_name'])
     zip_file_name = os.path.abspath(os.path.join('../',
         return_args['file_name']))
     print(zip_file_name)
     if not zip_file_name.endswith('.zip'):
         zip_file_name += '.zip'
-    zip_file = zipfile.ZipFile(zip_file_name, 'w', zipfile.ZIP_DEFLATED)
-    zipdir('./', zip_file)
+    files = [f for f in os.listdir('.')]
+
+    with zipfile.ZipFile(zip_file_name, 'w', zipfile.ZIP_DEFLATED) as myzip:
+        for f in files:
+            print('file ' + str(f))
+            myzip.write(f)
 
     os.chdir(cwd)
     username = return_args['username']
     password = return_args['password']
     req = get_token(username, password)
-    if req.status != 200:
+    if req.status_code != 200:
+        print("Error authenticating.")
         # Handle Error Case
         # Trigger some js error message saying try again
         return
 
-    token = req.text['access_token']
+    token = json.loads(req.text)['access_token']
     headers = {}
     headers['Authorization'] = 'Bearer ' + token
     data = {}
-    data['label'] = return_args['file_name']
+    data['label'] = return_args['player']
     with open(zip_file_name, 'rb') as image_file:
-        encoded_string = base64.b64encode(image_file.read)
+        encoded_string = base64.b64encode(image_file.read())
     data['src'] = encoded_string
-    res =  requests.post("http://battlecode.org/apis/submission", headers=headers, data=data)
+    res =  requests.post("https://battlecode.org/apis/submissions", headers=headers, data=data)
     print(res)
-    
+
 
 
 @eel.expose
