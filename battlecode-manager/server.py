@@ -586,7 +586,6 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             '''
             This handles the connection to the viewer
             '''
-            print("Got Here")
             for message in self.game.get_viewer_messages():
                 # TODO check this schema works for the viewer
                 self.send_message(message)
@@ -634,7 +633,6 @@ def start_server(sock_file: str, game: Game, dockers, use_docker=True) -> socket
 
     def wait_for_connections():
         time.sleep(BUILD_TIMEOUT)
-        print('checking builds...')
         for player in game.players:
             if not player['built_successfully']:
                 print('Player failed to connect to manager after',BUILD_TIMEOUT,'seconds:', player['player'])

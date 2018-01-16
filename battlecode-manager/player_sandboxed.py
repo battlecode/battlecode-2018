@@ -112,7 +112,6 @@ class SandboxedPlayer(AbstractPlayer):
             print("resumption failed:", e)
 
     def destroy(self):
-        print('sp des')
         try:
             self.container.remove(force=True)
         except Exception as e:
