@@ -59,18 +59,7 @@ class SandboxedPlayer(AbstractPlayer):
             auto_remove = True,
             network_disabled=True
         )
-
-        try:
-            # wait for suspender script to connect from player host
-            connection, _ = self.suspender_socket.accept()
-            self.suspender_connection = connection
-            self.suspender_file = self.suspender_connection.makefile('rw', 64)
-        except:
-            print('suspender timed out')
-
-        login = next(self.suspender_file)
-
-        assert int(login.strip()) == self.player_key, 'mismatched suspension login: {} != {}'.format(repr(login.strip()), repr(self.player_key))
+        self.suspender_connection = None
 
     def guess_language(self):
         procs = self.container.top()['Processes']
@@ -85,8 +74,21 @@ class SandboxedPlayer(AbstractPlayer):
             elif "mono" in name:
                 return "mono"
         return "c"
+    
+    def suspinit():
+        if self.suspender_connection == None:
+            try:
+                # wait for suspender script to connect from player host
+                connection, _ = self.suspender_socket.accept()
+                self.suspender_connection = connection
+                self.suspender_file = self.suspender_connection.makefile('rw', 64)
+                login = next(self.suspender_file)
+                assert int(login.strip()) == self.player_key, 'mismatched suspension login: {} != {}'.format(repr(login.strip()), repr(self.player_key))
+            except Exception as e:
+                print('suspender timed out', e)
 
     def pause(self):
+        suspinit()
         # see suspender.py
         # we don't go through docker.suspend or docker.exec because they're too slow (100ms)
         try:
@@ -98,6 +100,7 @@ class SandboxedPlayer(AbstractPlayer):
             print("SUSPENSION FAILED!!! SUSPICIOUS:", e)
 
     def unpause(self, timeout=None):
+        suspinit()
         # see suspender.py
         # we don't go through docker.suspend or docker.exec because they're too slow (100ms)
         try:
@@ -109,6 +112,7 @@ class SandboxedPlayer(AbstractPlayer):
             print("resumption failed:", e)
 
     def destroy(self):
+        print('sp des')
         try:
             self.container.remove(force=True)
         except Exception as e:
