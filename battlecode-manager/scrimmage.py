@@ -121,6 +121,7 @@ def poll_thread():
 
             if not BUSY:
                 BUSY = True
+                print('Running game ' + str(data))
                 cur.execute("UPDATE " + os.environ['TABLE_NAME'] + " SET status='running', start=NOW() WHERE id=%s",(data['id'],))
                 pg.commit()
 
