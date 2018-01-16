@@ -1,6 +1,5 @@
 //! Simple data structures to represent locations, directions, and planets.
 
-use failure::Error;
 use std::u32;
 use location::Direction::*;
 use super::error::GameError;
@@ -211,7 +210,7 @@ impl MapLocation {
     /// If the locations are equal this method returns Center.
     ///
     /// * DifferentPlanet - The locations are on different planets.
-    pub fn direction_to(&self, o: MapLocation) -> Result<Direction, Error> {
+    pub fn direction_to(&self, o: MapLocation) -> Result<Direction, GameError> {
         if self.planet != o.planet {
             Err(GameError::DifferentPlanet)?;
         }
@@ -330,7 +329,7 @@ impl Location {
     ///
     /// * UnitNotOnMap - The unit is in a garrison or in space, and does not
     ///   have a map location.
-    pub fn map_location(&self) -> Result<MapLocation, Error> {
+    pub fn map_location(&self) -> Result<MapLocation, GameError> {
         match *self {
             Location::OnMap(map_loc) => Ok(map_loc),
             _ => Err(GameError::UnitNotOnMap)?,
@@ -348,7 +347,7 @@ impl Location {
     /// The structure whose garrison the unit is in.
     ///
     /// * UnitNotInGarrison - the unit is not in a garrison.
-    pub fn structure(&self) -> Result<UnitID, Error> {
+    pub fn structure(&self) -> Result<UnitID, GameError> {
         match *self {
             Location::InGarrison(id) => Ok(id),
             _ => Err(GameError::UnitNotInGarrison)?,
