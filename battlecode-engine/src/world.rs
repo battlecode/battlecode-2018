@@ -3492,8 +3492,8 @@ mod tests {
         let mars_enemy = world.create_unit(Team::Blue, mars_loc.add(Direction::East), UnitType::Healer).unwrap();
 
         // go to red mars turn
-        world.end_turn();
-        world.end_turn();
+        world.end_turn(FILLER_TIME);
+        world.end_turn(FILLER_TIME);
 
         // sense that unit
         let player = Player::new(Team::Red, Planet::Mars);
