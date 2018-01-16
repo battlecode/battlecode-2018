@@ -75,7 +75,7 @@ class SandboxedPlayer(AbstractPlayer):
                 return "mono"
         return "c"
     
-    def suspinit():
+    def suspinit(self):
         if self.suspender_connection == None:
             try:
                 # wait for suspender script to connect from player host
@@ -88,7 +88,7 @@ class SandboxedPlayer(AbstractPlayer):
                 print('suspender timed out', e)
 
     def pause(self):
-        suspinit()
+        self.suspinit()
         # see suspender.py
         # we don't go through docker.suspend or docker.exec because they're too slow (100ms)
         try:
@@ -100,7 +100,7 @@ class SandboxedPlayer(AbstractPlayer):
             print("SUSPENSION FAILED!!! SUSPICIOUS:", e)
 
     def unpause(self, timeout=None):
-        suspinit()
+        self.suspinit()
         # see suspender.py
         # we don't go through docker.suspend or docker.exec because they're too slow (100ms)
         try:
