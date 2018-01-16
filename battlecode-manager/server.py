@@ -119,7 +119,7 @@ class Game(object): # pylint: disable=too-many-instance-attributes
             "id": 0, #unknown
             "map": name,
             "round": self.manager.round(),
-            "time": int((time.time() - self.start_time) / 1000),
+            "time": int((time.time() - self.start_time) * 1000),
             "red": {
                 "id": 0,
             },
