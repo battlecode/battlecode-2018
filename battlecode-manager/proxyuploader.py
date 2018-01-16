@@ -14,10 +14,13 @@ class ProxyUploader():
             self.update_every = os.environ['SCRIMMAGE_UPDATE_EVERY']
         else:
             self.update_every = 1
-        self.url = os.environ['SCRIMMAGE_PROXY_URL']
-        self.secret = os.environ['SCRIMMAGE_PROXY_SECRET']
-        self.thread = threading.Thread(target=self.run_forever, args=(), daemon=True)
-        self.thread.start()
+        if 'SCRIMMAGE_PROXY_URL' in os.environ:
+            self.url = os.environ['SCRIMMAGE_PROXY_URL']
+            self.secret = os.environ['SCRIMMAGE_PROXY_SECRET']
+            self.thread = threading.Thread(target=self.run_forever, args=(), daemon=True)
+            self.thread.start()
+        else:
+            print("Not chatting with scrimmage proxy.")
 
     def run_forever(self):
         while not self.done:
