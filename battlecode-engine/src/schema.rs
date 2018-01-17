@@ -115,6 +115,7 @@ pub struct ViewerUnitInfo {
     pub unit_type: UnitType,
     pub health: u32,
     pub location: MapLocation,
+    pub team: Team,
 }
 
 /// Additional information that the viewer may need.
