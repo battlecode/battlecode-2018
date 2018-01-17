@@ -72,6 +72,9 @@ while True:
         sleep(0.1)
     DB_LOCK = True
 
+    if len(QUEUED_MATCHES.keys()) > 500:
+        continue
+
     cur.execute("SELECT (battlecode_teams.id, battlecode_teams.mu, battlecode_teams.sigma, s2.source_code) FROM battlecode_teams INNER JOIN (SELECT source_code, team FROM scrimmage_submissions WHERE id IN (SELECT MAX(id) from scrimmage_submissions GROUP BY team)) as s2 ON battlecode_teams.id = s2.team ORDER BY battlecode_teams.mu DESC")
     users = cur.fetchall()
 
