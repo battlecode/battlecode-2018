@@ -2288,6 +2288,7 @@ impl GameWorld {
                     unit_type: unit.unit_type(),
                     health: unit.health(),
                     location: unit.location().map_location().unwrap(),
+                    team: unit.team()
                 });
             }
         }
