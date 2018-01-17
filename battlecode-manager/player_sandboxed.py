@@ -17,7 +17,7 @@ class SandboxedPlayer(AbstractPlayer):
 
         super().__init__(socket_file, working_dir, local_dir, s3_bucket, s3_key, player_key, player_mem_limit, player_cpu)
         self.docker = docker_client
-        
+
     def stream_logs(self, stdout=True, stderr=True, line_action=lambda line: print(line.decode())):
         threading.Thread(target=_stream_logs, args=(self.container, stdout, stderr, line_action)).start()
 
@@ -74,7 +74,7 @@ class SandboxedPlayer(AbstractPlayer):
             elif "mono" in name:
                 return "mono"
         return "c"
-    
+
     def suspinit(self):
         if self.suspender_connection == None:
             try:
@@ -116,7 +116,7 @@ class SandboxedPlayer(AbstractPlayer):
             self.container.remove(force=True)
         except Exception as e:
             pass
-        
+
         try:
             self.suspender_socket.close()
         except Exception as e:
