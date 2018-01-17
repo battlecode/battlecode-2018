@@ -2210,11 +2210,15 @@ impl GameWorld {
 
     /// Applies a turn message to this GameWorld, and ends the current turn.
     /// Returns the message to send to the next player.
-    pub(crate) fn apply_turn(&mut self, turn: &TurnMessage, time_left_ms: i32) -> StartTurnMessage {
+    pub(crate) fn apply_turn(&mut self, turn: &TurnMessage, time_left_ms: i32) -> (StartTurnMessage, bool) {
+        let mut error = false;
         for delta in turn.changes.iter() {
-            self.apply(delta).unwrap();
+            if self.apply(delta).is_err() {
+                error = true;
+                break;
+            }
         }
-        self.end_turn(time_left_ms)
+        (self.end_turn(time_left_ms), error)
     }
 
     /// Determines if the game has ended, returning the winning team if so.
