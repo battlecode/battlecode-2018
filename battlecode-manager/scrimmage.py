@@ -61,7 +61,7 @@ def match_thread(data):
 
     data['s3_bucket'] = bucket
 
-    data['player_memory'] = 256
+    data['player_memory'] = int(os.environ['PLAYER_MEMORY'])
     data['player_cpu'] = 20
     data['map_name'] = data['map']
 
