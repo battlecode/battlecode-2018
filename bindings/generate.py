@@ -311,7 +311,7 @@ SentMessage.member(TurnMessage.type, "turn_message")
 
 TurnApplication = p.struct("controller::TurnApplication")
 TurnApplication.member(StartTurnMessage.type, 'start_turn')
-TurnApplication.member(boolean.type, 'start_turn_error')
+TurnApplication.member(i32.type, 'start_turn_error')
 TurnApplication.member(ViewerMessage.type, 'viewer')
 
 InitialTurnApplication = p.struct("controller::InitialTurnApplication")

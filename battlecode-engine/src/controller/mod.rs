@@ -1421,7 +1421,8 @@ impl GameController {
 #[derive(Debug, Clone)]
 pub struct TurnApplication {
     pub start_turn: StartTurnMessage,
-    pub start_turn_error: bool,
+    /// 0 if no error, otherwise there is an error
+    pub start_turn_error: i32,
     pub viewer: ViewerMessage
 }
 
