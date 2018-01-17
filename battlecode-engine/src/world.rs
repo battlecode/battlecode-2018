@@ -123,7 +123,7 @@ pub struct TeamInfo {
     units_in_space: FnvHashMap<UnitID, Unit>,
 
     /// The karbonite in the team's resource pool.
-    karbonite: u32,
+    pub karbonite: u32,
 }
 
 impl TeamInfo {
@@ -744,7 +744,7 @@ impl GameWorld {
         }
     }
 
-    fn get_team(&self, team: Team) -> &TeamInfo {
+    pub(crate) fn get_team(&self, team: Team) -> &TeamInfo {
         if let Some(team_info) = self.team_states.get(&team) {
             team_info
         } else {
