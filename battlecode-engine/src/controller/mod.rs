@@ -1125,12 +1125,15 @@ impl GameController {
     pub fn apply_turn(&mut self, turn: &TurnMessage, time_left_ms: i32) -> TurnApplication {
         // Serialize the filtered game state to send to the player
         let start_turn = self.world.apply_turn(turn, time_left_ms);
+        // Get the end-turn Karbonite of the team who just moved. Because the turn
+        // ended, this is the team whose turn it is not.
+        let karbonite = self.world.get_team(self.world.team().other()).karbonite;
         // Serialize the game state to send to the viewer
         let viewer = ViewerMessage {
             changes: turn.changes.clone(),
             units: self.world.get_viewer_units(),
             additional_changes: self.world.flush_viewer_changes(),
-            karbonite: self.world.karbonite(),
+            karbonite: karbonite,
         };
         TurnApplication {
             start_turn, viewer

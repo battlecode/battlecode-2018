@@ -123,7 +123,7 @@ pub struct TeamInfo {
     units_in_space: FnvHashMap<UnitID, Unit>,
 
     /// The karbonite in the team's resource pool.
-    karbonite: u32,
+    pub karbonite: u32,
 }
 
 impl TeamInfo {
@@ -744,7 +744,7 @@ impl GameWorld {
         }
     }
 
-    fn get_team(&self, team: Team) -> &TeamInfo {
+    pub(crate) fn get_team(&self, team: Team) -> &TeamInfo {
         if let Some(team_info) = self.team_states.get(&team) {
             team_info
         } else {
@@ -2288,6 +2288,7 @@ impl GameWorld {
                     unit_type: unit.unit_type(),
                     health: unit.health(),
                     location: unit.location().map_location().unwrap(),
+                    team: unit.team()
                 });
             }
         }
@@ -2668,6 +2669,8 @@ mod tests {
         let robot_b = world.create_unit(Team::Red, loc_c, UnitType::Knight).unwrap();
     
         // Knight Javelin is ready
+        assert!(!world.is_javelin_ready(knight));
+        world.end_round();
         assert!(world.is_javelin_ready(knight));
 
         // Knight should not be able to javelin target outside of range
@@ -2709,6 +2712,8 @@ mod tests {
         let mage = world.create_unit(Team::Red, loc_a, UnitType::Mage).unwrap();
         
         // Mage blink is ready.
+        assert!(!world.is_blink_ready(mage));
+        world.end_round();
         assert!(world.is_blink_ready(mage));
 
         // Mage should not be able to blink to target location outside of range.
@@ -2748,7 +2753,8 @@ mod tests {
         let ranger = world.create_unit(Team::Red, loc_a, UnitType::Ranger).unwrap();
         let robot = world.create_unit(Team::Red, loc_b,UnitType::Knight).unwrap();
         // Ranger should not be able to snipe target location on a different planet.
-        assert!(world.begin_snipe(ranger, loc_c).is_err());
+        world.end_round();
+        assert_err!(world.begin_snipe(ranger, loc_c), GameError::LocationOffMap);
 
         // Ranger begins to snipe a location.
         assert!(world.begin_snipe(ranger, loc_b).is_ok());
@@ -2802,6 +2808,8 @@ mod tests {
         let robot_b = world.create_unit(Team::Red, loc_c, UnitType::Knight).unwrap();
 
         // Healer overcharge is ready.
+        assert!(!world.is_overcharge_ready(healer));
+        world.end_round();
         assert!(world.is_overcharge_ready(healer));
 
         // Healer should not be able to overcharge target robot outside of range.
@@ -3219,6 +3227,8 @@ mod tests {
 
         // The worker cannot replicate to the west, because that space is off the map.
         assert![!world.can_replicate(worker, Direction::West)];
+        assert_err![world.replicate(worker, Direction::West), GameError::Overheated];
+        world.end_round();
         assert_err![world.replicate(worker, Direction::West), GameError::LocationOffMap];
 
         // The worker cannot replicate to the east, because that space is obstructed.
@@ -3228,11 +3238,12 @@ mod tests {
         // The worker can replicate to the north.
         assert![world.can_replicate(worker, Direction::North)];
         assert![world.replicate(worker, Direction::North).is_ok()];
-        assert_eq![world.karbonite(), 85];
+        assert_eq![world.karbonite(), 93];
 
         // The child cannot replicate when there isn't enough Karbonite.
         world.my_team_mut().karbonite = 0;
         let child = world.sense_unit_at_location(MapLocation::new(Planet::Earth, 0, 1)).unwrap().unwrap().id();
+        world.end_round();
         assert![!world.can_replicate(child, Direction::North)];
         assert_err![world.replicate(child, Direction::North), GameError::InsufficientKarbonite];
 

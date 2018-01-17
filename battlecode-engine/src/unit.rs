@@ -290,8 +290,8 @@ impl Default for Unit {
             attack_cooldown: 0,
 
             is_ability_unlocked: false,
-            ability_heat: 0,
-            ability_cooldown: 10,
+            ability_heat: 10,
+            ability_cooldown: 0,
             ability_range: 0,
 
             is_built: false,
@@ -1515,5 +1515,22 @@ mod tests {
         assert_eq!(unit_b.research_level(), 2);
         assert_eq!(unit_b.worker_harvest_amount().unwrap(), 4);
         assert_eq!(unit_b.worker_build_health().unwrap(), 6);
+    }
+
+    #[test]
+    fn test_cant_use_ability_on_first_turn() {
+        let loc = MapLocation::new(Planet::Earth, 0, 0);
+
+        let mut worker = Unit::new(1, Team::Red, Worker, 0, OnMap(loc)).unwrap();
+        assert!(worker.is_ability_unlocked().is_ok(), "replicate is unlocked");
+        assert_err!(worker.ok_if_ability_ready(), GameError::Overheated);
+        worker.end_round();
+        assert!(worker.ok_if_ability_ready().is_ok());
+
+        let mut knight = Unit::new(1, Team::Red, Knight, 3, OnMap(loc)).unwrap();
+        assert!(knight.is_ability_unlocked().is_ok(), "replicate is unlocked");
+        assert_err!(knight.ok_if_ability_ready(), GameError::Overheated);
+        knight.end_round();
+        assert!(knight.ok_if_ability_ready().is_ok());
     }
 }
