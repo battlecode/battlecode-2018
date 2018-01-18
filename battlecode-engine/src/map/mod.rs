@@ -16,6 +16,7 @@ use world::*;
 
 mod mapparser;
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 enum Symmetry {
     Rotational,
     Horizontal,
@@ -305,9 +306,13 @@ impl PlanetMap {
                     panic!("y {} -> {} is bad", y, new_y);
                 }
                 if self.is_passable_terrain[y][x] != self.is_passable_terrain[new_y][new_x] {
+                    println!("{:?}: passable terrain at ({}, {}) ({}, {})",
+                        symmetry, x, y, new_x, new_y);
                     return false;
                 }
                 if self.initial_karbonite[y][x] != self.initial_karbonite[new_y][new_x] {
+                    println!("{:?}: initial karbonite at ({}, {}) ({}, {})",
+                        symmetry, x, y, new_x, new_y);
                     return false;
                 }
             }
@@ -332,6 +337,8 @@ impl PlanetMap {
             unit_locations.insert(MapLocation::new(planet, new_x as i32, new_y as i32));
         }
         if unit_locations.len() != self.initial_units.len() {
+            println!("{:?}: initial units {:?}",
+                symmetry, unit_locations);
             return false;
         }
         true
