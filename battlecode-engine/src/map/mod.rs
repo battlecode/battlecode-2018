@@ -1,6 +1,6 @@
 //! The starting properties of the game world.
 
-use std::f32;
+use std::{cmp, f32};
 use failure::Error;
 use fnv::FnvHashMap;
 use rand::{SeedableRng, StdRng};
@@ -40,6 +40,35 @@ impl GameMap {
         self.asteroids.validate()?;
         self.orbit.validate()?;
         Ok(())
+    }
+
+    pub fn map_template(seed: u16, width: usize, height: usize) -> GameMap {
+        let rng_seed: &[_] = &[seed as usize];
+        let mut rng: StdRng = SeedableRng::from_seed(rng_seed);
+        let seed_rng = Range::new(0, u16::max_value());
+
+        let mut earth = PlanetMap::empty_map(Planet::Earth, width, height);
+        let mars = PlanetMap::empty_map(Planet::Mars, width, height);
+
+        let asteroids = AsteroidPattern::random(seed_rng.ind_sample(&mut rng), &mars);
+        let orbit = OrbitPattern::random(seed_rng.ind_sample(&mut rng));
+
+        earth.initial_units.push(Unit::new(
+            1, Team::Red, UnitType::Worker, 0,
+            Location::OnMap(MapLocation::new(Planet::Earth, 1, 1))
+        ).unwrap());
+        earth.initial_units.push(Unit::new(
+            2, Team::Blue, UnitType::Worker, 0,
+            Location::OnMap(MapLocation::new(Planet::Earth, width as i32 - 1, width as i32 - 1))
+        ).unwrap());
+
+        GameMap {
+            seed: seed,
+            earth_map: earth,
+            mars_map: mars,
+            asteroids: asteroids,
+            orbit: orbit
+        }
     }
 
     pub fn test_map() -> GameMap {
@@ -207,6 +236,17 @@ impl PlanetMap {
             Ok(self.initial_karbonite[location.y as usize][location.x as usize])
         } else {
             Err(GameError::LocationOffMap)?
+        }
+    }
+
+    fn empty_map(planet: Planet, width: usize, height: usize) -> PlanetMap {
+        PlanetMap {
+            planet: planet,
+            height: height,
+            width: width,
+            is_passable_terrain: vec![vec![true; width]; height],
+            initial_karbonite: vec![vec![0; width]; height],
+            initial_units: vec![],
         }
     }
 
@@ -414,6 +454,17 @@ impl OrbitPattern {
         let arg = 2. * f32::consts::PI / self.period_s as f32 * round as f32;
         let sin = ((self.amplitude_s as f32) * f32::sin(arg)) as i32;
         (sin + self.center_s) as Rounds
+    }
+
+    /// Generates a random orbit pattern.
+    pub fn random(seed: u16) -> OrbitPattern {
+        let seed: &[_] = &[seed as usize];
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+        let center = Range::new(ORBIT_FLIGHT_MIN, ORBIT_FLIGHT_MAX).ind_sample(&mut rng);
+        let max_amplitude = cmp::min(center - ORBIT_FLIGHT_MIN, ORBIT_FLIGHT_MAX - center);
+        let amplitude = Range::new(0, max_amplitude).ind_sample(&mut rng);
+        let period = Range::new(ORBIT_PERIOD_MIN, ORBIT_PERIOD_MAX).ind_sample(&mut rng);
+        OrbitPattern::new(amplitude, period, center)
     }
 }
 
