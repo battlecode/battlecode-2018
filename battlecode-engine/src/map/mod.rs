@@ -41,10 +41,10 @@ impl GameMap {
     ///
     /// * InvalidMapObject - the game map is invalid.
     pub fn validate(&self) {
-        self.earth_map.validate();
-        self.mars_map.validate();
-        self.asteroids.validate();
-        self.orbit.validate();
+        if self.earth_map.validate() && self.mars_map.validate() &&
+            self.asteroids.validate() && self.orbit.validate() {
+            println!("Map is valid!");
+        }
     }
 
     pub fn map_template(seed: u16, width: usize, height: usize) -> GameMap {
@@ -141,11 +141,14 @@ impl PlanetMap {
     /// Validates the map and checks some invariants are followed.
     ///
     /// * InvalidMapObject - the planet map is invalid.
-    pub fn validate(&self) {
+    pub fn validate(&self) -> bool {
+        let mut valid = true;
+
         // The width and height are of valid dimensions.
         if !(self.height >= MAP_HEIGHT_MIN && self.height <= MAP_HEIGHT_MAX &&
              self.width >= MAP_WIDTH_MIN && self.width <= MAP_WIDTH_MAX) {
             println!("Map dimensions invalid: {} x {}", self.width, self.height);
+            valid = false;
         }
 
         // The passable terrain defition has the same dimensions as the map.
@@ -153,6 +156,7 @@ impl PlanetMap {
            self.is_passable_terrain[0].len() != self.width {
             println!("Is passable terrain dimensions invalid: {} x {}",
                 self.is_passable_terrain.len(), self.is_passable_terrain[0].len());
+            valid = false;
         }
 
         // The initial karbonite deposits have the same dimensions as the map.
@@ -160,6 +164,7 @@ impl PlanetMap {
            self.initial_karbonite[0].len() != self.width {
             println!("Initial karbonite dimensions invalid: {} x {}",
                 self.is_passable_terrain.len(), self.is_passable_terrain[0].len());
+            valid = false;
         }
         for y in 0..self.height {
             for x in 0..self.width {
@@ -169,6 +174,7 @@ impl PlanetMap {
                         if self.initial_karbonite[y][x] != 0 {
                             println!("Mars has initial karbonite {} at ({}, {})",
                                 self.initial_karbonite[y][x], x, y);
+                            valid = false;
                         }
                     }
                     Planet::Earth => {
@@ -177,6 +183,7 @@ impl PlanetMap {
                            self.initial_karbonite[y][x] > MAP_KARBONITE_MAX {
                             println!("Earth has initial karbonite {} at ({}, {})",
                                 self.initial_karbonite[y][x], x, y);
+                            valid = false;
                         }
                     }
                 }
@@ -190,12 +197,14 @@ impl PlanetMap {
                 // There are no units on Mars.
                 if num_units != 0 {
                     println!("Mars should not have initial units.");
+                    valid = false;
                 }
             }
             Planet::Earth => {
                 // There are 1 to 3 workers per team on Earth.
                 if !(num_units > 0 && num_units % 2 == 0 && num_units <= 6) {
                     println!("Earth should not have {} initial units.", num_units);
+                    valid = false;
                 }
             }
         }
@@ -204,6 +213,7 @@ impl PlanetMap {
                 Ok(location) => location,
                 _ => {
                     println!("Unit {} should be on the map", unit.id());
+                    valid = false;
                     continue;
                 }
             };
@@ -213,27 +223,31 @@ impl PlanetMap {
             // Unit must be on this planet
             if location.planet != self.planet {
                 println!("Unit {} should not be on this planet: {:?}", unit.id(), location.planet);
+                valid = false;
             }
             // Unit must be on passable terrain
             if !self.is_passable_terrain[y][x] {
                 println!("Unit {} on ({}, {}) should be on passable terrain",
                     unit.id(), x, y);
+                valid = false;
             }
         }
 
         // The map is symmetric on Earth.
         if self.planet == Planet::Earth {
             if self.is_terrain_karbonite_symmetric(Symmetry::Rotational) {
-                return;
+                return valid;
             }
             if self.is_terrain_karbonite_symmetric(Symmetry::Horizontal) {
-                return;
+                return valid;
             }
             if self.is_terrain_karbonite_symmetric(Symmetry::Vertical) {
-                return;
+                return valid;
             }
             println!("Earth is not symmetric");
+            valid = false;
         }
+        valid
     }
 
     fn is_terrain_karbonite_symmetric(&self, symmetry: Symmetry) -> bool {
@@ -390,7 +404,7 @@ impl AsteroidPattern {
         let mut pattern: FnvHashMap<Rounds, AsteroidStrike> = FnvHashMap::default();
 
         let karbonite_gen = Range::new(ASTEROID_KARB_MIN, ASTEROID_KARB_MAX);
-        let round_gen = Range::new(ASTEROID_ROUND_MIN, ASTEROID_ROUND_MAX);
+        let round_gen = Range::new(0, 40);
         let x_gen = Range::new(0, mars_map.width as i32);
         let y_gen = Range::new(0, mars_map.height as i32);
 
@@ -437,46 +451,6 @@ impl AsteroidPattern {
             }
             if asteroid.location.planet != Planet::Mars {
                 println!("Asteroid landing on Earth at round {}", round);
-                valid = false;
-            }
-        }
-
-        // An asteroid strikes every [ASTEROID_ROUND_MIN,
-        // ASTEROID_ROUND_MAX] rounds, inclusive.
-        let mut rounds: Vec<&Rounds> = self.pattern.keys().collect();
-        if (rounds.len() as u32) < ROUND_LIMIT / ASTEROID_ROUND_MAX {
-            println!("There are only {} asteroids", rounds.len());
-            return false;
-        }
-
-        rounds.sort();
-        let round: u32 = match rounds.get(0) {
-            Some(round) => **round,
-            None => { return false; }
-        };
-        if round > ASTEROID_ROUND_MAX {
-            println!("First asteroid is too late: round {}", round);
-            valid = false;
-        }
-        let round: u32 = match rounds.get(rounds.len() - 1) {
-            Some(round) => {
-                if ROUND_LIMIT < **round {
-                    println!("Last asteroid too late: round {}", round);
-                    return false;
-                }
-                ROUND_LIMIT - **round
-            },
-            None => { return false; }
-        };
-        if round > ASTEROID_ROUND_MAX {
-            println!("Last asteroid is too early: round {}", round);
-            valid = false;
-        }
-        for i in 0..rounds.len() - 1 {
-            let diff = rounds[i + 1] - rounds[i];
-            if diff < ASTEROID_ROUND_MIN || diff > ASTEROID_ROUND_MAX {
-                println!("The time difference between asteroids is invalid: {}-{}={}",
-                    rounds[i + 1], rounds[i], diff);
                 valid = false;
             }
         }
@@ -597,7 +571,7 @@ mod tests {
         let asteroids = AsteroidPattern::new(&asteroid_map);
         assert!(asteroids.validate());
 
-        let mut asteroid_map = gen_asteroid_map(1, ASTEROID_ROUND_MAX);
+        let asteroid_map = gen_asteroid_map(1, 50);
         assert!(AsteroidPattern::new(&asteroid_map).validate());
 
         // Invalid asteroid strikes.
@@ -607,11 +581,6 @@ mod tests {
         insert_and_err(&asteroid_map, 1, ASTEROID_KARB_MIN - 1, loc);
         insert_and_err(&asteroid_map, 1, ASTEROID_KARB_MAX + 1, loc);
         insert_and_err(&asteroid_map, 1, ASTEROID_KARB_MAX, MapLocation::new(Planet::Earth, 0, 0));
-
-        // Invalid strike pattern.
-        insert_and_err(&asteroid_map, 2, ASTEROID_KARB_MIN, loc);
-        asteroid_map.remove(&1);
-        assert!(!AsteroidPattern::new(&asteroid_map).validate());
     }
 
     #[test]
@@ -623,10 +592,10 @@ mod tests {
 
     #[test]
     fn test_asteroid() {
-        let asteroid_map = gen_asteroid_map(ASTEROID_ROUND_MAX, ASTEROID_ROUND_MAX);
+        let asteroid_map = gen_asteroid_map(50, 50);
         let asteroids = AsteroidPattern::new(&asteroid_map);
         for round in 1..ROUND_LIMIT {
-            if round % ASTEROID_ROUND_MAX == 0 {
+            if round % 50 == 0 {
                 assert!(asteroids.asteroid(round).is_ok());
             } else {
                 assert_err!(asteroids.asteroid(round), GameError::NullValue);

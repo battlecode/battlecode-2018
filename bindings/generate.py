@@ -261,7 +261,7 @@ PlanetMap.member(Planet.type, 'planet', docs="The planet of the map.")
 PlanetMap.member(usize.type, 'height', docs="The height of this map, in squares. Must be in the range [MAP_HEIGHT_MIN, MAP_HEIGHT_MAX], inclusive.")
 PlanetMap.member(usize.type, 'width', docs="The height of this map, in squares. Must be in the range [MAP_WIDTH_MIN, MAP_WIDTH_MAX], inclusive.")
 PlanetMap.member(UnitVec.type, 'initial_units', docs="The initial units on the map. Each team starts with 1 to 3 Workers on Earth.")
-PlanetMap.method(void.type, 'validate', [], docs='''Validates the map and checks some invariants are followed.
+PlanetMap.method(boolean.type, 'validate', [], docs='''Validates the map and checks some invariants are followed.
 
  * InvalidMapObject - the planet map is invalid.''')
 PlanetMap.method(boolean.type, 'on_map', [Var(MapLocation.type, 'location')], docs="Whether a location is on the map.")

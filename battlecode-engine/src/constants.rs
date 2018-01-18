@@ -45,17 +45,11 @@ pub const MAP_KARBONITE_MAX: u32 = 50;
 // ****** WEATHER CONSTANTS ********
 // *********************************
 
-/// The minimum number of rounds since the last asteroid strike.
-pub const ASTEROID_ROUND_MIN: Rounds = 10;
-
-/// The maximum number of rounds since the last asteroid strike.
-pub const ASTEROID_ROUND_MAX: Rounds = 20;
-
 /// The minimum karbonite in an asteroid strike.
 pub const ASTEROID_KARB_MIN: u32 = 20;
 
 /// The maximum karbonite in an asteroid strike.
-pub const ASTEROID_KARB_MAX: u32 = 100;
+pub const ASTEROID_KARB_MAX: u32 = 200;
 
 /// The minimum flight time due to the orbit.
 pub const ORBIT_FLIGHT_MIN: u32 = 50;
