@@ -367,9 +367,9 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 wrapped_socket.close()
                 recv_socket.close()
                 if bc.Team.Red == self.game.get_player(self.client_id)['player'].team:
-                    self.game.winner = 'player1'
-                else:
                     self.game.winner = 'player2'
+                else:
+                    self.game.winner = 'player1'
                 self.game.disconnected = True
                 self.game.game_over = True
                 raise TimeoutError()
@@ -377,9 +377,9 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 wrapped_socket.close()
                 recv_socket.close()
                 if bc.Team.Red == self.game.get_player(self.client_id)['player'].team:
-                    self.game.winner = 'player1'
-                else:
                     self.game.winner = 'player2'
+                else:
+                    self.game.winner = 'player1'
                 self.game.disconnected = True
                 self.game.game_over = True
                 raise KeyboardInterrupt()
@@ -425,9 +425,9 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                     TIMEOUT
                 ))
                 if bc.Team.Red == self.game.get_player(self.client_id)['player'].team:
-                    self.game.winner = 'player1'
-                else:
                     self.game.winner = 'player2'
+                else:
+                    self.game.winner = 'player1'
                 self.game.disconnected = True
                 self.game.game_over = True
                 raise TimeoutError()
@@ -435,9 +435,9 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 wrapped_socket.close()
                 send_socket.close()
                 if bc.Team.Red == self.game.get_player(self.client_id)['player'].team:
-                    self.game.winner = 'player1'
-                else:
                     self.game.winner = 'player2'
+                else:
+                    self.game.winner = 'player1'
                 self.game.disconnected = True
                 self.game.game_over = True
                 raise KeyboardInterrupt()
@@ -559,7 +559,21 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                     diff_time = end_time-start_time
 
                     my_sandbox.pause()
-                    sent_message = bc.SentMessage.from_json(data)
+
+                    try:
+                        sent_message = bc.SentMessage.from_json(data)
+                    except Exception as e:
+                        print("Error deserializing JSON")
+                        print(e)
+                        print("Killing player...")
+
+                        if bc.Team.Red == self.game.get_player(self.client_id)['player'].team:
+                            self.game.winner = 'player2'
+                        else:
+                            self.game.winner = 'player1'
+                        self.game.disconnected = True
+                        self.game.game_over = True
+
 
                     assert int(sent_message.client_id) == self.client_id, \
                             "Wrong client id: {}, should be: {}".format(sent_message.client_id, self.client_id)
