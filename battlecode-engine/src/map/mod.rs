@@ -42,14 +42,21 @@ impl GameMap {
     ///
     /// * InvalidMapObject - the game map is invalid.
     pub fn validate(&self) {
-        if self.earth_map.validate() {
-            println!("Earth is valid.");
+        let mut valid = true;
+
+        if self.earth_map.width != self.mars_map.width ||
+            self.earth_map.height != self.mars_map.height {
+            println!("Earth ({} x {}) and Mars ({} x {}) are not the same dimensions",
+                self.earth_map.width, self.earth_map.height,
+                self.mars_map.width, self.mars_map.height);
+            valid = false;
         }
-        if self.mars_map.validate() {
-            println!("Mars is valid.");
-        }
-        if self.asteroids.validate() && self.orbit.validate() {
-            println!("Weather is valid!");
+        valid = valid && self.earth_map.validate();
+        valid = valid && self.mars_map.validate();
+        valid = valid && self.asteroids.validate();
+        valid = valid && self.orbit.validate();
+        if valid {
+            println!("The map is valid!");
         }
     }
 
@@ -287,9 +294,9 @@ impl PlanetMap {
         for y in 0..self.height {
             for x in 0..self.width {
                 let (new_x, new_y) = match symmetry {
-                    Symmetry::Rotational => (flip(x, self.width), y),
+                    Symmetry::Vertical => (flip(x, self.width), y),
                     Symmetry::Horizontal => (x, flip(y, self.height)),
-                    Symmetry::Vertical => (flip(x, self.width), flip(y, self.height)),
+                    Symmetry::Rotational => (flip(x, self.width), flip(y, self.height)),
                 };
                 if new_x > self.width {
                     panic!("x {} -> {} is bad", x, new_x);
@@ -316,9 +323,9 @@ impl PlanetMap {
             };
 
             let (new_x, new_y) = match symmetry {
-                Symmetry::Rotational => (flip(x, self.width), y),
+                Symmetry::Vertical => (flip(x, self.width), y),
                 Symmetry::Horizontal => (x, flip(y, self.height)),
-                Symmetry::Vertical => (flip(x, self.width), flip(y, self.height)),
+                Symmetry::Rotational => (flip(x, self.width), flip(y, self.height)),
             };
 
             unit_locations.insert(MapLocation::new(planet, x as i32, y as i32));
