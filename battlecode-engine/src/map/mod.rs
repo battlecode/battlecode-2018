@@ -276,6 +276,7 @@ impl PlanetMap {
         valid
     }
 
+    // TODO: initial units should be symmetric
     fn is_terrain_karbonite_symmetric(&self, symmetry: Symmetry) -> bool {
         fn flip(n: usize, max_n: usize) -> usize {
             let mid_n = max_n / 2;
