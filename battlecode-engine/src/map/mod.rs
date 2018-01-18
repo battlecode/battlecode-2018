@@ -1,6 +1,7 @@
 //! The starting properties of the game world.
 
 use std::{cmp, f32};
+use std::collections::HashSet;
 use failure::Error;
 use fnv::FnvHashMap;
 use rand::{SeedableRng, StdRng};
@@ -261,13 +262,13 @@ impl PlanetMap {
 
         // The map is symmetric on Earth.
         if self.planet == Planet::Earth {
-            if self.is_terrain_karbonite_symmetric(Symmetry::Rotational) {
+            if self.is_symmetric(Symmetry::Rotational) {
                 return valid;
             }
-            if self.is_terrain_karbonite_symmetric(Symmetry::Horizontal) {
+            if self.is_symmetric(Symmetry::Horizontal) {
                 return valid;
             }
-            if self.is_terrain_karbonite_symmetric(Symmetry::Vertical) {
+            if self.is_symmetric(Symmetry::Vertical) {
                 return valid;
             }
             println!("Earth is not symmetric");
@@ -276,8 +277,7 @@ impl PlanetMap {
         valid
     }
 
-    // TODO: initial units should be symmetric
-    fn is_terrain_karbonite_symmetric(&self, symmetry: Symmetry) -> bool {
+    fn is_symmetric(&self, symmetry: Symmetry) -> bool {
         fn flip(n: usize, max_n: usize) -> usize {
             let mid_n = max_n / 2;
             let new_n = -(n as i32 - mid_n as i32) + mid_n as i32;
@@ -300,10 +300,32 @@ impl PlanetMap {
                 if self.is_passable_terrain[y][x] != self.is_passable_terrain[new_y][new_x] {
                     return false;
                 }
-                if self.is_passable_terrain[y][x] != self.is_passable_terrain[new_y][new_x] {
+                if self.initial_karbonite[y][x] != self.initial_karbonite[new_y][new_x] {
                     return false;
                 }
             }
+        }
+
+        // Initial units are symmetric
+        let mut unit_locations: HashSet<MapLocation> = HashSet::new();
+        for ref unit in &self.initial_units {
+            let (x, y, planet) = {
+                let location = unit.location().map_location().expect(
+                    "unit map location was validated previously");
+                (location.x as usize, location.y as usize, location.planet)
+            };
+
+            let (new_x, new_y) = match symmetry {
+                Symmetry::Rotational => (flip(x, self.width), y),
+                Symmetry::Horizontal => (x, flip(y, self.height)),
+                Symmetry::Vertical => (flip(x, self.width), flip(y, self.height)),
+            };
+
+            unit_locations.insert(MapLocation::new(planet, x as i32, y as i32));
+            unit_locations.insert(MapLocation::new(planet, new_x as i32, new_y as i32));
+        }
+        if unit_locations.len() != self.initial_units.len() {
+            return false;
         }
         true
     }
