@@ -41,9 +41,14 @@ impl GameMap {
     ///
     /// * InvalidMapObject - the game map is invalid.
     pub fn validate(&self) {
-        if self.earth_map.validate() && self.mars_map.validate() &&
-            self.asteroids.validate() && self.orbit.validate() {
-            println!("Map is valid!");
+        if self.earth_map.validate() {
+            println!("Earth is valid.");
+        }
+        if self.mars_map.validate() {
+            println!("Mars is valid.");
+        }
+        if self.asteroids.validate() && self.orbit.validate() {
+            println!("Weather is valid!");
         }
     }
 
@@ -152,37 +157,47 @@ impl PlanetMap {
         }
 
         // The passable terrain defition has the same dimensions as the map.
-        if self.is_passable_terrain.len() != self.height ||
-           self.is_passable_terrain[0].len() != self.width {
+        let is_passable_height = self.is_passable_terrain.len();
+        let is_passable_width = match self.is_passable_terrain.get(0) {
+            Some(column) => column.len(),
+            None => { return false; },
+        };
+        if is_passable_height != self.height || is_passable_width != self.width {
             println!("Is passable terrain dimensions invalid: {} x {}",
-                self.is_passable_terrain.len(), self.is_passable_terrain[0].len());
+                is_passable_height, is_passable_width);
             valid = false;
         }
 
         // The initial karbonite deposits have the same dimensions as the map.
-        if self.initial_karbonite.len() != self.height ||
-           self.initial_karbonite[0].len() != self.width {
+        let karbonite_height = self.initial_karbonite.len();
+        let karbonite_width = match self.initial_karbonite.get(0) {
+            Some(column) => column.len(),
+            None => { return false; },
+        };
+        if karbonite_height != self.height || karbonite_width != self.width {
             println!("Initial karbonite dimensions invalid: {} x {}",
-                self.is_passable_terrain.len(), self.is_passable_terrain[0].len());
+                karbonite_height, karbonite_width);
             valid = false;
         }
+
         for y in 0..self.height {
             for x in 0..self.width {
+                let karbonite = self.initial_karbonite[y][x];
                 match self.planet {
                     Planet::Mars => {
                         // Mars cannot have any initial karbonite.
-                        if self.initial_karbonite[y][x] != 0 {
+                        if karbonite != 0 {
                             println!("Mars has initial karbonite {} at ({}, {})",
-                                self.initial_karbonite[y][x], x, y);
+                                karbonite, x, y);
                             valid = false;
                         }
                     }
                     Planet::Earth => {
                         // Earth's initial karbonite has limited values.
-                        if self.initial_karbonite[y][x] < MAP_KARBONITE_MIN ||
-                           self.initial_karbonite[y][x] > MAP_KARBONITE_MAX {
+                        if karbonite < MAP_KARBONITE_MIN ||
+                           karbonite > MAP_KARBONITE_MAX {
                             println!("Earth has initial karbonite {} at ({}, {})",
-                                self.initial_karbonite[y][x], x, y);
+                                karbonite, x, y);
                             valid = false;
                         }
                     }
@@ -212,7 +227,7 @@ impl PlanetMap {
             let location = match unit.location().map_location() {
                 Ok(location) => location,
                 _ => {
-                    println!("Unit {} should be on the map", unit.id());
+                    println!("Unit {} should not be in space or a garrison", unit.id());
                     valid = false;
                     continue;
                 }
@@ -224,6 +239,17 @@ impl PlanetMap {
             if location.planet != self.planet {
                 println!("Unit {} should not be on this planet: {:?}", unit.id(), location.planet);
                 valid = false;
+            }
+            // Unit must be on the map
+            if self.is_passable_terrain.get(y).is_none() {
+                println!("Unit {} on ({}, -->{}) is not on the map", unit.id(), x, y);
+                valid = false;
+                continue;
+            }
+            if self.is_passable_terrain[y].get(x).is_none() {
+                println!("Unit {} on (-->{}, {}) is not on the map", unit.id(), x, y);
+                valid = false;
+                continue;
             }
             // Unit must be on passable terrain
             if !self.is_passable_terrain[y][x] {
@@ -264,6 +290,12 @@ impl PlanetMap {
                     Symmetry::Horizontal => (x, flip(y, self.height)),
                     Symmetry::Vertical => (flip(x, self.width), flip(y, self.height)),
                 };
+                if new_x > self.width {
+                    panic!("x {} -> {} is bad", x, new_x);
+                }
+                if new_y > self.height {
+                    panic!("y {} -> {} is bad", y, new_y);
+                }
                 if self.is_passable_terrain[y][x] != self.is_passable_terrain[new_y][new_x] {
                     return false;
                 }
