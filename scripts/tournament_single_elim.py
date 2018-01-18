@@ -50,8 +50,6 @@ def get_queue_length(conn) -> int:
     """
     Returns the length of the match queue.
     """
-    logging.info('Waiting for the queue to empty...')
-
     cur = conn.cursor()
 
     query = 'SELECT COUNT(*) FROM {} WHERE \
@@ -130,6 +128,10 @@ def get_next_team_and_from(conn, next_round_num, next_index, color):
                 (prev_round_num, prev_index))
 
     matches = cur.fetchall()
+    if len(matches) != 3:
+        print("{} {} {}", next_round_num, next_index, color)
+        print(matches)
+
     _, match_id, red_team, blue_team = matches[0]
     match_winners = {
         red_team: 0,
@@ -186,6 +188,8 @@ def wait_for_empty_queue(conn) -> None:
     queue_length = get_queue_length(conn)
     while queue_length != 0:
         time.sleep(10)
+        logging.info('Waiting for the queue to empty: {} left...'
+            .format(queue_length))
         queue_length = get_queue_length(conn)
     logging.debug('Queue is empty.')
 
@@ -319,7 +323,8 @@ def run_tournament(conn, maps: List[Map], teams: List[Team]):
     initial_round = int(input('Start at which round? (0 to {}):\n'
         .format(num_rounds - 1)))
 
-    logging.debug('Running {} rounds... here we go!'.format(num_rounds))
+    logging.debug('Running rounds {} to {}... here we go!'
+        .format(initial_round, num_rounds - 1))
     for round_num in range(initial_round, num_rounds):
         if round_num == 0:
             queue_initial_round(conn, teams, maps[:NUM_MAPS_PER_GAME])
