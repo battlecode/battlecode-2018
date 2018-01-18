@@ -10,6 +10,8 @@ import time
 import nonsense
 import random
 import proxyuploader
+import gzip
+import string
 
 pg = None
 cur = None
@@ -19,6 +21,7 @@ GAMES_RUN = []
 
 s3 = boto3.resource('s3')
 bucket = s3.Bucket(os.environ['BUCKET_NAME'])
+key_prefix = 'tournament/' + os.environ['TOURNAMENT'] + '/' if 'TOURNAMENT' in os.environ else ''
 
 def random_key(length):
     return ''.join([random.choice(string.ascii_letters + string.digits + string.digits) for _ in range(length)])
@@ -37,11 +40,14 @@ def end_game(data,winner,match_file,logs):
     elif winner == 'player2':
         status = 'bluewon'
 
-    replay_key = 'replays/' + str(data['id']) + '.bc18'
-    red_log_key = 'logs/' + str(data['id']) + '_0.bc18log'
-    blue_log_key = 'logs/' + str(data['id']) + '_1.bc18log'
+    hidden_key = random_key(20)
+    replay_key = key_prefix + 'replays/' + hidden_key + '.bc18z'
+    red_log_key = key_prefix + 'logs/' + hidden_key + '_0.bc18log'
+    blue_log_key = key_prefix + 'logs/' + hidden_key + '_1.bc18log'
 
-    bucket.put_object(Key=replay_key,Body=json.dumps(match_file).encode(),ACL='public-read')
+    gzipped_replay = gzip.compress(json.dumps(match_file).encode())
+
+    bucket.put_object(Key=replay_key,Body=gzipped_replay,ACL='public-read')
     bucket.put_object(Key=red_log_key,Body=json.dumps({'earth':logs[0],'mars':logs[2]}).encode(),ACL='public-read')
     bucket.put_object(Key=blue_log_key,Body=json.dumps({'earth':logs[1],'mars':logs[3]}).encode(),ACL='public-read')
 
@@ -52,7 +58,7 @@ def end_game(data,winner,match_file,logs):
     pg.commit()
     DB_LOCK = False
 
-    print("Finsihed game " + str(data['id']))
+    print("Finished game " + str(data['id']))
 
 def match_thread(data):
     global BUSY
