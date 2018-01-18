@@ -316,9 +316,15 @@ def run_tournament(conn, maps: List[Map], teams: List[Team]):
         .format(num_rounds * 2 + 1, len(maps)))
     assert len(maps) >= num_rounds * 2 + 1
 
+    initial_round = int(input('Start at which round? (0 to {}):\n'
+        .format(num_rounds - 1)))
+
     logging.debug('Running {} rounds... here we go!'.format(num_rounds))
-    queue_initial_round(conn, teams, maps[:NUM_MAPS_PER_GAME])
-    for round_num in range(1, num_rounds):
+    for round_num in range(initial_round, num_rounds):
+        if round_num == 0:
+            queue_initial_round(conn, teams, maps[:NUM_MAPS_PER_GAME])
+            continue
+
         wait_for_empty_queue(conn)
         logging.debug('Queuing Round {} out of {}...'
             .format(round_num, num_rounds - 1))
