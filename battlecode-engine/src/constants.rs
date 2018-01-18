@@ -49,7 +49,7 @@ pub const MAP_KARBONITE_MAX: u32 = 50;
 pub const ASTEROID_KARB_MIN: u32 = 20;
 
 /// The maximum karbonite in an asteroid strike.
-pub const ASTEROID_KARB_MAX: u32 = 200;
+pub const ASTEROID_KARB_MAX: u32 = 100;
 
 /// The minimum flight time due to the orbit.
 pub const ORBIT_FLIGHT_MIN: u32 = 50;
