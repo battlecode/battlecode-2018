@@ -67,7 +67,7 @@ def run_game(game, dockers, args, sock_file, scrimmage=False):
     # Start the unix stream server
     main_server = server.start_server(sock_file, game, dockers)
 
-    viewer_server = server.start_viewer_server(PORT, game) 
+    viewer_server = server.start_viewer_server(PORT, game)
 
     try:
         # Start the docker instances
@@ -89,7 +89,9 @@ def run_game(game, dockers, args, sock_file, scrimmage=False):
 
             name = '[{}:{}]'.format(planet, team)
             logger = Logger(name, print=(not args['terminal_viewer']))
-            docker_inst.stream_logs(line_action=logger)
+
+            if not scrimmage:
+                docker_inst.stream_logs(line_action=logger)
             player_['logger'] = logger
 
         # Wait until all the code is done then clean up
