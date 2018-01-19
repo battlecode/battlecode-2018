@@ -86,22 +86,22 @@ pub const KARBONITE_DECREASE_RATIO: u32 = 40;
 pub const RESEARCH_WORKER_COST: [Rounds; 5] = [0, 25, 75, 75, 75];
 
 /// The cost of each level of research on the Knight branch.
-pub const RESEARCH_KNIGHT_COST: [Rounds; 4] = [0, 25, 75, 150];
+pub const RESEARCH_KNIGHT_COST: [Rounds; 4] = [0, 25, 75, 100];
 
 /// The cost of each level of research on the Ranger branch.
 pub const RESEARCH_RANGER_COST: [Rounds; 4] = [0, 25, 100, 200];
 
 /// The cost of each level of research on the Mage branch.
-pub const RESEARCH_MAGE_COST: [Rounds; 5] = [0, 25, 75, 100, 200];
+pub const RESEARCH_MAGE_COST: [Rounds; 5] = [0, 25, 75, 100, 75];
 
 /// The cost of each level of research on the Healer branch.
-pub const RESEARCH_HEALER_COST: [Rounds; 4] = [0, 25, 100, 200];
+pub const RESEARCH_HEALER_COST: [Rounds; 4] = [0, 25, 100, 100];
 
 /// The cost of each level of research on the Factory branch.
 pub const RESEARCH_FACTORY_COST: [Rounds; 1] = [0];
 
 /// The cost of each level of research on the Rocket branch.
-pub const RESEARCH_ROCKET_COST: [Rounds; 4] = [0, 100, 100, 100];
+pub const RESEARCH_ROCKET_COST: [Rounds; 4] = [0, 50, 100, 100];
 
 // *********************************
 // ****** HEAT CONSTANTS ***********
@@ -133,4 +133,4 @@ pub const BLUEPRINT_FACTORY_COST: u32 = 100;
 /// The cost to blueprint a rocket.
 pub const BLUEPRINT_ROCKET_COST: u32 = 75;
 /// The cost to replicate a worker.
-pub const REPLICATE_WORKER_COST: u32 = 15;
+pub const REPLICATE_WORKER_COST: u32 = 30;
