@@ -70,8 +70,8 @@ pub struct PlanetInfo {
 
     /// The amount of Karbonite deposited on the specified square.
     ///
-    /// Stored as a two-dimensional array, where the first index 
-    /// represents a square's y-coordinate, and the second index its 
+    /// Stored as a two-dimensional array, where the first index
+    /// represents a square's y-coordinate, and the second index its
     /// x-coordinate.
     pub(crate) karbonite: Vec<Vec<u32>>,
 }
@@ -1122,7 +1122,7 @@ impl GameWorld {
         self.ok_if_attack_ready(robot_id).is_ok()
     }
 
-    /// Commands a robot to attack a unit, dealing the 
+    /// Commands a robot to attack a unit, dealing the
     /// robot's standard amount of damage.
     ///
     /// Healers cannot attack, and should use `heal()` instead.
@@ -1219,7 +1219,7 @@ impl GameWorld {
     }
 
     /// Whether the worker is ready to harvest, and the given direction contains
-    /// karbonite to harvest. The worker cannot already have performed an action 
+    /// karbonite to harvest. The worker cannot already have performed an action
     /// this round.
     pub fn can_harvest(&self, worker_id: UnitID, direction: Direction) -> bool {
         self.ok_if_can_harvest(worker_id, direction).is_ok()
@@ -1415,7 +1415,7 @@ impl GameWorld {
         Ok(())
     }
 
-    fn ok_if_can_replicate(&self, worker_id: UnitID, direction: Direction) 
+    fn ok_if_can_replicate(&self, worker_id: UnitID, direction: Direction)
                            -> Result<(), GameError> {
         let worker = self.my_unit(worker_id)?;
         worker.ok_if_ability_ready()?;
@@ -1594,7 +1594,7 @@ impl GameWorld {
     // ************************************************************************
     // **************************** MAGE METHODS ******************************
     // ************************************************************************
-    
+
     fn ok_if_can_blink(&self, mage_id: UnitID, location: MapLocation) -> Result<(), GameError> {
         let mage = self.my_unit(mage_id)?;
         mage.ok_if_on_map()?;
@@ -1815,7 +1815,7 @@ impl GameWorld {
         self.ok_if_can_unload(structure_id, direction).is_ok()
     }
 
-    /// Unloads a robot from the garrison of the specified structure into an 
+    /// Unloads a robot from the garrison of the specified structure into an
     /// adjacent space. Robots are unloaded in the order they were loaded.
     ///
     /// * NoSuchUnit - the unit does not exist (inside the vision range).
@@ -1860,7 +1860,7 @@ impl GameWorld {
     /// must not currently be producing a robot, and the team must have
     /// sufficient resources in its resource pool.
     pub fn can_produce_robot(&mut self, factory_id: UnitID, robot_type: UnitType) -> bool {
-        self.ok_if_can_produce_robot(factory_id, robot_type).is_ok()        
+        self.ok_if_can_produce_robot(factory_id, robot_type).is_ok()
     }
 
     /// Starts producing the robot of the given type.
@@ -1995,6 +1995,7 @@ impl GameWorld {
                 UnitType::Factory => true,
                 _ => false,
             };
+            self.destroy_unit(victim_id);
             if should_destroy_rocket {
                 self.destroy_unit(rocket_id);
             } else {
@@ -2002,7 +2003,7 @@ impl GameWorld {
                 self.move_from_space(rocket_id);
                 self.my_planet_mut().karbonite[destination.y as usize][destination.x as usize] = 0;
             }
-            self.destroy_unit(victim_id);
+
         } else {
             self.my_unit_mut(rocket_id).unwrap().land_rocket(destination);
             self.move_from_space(rocket_id);
@@ -2018,9 +2019,9 @@ impl GameWorld {
         let landings = self.get_team(team).rocket_landings.landings_on(self.round);
         for landing in landings.iter() {
             self.land_rocket(landing.rocket_id, landing.destination);
-            self.viewer_changes.push(ViewerDelta::RocketLanding { 
-                rocket_id: landing.rocket_id, 
-                location: landing.destination 
+            self.viewer_changes.push(ViewerDelta::RocketLanding {
+                rocket_id: landing.rocket_id,
+                location: landing.destination
             });
         }
     }
@@ -2063,7 +2064,7 @@ impl GameWorld {
 
     /// Updates the current player in the game. If a round of four turns has
     /// finished, also processes the end of the round. This includes updating
-    /// unit cooldowns, rocket landings, asteroid strikes, research, etc. Returns 
+    /// unit cooldowns, rocket landings, asteroid strikes, research, etc. Returns
     /// the next player to move, and whether the round was also ended.
     pub(crate) fn end_turn(&mut self, time_left_ms: i32) -> StartTurnMessage {
         use self::Team::*;
@@ -2705,7 +2706,7 @@ mod tests {
         let knight = world.create_unit(Team::Red, loc_a, UnitType::Knight).unwrap();
         let robot_a = world.create_unit(Team::Red, loc_b, UnitType::Knight).unwrap();
         let robot_b = world.create_unit(Team::Red, loc_c, UnitType::Knight).unwrap();
-    
+
         // Knight Javelin is ready
         assert!(!world.is_javelin_ready(knight));
         world.end_round();
@@ -2717,9 +2718,9 @@ mod tests {
         // Knight should be able to javelin target within range
         assert!(world.can_javelin(knight, robot_a));
 
-        // Javelin target. 
+        // Javelin target.
         let robot_max_health = 250;
-        let robot_damaged_health = 205; 
+        let robot_damaged_health = 205;
         assert_eq!(world.get_unit(robot_a).unwrap().health(), robot_max_health);
         assert!(world.javelin(knight, robot_a).is_ok());
         assert_eq!(world.get_unit(robot_a).unwrap().health(), robot_damaged_health);
@@ -2748,7 +2749,7 @@ mod tests {
         let loc_b = MapLocation::new(Planet::Earth, 0, 1);
         let loc_c = MapLocation::new(Planet::Earth, 0, 20);
         let mage = world.create_unit(Team::Red, loc_a, UnitType::Mage).unwrap();
-        
+
         // Mage blink is ready.
         assert!(!world.is_blink_ready(mage));
         world.end_round();
@@ -2802,7 +2803,7 @@ mod tests {
         for _ in 0..4*rounds {
             world.end_turn(FILLER_TIME);
         }
-        
+
         // Robot at sniped location should take damage
         let robot_damaged_health = 215;
         assert_eq!(world.get_unit(robot).unwrap().health(), robot_damaged_health);
@@ -2852,7 +2853,7 @@ mod tests {
 
         // Healer should not be able to overcharge target robot outside of range.
         assert!(!world.can_overcharge(healer, robot_b));
-        
+
         // Healer should be able to overcharge target robot within range.
         assert!(world.can_overcharge(healer, robot_a));
 
@@ -2960,7 +2961,7 @@ mod tests {
     fn test_rocket_load() {
         // Create the game world and the rocket for this test.
         let mut world = GameWorld::test_world();
-        let takeoff_loc = MapLocation::new(Planet::Earth, 10, 10);        
+        let takeoff_loc = MapLocation::new(Planet::Earth, 10, 10);
         let rocket = world.create_unit(Team::Red, takeoff_loc, UnitType::Rocket).unwrap();
         world.get_unit_mut(rocket).unwrap().be_built(1000);
 
@@ -3014,10 +3015,10 @@ mod tests {
     fn test_rocket_unload() {
         // Create the game world and the rocket for this test.
         let mut world = GameWorld::test_world();
-        let takeoff_loc = MapLocation::new(Planet::Earth, 10, 10);        
+        let takeoff_loc = MapLocation::new(Planet::Earth, 10, 10);
         let rocket = world.create_unit(Team::Red, takeoff_loc, UnitType::Rocket).unwrap();
         world.get_unit_mut(rocket).unwrap().be_built(1000);
-        
+
         // Load the rocket with robots.
         for _ in 0..2 {
             let robot = world.create_unit(Team::Red, takeoff_loc.add(Direction::North), UnitType::Knight).unwrap();
@@ -3082,7 +3083,7 @@ mod tests {
         let expected_karbonite = [10, 7, 4, 1, 0];
         let expected_team_karbonite = [100, 103, 106, 109, 110];
         for i in 0..4 {
-            let worker = world.create_unit(Team::Red, deposit.add(Direction::North), 
+            let worker = world.create_unit(Team::Red, deposit.add(Direction::North),
                                                 UnitType::Worker).unwrap();
             assert![world.can_harvest(worker, Direction::South)];
             assert_eq![world.karbonite_at(deposit).unwrap(), expected_karbonite[i]];
@@ -3141,8 +3142,8 @@ mod tests {
         // It takes 45 build actions, with default research, to complete a factory.
         for i in 0..45 {
             // Create a worker two squares north of the factory blueprint.
-            let worker_b = world.create_unit(Team::Red, 
-                                             factory_loc.add(Direction::North).add(Direction::North), 
+            let worker_b = world.create_unit(Team::Red,
+                                             factory_loc.add(Direction::North).add(Direction::North),
                                              UnitType::Worker).unwrap();
 
             // The worker is initially too far away to build the factory.
@@ -3347,7 +3348,7 @@ mod tests {
         assert_err![world.attack(ranger, too_far), GameError::OutOfRange];
         assert![world.attack(ranger, just_right).is_ok()];
     }
-  
+
     #[test]
     fn test_mage_splash() {
         let mut world = GameWorld::test_world();
@@ -3411,7 +3412,7 @@ mod tests {
         let mut world = GameWorld::test_world();
         let _ = world.create_unit(Team::Red, MapLocation::new(Planet::Earth, 0, 0), UnitType::Factory).unwrap();
         let _ = world.create_unit(Team::Red, MapLocation::new(Planet::Mars, 0, 0), UnitType::Factory).unwrap();
-        
+
         // Both units exist until round 750.
         for _ in 1..750 {
             assert_eq![world.get_planet(Planet::Earth).units.len(), 1];
