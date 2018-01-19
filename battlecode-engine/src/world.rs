@@ -1990,6 +1990,8 @@ impl GameWorld {
             if should_destroy_rocket {
                 self.destroy_unit(rocket_id);
             } else {
+                self.my_unit_mut(rocket_id).unwrap().land_rocket(destination);
+                self.move_from_space(rocket_id);
                 self.my_planet_mut().karbonite[destination.y as usize][destination.x as usize] = 0;
             }
             self.destroy_unit(victim_id);
