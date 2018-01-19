@@ -85,7 +85,7 @@ B = blue_worker
 
 MARS:
 symmetry: none
-width: 20
-height: 20
+width: 30
+height: 30
 
 >_

@@ -30,11 +30,11 @@ _ =
 # a non-passable tile
 x = impassable
 # varying amounts of karbonite
-Q = 100k
-1 = 10k
-2 = 20k
-3 = 35k
-4 = 70k
+Q = 50k
+1 = 5k
+2 = 10k
+3 = 20k
+4 = 35k
 # note: the numbers are just convenient shorthand; you can change the amount of karbonite they refer to
 
 # can place workers
@@ -42,7 +42,7 @@ r = red_worker
 b = blue_worker
 
 # workers can also have karbonite on their square
-R = red_worker 100k
+R = red_worker 50k
 
 # now we draw a map!
 # every line of a map must start with ">"
@@ -72,25 +72,25 @@ symmetry: none
 J = 1000k
 
 # spaces aren't needed
->Jx_________11____121
+>_x__________________
 >_x_______xxxxxxxxxxx
->xx_______x________3x
->_________x_____1_13x
->_________x____12122x
+>xx_______x_________x
+>_________x_________x
+>_________x_________x
 >_________xxxxxxxxxxx
 >_____xxxxxxxxxxxx___
->_____x1_________x___
->_____x22________x___
->_____x233_______x___
->_____x342_______x___
->_____x4441______x___
+>_____x__________x___
+>_____x__________x___
+>_____x__________x___
+>_____x__________x___
+>_____x__________x___
 >_____xxxxxxxxxxxx___
 >_______xxxxxxxxxxxxx
->_______x_11__11_____
->_______x______1_____
->_______x__1______1__
->_______x__11_____1__
->_______x_111_11_111_
+>_______x____________
+>_______x____________
+>_______x____________
+>_______x____________
+>_______x____________
 >_______xxxxxxxxxxxxx
 
 
