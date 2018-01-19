@@ -261,7 +261,7 @@ PlanetMap.member(Planet.type, 'planet', docs="The planet of the map.")
 PlanetMap.member(usize.type, 'height', docs="The height of this map, in squares. Must be in the range [MAP_HEIGHT_MIN, MAP_HEIGHT_MAX], inclusive.")
 PlanetMap.member(usize.type, 'width', docs="The height of this map, in squares. Must be in the range [MAP_WIDTH_MIN, MAP_WIDTH_MAX], inclusive.")
 PlanetMap.member(UnitVec.type, 'initial_units', docs="The initial units on the map. Each team starts with 1 to 3 Workers on Earth.")
-PlanetMap.method(void.type.result(), 'validate', [], docs='''Validates the map and checks some invariants are followed.
+PlanetMap.method(boolean.type, 'validate', [], docs='''Validates the map and checks some invariants are followed.
 
  * InvalidMapObject - the planet map is invalid.''')
 PlanetMap.method(boolean.type, 'on_map', [Var(MapLocation.type, 'location')], docs="Whether a location is on the map.")
@@ -329,7 +329,7 @@ AsteroidStrike.eq()
 
 AsteroidPattern = p.struct("map::AsteroidPattern", docs="The asteroid pattern, defined by the timing and contents of each asteroid strike.")
 AsteroidPattern.constructor("random", [Var(u16.type, "seed"), Var(PlanetMap.type.ref(), "mars_map")], docs='''Constructs a pseudorandom asteroid pattern given a map of Mars.''')
-AsteroidPattern.method(void.type.result(), "validate", [], docs='''Validates the asteroid pattern.
+AsteroidPattern.method(boolean.type, "validate", [], docs='''Validates the asteroid pattern.
 
  * InvalidMapObject - the asteroid pattern is invalid.''')
 AsteroidPattern.method(boolean.type, "has_asteroid", [Var(Rounds.type, "round")], docs='''Whether there is an asteroid strike at the given round.''')
@@ -347,7 +347,7 @@ OrbitPattern.member(Rounds.type, "center", docs="The center of the orbit.")
 OrbitPattern.constructor('new', [Var(Rounds.type, 'amplitude'), Var(Rounds.type, 'period'), Var(Rounds.type, 'center')], docs='''Construct a new orbit pattern. This pattern is a sinusoidal function y=a*sin(bx)+c, where the x-axis is the round number of takeoff and the the y-axis is the duration of flight to the nearest integer.
 
 The amplitude, period, and center are measured in rounds.''')
-OrbitPattern.method(void.type.result(), 'validate', [], docs='''Validates the orbit pattern.
+OrbitPattern.method(boolean.type, 'validate', [], docs='''Validates the orbit pattern.
 
  * InvalidMapObject - the orbit pattern is invalid.''')
 OrbitPattern.method(Rounds.type, 'duration', [Var(Rounds.type, 'round')], "Get the duration of flight if the rocket were to take off from either planet on the given round.")
@@ -359,7 +359,7 @@ GameMap.member(PlanetMap.type, 'earth_map', docs="Earth map.")
 GameMap.member(PlanetMap.type, 'mars_map', docs="Mars map.")
 GameMap.member(AsteroidPattern.type, 'asteroids', docs="The asteroid strike pattern on Mars.")
 GameMap.member(OrbitPattern.type, 'orbit', docs="The orbit pattern that determines a rocket's flight duration.")
-GameMap.method(void.type.result(), 'validate', [], docs='''Validate the game map.
+GameMap.method(void.type, 'validate', [], docs='''Validate the game map.
 
  * InvalidMapObject - the game map is invalid.''')
 GameMap.method(GameMap.type, 'test_map', [], static=True)

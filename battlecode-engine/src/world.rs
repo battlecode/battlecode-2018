@@ -218,6 +218,8 @@ pub struct GameWorld {
 impl GameWorld {
     /// Initialize a new game world with maps from both planets.
     pub(crate) fn new(map: GameMap) -> GameWorld {
+        map.validate();
+
         let mut planet_states = FnvHashMap::default();
         planet_states.insert(Planet::Earth, PlanetInfo::new(&map.earth_map));
         planet_states.insert(Planet::Mars, PlanetInfo::new(&map.mars_map));
