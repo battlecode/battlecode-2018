@@ -210,6 +210,9 @@ pub struct GameWorld {
     /// A list of additional messages to be sent to the viewer. Flushed
     /// at the end of each round.
     viewer_changes: Vec<ViewerDelta>,
+
+    /// The winner before a flood occurs.
+    pre_flood_winner: Option<Team>,
 }
 
 impl GameWorld {
@@ -238,6 +241,7 @@ impl GameWorld {
             team_states: team_states,
             cached_world: FnvHashMap::default(),
             viewer_changes: Vec::new(),
+            pre_flood_winner: None,
         };
 
         // Insert initial units.
@@ -285,6 +289,7 @@ impl GameWorld {
             team_states: team_states,
             cached_world: HashMap::default(),
             viewer_changes: Vec::new(),
+            pre_flood_winner: None,
         };
 
         // Cache the initial filtered states.
@@ -381,6 +386,7 @@ impl GameWorld {
             team_states: team_states,
             cached_world: HashMap::default(),
             viewer_changes: Vec::new(),
+            pre_flood_winner: None,
         }
     }
 
@@ -2150,10 +2156,26 @@ impl GameWorld {
 
         // Annihilate Earth, if necessary.
         if self.round == APOCALYPSE_ROUND {
+            // In case the game is about to end, we need to calculate a hypothetical
+            // winner before the match ends. We force this by temporarily increasing
+            // the current round, then checking who has won.
+            let pre_flood_winner = {
+                self.round += ROUND_LIMIT;
+                // There should always be a winner chosen at this point.
+                let winner = self.is_game_over().unwrap();
+                self.round -= ROUND_LIMIT;
+                winner
+            };
             // Destroy all units by clearing Earth's unit data structures.
-            let earth = self.get_planet_mut(Planet::Earth);
-            earth.units.clear();
-            earth.units_by_loc.clear();
+            {
+                let earth = self.get_planet_mut(Planet::Earth);
+                earth.units.clear();
+                earth.units_by_loc.clear();
+            }
+            // Now we can check if the game ended.
+            if self.is_game_over().is_some() {
+                self.pre_flood_winner = Some(pre_flood_winner);
+            }
         }
 
         // Update unit cooldowns.
@@ -2225,6 +2247,13 @@ impl GameWorld {
 
     /// Determines if the game has ended, returning the winning team if so.
     pub(crate) fn is_game_over(&self) -> Option<Team> {
+        // There is an exception in the usual logic to handle both teams
+        // being simultaneously wiped out by the flood. This is handled
+        // in end_round().
+        if self.pre_flood_winner.is_some() {
+            return self.pre_flood_winner;
+        }
+
         // Calculate the value of all units.
         let mut red_units_value = 0;
         let mut blue_units_value = 0;
@@ -3405,12 +3434,9 @@ mod tests {
         world.create_unit(Team::Blue, MapLocation::new(Planet::Earth, 0, 0), UnitType::Knight).unwrap();
         assert![world.is_game_over().is_none()];
 
-        // If we advance 1000 rounds, the game should be over, and it's again a tossup.
-        for _ in 0..1000 {
-            world.end_round();
-        }
+        // Temporarily, we increase the round without triggering the apocalypse.
+        world.round += ROUND_LIMIT;
         assert![world.is_game_over().is_some()];
-        // The apocalypse has now destroyed the preexisting units.
 
         // Giving red some extra Karbonite means a victory for red.
         world.get_team_mut(Team::Red).karbonite += 10;
@@ -3429,6 +3455,25 @@ mod tests {
 
         // Giving blue a more expensive unit lets blue win.
         world.create_unit(Team::Blue, MapLocation::new(Planet::Mars, 0, 0), UnitType::Factory).unwrap();
+        assert![world.is_game_over().is_some()];
+        assert_eq![world.is_game_over().unwrap(), Team::Blue];
+
+        // We reset back to the original round.
+        world.round -= ROUND_LIMIT;
+        assert![world.is_game_over().is_none()];
+
+        // If we advance 1000 rounds, the game should be over.
+        for _ in 0..1000 {
+            world.end_round();
+        }
+        assert![world.is_game_over().is_some()];
+
+        // The apocalypse has now destroyed the preexisting units, but blue should win
+        // because it had more unit value before the flood.
+        assert_eq![world.is_game_over().unwrap(), Team::Blue];
+
+        // This holds even after giving red more Karbonite.
+        world.get_team_mut(Team::Red).karbonite += 2000;
         assert![world.is_game_over().is_some()];
         assert_eq![world.is_game_over().unwrap(), Team::Blue];
     }
