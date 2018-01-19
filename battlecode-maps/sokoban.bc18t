@@ -1,0 +1,135 @@
+orbit_amplitude: 50
+orbit_period: 40
+orbit_center: 150
+
+seed: 1010101
+
+EARTH:
+width: 26
+height: 28
+symmetry: vertical
+
+_ =
+. =
+
+X = impassable
+r = red_worker
+b = blue_worker
+
+0 = 21k
+z = 4k
+
+>XXXXXXXXXXXXXXXXXXXXXXXXXX
+>XX.bXXXXXXXXXXXX.........X
+>X..........XXXXX.........X
+>X.0XXXXX0X.XXXXX.........X
+>X..X...X.0.XXXXX....r....X
+>X.0.0....0XXXXXX.........X
+>X.0..0..X..XXXXX.........X
+>X.XXXX0.XX.XXXXX.........X
+>X..0...0.X.XXXXX.........X
+>X.XXX0X...0.XXXXXXXXXXXX.X
+>X...X..0X.0..zzzzzzzzzz..X
+>X..0......XXXXXXXXXXXXXXXX
+>XXXXX..X..XXXXXXXXXXXXXXXX
+>XXXXXXXX..XXXXXXXXXXXXXXXX
+
+
+MARS:
+
+width: 26
+height: 28
+symmetry: none
+
+>XXXXXXXXXXXXXXXXXXXXXXXXXX
+>XXX......................X
+>XXX..XXXXXXXXXXXXXXXXXXX.X
+>XXXX.XXXXXXXXXXXXXXXXXXX.X
+>X..X.XXXXXX...XXXXXXXXXX.X
+>X.....XXXX....XXXXXXXXXX.X
+>X....X..X....XXXXXXXXXX.X
+>XX...X.....XXXXXXXXXXX.X
+>XX.......X...XXXXXXXXXXX.X
+>XX...X..X...XXXXX.....X.X
+>XX....XXXX...XXX.......X.X
+>XX.......X..XXXXXX.....X.X
+>XXXXX....X.XXXXX.........X
+>XXXXXXX.XX.XXXXXXX.....XXX
+>XXXXXX.....XXXXX.......XXX
+>XXXXXX..X..XXXXXXX.....XXX
+>XXXXXXX.X.XXXXXXXXXXX.XXXX
+>X....X....XXXXXXXXX......X
+>X...X.....XXXXXXX......X
+>X.........XXXXXXXXX......X
+>X....X....XXXXXXXXX......X
+>XX.XXXXXXXXXXXXXXXX......X
+>X....X.....XXXXXXXX......X
+>X...X.....XXXXXXXX......X
+>X..........XXXXXXXX......X
+>X..X.....XXXXXXXXXXXXX.X
+>X....X...................X
+>XXXXXXXXXXXXXXXXXXXXXXXXXX
+
+* 13 24 2 35
+* 31 18 26 47
+* 49 13 1 73
+* 60 12 26 65
+* 72 21 26 62
+* 88 23 15 23
+* 107 17 1 69
+* 125 13 1 63
+* 143 22 1 94
+* 153 14 1 23
+* 163 17 13 85
+* 177 16 26 56
+* 191 19 1 62
+* 203 20 26 67
+* 215 17 15 76
+* 234 10 26 28
+* 254 17 26 87
+* 270 20 1 49
+* 288 12 26 50
+* 306 16 26 46
+* 320 15 1 54
+* 333 11 26 37
+* 348 17 1 37
+* 359 11 26 68
+* 375 22 1 100
+* 388 12 26 78
+* 405 24 2 45
+* 420 14 26 85
+* 434 17 17 35
+* 454 16 1 64
+* 473 20 1 100
+* 486 12 26 41
+* 503 21 1 35
+* 521 15 26 96
+* 538 15 1 93
+* 553 15 26 33
+* 564 21 1 35
+* 580 21 26 82
+* 598 18 1 68
+* 618 15 1 67
+* 631 18 26 72
+* 649 17 1 31
+* 664 17 13 37
+* 683 18 26 78
+* 696 13 1 42
+* 716 18 26 35
+* 736 11 26 89
+* 751 14 1 55
+* 770 17 13 55
+* 787 13 26 71
+* 806 13 1 77
+* 821 13 26 79
+* 837 14 1 90
+* 854 17 26 72
+* 867 11 26 34
+* 883 13 1 89
+* 897 17 1 77
+* 912 9 26 26
+* 925 21 26 82
+* 945 13 26 85
+* 958 11 26 70
+* 975 21 26 60
+* 995 15 26 76
