@@ -368,8 +368,11 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 recv_socket.close()
                 if bc.Team.Red == self.game.get_player(self.client_id)['player'].team:
                     self.game.winner = 'player2'
-                else:
+                elif bc.Team.Blue == self.game.get_player(self.client_id)['player'].team:
                     self.game.winner = 'player1'
+                else:
+                    print("Determining match by coin toss.")
+                    self.game.winner = 'player1' if random.random() > 0.5 else 'player2'
                 self.game.disconnected = True
                 self.game.game_over = True
                 raise TimeoutError()
@@ -378,8 +381,11 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 recv_socket.close()
                 if bc.Team.Red == self.game.get_player(self.client_id)['player'].team:
                     self.game.winner = 'player2'
-                else:
+                elif bc.Team.Blue == self.game.get_player(self.client_id)['player'].team:
                     self.game.winner = 'player1'
+                else:
+                    print("Determining match by coin toss.")
+                    self.game.winner = 'player1' if random.random() > 0.5 else 'player2'
                 self.game.disconnected = True
                 self.game.game_over = True
                 raise KeyboardInterrupt()
@@ -426,8 +432,11 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 ))
                 if bc.Team.Red == self.game.get_player(self.client_id)['player'].team:
                     self.game.winner = 'player2'
-                else:
+                elif bc.Team.Blue ==self.game.get_player(self.client_id)['player'].team:
                     self.game.winner = 'player1'
+                else:
+                    print("Determining match by coin toss.")
+                    self.game.winner = 'player1' if random.random() > 0.5 else 'player2'
                 self.game.disconnected = True
                 self.game.game_over = True
                 raise TimeoutError()
@@ -436,8 +445,11 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 send_socket.close()
                 if bc.Team.Red == self.game.get_player(self.client_id)['player'].team:
                     self.game.winner = 'player2'
-                else:
+                elif bc.Team.Blue ==self.game.get_player(self.client_id)['player'].team:
                     self.game.winner = 'player1'
+                else:
+                    print("Determining match by coin toss.")
+                    self.game.winner = 'player1' if random.random() > 0.5 else 'player2'
                 self.game.disconnected = True
                 self.game.game_over = True
                 raise KeyboardInterrupt()
@@ -569,8 +581,11 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
 
                         if bc.Team.Red == self.game.get_player(self.client_id)['player'].team:
                             self.game.winner = 'player2'
-                        else:
+                        elif bc.Team.Blue ==self.game.get_player(self.client_id)['player'].team:
                             self.game.winner = 'player1'
+                        else:
+                            print("Determining match by coin toss.")
+                            self.game.winner = 'player1' if random.random() > 0.5 else 'player2'
                         self.game.disconnected = True
                         self.game.game_over = True
 
