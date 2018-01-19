@@ -1,0 +1,83 @@
+orbit_amplitude: 20
+orbit_period: 40
+orbit_center: 180
+
+seed: 1010101
+
+EARTH:
+width: 40
+height: 36
+symmetry: spiral
+
+_ =
+
+X = impassable
+r = red_worker
+b = blue_worker
+
+1 = 3k
+2 = 6k
+
+Q = 24k
+
+>___1__________________________________21
+>__2_____________________________________
+>________________________________________
+>_____XXXXX______________________r_______
+>___XXXQ_________________________________
+>________________________________________
+>________________________________________
+>________________________________________
+>_______________________X2_______________
+>______________________1XXX______________
+>_______________________21X______________
+>________________________QX2_____________
+>_______X_________________1X_____________
+>__________________________X_____________
+>__________________________2_____________
+>_1______________________________________
+>_______________________________________2
+>______________Q________________________2
+
+MARS:
+width: 40
+height: 36
+symmetry: none
+x = impassable
+
+>____________________XXXXXXXXXXXXXXXXXXXX
+>_X__________________XXXXXXXXXXXXXXXXXXXX
+>_X__________________XXXXXXXXXXXXXXXXXXXX
+>__X_________________XXXXXXXXXXXXXXXXXXXX
+>___X________________XXXXXXXXXXXXXXXXXXXX
+>______________X_____XXXXXXXXXXXXXXXXXXXX
+>____________________XXXXXXXXXXXXXXXXXXXX
+>____________________XXXXXXXXXXXXXXXXXXXX
+>____________________XXXXXXXXXXXXXXXXXXXX
+>____________________XXXXXXXXXXXXXXXXXXXX
+>____________________XXXXXXXXXXXXXXXXXXXX
+>____________________XXXXXXXXXXXXXXXXXXXX
+>____________________XXXXXXXXXXXXXXXXXXXX
+>____________________XXXXXXXXXXXXXXXXXXXX
+>____________xxx_____XXXXXXXXXXXXXXXXXXXX
+>___________x___x____XXXXXXXXXXXXXXXXXXXX
+>____________x__x____XXXXXXXXXXXXXXXXXXXX
+>____________x___x___XXXXXXXXXXXXXXXXXXXX
+>___________x________XXXXXXXXXXXXXXXXXXXX
+>____________________XXXXXXXXXXXXXXXXXXXX
+>XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+>XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+>XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+>XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+>XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+>XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+>XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+>XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+>XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+>XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+>XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+>XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+>XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+>XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+>XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+>XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
