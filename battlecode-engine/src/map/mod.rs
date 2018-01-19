@@ -44,14 +44,6 @@ impl GameMap {
     /// * InvalidMapObject - the game map is invalid.
     pub fn validate(&self) {
         let mut valid = true;
-
-        if self.earth_map.width != self.mars_map.width ||
-            self.earth_map.height != self.mars_map.height {
-            println!("Earth ({} x {}) and Mars ({} x {}) are not the same dimensions",
-                self.earth_map.width, self.earth_map.height,
-                self.mars_map.width, self.mars_map.height);
-            valid = false;
-        }
         valid = valid && self.earth_map.validate();
         valid = valid && self.mars_map.validate();
         valid = valid && self.asteroids.validate();
@@ -192,25 +184,12 @@ impl PlanetMap {
 
         for y in 0..self.height {
             for x in 0..self.width {
+                // The initial karbonite has limited values.
                 let karbonite = self.initial_karbonite[y][x];
-                match self.planet {
-                    Planet::Mars => {
-                        // Mars cannot have any initial karbonite.
-                        if karbonite != 0 {
-                            println!("Mars has initial karbonite {} at ({}, {})",
-                                karbonite, x, y);
-                            valid = false;
-                        }
-                    }
-                    Planet::Earth => {
-                        // Earth's initial karbonite has limited values.
-                        if karbonite < MAP_KARBONITE_MIN ||
-                           karbonite > MAP_KARBONITE_MAX {
-                            println!("Earth has initial karbonite {} at ({}, {})",
-                                karbonite, x, y);
-                            valid = false;
-                        }
-                    }
+                if karbonite < MAP_KARBONITE_MIN || karbonite > MAP_KARBONITE_MAX {
+                    println!("Planet has initial karbonite {} at ({}, {})",
+                        karbonite, x, y);
+                    valid = false;
                 }
             }
         }
