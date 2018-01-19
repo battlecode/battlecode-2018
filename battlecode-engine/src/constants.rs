@@ -101,7 +101,7 @@ pub const RESEARCH_HEALER_COST: [Rounds; 4] = [0, 25, 100, 200];
 pub const RESEARCH_FACTORY_COST: [Rounds; 1] = [0];
 
 /// The cost of each level of research on the Rocket branch.
-pub const RESEARCH_ROCKET_COST: [Rounds; 4] = [0, 100, 100, 100];
+pub const RESEARCH_ROCKET_COST: [Rounds; 4] = [0, 50, 100, 100];
 
 // *********************************
 // ****** HEAT CONSTANTS ***********
@@ -133,4 +133,4 @@ pub const BLUEPRINT_FACTORY_COST: u32 = 100;
 /// The cost to blueprint a rocket.
 pub const BLUEPRINT_ROCKET_COST: u32 = 75;
 /// The cost to replicate a worker.
-pub const REPLICATE_WORKER_COST: u32 = 15;
+pub const REPLICATE_WORKER_COST: u32 = 30;
