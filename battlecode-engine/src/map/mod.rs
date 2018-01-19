@@ -55,6 +55,7 @@ impl GameMap {
         valid = valid && self.earth_map.validate();
         valid = valid && self.mars_map.validate();
         valid = valid && self.asteroids.validate();
+        valid = valid && self.asteroids.validate_asteroid_locations(&self.mars_map);
         valid = valid && self.orbit.validate();
         if valid {
             println!("The map is valid!");
@@ -520,6 +521,19 @@ impl AsteroidPattern {
             }
             if asteroid.location.planet != Planet::Mars {
                 println!("Asteroid landing on Earth at round {}", round);
+                valid = false;
+            }
+        }
+        valid
+    }
+
+    /// Validates the location of the asteroid strikes relative to the map.
+    pub fn validate_asteroid_locations(&self, mars_map: &PlanetMap) -> bool {
+        // The asteroid must be on the mars map.
+        let mut valid = true;
+        for (round, asteroid) in &self.pattern {
+            if !mars_map.on_map(asteroid.location) {
+                println!("Asteroid on round {} lands off the map", round);
                 valid = false;
             }
         }
