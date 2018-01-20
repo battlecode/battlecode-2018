@@ -1974,7 +1974,7 @@ impl GameWorld {
         self.my_unit_mut(rocket_id)?.launch_rocket();
 
         let landing_round = self.round + self.orbit.duration(self.round)
-            + self.my_unit(rocket_id)?.rocket_travel_time_decrease().unwrap();
+            - self.my_unit(rocket_id)?.rocket_travel_time_decrease().unwrap();
         self.my_team_mut().rocket_landings.add_landing(
             landing_round, RocketLanding::new(rocket_id, destination)
         );
