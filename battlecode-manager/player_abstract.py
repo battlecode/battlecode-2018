@@ -81,6 +81,9 @@ class AbstractPlayer:
         else:
             raise Exception("Unknown os: " + sys.platform)
 
+    def refreshProcessChildren(self):
+        pass
+
     def guess_language(self):
         return "?"
 

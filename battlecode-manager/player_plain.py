@@ -16,8 +16,14 @@ class PlainPlayer(AbstractPlayer):
         self.paused = False
         self.streaming = False
         self.process = None
+        self.recursiveProcs = []
+        self.nonRecursiveProcs = []
 
         super().__init__(socket_file, working_dir, local_dir, None, None, player_key, player_mem_limit, player_cpu)
+
+    def refreshProcessChildren(self):
+        self.recursiveProcs = self.process.children(recursive=True)
+        self.nonRecursiveProcs = self.process.children(recursive=False)
 
     def stream_logs(self, stdout=True, stderr=True, line_action=lambda line: print(line.decode())):
         assert not self.streaming
@@ -72,16 +78,23 @@ class PlainPlayer(AbstractPlayer):
 
     def pause(self):
         # pausing too slow on windows
-        if sys.platform == 'win32': return
+        if sys.platform == 'win32':
+            return
+
         if not self.paused:
             self.paused = True
-            suspend(self.process)
+            suspend(self.nonRecursiveProcs)
 
     def unpause(self, timeout=None):
         # pausing too slow on windows
-        if sys.platform == 'win32': return
+        if sys.platform == 'win32':
+            return
+
+        # This assert should ideally be tested for Java and Python too, but I think it should hold unless the player goes out of its way to defeat the pausing mechanism
+        # assert(len(self.recursiveProcs) == len(self.process.children(recursive=True)))
+
         if self.paused:
-            resume(self.process)
+            resume(self.recursiveProcs)
             self.paused = False
 
     def destroy(self):
@@ -121,9 +134,7 @@ def reap(process, timeout=3):
     except:
         print("Killing failed; assuming process exited early.")
 
-def suspend(process):
-
-    procs = process.children(recursive=False)
+def suspend(procs):
     # to enterprising players reading this code:
     # yes, it is possible to escape the pausing using e.g. `nohup` when running without docker.
     # however, that won't work while running inside docker. Sorry.
@@ -137,8 +148,7 @@ def suspend(process):
     except:
         pass
 
-def resume(process):
-    procs = process.children(recursive=True)
+def resume(procs):
     for p in procs:
         try:
             p.resume()
