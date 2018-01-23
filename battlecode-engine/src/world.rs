@@ -2176,7 +2176,7 @@ impl GameWorld {
                 earth.units_by_loc.clear();
             }
             // Now we can check if the game ended.
-            if self.is_game_over().is_some() {
+            if self.are_all_units_dead() {
                 self.pre_flood_winner = Some(pre_flood_winner);
             }
         }
@@ -2246,6 +2246,13 @@ impl GameWorld {
             }
         }
         (self.end_turn(time_left_ms), error)
+    }
+
+    fn are_all_units_dead(&self) -> bool {
+        return self.get_planet(Planet::Earth).units.is_empty() &&
+            self.get_planet(Planet::Mars).units.is_empty() &&
+            self.get_team(Team::Red).units_in_space.is_empty() &&
+            self.get_team(Team::Blue).units_in_space.is_empty();
     }
 
     /// Determines if the game has ended, returning the winning team if so.
