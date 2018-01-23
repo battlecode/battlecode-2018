@@ -564,11 +564,13 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                     my_sandbox.unpause()
 
                     start_time = time.perf_counter()
+                    start_time_python = time.process_time()
                     self.send_message(start_turn_msg)
                     data = self.get_next_message()
+                    end_time_python = time.process_time()
                     end_time = time.perf_counter()
 
-                    diff_time = end_time-start_time
+                    diff_time = (end_time - start_time) - (end_time_python - start_time_python)
 
                     my_sandbox.pause()
 
