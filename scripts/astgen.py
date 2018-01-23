@@ -14,13 +14,15 @@ except:
 
 p = argparse.ArgumentParser(prog='astgen', usage='Generate asteroids for a map.')
 p.add_argument('-i','--inplace', action='store_true', help='strip asteroids from map file and add them in place')
-p.add_argument('-g','--generator', default='random', help='options: random')
+p.add_argument('-g','--generator', default='random', help='options: random|stride|pattern')
 p.add_argument('-f','--frequency', default='random', help='options: int|random')
 p.add_argument('-k','--karbonite', default='normal', help='options: int|random|normal')
+p.add_argument('--stride-by', type=int, default=3)
 p.add_argument('--karbonite-min', type=int, default=20)
 p.add_argument('--karbonite-max', type=int, default=200)
 p.add_argument('--karbonite-normal-sigma', type=int, default=40)
 p.add_argument('-s','--seed', type=int, default=6147)
+p.add_argument('-p','--pattern', default=None)
 p.add_argument('MAP', help='path to map file')
 a = p.parse_args()
 try:
@@ -43,6 +45,10 @@ for x in range(mars.width):
         if mars.is_passable_terrain_at(bc.MapLocation(bc.Planet.Mars, x, y)):
             passable.append((x, y))
 
+if a.pattern:
+    passable_ = set(passable)
+    pattern = eval(a.pattern)
+    pattern = [l for l in pattern if l in passable_]
 
 content = io.StringIO()
 if a.inplace:
@@ -60,7 +66,9 @@ while True:
     if a.generator == 'random':
         location = random.choice(passable)
     elif a.generator == 'stride':
-        location = passable[i * 3 % len(passable)]
+        location = passable[(i+1) * a.stride_by % len(passable)]
+    elif a.generator == 'pattern':
+        location = pattern[i % len(pattern)]
     else:
         print('unknown generator:', a.generator)
         sys.exit(1)

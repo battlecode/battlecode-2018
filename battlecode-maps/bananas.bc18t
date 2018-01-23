@@ -20,7 +20,6 @@ height: 20
 symmetry: vertical
 # can also be horizontal, none
 
-
 # now the actual map-defining part
 # we make a big square of tiles (see below).
 # we define what tiles we want here
@@ -101,13 +100,6 @@ J = 1000k
 # note that y starts at 0 at the bottom of the map
 # all asteroids land on mars
 
-
-# generated with: 
-# scripts/astgen.py battlecode-maps/bananas.bc18t -g stride -i
-# generated with: 
-# scripts/astgen.py battlecode-maps/bananas.bc18t -g stride -i
-# generated with: 
-# scripts/astgen.py battlecode-maps/bananas.bc18t -g stride -i
 # generated with: 
 # scripts/astgen.py battlecode-maps/bananas.bc18t -i
 * 1 10 2 60
