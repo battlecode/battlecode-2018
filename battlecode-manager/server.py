@@ -69,6 +69,8 @@ class Game(object): # pylint: disable=too-many-instance-attributes
         self.player_logged = {}
         # Dict taking player id and giving amount of time left as float
         self.times = {}
+        # List of how many players per team are connected (red,blue).
+        self.connected_players = [0,0]
 
         self.disconnected = False
 
@@ -144,6 +146,10 @@ class Game(object): # pylint: disable=too-many-instance-attributes
 
     def get_player(self, client_id):
         return self.players[self.player_id2index(client_id)]
+
+    def player_connected(self, client_id):
+        index = self.player_id2index(client_id)
+        self.connected_players[index%2] = self.connected_players[index%2] + 1
 
     @property
     def num_log_in(self):
@@ -371,8 +377,11 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 elif bc.Team.Blue == self.game.get_player(self.client_id)['player'].team:
                     self.game.winner = 'player1'
                 else:
-                    print("Determining match by coin toss.")
-                    self.game.winner = 'player1' if random.random() > 0.5 else 'player2'
+                    if self.game.connected_players[0] == self.game.connected_players[1]:
+                        print("Determining match by coin toss.")
+                        self.game.winner = 'player1' if random.random() > 0.5 else 'player2'
+                    else:
+                        self.game.winner = 'player1' if self.game.connected_players[0] > self.game.connected_players[1] else 'player2'
                 self.game.disconnected = True
                 self.game.game_over = True
                 raise TimeoutError()
@@ -384,8 +393,11 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 elif bc.Team.Blue == self.game.get_player(self.client_id)['player'].team:
                     self.game.winner = 'player1'
                 else:
-                    print("Determining match by coin toss.")
-                    self.game.winner = 'player1' if random.random() > 0.5 else 'player2'
+                    if self.game.connected_players[0] == self.game.connected_players[1]:
+                        print("Determining match by coin toss.")
+                        self.game.winner = 'player1' if random.random() > 0.5 else 'player2'
+                    else:
+                        self.game.winner = 'player1' if self.game.connected_players[0] > self.game.connected_players[1] else 'player2'
                 self.game.disconnected = True
                 self.game.game_over = True
                 raise KeyboardInterrupt()
@@ -435,8 +447,11 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 elif bc.Team.Blue ==self.game.get_player(self.client_id)['player'].team:
                     self.game.winner = 'player1'
                 else:
-                    print("Determining match by coin toss.")
-                    self.game.winner = 'player1' if random.random() > 0.5 else 'player2'
+                    if self.game.connected_players[0] == self.game.connected_players[1]:
+                        print("Determining match by coin toss.")
+                        self.game.winner = 'player1' if random.random() > 0.5 else 'player2'
+                    else:
+                        self.game.winner = 'player1' if self.game.connected_players[0] > self.game.connected_players[1] else 'player2'
                 self.game.disconnected = True
                 self.game.game_over = True
                 raise TimeoutError()
@@ -448,8 +463,11 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 elif bc.Team.Blue ==self.game.get_player(self.client_id)['player'].team:
                     self.game.winner = 'player1'
                 else:
-                    print("Determining match by coin toss.")
-                    self.game.winner = 'player1' if random.random() > 0.5 else 'player2'
+                    if self.game.connected_players[0] == self.game.connected_players[1]:
+                        print("Determining match by coin toss.")
+                        self.game.winner = 'player1' if random.random() > 0.5 else 'player2'
+                    else:
+                        self.game.winner = 'player1' if self.game.connected_players[0] > self.game.connected_players[1] else 'player2'
                 self.game.disconnected = True
                 self.game.game_over = True
                 raise KeyboardInterrupt()
@@ -506,6 +524,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                     logging.info("Client %s: logged in succesfully", self.client_id)
                     self.logged_in = True
                     self.client_id = verify_out
+                    self.game.player_connected(self.client_id)
                     self.game.get_player(self.client_id)['built_successfully'] = True
 
                 log_success = self.message("")
@@ -586,8 +605,11 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                         elif bc.Team.Blue ==self.game.get_player(self.client_id)['player'].team:
                             self.game.winner = 'player1'
                         else:
-                            print("Determining match by coin toss.")
-                            self.game.winner = 'player1' if random.random() > 0.5 else 'player2'
+                            if self.game.connected_players[0] == self.game.connected_players[1]:
+                                print("Determining match by coin toss.")
+                                self.game.winner = 'player1' if random.random() > 0.5 else 'player2'
+                            else:
+                                self.game.winner = 'player1' if self.game.connected_players[0] > self.game.connected_players[1] else 'player2'
                         self.game.disconnected = True
                         self.game.game_over = True
 
