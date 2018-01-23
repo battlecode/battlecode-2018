@@ -129,7 +129,7 @@ def poll_thread():
             sleep(0.1)
         DB_LOCK = True
 
-        cur.execute("SELECT (id, red_key, blue_key, map, red_team, blue_team) FROM " + os.environ["TABLE_NAME"] + " WHERE status='queued' or (status='running' and start < (NOW() - INTERVAL '5 min')) ORDER BY start ASC")
+        cur.execute("SELECT (id, red_key, blue_key, map, red_team, blue_team) FROM " + os.environ["TABLE_NAME"] + " WHERE status='queued' or (status='running' and start < (NOW() - INTERVAL '8 min')) ORDER BY start ASC")
 
         row = cur.fetchone()
 
