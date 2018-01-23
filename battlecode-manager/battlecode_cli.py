@@ -22,19 +22,28 @@ import sys
 # TODO port number
 PORT = 16147
 
-
 class Logger(object):
-    def __init__(self, prefix, print=True):
+    def __init__(self, prefix, print=True, limit=2**63):
         self.logs = io.StringIO()
         self.prefix = prefix
         self.print = print
+        self.limit = limit
+        self.len = 0
+        self.out_of_log_errored = False
 
     def __call__(self, v):
-        data = v.decode()
-        self.logs.write(data)
-        if self.print:
-            print(self.prefix, data, end='')
-
+        if self.len < self.limit:
+            data = v.decode()
+            self.logs.write(data)
+            if self.print:
+                print(self.prefix, data, end='')
+            self.len += len(data)
+        elif not self.out_of_log_errored:
+            self.out_of_log_errored = True
+            msg = '=== Out of log space! Used {} bytes of log. Further logs will not be recorded. ==='.format(self.len)
+            self.logs.write(msg)
+            if self.print:
+                print(self.prefix, msg, end='')
 
 def working_dir_message(working_dir):
     print('Working directory:', working_dir)
@@ -88,10 +97,9 @@ def run_game(game, dockers, args, sock_file, scrimmage=False):
                 team = 'red'
 
             name = '[{}:{}]'.format(planet, team)
-            logger = Logger(name, print=(not args['terminal_viewer']))
-
-            if not scrimmage:
-                docker_inst.stream_logs(line_action=logger)
+            # 10 MB of logs in scrimmage, unlimited logging otherwise
+            logger = Logger(name, print=not args['terminal_viewer'], limit=10**7 if scrimmage else 2**63)
+            docker_inst.stream_logs(line_action=logger)
             player_['logger'] = logger
 
         # Wait until all the code is done then clean up
