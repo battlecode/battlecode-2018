@@ -282,9 +282,10 @@ def create_scrimmage_game(args):
     for index in range(len(game.players)):
         key = [player['id'] for player in game.players][index]
         dockers[key] = SandboxedPlayer(sock_file, player_key=key,
-                               s3_bucket=args['s3_bucket'],
-                               s3_key=args['red_key' if index % 2 == 0 else 'blue_key'],
-                               docker_client=docker_instance,
-                               working_dir=working_dir)
+                                   s3_bucket=args['s3_bucket'],
+                                   s3_key=args['red_key' if index % 2 == 0 else 'blue_key'],
+                                   docker_client=docker_instance,
+                                   working_dir=working_dir)
+
 
     return (game, dockers, sock_file)

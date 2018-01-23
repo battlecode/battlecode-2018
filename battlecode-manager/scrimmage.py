@@ -62,6 +62,7 @@ def end_game(data,winner,match_file,logs):
 
 def match_thread(data):
     global BUSY
+    global DB_LOCK
     BUSY = True
     GAMES_RUN.append(data['id'])
 
@@ -78,7 +79,20 @@ def match_thread(data):
 
     data['extra_delay'] = 0
 
-    (game, dockers, sock_file) = cli.create_scrimmage_game(data)
+    try:
+        (game, dockers, sock_file) = cli.create_scrimmage_game(data)
+    except ValueError as e:
+        print("Destroying the game, as it is invalid.  This should not happen.")
+        while DB_LOCK == True:
+            sleep(0.1)
+        DB_LOCK = True
+        cur.execute("UPDATE " + os.environ["TABLE_NAME"] + " SET status='rejected' WHERE id=%s", (data['id'],))
+        pg.commit()
+        DB_LOCK = False
+
+        return
+
+
     PROXY_UPLOADER.game = game
     winner = None
     match_file = None
