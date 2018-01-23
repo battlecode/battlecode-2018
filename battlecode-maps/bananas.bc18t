@@ -12,7 +12,7 @@ seed: 1337
 # rounds to reach Mars
 orbit_amplitude: 50
 orbit_period: 40
-orbit_center: 100
+orbit_center: 140
 
 EARTH:
 width: 20
