@@ -14,6 +14,9 @@ NUM_MAPS_PER_GAME = 3
 COLOR_RED = 'RED'
 COLOR_BLUE = 'BLUE'
 
+ELIM_SINGLE = 'single'
+ELIM_DOUBLE = 'double'
+
 team_submission = {}
 
 
@@ -121,8 +124,7 @@ def get_all_teams_and_index_submissions(conn) -> List[Team]:
 
 def wait_for_empty_queue(conn, table) -> None:
     """
-    Checks every 10 seconds until the queue is empty. This method is used to
-    ensure that rankings are final after we recalculate them.
+    Checks every queue_length / 10 seconds until the queue is empty.
     """
     while True:
         queue_length = get_queue_length(conn, table)
@@ -130,7 +132,7 @@ def wait_for_empty_queue(conn, table) -> None:
             break
         logging.info('Waiting for the queue to empty: {} left...'
             .format(queue_length))
-        time.sleep(10)
+        time.sleep(queue_length / 10)
     logging.debug('Queue is empty.')
 
 

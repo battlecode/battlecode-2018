@@ -6,9 +6,9 @@ Outputs a JSON tournament format for the Unity viewer:
 {
     "tournament": "sprint",
     "rounds": [{
-        "round": 0,
+        "round": "0",
         "matches": [{
-            "index": 0",
+            "index": 0,
             "Red": {
                 "id": 1,
                 "name": "Team 1",
@@ -30,7 +30,7 @@ Outputs a JSON tournament format for the Unity viewer:
 import json
 import re
 
-from tournament_helper import db_connect
+from tournament_helper import *
 
 # Hardcoded relative paths to local files
 AVATAR_PREFIX = 'avatar/'
@@ -42,6 +42,7 @@ TEAM_ID_TO_AVATAR = {}
 
 # Other constants
 DEFAULT_AVATAR = AVATAR_PREFIX + 'default.png'
+
 
 def index_team_info(cur) -> None:
     '''
@@ -73,7 +74,7 @@ def serialize_team(team_id):
     }
 
 
-def serialize_match(cur, round_num: int, match_index: int):
+def serialize_match(cur, round_num: int, subround: str, match_index: int):
     '''
     Returns the deserialized version of a single match.
     '''
@@ -81,11 +82,15 @@ def serialize_match(cur, round_num: int, match_index: int):
     match['index'] = match_index
     match['replays'] = []
     match['winner_ids'] = []
+    subround_clause = ''
+
+    if subround is not None:
+        subround_clause = 'AND subround=\'{}\''.format(subround)
 
     cur.execute('SELECT red_team, blue_team, status, replay \
-        FROM {} WHERE round={} AND index={} \
+        FROM {} WHERE round={} {} AND index={} \
         AND (status=\'redwon\' or status=\'bluewon\');'
-        .format(TABLE_NAME, round_num, match_index))
+        .format(TABLE_NAME, round_num, subround_clause, match_index))
 
     matches = cur.fetchall()
     if len(matches) != 3:
@@ -125,18 +130,29 @@ def serialize_match(cur, round_num: int, match_index: int):
     
     return match
 
-def serialize_round(cur, round_num: int):
+def serialize_round(cur, round_num: int, subround: str):
     '''
     Returns the deserialized version of a single round.
     '''
     t_round = {}
     t_round['round'] = round_num
     t_round['matches'] = []
+    subround_clause = ''
 
-    cur.execute('SELECT MAX(index) FROM {} WHERE round=%s;'.format(TABLE_NAME), (round_num,))
+    if subround is not None:
+        t_round['round'] = '{}{}'.format(round_num, subround)
+        subround_clause = 'AND subround=\'{}\''.format(subround)
+
+    cur.execute('SELECT COUNT(*) FROM {} WHERE round=%s {};'
+        .format(TABLE_NAME, subround_clause), (round_num,))
+    if cur.fetchone()[0] == 0:
+        return None
+
+    cur.execute('SELECT MAX(index) FROM {} WHERE round=%s {};'
+        .format(TABLE_NAME, subround_clause), (round_num,))
     max_index = cur.fetchone()[0]
     for index in range(0, max_index + 1):
-        match = serialize_match(cur, round_num, index)
+        match = serialize_match(cur, round_num, subround, index)
         if match is None:
             continue
         t_round['matches'].append(match)
@@ -151,10 +167,21 @@ def serialize_tournament(cur):
     tournament['tournament'] = TOURNAMENT_NAME
     tournament['rounds'] = []
 
+    if ELIM_STYLE == ELIM_SINGLE:
+        subrounds = [None]
+    elif ELIM_STYLE == ELIM_DOUBLE:
+        subrounds = ['A', 'B', 'C']
+    else:
+        raise Exception('No such elimination style: {}'.format(ELIM_STYLE))
+
     cur.execute('SELECT MAX(round) FROM {};'.format(TABLE_NAME))
     max_round = cur.fetchone()[0]
     for round_num in range(0, max_round + 1):
-        tournament['rounds'].append(serialize_round(cur, round_num))
+        for subround in subrounds:
+            serialized_round = serialize_round(cur, round_num, subround)
+            if serialized_round is None:
+                continue
+            tournament['rounds'].append(serialized_round)
 
     return tournament
 
@@ -162,8 +189,9 @@ def serialize_tournament(cur):
 if __name__ == '__main__':
     conn = db_connect()
     cur = conn.cursor()
-    TOURNAMENT_NAME = input('Tournament name? ')
+    TOURNAMENT_NAME = input('Tournament name: ')
     TABLE_NAME = input('DB table (i.e. tournament_sprint): ')
+    ELIM_STYLE = input('Elimination style ("single" or "double"): ')
     tournament = serialize_tournament(cur)
     cur.close()
 
