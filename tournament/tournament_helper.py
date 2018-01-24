@@ -124,13 +124,40 @@ def wait_for_empty_queue(conn, table) -> None:
     Checks every 10 seconds until the queue is empty. This method is used to
     ensure that rankings are final after we recalculate them.
     """
-    queue_length = get_queue_length(conn, table)
-    while queue_length != 0:
-        time.sleep(10)
+    while True:
+        queue_length = get_queue_length(conn, table)
+        if queue_length == 0:
+            break
         logging.info('Waiting for the queue to empty: {} left...'
             .format(queue_length))
-        queue_length = get_queue_length(conn, table)
+        time.sleep(10)
     logging.debug('Queue is empty.')
+
+
+def generate_bracket(teams: List[Team]) -> List[Team]:
+    n = len(teams)
+
+    # get the bracket by index
+    full_bracket = bracket(n)
+
+    # put the teams in the correct position in the bracket
+    sortedTeams = []
+    for i in range(n):
+        sortedTeams.append(teams[full_bracket[i] - 1])
+    logging.debug('The bracket for single elimination is...')
+    logging.debug(list(sortedTeams))
+    return sortedTeams
+
+
+def bracket(n: int):
+    if (n == 1):
+        return [1]
+    half_bracket = bracket(int(n / 2))
+    full_bracket = n * [0]
+    for i in range(int(n / 2)):
+        full_bracket[2 * i] = half_bracket[i]
+        full_bracket[2 * i + 1] = n + 1 - full_bracket[2 * i]
+    return full_bracket
 
 
 def pad_teams_power_of_two(teams: List[Team]) -> List[Team]:

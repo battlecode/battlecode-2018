@@ -1,5 +1,6 @@
 import logging
 import single_elimination
+import double_elimination
 
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.DEBUG)
@@ -11,7 +12,7 @@ if __name__ == '__main__':
     if elim_style == 'single':
         single_elimination.run(map_tag, table_name)
     elif elim_style == 'double':
-        logging.error('Not yet implemented')
+        double_elimination.run(map_tag, table_name)
     else:
         logging.error('No such eliminiation style: {}'.format(elim_style))
 

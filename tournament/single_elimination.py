@@ -47,32 +47,6 @@ def get_next_team_and_from(conn, next_round_num, next_index, color):
     return (match_winner, match_id)
 
 
-def generate_bracket(teams: List[Team]) -> List[Team]:
-    n = len(teams)
-
-    # get the bracket by index
-    full_bracket = bracket(n)
-
-    # put the teams in the correct position in the bracket
-    sortedTeams = []
-    for i in range(n):
-        sortedTeams.append(teams[full_bracket[i] - 1])
-    logging.debug('The bracket for single elimination is...')
-    logging.debug(list(sortedTeams))
-    return sortedTeams
-
-
-def bracket(n: int):
-    if (n == 1):
-        return [1]
-    half_bracket = bracket(int(n / 2))
-    full_bracket = n * [0]
-    for i in range(int(n / 2)):
-        full_bracket[2 * i] = half_bracket[i]
-        full_bracket[2 * i + 1] = n + 1 - full_bracket[2 * i]
-    return full_bracket
-
-
 def queue_match(conn, round_num, index, red, blue, maps):
     """
     Red and blue are passed as (team_id, from)
