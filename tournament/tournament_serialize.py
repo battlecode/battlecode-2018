@@ -30,7 +30,7 @@ Outputs a JSON tournament format for the Unity viewer:
 import json
 import re
 
-from tournament_single_elim import db_connect
+from tournament_helper import db_connect
 
 # Hardcoded relative paths to local files
 AVATAR_PREFIX = 'avatar/'

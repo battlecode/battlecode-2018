@@ -1,114 +1,7 @@
 """
 Battlecode 2018 Tournament Runner
 """
-
-import math
-import os
-import time
-import logging
-import psycopg2
-
-from typing import List, NewType
-
-Map   = NewType('Map', str)
-Team  = NewType('Team', int)
-
-NUM_MAPS_PER_GAME = 3
-
-COLOR_RED = 'RED'
-COLOR_BLUE = 'BLUE'
-
-team_submission = {}
-
-
-def db_connect(host=os.environ.get('DB_HOST'),
-               dbname='battlecode',
-               user='battlecode',
-               password=os.environ.get('DB_PASS')):
-    """
-    Connect and return a connection to the database. The database credentials
-    are read from environment variables, if not passed in the function call.
-    """
-
-    conn = None
-    while conn is None:
-        try:
-            conn = psycopg2.connect(dbname=dbname,
-                                    user=user,
-                                    password=password,
-                                    host=host)
-        except Exception as e:
-            logging.error('Error connecting to DB, retrying in 10 seconds...')
-            logging.exception(e)
-            time.sleep(10)
-
-    logging.info('Connected to DB {0} on {1}'.format(dbname, host))
-    return conn
-
-
-def get_queue_length(conn) -> int:
-    """
-    Returns the length of the match queue.
-    """
-    cur = conn.cursor()
-
-    query = 'SELECT COUNT(*) FROM {} WHERE \
-        status=\'queued\' or status=\'running\';'.format(TABLE_NAME)
-    cur.execute(query)
-    queue_length = cur.fetchone()[0]
-    cur.close()
-
-    return queue_length
-
-
-def get_tournament_maps(conn, tag=None) -> List[Map]:
-    """
-    Returns a list of potential map names with the given tag.
-    """
-    cur = conn.cursor()
-
-    if tag is not None:
-        filter_query = 'WHERE tag=\'{}\''.format(tag)
-    else:
-        filter_query = ''
-
-    query = 'SELECT name FROM scrimmage_maps {} ORDER BY id;'.format(filter_query)
-    cur.execute(query)
-    maps = cur.fetchall()
-    cur.close()
-
-    return list(map(lambda x: x[0], maps))
-
-
-def get_all_teams_and_index_submissions(conn) -> List[Team]:
-    """
-    Returns a list of teams that can be entered into the next round of
-    matchmaking, along with their most recently submitted submission.
-    The teams are ranked from best to least best.
-    """
-    cur = conn.cursor()
-
-    query = 'SELECT teams1.id, subs.source_code                              \
-        FROM battlecode_teams teams1 INNER JOIN scrimmage_submissions subs   \
-        ON teams1.id = subs.team                                             \
-        WHERE subs.uploaded_time = (                                         \
-            SELECT MAX(uploaded_time)                                        \
-            FROM battlecode_teams teams2 INNER JOIN scrimmage_submissions s  \
-            ON teams2.id = s.team                                            \
-            WHERE teams1.id = teams2.id                                      \
-        ) ORDER BY teams1.mu DESC;'
-    cur.execute(query);
-    teams = cur.fetchall()
-    cur.close()
-
-    for team in teams:
-        team_id = team[0]
-        team_sub = team[1]
-        team_submission[team_id] = team_sub
-    team_submission[None] = None
-
-    return list(map(lambda x: x[0], teams))
-
+from tournament_helper import *
 
 def get_next_team_and_from(conn, next_round_num, next_index, color):
     """
@@ -178,37 +71,6 @@ def bracket(n: int):
         full_bracket[2 * i] = half_bracket[i]
         full_bracket[2 * i + 1] = n + 1 - full_bracket[2 * i]
     return full_bracket
-
-
-def wait_for_empty_queue(conn) -> None:
-    """
-    Checks every 10 seconds until the queue is empty. This method is used to
-    ensure that rankings are final after we recalculate them.
-    """
-    queue_length = get_queue_length(conn)
-    while queue_length != 0:
-        time.sleep(10)
-        logging.info('Waiting for the queue to empty: {} left...'
-            .format(queue_length))
-        queue_length = get_queue_length(conn)
-    logging.debug('Queue is empty.')
-
-
-def pad_teams_power_of_two(teams: List[Team]) -> List[Team]:
-    """
-    Pads the teams list to a power of two by adding BYEs to the end.
-    """
-    assert len(teams) > 0
-    num_teams_orig = len(teams)
-    num_teams_goal = 2**math.ceil(math.log(num_teams_orig, 2))
-    for ranking in range(len(teams) + 1, num_teams_goal + 1):
-        teams.append(None)
-
-    logging.debug('Padded {} teams to {} teams (goal {})'.format(
-        num_teams_orig, len(teams), num_teams_goal))
-
-    assert len(teams) & (len(teams) - 1) == 0
-    return teams
 
 
 def queue_match(conn, round_num, index, red, blue, maps):
@@ -330,7 +192,7 @@ def run_tournament(conn, maps: List[Map], teams: List[Team]):
             queue_initial_round(conn, teams, maps[:NUM_MAPS_PER_GAME])
             continue
 
-        wait_for_empty_queue(conn)
+        wait_for_empty_queue(conn, TABLE_NAME)
         logging.debug('Queuing Round {} out of {}...'
             .format(round_num, num_rounds - 1))
         round_maps = maps[(NUM_MAPS_PER_GAME - 1) * round_num : 
@@ -339,12 +201,16 @@ def run_tournament(conn, maps: List[Map], teams: List[Team]):
         queue_round(conn, round_num, round_maps)
 
 
-def run(conn) -> None:
+def run(map_tag, table_name) -> None:
     """
     No more ranked matches should be run at this point, nor should ratings be
     updated, nor new bots submitted.
     """
-    maps = get_tournament_maps(conn, tag=MAP_TAG)
+    global TABLE_NAME
+    TABLE_NAME = table_name
+
+    conn = db_connect()
+    maps = get_tournament_maps(conn, tag=map_tag)
     teams = get_all_teams_and_index_submissions(conn)
 
     num_teams = len(teams)
@@ -359,13 +225,3 @@ def run(conn) -> None:
 
     run_tournament(conn, maps, teams)
 
-
-if __name__ == '__main__':
-    logging.getLogger().setLevel(logging.DEBUG)
-
-    MAP_TAG = input('Map tag in DB (i.e. sprint2018):\n')
-    TABLE_NAME = input('Tournament table in DB (i.e. tournament_sprint):\n')
-
-    conn = db_connect()
-    run(conn)
-    logging.info('Tournament runner is exiting...')
