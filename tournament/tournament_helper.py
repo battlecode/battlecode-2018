@@ -132,7 +132,7 @@ def wait_for_empty_queue(conn, table) -> None:
             break
         logging.info('Waiting for the queue to empty: {} left...'
             .format(queue_length))
-        time.sleep(queue_length / 10)
+        time.sleep(max(1, queue_length / 10))
     logging.debug('Queue is empty.')
 
 

@@ -7,8 +7,8 @@ from tournament_helper import *
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.DEBUG)
 
-    map_tag = input('Map tag in DB (i.e. sprint2018): ')
-    table_name = input('Tournament table in DB (i.e. tournament_sprint): ')
+    map_tag = input('Map tag in DB (i.e. seeding): ')
+    table_name = input('Tournament table in DB (i.e. tournament_seeding): ')
     elim_style = input('Elimination style ("single" or "double"): ')
 
     if elim_style == ELIM_SINGLE:

@@ -253,8 +253,8 @@ def run_tournament(conn, maps: List[Map], teams: List[Team]):
     to lose two matches before they are eliminated from the tournament. There
     are separate winners and losers brackets.
 
-    Maps are used in sets of 3, where the 2nd and 3rd map of one round
-    are the 1st and 2nd map of the next round.
+    Maps are used in sets of 3, where the 3rd map of one round is the 1st map
+    of the next round, just like in single elimination.
 
     maps  - A list of maps for the tournament, run in the order they are given.
     teams - A power of two number of teams, where some of the teams may be BYEs.
@@ -266,9 +266,10 @@ def run_tournament(conn, maps: List[Map], teams: List[Team]):
     num_rounds = 3 * int(math.log(len(bracket), 2)) - 1
 
     # there may be an extra round if there is an upset in the final round
+    goal_num_maps = 2 * (int(math.log(len(bracket), 2)) + 1) + 1
     logging.debug('We want at least {} maps, and we have {}'
-        .format(num_rounds + 2, len(maps)))
-    assert len(maps) >= num_rounds + 2
+        .format(goal_num_maps, len(maps)))
+    assert len(maps) >= goal_num_maps
 
     initial_round = int(input('Start at which round? (0 to {}):\n'
         .format(num_rounds - 1)))
@@ -281,7 +282,7 @@ def run_tournament(conn, maps: List[Map], teams: List[Team]):
         round_num, subround = round_num_split(round_abs)
         logging.debug('Queuing Round {} out of {} ({}{})...'
             .format(round_abs, num_rounds - 1, round_num, subround))
-        round_maps = maps[round_abs : round_abs + NUM_MAPS_PER_GAME]
+        round_maps = maps[round_num * 2 : round_num * 2 + NUM_MAPS_PER_GAME]
         logging.debug('Using these maps: {}'.format(round_maps))
 
         # first round of the winners bracket
