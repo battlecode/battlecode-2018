@@ -252,7 +252,6 @@ class Game(object): # pylint: disable=too-many-instance-attributes
                     print(line)
 
         if self.extra_delay:
-            import time
             time.sleep(self.extra_delay / 1000.)
 
         # Increment to the next player
@@ -346,6 +345,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             self.error = ""
             self.logged_in = False
             self.is_unix_stream = is_unix_stream
+
             super(ReceiveHandler, self).__init__(*args, **kwargs)
 
         def get_next_message(self) -> object:
@@ -358,20 +358,16 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 loaded string
             '''
 
-            recv_socket = self.request
-            game = self.game
-
-            wrapped_socket = recv_socket.makefile('rwb', 1)
             logging.debug("Client %s: Waiting for next message", self.client_id)
             try:
-                data = next(wrapped_socket)
+                data = next(self.wrapped_socket)
             except (StopIteration, IOError):
                 print("{} has not sent message for {} seconds, assuming they're dead".format(
                     self.game.get_player(self.client_id)['player'],
                     TIMEOUT
                 ))
-                wrapped_socket.close()
-                recv_socket.close()
+                self.wrapped_socket.close()
+                self.request.close()
                 if bc.Team.Red == self.game.get_player(self.client_id)['player'].team:
                     self.game.winner = 'player2'
                 elif bc.Team.Blue == self.game.get_player(self.client_id)['player'].team:
@@ -386,8 +382,8 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 self.game.game_over = True
                 raise TimeoutError()
             except KeyboardInterrupt:
-                wrapped_socket.close()
-                recv_socket.close()
+                self.wrapped_socket.close()
+                self.request.close()
                 if bc.Team.Red == self.game.get_player(self.client_id)['player'].team:
                     self.game.winner = 'player2'
                 elif bc.Team.Blue == self.game.get_player(self.client_id)['player'].team:
@@ -401,13 +397,8 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 self.game.disconnected = True
                 self.game.game_over = True
                 raise KeyboardInterrupt()
-            finally:
-                wrapped_socket.close()
 
-            data = data.decode("utf-8").strip()
-            return data
-            #unpacked_data = json.loads(data)
-            #return unpacked_data
+            return data.decode("utf-8").strip()
 
         def send_message(self, obj: object) -> None:
             '''
@@ -422,22 +413,21 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 None
             '''
 
-
-            send_socket = self.request
             if isinstance(obj, bytes):
-                obj = obj.decode()
+                encoded_message = obj
+                encoded_message.append(b'\n')
+            else:
+                message = obj + "\n"
+                encoded_message = message.encode()
 
-            message = obj + "\n"
-            encoded_message = message.encode()
             logging.debug("Client %s: Sending message %s", self.client_id,
                           encoded_message)
 
-            wrapped_socket = send_socket.makefile('rwb', 1)
             try:
-                wrapped_socket.write(encoded_message)
+                self.wrapped_socket.write(encoded_message)
             except IOError:
-                wrapped_socket.close()
-                send_socket.close()
+                self.wrapped_socket.close()
+                self.request.close()
                 print("{} has not accepted message for {} seconds, assuming they're dead".format(
                     [p for p in self.game.players if p['id'] == self.client_id][0]['player'],
                     TIMEOUT
@@ -456,8 +446,8 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 self.game.game_over = True
                 raise TimeoutError()
             except KeyboardInterrupt:
-                wrapped_socket.close()
-                send_socket.close()
+                self.wrapped_socket.close()
+                self.request.close()
                 if bc.Team.Red == self.game.get_player(self.client_id)['player'].team:
                     self.game.winner = 'player2'
                 elif bc.Team.Blue ==self.game.get_player(self.client_id)['player'].team:
@@ -471,8 +461,6 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 self.game.disconnected = True
                 self.game.game_over = True
                 raise KeyboardInterrupt()
-            finally:
-                wrapped_socket.close()
             return
 
         def message(self, state_diff):
@@ -505,6 +493,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             self.logged_in = False
             logging.debug("Client connected to server")
             self.request.settimeout(TIMEOUT)
+            self.wrapped_socket = self.request.makefile('rwb', 1)
 
             TIMEDOUTLOG = False
 
@@ -532,6 +521,7 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 self.send_message(log_success)
 
             if self.game.game_over:
+                self.wrapped_socket.close()
                 return
 
             logging.debug("Client %s: Spinning waiting for game to start",
@@ -553,12 +543,14 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 # This is the loop that the code will always remain in
                 # Blocks until it this clients turn
                 if not self.game.start_turn(self.client_id):
+                    self.wrapped_socket.close()
                     self.request.close()
                     return
 
                 if self.game.manager.is_over():
                     self.game.game_over = True
                     self.game.end_turn()
+                    self.wrapped_socket.close()
                     self.request.close()
                     return
 
@@ -573,6 +565,8 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                     running_stats["bld"] = False
 
                 if self.game.initialized <= 3:
+                    # Refresh the process tree here, then assume it is going to stay the same for performance reasons
+                    my_sandbox.refreshProcessChildren()
                     my_sandbox.unpause()
                     self.send_message(start_turn_msg)
                     self.game.initialized += 1

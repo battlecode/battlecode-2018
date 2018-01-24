@@ -12,6 +12,8 @@ from player_plain import PlainPlayer
 from player_sandboxed import SandboxedPlayer
 import server
 import battlecode as bc
+import threading
+
 try:
     import ujson as json
 except:
@@ -156,9 +158,12 @@ def cleanup(dockers, args, sock_file):
     '''
     Clean up that needs to be done at the end of a game
     '''
-    for player_key in dockers:
-        docker_inst = dockers[player_key]
-        docker_inst.destroy()
+    threads = [threading.Thread(target=dockers[key].destroy) for key in dockers]
+    for t in threads:
+        t.start()
+
+    for t in threads:
+        t.join()
 
     if isinstance(sock_file, str) or isinstance(sock_file, bytes):
         # only unlink unix sockets
