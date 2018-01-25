@@ -26,18 +26,21 @@ def round_num_split(round_num_abs):
     """
     if round_num_abs == 0:
         return (int(0), 'A')
+    if round_num_abs == 1:
+        return (int(1), 'A')
+    if round_num_abs == 2:
+        return (int(1), 'C')
 
-    round_num = (round_num_abs + 2) / 3
-    mod = (round_num_abs + 2) % 3
-    if mod == 0:
+    round_num = int(round_num_abs / 3 + 1)
+    if round_num_abs % 3 == 0:
         subround = 'A'
-    if mod == 1:
+    if round_num_abs % 3 == 1:
         subround = 'B'
-    if mod == 2:
+    if round_num_abs % 3 == 2:
         subround = 'C'
 
     assert subround is not None
-    return (int(round_num), subround)
+    return (round_num, subround)
 
 
 def match_result(conn, round_num, subround, index):
@@ -173,12 +176,18 @@ def queue_match(conn, round_num, subround, index, red, blue, maps):
 def queue_round(conn, round_num, subround, maps):
     assert len(maps) == NUM_MAPS_PER_GAME
     cur = conn.cursor()
-    cur.execute('SELECT COUNT(*) FROM {} WHERE round=%s AND subround=%s;'
-        .format(TABLE_NAME), get_prev_round(round_num, subround))
 
     if subround == 'A':
+        cur.execute('SELECT COUNT(*) FROM {} WHERE round=%s AND subround=%s;'
+            .format(TABLE_NAME), (round_num - 1, 'A'))
         max_index = int(cur.fetchone()[0] / 3 / 2)
-    else:
+    if subround == 'B':
+        cur.execute('SELECT COUNT(*) FROM {} WHERE round=%s AND subround=%s;'
+            .format(TABLE_NAME), (round_num - 1, 'C'))
+        max_index = int(cur.fetchone()[0] / 3 / 2)
+    if subround == 'C':
+        cur.execute('SELECT COUNT(*) FROM {} WHERE round=%s AND subround=%s;'
+            .format(TABLE_NAME), (round_num, 'B'))
         max_index = int(cur.fetchone()[0] / 3)
 
     for index in range(max_index):
@@ -213,10 +222,10 @@ def queue_round_0A(conn, bracket, maps):
     cur.close()
 
 
-def queue_round_1B(conn, teams, maps):
+def queue_round_1C(conn, teams, maps):
     assert len(maps) == NUM_MAPS_PER_GAME
     round_num = 1
-    subround = 'B'
+    subround = 'C'
     cur = conn.cursor()
 
     losers_from = { None: None }
@@ -263,7 +272,7 @@ def run_tournament(conn, maps: List[Map], teams: List[Team]):
         .format(len(teams), len(maps)))
 
     bracket = generate_bracket(teams)
-    num_rounds = 3 * int(math.log(len(bracket), 2)) - 1
+    num_rounds = 3 * int(math.log(len(bracket), 2)) - 2
 
     # there may be an extra round if there is an upset in the final round
     goal_num_maps = 2 * (int(math.log(len(bracket), 2)) + 1) + 1
@@ -278,8 +287,11 @@ def run_tournament(conn, maps: List[Map], teams: List[Team]):
         .format(initial_round, num_rounds - 1))
 
     for round_abs in range(initial_round, num_rounds):
-        wait_for_empty_queue(conn, TABLE_NAME)
         round_num, subround = round_num_split(round_abs)
+        if round_num == 1 and subround == 'B':
+            continue
+
+        wait_for_empty_queue(conn, TABLE_NAME)
         logging.debug('Queuing Round {} out of {} ({}{})...'
             .format(round_abs, num_rounds - 1, round_num, subround))
         round_maps = maps[round_num * 2 : round_num * 2 + NUM_MAPS_PER_GAME]
@@ -291,8 +303,8 @@ def run_tournament(conn, maps: List[Map], teams: List[Team]):
             continue
 
         # first round of the losers bracket
-        if round_num == 1 and subround == 'B':
-            queue_round_1B(conn, teams, round_maps)
+        if round_num == 1 and subround == 'C':
+            queue_round_1C(conn, teams, round_maps)
             continue
 
         queue_round(conn, round_num, subround, round_maps)

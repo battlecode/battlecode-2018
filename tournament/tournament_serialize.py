@@ -6,7 +6,7 @@ Outputs a JSON tournament format for the Unity viewer:
 {
     "tournament": "sprint",
     "rounds": [{
-        "round": "0",
+        "round": 0,
         "matches": [{
             "index": 0,
             "Red": {
@@ -89,7 +89,8 @@ def serialize_match(cur, round_num: int, subround: str, match_index: int):
 
     cur.execute('SELECT red_team, blue_team, status, replay \
         FROM {} WHERE round={} {} AND index={} \
-        AND (status=\'redwon\' or status=\'bluewon\');'
+        AND (status=\'redwon\' or status=\'bluewon\') \
+        ORDER BY id;'
         .format(TABLE_NAME, round_num, subround_clause, match_index))
 
     matches = cur.fetchall()
@@ -176,17 +177,30 @@ def serialize_tournament(cur):
 
     cur.execute('SELECT MAX(round) FROM {};'.format(TABLE_NAME))
     max_round = cur.fetchone()[0]
+    round_num_abs = 0
+
+    logging.info('Maximum round number: {}'.format(max_round))
     for round_num in range(0, max_round + 1):
         for subround in subrounds:
             serialized_round = serialize_round(cur, round_num, subround)
             if serialized_round is None:
                 continue
+            serialized_round['round'] = round_num_abs
             tournament['rounds'].append(serialized_round)
+            round_num_abs += 1
+
+            if subround is None:
+                logging.info('Serialized round {}'.format(round_num_abs))
+            else:
+                logging.info('Serialized round {}{} ({})'.format(
+                    round_num, subround, round_num_abs))
 
     return tournament
 
 
 if __name__ == '__main__':
+    logging.getLogger().setLevel(logging.DEBUG)
+
     conn = db_connect()
     cur = conn.cursor()
     TOURNAMENT_NAME = input('Tournament name: ')
