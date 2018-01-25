@@ -309,7 +309,7 @@ impl Default for Unit {
             self_heal_amount: 1,
             factory_unit_type: None,
             factory_rounds_left: None,
-            factory_max_rounds_left: 5,
+            factory_max_rounds_left: 15,
             is_used: false,
             blast_damage: 100,
             travel_time_decrease: 0,
