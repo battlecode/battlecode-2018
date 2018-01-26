@@ -119,18 +119,18 @@ pub const MAX_HEAT_TO_ACT: u32 = 10;
 // *********************************
 
 /// The cost of a worker in a factory.
-pub const FACTORY_WORKER_COST: u32 = 25;
+pub const FACTORY_WORKER_COST: u32 = 50;
 /// The cost of a knight in a factory.
-pub const FACTORY_KNIGHT_COST: u32 = 20;
+pub const FACTORY_KNIGHT_COST: u32 = 40;
 /// The cost of a ranger in a factory.
-pub const FACTORY_RANGER_COST: u32 = 20;
+pub const FACTORY_RANGER_COST: u32 = 40;
 /// The cost of a mage in a factory.
-pub const FACTORY_MAGE_COST: u32 = 20;
+pub const FACTORY_MAGE_COST: u32 = 40;
 /// The cost of a healer in a factory.
-pub const FACTORY_HEALER_COST: u32 = 20;
+pub const FACTORY_HEALER_COST: u32 = 40;
 /// The cost to blueprint a factory.
-pub const BLUEPRINT_FACTORY_COST: u32 = 100;
+pub const BLUEPRINT_FACTORY_COST: u32 = 200;
 /// The cost to blueprint a rocket.
-pub const BLUEPRINT_ROCKET_COST: u32 = 75;
+pub const BLUEPRINT_ROCKET_COST: u32 = 150;
 /// The cost to replicate a worker.
-pub const REPLICATE_WORKER_COST: u32 = 30;
+pub const REPLICATE_WORKER_COST: u32 = 60;
