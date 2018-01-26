@@ -1,0 +1,171 @@
+seed: 3451
+
+# orbit settings
+# a rocket launched on round n will take:
+# sin(n * 2pi/period) * amplitude + center
+# rounds to reach Mars
+orbit_amplitude: 50
+orbit_period: 40
+orbit_center: 100
+
+EARTH:
+width: 33
+height: 50
+symmetry: vertical
+
+_ =
+x = impassable
+Q = 50k
+1 = 5k
+2 = 10k
+3 = 20k
+4 = 35k
+5 = 50k
+# note: the numbers are just convenient shorthand; you can change the amount of karbonite they refer to
+
+# can place workers
+r = red_worker
+b = blue_worker
+
+# workers can also have karbonite on their square
+R = red_worker 50k
+
+> 2 2 2 x x x x x x x x x x x x x x x x x x _ _ _ _ _ _ _ 1 1 1 2 2
+> 2 2 2 x x x x x x x x x x x x x x x x x x x _ _ r _ _ 1 1 1 2 2 2
+> 2 2 2 x x x x x x x x x x x x x x x x x x x x _ _ _ 1 1 1 1 2 2 2
+> 2 2 2 2 x x x x x x x x x x x x x x x x x x x _ _ 1 1 2 2 2 2 3 4
+> 2 2 b 2 2 x x x x x x x x x x x x x x x x x x _ _ 1 1 2 2 2 3 4 4
+> 2 2 2 2 2 x x x x x x x x x x x x x x x x x x x _ 1 1 2 2 3 3 3 4
+> x 2 2 2 1 1 x x x x x x x x x x x x x x x x x x _ 1 1 2 2 2 3 4 5
+> x x 2 2 2 x x 1 1 x x x x x x x x x x x x x x x x 1 1 2 2 3 3 4 5
+> x x x x 2 1 1 1 1 1 x x x x x x x x x x x x x x x x x 2 2 3 3 4 5
+> x x x 2 2 2 2 1 1 1 1 x x x x x x x x x x x x x x x x 2 2 2 3 3 4
+> x x x 2 2 2 2 2 1 1 1 1 _ x x x x x x x x x x x x x x x 2 2 2 3 4
+> x x x 2 2 2 2 1 1 1 1 1 _ _ x x x x x x x x x x x 1 x x 2 2 2 3 3
+> x x x 2 2 2 2 2 1 1 1 1 _ _ 1 1 x x x x x x x x x 2 2 2 2 3 3 3 3
+> x x 2 2 2 2 2 2 2 1 1 1 1 1 1 1 1 x x x x x 2 2 3 2 2 2 2 2 3 4 4
+> x 2 2 2 2 2 2 2 2 2 2 1 1 1 1 1 1 x x x 2 2 2 2 3 3 3 2 2 2 3 3 4
+> x x 2 2 2 3 _ 2 2 2 2 2 2 1 1 1 1 1 1 2 2 2 2 3 3 3 3 3 2 2 2 3 4
+> x x 2 2 2 2 3 3 3 3 3 2 2 1 1 1 1 1 2 2 2 3 3 4 4 3 3 3 2 2 2 3 4
+> x x x 2 2 2 2 3 3 2 3 2 1 2 1 1 1 1 2 2 2 2 3 3 3 3 3 3 2 2 3 3 3
+> 3 x x x x 2 2 2 2 2 2 2 1 1 1 1 1 1 1 2 2 2 3 3 3 3 3 3 3 3 2 2 3
+> 3 x x x x x 2 2 2 2 2 2 1 1 1 1 1 1 1 1 2 2 2 3 3 3 3 2 2 2 2 2 2
+> 4 x x x x x x x 2 1 1 1 1 1 1 1 x 1 1 1 1 2 2 2 3 3 3 2 2 2 2 2 2
+> 4 4 x x x x x x x 1 1 1 1 1 1 x x x 1 1 1 2 2 2 2 2 2 3 2 2 2 2 2
+> 4 4 3 x x x x x x x x x 1 1 _ _ x x 1 1 1 2 2 2 2 2 2 2 2 2 2 2 2
+> 4 _ 3 3 x x x x x x x x x x x _ x x _ 1 1 1 2 2 2 2 2 2 2 2 2 1 1
+> 4 4 3 3 2 x x x x x x x x x x x x x _ 1 1 1 1 1 2 1 1 1 2 1 1 1 1
+
+MARS:
+width: 33
+height: 33
+symmetry: none
+
+
+> _ _ _ _ _ x x x x x x x x x x x x x x x x x x x x x x x x x x _ _
+> x _ _ x x _ x x x x x x x x x x x x x x x x x x x x x x x x x _ _
+> x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x _ _
+> x x x x x x x x x x x x x x x x x x x x x x x x x x x x _ _ _ _ _
+> x x x x x x x x x x x x _ x x x x x x x x x x x x x x _ _ _ _ _ _
+> x x x x x x x x x x x x _ _ x x x x x x x x x x x x x _ _ _ _ _ _
+> x x x x x x x x x x x x _ _ _ x x x x x x _ _ _ _ _ _ _ _ _ _ _ _
+> x x x x x x x x x x x x _ _ _ _ x x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+> x x x x x x x x x x x x _ _ x x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+> x x x x x x x x x x x x x _ x x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+> x x x x x x _ x _ x x x x x x x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+> x x _ x x _ _ _ _ x x x x x x x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+> _ _ _ _ _ _ _ _ _ _ x x x x x x x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+> _ _ _ _ x _ _ _ _ _ _ x x x x x x x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+> x _ _ _ _ _ _ _ _ _ _ _ x x x x x x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+> x _ _ _ _ _ _ _ _ _ _ _ _ _ _ x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+> _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+> _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ x x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+> _ _ x _ _ _ _ _ _ _ _ _ _ _ _ _ x x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+> _ _ x x _ _ _ _ _ _ _ _ _ _ _ _ x x x _ _ _ _ _ _ _ _ _ _ _ _ _ _
+> _ _ _ x x x x x _ _ _ _ _ x x x x x x _ _ _ _ _ _ _ _ _ _ _ _ _ _
+> _ _ _ x x x x x _ _ _ x x _ _ _ _ x x _ _ _ _ _ _ _ _ _ _ _ _ _ _
+> _ _ _ x x x x x _ x x x x x _ _ _ _ x _ _ _ _ _ _ _ _ _ _ _ _ _ _
+> _ _ _ x x x x x x x x x x x _ _ _ _ x _ _ _ x _ _ _ _ _ _ _ _ _ _
+> _ _ _ x x x x x x x x x x x x x _ _ x _ _ _ _ _ _ _ _ _ _ _ _ _ _
+> _ _ _ _ x _ x x x x x x x x x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+> _ _ _ _ x _ _ x x x x x x x x _ _ x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+> _ _ _ _ _ _ _ _ _ x _ x x _ x x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+> _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+> _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+> _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+> _ _ _ _ x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+> _ _ x x x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+
+# asteroids:
+# * round x y karbonite
+# note that y starts at 0 at the bottom of the map
+# all asteroids land on mars
+
+* 1 19 16 40
+* 20 27 17 20
+* 38 28 2 20
+* 48 17 5 20
+* 67 11 4 24
+* 81 17 0 40
+* 95 22 15 28
+* 110 26 1 20
+* 125 21 15 124
+* 141 1 18 20
+* 158 20 0 20
+* 169 32 7 20
+* 183 17 7 78
+* 201 30 13 20
+* 217 8 5 22
+* 231 8 22 20
+* 249 24 9 35
+* 268 0 10 20
+* 285 15 4 20
+* 299 6 14 102
+* 317 19 15 44
+* 331 20 5 20
+* 349 20 16 20
+* 366 20 10 106
+* 384 25 20 42
+* 399 7 4 63
+* 411 23 20 40
+* 431 21 20 20
+* 443 27 19 27
+* 457 26 22 20
+* 475 6 13 27
+* 485 25 6 28
+* 500 5 0 20
+* 514 1 14 38
+* 527 29 8 71
+* 547 30 12 35
+* 558 22 18 47
+* 573 26 7 20
+* 587 12 25 48
+* 598 31 2 49
+* 612 11 1 39
+* 625 20 13 46
+* 641 15 4 44
+* 652 14 26 34
+* 665 2 9 46
+* 684 27 4 80
+* 700 1 7 20
+* 715 26 26 24
+* 730 1 18 20
+* 747 22 2 73
+* 764 24 19 20
+* 784 12 27 33
+* 796 30 15 38
+* 809 15 4 36
+* 821 25 23 51
+* 832 20 14 43
+* 844 17 21 20
+* 855 7 0 20
+* 873 30 15 37
+* 886 28 25 27
+* 906 28 17 20
+* 921 22 24 46
+* 932 21 4 20
+* 944 2 5 44
+* 964 24 16 20
+* 980 32 16 20
+* 992 32 1 39
