@@ -56,7 +56,7 @@ prompt() {
     done
 }
 
-RELEASE=0.13.0
+RELEASE=1.2.0
 
 green
 echo "=== Starting release $(magenta)$RELEASE$(green) ==="
