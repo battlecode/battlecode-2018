@@ -346,7 +346,25 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             self.error = ""
             self.logged_in = False
             self.is_unix_stream = is_unix_stream
+            self.buffer_small = b''
+            self.buffer_large = []
+
             super(ReceiveHandler, self).__init__(*args, **kwargs)
+
+        def read_line(self):
+            while True:
+                if self.buffer_small:
+                    pos = self.buffer_small.find(b'\n')
+                    if pos != -1:
+                        ret = b''.join(self.buffer_large) + self.buffer_small[:pos]
+                        self.buffer_small = self.buffer_small[pos+1:]
+                        self.buffer_large = []
+                        return ret
+                    else:
+                        self.buffer_large.append(self.buffer_small)
+                self.buffer_small = self.request.recv(4096)
+                if not self.buffer_small:
+                    raise IOError("reached socket EOF before finding newline")
 
         def get_next_message(self) -> object:
             '''
@@ -361,16 +379,14 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             recv_socket = self.request
             game = self.game
 
-            wrapped_socket = recv_socket.makefile('rwb', 1)
             logging.debug("Client %s: Waiting for next message", self.client_id)
             try:
-                data = next(wrapped_socket)
+                data = self.read_line()
             except (StopIteration, IOError):
                 print("{} has not sent message for {} seconds, assuming they're dead".format(
                     self.game.get_player(self.client_id)['player'],
                     TIMEOUT
                 ))
-                wrapped_socket.close()
                 recv_socket.close()
                 if bc.Team.Red == self.game.get_player(self.client_id)['player'].team:
                     self.game.winner = 'player2'
@@ -386,7 +402,6 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 self.game.game_over = True
                 raise TimeoutError()
             except KeyboardInterrupt:
-                wrapped_socket.close()
                 recv_socket.close()
                 if bc.Team.Red == self.game.get_player(self.client_id)['player'].team:
                     self.game.winner = 'player2'
@@ -401,8 +416,6 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 self.game.disconnected = True
                 self.game.game_over = True
                 raise KeyboardInterrupt()
-            finally:
-                wrapped_socket.close()
 
             data = data.decode("utf-8").strip()
             return data
@@ -432,11 +445,9 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
             logging.debug("Client %s: Sending message %s", self.client_id,
                           encoded_message)
 
-            wrapped_socket = send_socket.makefile('rwb', 1)
             try:
-                wrapped_socket.write(encoded_message)
+                self.request.sendall(encoded_message)
             except IOError:
-                wrapped_socket.close()
                 send_socket.close()
                 print("{} has not accepted message for {} seconds, assuming they're dead".format(
                     [p for p in self.game.players if p['id'] == self.client_id][0]['player'],
@@ -456,7 +467,6 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 self.game.game_over = True
                 raise TimeoutError()
             except KeyboardInterrupt:
-                wrapped_socket.close()
                 send_socket.close()
                 if bc.Team.Red == self.game.get_player(self.client_id)['player'].team:
                     self.game.winner = 'player2'
@@ -471,8 +481,6 @@ def create_receive_handler(game: Game, dockers, use_docker: bool,
                 self.game.disconnected = True
                 self.game.game_over = True
                 raise KeyboardInterrupt()
-            finally:
-                wrapped_socket.close()
             return
 
         def message(self, state_diff):
