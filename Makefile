@@ -71,6 +71,7 @@ package:
 	-rm -rf bc18-scaffold/examplefuncsplayer-c
 	-rm -rf bc18-scaffold/examplefuncsplayer-java
 	cp -R battlecode bc18-scaffold/battlecode
+	-find bc18-scaffold/battlecode/ -name .gitignore -delete
 	cp -R battlecode-manager bc18-scaffold/battlecode-manager
 	cp -R battlecode-maps bc18-scaffold/battlecode-maps
 	cp -R examplefuncsplayer-python bc18-scaffold/examplefuncsplayer-python
