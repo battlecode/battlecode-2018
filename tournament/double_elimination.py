@@ -256,6 +256,18 @@ def queue_round_1C(conn, teams, maps):
     cur.close()
 
 
+def get_maps(maps: List[Map], round_num: int, subround: str):
+    if round_num == 0:
+        return maps[:NUM_MAPS_PER_GAME]
+    if subround == 'A' or subround == 'B':
+        base = 4 * round_num - 2
+        return maps[base:base + NUM_MAPS_PER_GAME]
+    if subround == 'C':
+        base = 4 * round_num
+        return maps[base:base + NUM_MAPS_PER_GAME]
+    raise Exception('invalid subround')
+
+
 def run_tournament(conn, maps: List[Map], teams: List[Team]):
     """
     This tournament is run in double elimination format, which means teams have
@@ -275,10 +287,12 @@ def run_tournament(conn, maps: List[Map], teams: List[Team]):
     num_rounds = 3 * int(math.log(len(bracket), 2)) - 2
 
     # there may be an extra round if there is an upset in the final round
-    goal_num_maps = 2 * (int(math.log(len(bracket), 2)) + 1) + 1
-    logging.debug('We want at least {} maps, and we have {}'
-        .format(goal_num_maps, len(maps)))
-    assert len(maps) >= goal_num_maps
+    # goal_num_maps = 2 * (int(math.log(len(bracket), 2)) + 1) + 1
+    # logging.debug('We want at least {} maps, and we have {}'
+    #     .format(goal_num_maps, len(maps)))
+    # assert len(maps) >= goal_num_maps
+    logging.debug('We have {} maps'.format(len(maps)))
+    logging.info(maps)
 
     initial_round = int(input('Start at which round? (0 to {}):\n'
         .format(num_rounds - 1)))
@@ -294,7 +308,7 @@ def run_tournament(conn, maps: List[Map], teams: List[Team]):
         wait_for_empty_queue(conn, TABLE_NAME)
         logging.debug('Queuing Round {} out of {} ({}{})...'
             .format(round_abs, num_rounds - 1, round_num, subround))
-        round_maps = maps[round_num * 2 : round_num * 2 + NUM_MAPS_PER_GAME]
+        round_maps = get_maps(maps, round_num, subround)
         logging.debug('Using these maps: {}'.format(round_maps))
 
         # first round of the winners bracket
