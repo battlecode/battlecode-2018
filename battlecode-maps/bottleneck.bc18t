@@ -1,0 +1,112 @@
+# an example text-format map.
+# text-format maps have the extension .bc18t, instead of .bc18map which is used by JSON format maps;
+# if you copy this file, save it as .bc18t, not .bc18map.
+# this is a comment.
+
+# random seed
+seed: 7347
+
+# orbit settings
+# a rocket launched on round n will take:
+# sin(n * 2pi/period) * amplitude + center
+# rounds to reach Mars
+orbit_amplitude: 50
+orbit_period: 40
+orbit_center: 100
+
+EARTH:
+width: 20
+height: 20
+symmetry: horizontal
+# can also be horizontal, none
+
+# now the actual map-defining part
+# we make a big square of tiles (see below).
+# we define what tiles we want here
+
+# the empty tile
+_ =
+# a non-passable tile
+x = impassable
+# varying amounts of karbonite
+Q = 50k
+1 = 5k
+2 = 10k
+3 = 20k
+4 = 35k
+# note: the numbers are just convenient shorthand; you can change the amount of karbonite they refer to
+
+# can place workers
+r = red_worker
+b = blue_worker
+
+# workers can also have karbonite on their square
+R = red_worker 50k
+
+# now we draw a map!
+# every line of a map must start with ">"
+# use the symbols you defined above to lay out the map
+
+> x x _ _ _ _ _ _ _ _
+> _ x x _ _ _ _ _ _ _
+> _ _ x x _ _ _ _ _ _
+> _ _ _ x x _ _ _ _ _
+> _ _ _ _ x x _ _ _ _
+> _ _ _ _ _ x x _ _ _
+> 3 3 x _ 1 _ x x _ _
+> 3 3 x _ 1 _ _ x x x
+> 3 3 x x 2 1 _ _ x x
+> b 3 x x x 2 1 _ _ r
+> 3 3 x x x 2 1 _ _ r
+> 3 3 x x 2 1 _ _ x x
+> 3 3 x _ 1 _ _ x x x
+> _ _ x _ 1 _ x x _ _
+> _ _ _ _ _ x x _ _ _
+> _ _ _ _ x x _ _ _ _
+> _ _ _ x x _ _ _ _ _
+> _ _ x x _ _ _ _ _ _
+> _ x x _ _ _ _ _ _ _
+> x x _ _ _ _ _ _ _ _
+
+
+MARS:
+width: 20
+height: 20
+symmetry: none
+
+# symbols carry over from above
+# can define more if we want
+J = 1000k
+
+> _ x _ x x x x _ _ x _ _ _ _ x x _ x _ _
+> x x x _ _ _ x _ x _ _ x _ _ x x _ x x _
+> x _ _ x x _ x x x _ x _ _ x _ _ _ x _ _
+> x _ _ _ _ _ x x _ _ x _ _ x x _ _ _ x _
+> _ x _ x _ _ _ _ _ x _ x _ x x x _ _ _ x
+> _ _ x _ _ x _ _ _ x _ _ _ _ _ _ _ _ x _
+> x x _ _ _ x x x _ _ x _ x _ x _ _ x _ _
+> x _ x _ x x _ _ x _ _ x _ x _ x _ _ x _
+> _ x x _ _ _ _ _ x x _ x x _ x _ _ _ _ x
+> _ x _ _ x x _ x x _ x _ x x x x x x _ x
+> x _ _ x _ x x _ _ x _ _ _ _ _ _ x _ _ x
+> x _ _ _ x x _ _ x x x _ _ x _ _ x _ _ _
+> x x x x _ _ x x _ x x _ x x _ _ _ x _ _
+> _ _ x _ _ _ x _ _ _ _ _ x _ _ _ _ _ _ _
+> x _ _ x _ _ _ x _ x _ x _ _ _ _ _ x x _
+> _ x _ x x _ _ _ x x x x _ x _ _ _ x _ _
+> x _ _ x _ x x x _ x _ x x _ _ x _ x x x
+> x _ _ _ _ x x _ x x _ x _ _ _ x _ x x x
+> x _ _ x _ x x _ _ _ x _ x _ _ x _ _ _ _
+> _ x x _ _ x _ _ x x x _ x x x _ x x _ _
+
+# pro tip: if you're using vim keybindings, try selecting somewhere on that map and typing ctrl-v kkjjjjrx
+
+# asteroids:
+# * round x y karbonite
+# note that y starts at 0 at the bottom of the map
+# all asteroids land on mars
+
+* 200 2 3 150
+* 300 10 15 200
+* 700 5 5 170
+* 800 5 5 60
