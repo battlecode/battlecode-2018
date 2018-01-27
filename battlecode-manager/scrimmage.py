@@ -54,7 +54,7 @@ def end_game(data,winner,match_file,logs):
     while DB_LOCK == True:
         sleep(0.1)
     DB_LOCK = True
-    cur.execute("UPDATE " + os.environ["TABLE_NAME"] + " SET (status, replay, red_logs, blue_logs)=(%s,%s,%s,%s)  WHERE id=%s", (status,replay_key,red_log_key,blue_log_key,data['id']))
+    cur.execute("UPDATE " + os.environ["TABLE_NAME"] + " SET (status, replay, red_logs, blue_logs)=(%s,%s,%s,%s)  WHERE id=%s AND status='running'", (status,replay_key,red_log_key,blue_log_key,data['id']))
     pg.commit()
     DB_LOCK = False
 
@@ -129,7 +129,7 @@ def poll_thread():
             sleep(0.1)
         DB_LOCK = True
 
-        cur.execute("SELECT (id, red_key, blue_key, map, red_team, blue_team) FROM " + os.environ["TABLE_NAME"] + " WHERE status='queued' or (status='running' and start < (NOW() - INTERVAL '8 min')) ORDER BY start ASC")
+        cur.execute("SELECT (id, red_key, blue_key, map, red_team, blue_team) FROM " + os.environ["TABLE_NAME"] + " WHERE status='queued' or (status='running' and start < (NOW() - INTERVAL '10 min')) ORDER BY start ASC")
 
         row = cur.fetchone()
 
