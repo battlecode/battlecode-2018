@@ -2,6 +2,8 @@
 Battlecode 2018 Double Elimination Tournament Runner
 """
 
+import random
+
 from tournament_helper import *
 
 
@@ -190,8 +192,12 @@ def queue_round(conn, round_num, subround, maps):
             .format(TABLE_NAME), (round_num, 'B'))
         max_index = int(cur.fetchone()[0] / 3)
 
+    permutation = list(range(max_index))
+    if subround == 'C':
+        random.shuffle(permutation)
+
     for index in range(max_index):
-        red = get_next_team_and_from(conn, round_num, subround, index, COLOR_RED)
+        red = get_next_team_and_from(conn, round_num, subround, permutation[index], COLOR_RED)
         blue = get_next_team_and_from(conn, round_num, subround, index, COLOR_BLUE)
         queue_match(conn, round_num, subround, index, red, blue, maps)
 
