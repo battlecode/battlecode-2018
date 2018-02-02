@@ -28,17 +28,13 @@ def round_num_split(round_num_abs):
     """
     if round_num_abs == 0:
         return (int(0), 'A')
-    if round_num_abs == 1:
-        return (int(1), 'A')
-    if round_num_abs == 2:
-        return (int(1), 'C')
 
-    round_num = int(round_num_abs / 3 + 1)
-    if round_num_abs % 3 == 0:
-        subround = 'A'
+    round_num = int((round_num_abs + 2) / 3)
     if round_num_abs % 3 == 1:
-        subround = 'B'
+        subround = 'A'
     if round_num_abs % 3 == 2:
+        subround = 'B'
+    if round_num_abs % 3 == 0:
         subround = 'C'
 
     assert subround is not None
@@ -146,7 +142,7 @@ def queue_match(conn, round_num, subround, index, red, blue, maps):
         cur = conn.cursor()
 
         winner_id = None
-        status = 'cancelled'
+        status = 'redwon'
 
         if red_team is not None:
             red_team, red_from = red
@@ -239,46 +235,14 @@ def queue_round_1B(conn, teams, maps):
 
     for index in range(int(len(teams) / 2)):
         match_from, _, team_id = match_result(conn, 0, 'A', index)
-        if team_id is not None:
-            losers_from[team_id] = match_from
-            losers.append(team_id)
-
-    # sort the losers bracket by their original scrimmage ranking
-    losers.sort(key=lambda x: teams.index(x))
-    losers = pad_teams_power_of_two(losers)
-    losers = generate_bracket(losers)
-
-    for index in range(int(len(teams) / 4)):
-        red = (losers[2 * index], losers_from[losers[2 * index]])
-        blue = (losers[2 * index + 1], losers_from[losers[2 * index + 1]])
-        queue_match(conn, round_num, subround, index, red, blue, maps)
-
-    conn.commit()
-    cur.close()
-
-
-def queue_round_1C(conn, teams, maps):
-    assert len(maps) == NUM_MAPS_PER_GAME
-    round_num = 1
-    subround = 'C'
-    cur = conn.cursor()
-
-    losers_from = { None: None }
-    losers = []
-
-    for index in range(int(len(teams) / 2)):
-        match_from, _, team_id = match_result(conn, 0, 'A', index)
-        if team_id is not None:
-            losers_from[team_id] = match_from
-            losers.append(team_id)
-
-    for index in range(int(len(teams) / 4)):
-        match_from, _, team_id = match_result(conn, 1, 'A', index)
         losers_from[team_id] = match_from
         losers.append(team_id)
 
     # sort the losers bracket by their original scrimmage ranking
     losers.sort(key=lambda x: teams.index(x))
+    losers = pad_teams_power_of_two(losers)
+    if len(losers) < len(teams):
+        losers.append(None)
     losers = pad_teams_power_of_two(losers)
     losers = generate_bracket(losers)
 
@@ -319,7 +283,7 @@ def run_tournament(conn, maps: List[Map], teams: List[Team]):
         .format(len(teams), len(maps)))
 
     bracket = generate_bracket(teams)
-    num_rounds = 3 * int(math.log(len(bracket), 2)) - 2
+    num_rounds = 3 * int(math.log(len(bracket), 2)) - 1
 
     # there may be an extra round if there is an upset in the final round
     # goal_num_maps = 2 * (int(math.log(len(bracket), 2)) + 1) + 1
@@ -337,8 +301,6 @@ def run_tournament(conn, maps: List[Map], teams: List[Team]):
 
     for round_abs in range(initial_round, num_rounds):
         round_num, subround = round_num_split(round_abs)
-        if round_num == 1 and subround == 'B':
-            continue
 
         wait_for_empty_queue(conn, TABLE_NAME)
         logging.debug('Queuing Round {} out of {} ({}{})...'
@@ -352,8 +314,8 @@ def run_tournament(conn, maps: List[Map], teams: List[Team]):
             continue
 
         # first round of the losers bracket
-        if round_num == 1 and subround == 'C':
-            queue_round_1C(conn, teams, round_maps)
+        if round_num == 1 and subround == 'B':
+            queue_round_1B(conn, teams, round_maps)
             continue
 
         queue_round(conn, round_num, subround, round_maps)
