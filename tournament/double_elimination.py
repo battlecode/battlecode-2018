@@ -228,6 +228,35 @@ def queue_round_0A(conn, bracket, maps):
     cur.close()
 
 
+def queue_round_1B(conn, teams, maps):
+    assert len(maps) == NUM_MAPS_PER_GAME
+    round_num = 1
+    subround = 'B'
+    cur = conn.cursor()
+
+    losers_from = { None: None }
+    losers = []
+
+    for index in range(int(len(teams) / 2)):
+        match_from, _, team_id = match_result(conn, 0, 'A', index)
+        if team_id is not None:
+            losers_from[team_id] = match_from
+            losers.append(team_id)
+
+    # sort the losers bracket by their original scrimmage ranking
+    losers.sort(key=lambda x: teams.index(x))
+    losers = pad_teams_power_of_two(losers)
+    losers = generate_bracket(losers)
+
+    for index in range(int(len(teams) / 4)):
+        red = (losers[2 * index], losers_from[losers[2 * index]])
+        blue = (losers[2 * index + 1], losers_from[losers[2 * index + 1]])
+        queue_match(conn, round_num, subround, index, red, blue, maps)
+
+    conn.commit()
+    cur.close()
+
+
 def queue_round_1C(conn, teams, maps):
     assert len(maps) == NUM_MAPS_PER_GAME
     round_num = 1
