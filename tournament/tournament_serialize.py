@@ -111,7 +111,10 @@ def serialize_match(cur, round_num: int, subround: str, match_index: int):
     }
 
     for _, _, status, replay in matches:
-        match['replays'].append(REPLAY_PREFIX + re.search('replays/(.+\.bc18z)$', replay).group(1))
+        try:
+            match['replays'].append(REPLAY_PREFIX + re.search('replays/(.+\.bc18z)$', replay).group(1))
+        except Exception as e:
+            continue
 
         if status == 'redwon':
             match['winner_ids'].append(red_team)

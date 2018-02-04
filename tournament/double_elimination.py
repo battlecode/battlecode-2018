@@ -189,8 +189,8 @@ def queue_round(conn, round_num, subround, maps):
         max_index = int(cur.fetchone()[0] / 3)
 
     permutation = list(range(max_index))
-    if subround == 'C':
-        random.shuffle(permutation)
+    if subround == 'C' and round_num % 2 == 1:
+        permutation.reverse()
 
     for index in range(max_index):
         red = get_next_team_and_from(conn, round_num, subround, permutation[index], COLOR_RED)
@@ -235,16 +235,21 @@ def queue_round_1B(conn, teams, maps):
 
     for index in range(int(len(teams) / 2)):
         match_from, _, team_id = match_result(conn, 0, 'A', index)
-        losers_from[team_id] = match_from
-        losers.append(team_id)
+        if team_id is not None:
+            losers_from[team_id] = match_from
+            losers.append(team_id)
 
-    # sort the losers bracket by their original scrimmage ranking
-    losers.sort(key=lambda x: teams.index(x))
     losers = pad_teams_power_of_two(losers)
-    if len(losers) < len(teams):
+    while len(losers) < int(len(teams) / 2):
         losers.append(None)
-    losers = pad_teams_power_of_two(losers)
-    losers = generate_bracket(losers)
+        losers = pad_teams_power_of_two(losers)
+
+    bracket = generate_bracket(losers)
+    j = 0
+    for i in range(len(bracket)):
+        if i is not None:
+            bracket[i] = losers[j]
+            j += 1
 
     for index in range(int(len(teams) / 4)):
         red = (losers[2 * index], losers_from[losers[2 * index]])
