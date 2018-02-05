@@ -1,0 +1,131 @@
+orbit_amplitude: 50
+orbit_period: 40
+orbit_center: 150
+
+seed: 234234
+
+EARTH:
+width: 50
+height: 50
+symmetry: horizontal
+
+_ =
+
+X = impassable
+r = red_worker
+b = blue_worker
+
+1 = 3k
+2 = 8k
+3 = 15k
+4 = 28k
+5 = 40k
+
+> _________________XXX____X
+> _______________XXX_______
+> ________3_____XXXX__XXXX_
+> _________3___XXXXXXXXXXXX
+> _____________XXXXXXX____X
+> _____3______XXXXXX______X
+> __________XXXXXXX_____XXX
+> ___3______XXXXXX_____XXXX
+> _________XXXXXXXX___XXXXX
+> _________XXXXXXX___XXX___
+> ________XXXXXXXX__XX_____
+> _______XXXXXXXX__X_______
+> ____3__XXXXXXXX_XX_______
+> _______XXXXXXX_XX______2_
+> ______XXXXXXXXXX_________
+> ______XXXXXXXXXX_________
+> ______XXXXXXXXX________2_
+> ______XXXXXXXX___________
+> ______XXXXXXXX____2__2___
+> __3___XXXXXXXX___________
+> ______XXXXXXXX___________
+> ______XXXXXXXXX___XXX____
+> ______XXXXXXXX______XX___
+> _______XXXX_X___XXXX_____
+> _______XXXX____XXXX______
+> _______XXXX____XXXX______
+> _______XXXX____2_________
+> _______XXXX______________
+> __b____XXXXX_____r____2__
+> _______XXXXX_____________
+> ________XXXX_____________
+> ________XXXX_2___________
+> ________XXXX_____________
+> _________XX_X________2XX_
+> ____3____XXX_X__________X
+> _________XXX______2______
+> _________XXX______2______
+> _________XXX_____________
+> _________XXXX___2___XXX__
+> _________XXXX____________
+> _________XXXXX___________
+> _________XXXXX___________
+> _________XXXXXX________2_
+> __________XXXXXX_________
+> ____3______XXXXXX________
+> ____________XXXXXXXX_____
+> _____________XXXXXXXXX___
+> _____3________XXXXXXXXXXX
+> ________________XXX______
+> ______________XXXX_______
+
+
+MARS:
+
+width: 50
+height: 50
+symmetry: none
+
+> _________________________X________________________
+> _________________XXXXXXX_______X__________________
+> ______________XXXXXX______________________________
+> ____________XXXXXX_____X_XXXX__XX_________________
+> ___________XXXXX___XXXXXXXXXXX____________________
+> _________XXXXXX___XXXXXXXXXXXXXX__________________
+> ________XXXXXXX___XXXXXXXXXXXXXXX_XX______________
+> _______XXXXX_____X_XXXXXXX___XXX___XXXXX__________
+> _______XXXXX_____XX_XXXXXXXXXXXXX_____XX__________
+> _______XXXX_______XXXXXXXXXXXXX___X_______________
+> ______XXXXXXX___XXXXXXXXXXXXXX___XX_______________
+> ______XXXXXXXXX__XXXXXXXXXXXXX__X_XX___X__________
+> ______XXXXXXXXXX__XXXXXXXXXXXXXXXXXX___X__________
+> ______XXXXXX__XX______XXXX__XXXXXXXX___X__________
+> ______XXX_____________________X__XXX___XX_________
+> ______XXX____X____________XXX______XX___X_________
+> ______XXXX___XX_________________XXXXXX__X_________
+> ______XXX_____________________XXXX_X__X_X_________
+> ______XXX___X________________XX__XXXXXXXXX________
+> ______XXX__________X________XX____XXXXXXXX________
+> ______XXX_______XXXXXXXX___XXX_XXX___XXXXX________
+> ______XXX______X_X____XX___XXX_XX____XXXXX________
+> ______XXX_X____XX_____XX_____________XXXXX________
+> ______XXXXX____XX_XXXX______X________XXXXX________
+> ______XXXXX_________________X__XX____XXXXX________
+> ______XXXXX_________________XX_______XXX_X________
+> ______XXXXX______XXXX_______XXX______XXX__________
+> _______XXXX__________________XX_____XXXX__________
+> ________XXX__XX______________X______XXXX__________
+> ________XXX___XX_________X__XXX_____XXXXX_________
+> _______________XX______XXXXXXXX_____XXXX__________
+> _________________X____X___XXXX______XXXX__________
+> _________X___X_______________________XXX__________
+> _____________X_______________________XXX__________
+> _____________X______________XXXXXX____XX__________
+> ____________XXX__________XXXXXXXXX____XX__________
+> _____________XXX_______XXXXXXX________XXX_________
+> ______________XX_____________________XXXXXX_______
+> _______________XX_________XXXX_______XXXXXXXXXXXXX
+> _______________XXX__________________XXXXXXXXXXXXXX
+> ______________XXXXX________________XXXXXXXXXXXXXXX
+> _____________XXXXXXX______________XXXXXXXXXXXXXXXX
+> ___________XXXXX_XXX_XXX_________XXXXXXXXXXXXXXXXX
+> _________XXXXXXX__XXXXXXX______XXXXXXXXXXXXXXXXXXX
+> ________XXXXXXXX___XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+> ____XXXXXXXXXXXX___XXXXXXXXXXXXXXXX__XXXXXXXXXXXXX
+> __XXXXXXXXXXXXXX________XXXXXXXXXX__XXXXXXXXXXXXXX
+> XXXXXXXXXXXXXXXX__________XXXXXXX__XXXXXXXXXXXXXXX
+> XXXXXXXXXXXXXXXX___________XXXX___XXXXXXXXXXXXXXXX
+> XXXXXXXXXXXXXXXX___________XXXXX__XXXXXXXXXXXXXXXX

@@ -1,0 +1,184 @@
+# an example text-format map.
+# text-format maps have the extension .bc18t, instead of .bc18map which is used by JSON format maps;
+# if you copy this file, save it as .bc18t, not .bc18map.
+# this is a comment.
+
+# random seed
+seed: 1992
+
+# orbit settings
+# a rocket launched on round n will take:
+# sin(n * 2pi/period) * amplitude + center
+# rounds to reach Mars
+orbit_amplitude: 25
+orbit_period: 200
+orbit_center: 80
+
+EARTH:
+width: 35
+height: 39
+symmetry: vertical
+# can also be horizontal, none
+
+# now the actual map-defining part
+# we make a big square of tiles (see below).
+# we define what tiles we want here
+
+# the empty tile
+- =
+# a non-passable tile
+x = impassable
+# varying amounts of karbonite
+Q = 40k
+1 = 10k
+2 = 20k
+3 = 30k
+4 = 40k
+5 = 50k
+# note: the numbers are just convenient shorthand; you can change the amount of karbonite they refer to
+
+# can place workers
+r = red_worker
+b = blue_worker
+
+# workers can also have karbonite on their square
+R = red_worker 50k
+
+# now we draw a map!
+# every line of a map must start with ">"
+# use the symbols you defined above to lay out the map
+
+> -----------------------------------
+> -----------x-----------------------
+> -----------x-x----44444444444444---
+> -----------x-xxx-------------------
+> -----------xxxxx-------------------
+> -----------x---------x--x--x-------
+> -----------xxx-------xxxx-xx-x-----
+> -----------x----------xx-xx-xx-----
+> -x---x-----xxxxxxx---xxxxxxxxx-----
+> -x-x-x-----x-x-x-xxxxx-xx-xx-xx----
+> -xxxxxxxxxxx-x-x22222222xx-xx-xx---
+> -x-x-----xxx-x-x---------------xx--
+> -x-x-----xxx-xxx----------------xx-
+> -x-x-----x-x-x-----------------xx--
+> -xxx-----xxx-x---------b-----------
+> -x---------xxxxx-------------------
+> -x--44444--x---------33333---------
+> -x--55555--x---------22222---------
+> -xxx-----xxx-----------------------
+> -----------------------------------
+
+
+MARS:
+width: 50
+height: 27
+symmetry: none
+
+# symbols carry over from above
+# can define more if we want
+J = 500k
+
+> xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+> xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+> xxxxxxxxxxxxxx---xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+> x---x------------x--------xx--------x--xxxxxxxxxxx
+> x-------------xxxx------x--------------xxxxxxxxxxx
+> xx--x------xxxxxxxx-----xxx-----------xxxxxxxxxxxx
+> xx--x------xxxxx--------xxx--x-------xxxxxxxxxxxxx
+> xx--xxxxxxxx------xxxx--xxxxxxx--x--xxxxxxxxxx---x
+> xx--xxxxxxxx--------xx-----x--xxxxxxxxxxxxxxx---xx
+> xx--xxxxxxxxxxxx----xx-----xxxxxxxxxxxxxxxxx---xxx
+> xx--x------xxxxx--xxxx-xxxxxxxxxxxxxx-xxxxxx---xxx
+> xx--x------xxxxx-------------------xx---xxx---xxxx
+> xx--xxxx--xxxxxx--------------------------x---xxxx
+> xx----------------xxxx--xxxxxxxxxxxxx-------xxxxxx
+> xx----------------xxxx--xxxxxxxxxxxxxxxxxxxxxxxxxx
+> xx--x--xxxxxx-----xxxx--xxxxxxxxxxxxx--xxx--xxxxxx
+> xx--x--xxxxxx-----xxxx--xxxxxxxxxxxxx--xxx--xxxxxx
+> xx--x--xxxxxx--x--xxxxxxxxxxxxxxxxxxx--xxx--xxxxxx
+> xx-----xxxxxx-----xxxxxxxxxxxxxxxxxxx--xxx--xxxxxx
+> xx-----xxxxxx-----xx--------xxxxxxxxxxxxxxxxxxxxxx
+> xx--xxxxxxxxxxxx--xx--------xxxxxxxxxxxxxxxxxxxxxx
+> xx--xxxxxxxxxxxx------xxxx--xxxxxxxx---xxxxxxxxxxx
+> xx--xxxxxxxxxxxx------xxxx--xxxxxxxx---xxxxxxxxxxx
+> xx-----xxxxxx-----xx--------xxxxxxxx---xxxxxxxxxxx
+> xx-----xxxxxx-----xx--------xxxxxxxx---xxxxxxxxxxx
+> xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+> xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# pro tip: if you're using vim keybindings, try selecting somewhere on that map and typing ctrl-v kkjjjjrx
+
+# asteroids:
+# * round x y karbonite
+# note that y starts at 0 at the bottom of the map
+# all asteroids land on mars
+
+* 1 16 3 40
+* 20 23 13 20
+* 38 23 21 20
+* 48 45 17 20
+* 68 24 17 86
+* 88 15 3 20
+* 98 14 2 29
+* 111 16 13 38
+* 130 2 4 20
+* 146 17 8 26
+* 162 2 19 20
+* 179 16 8 20
+* 190 31 15 20
+* 204 46 18 29
+* 222 35 19 20
+* 241 24 7 20
+* 254 34 14 48
+* 269 2 9 116
+* 286 48 19 34
+* 296 16 4 28
+* 309 18 23 40
+* 320 22 21 25
+* 336 15 3 48
+* 350 24 14 20
+* 368 16 16 20
+* 385 43 9 86
+* 402 44 14 55
+* 422 20 5 63
+* 434 36 3 46
+* 453 10 13 22
+* 465 21 23 37
+* 478 7 12 56
+* 491 23 19 20
+* 508 28 18 20
+* 519 6 2 20
+* 530 13 11 66
+* 548 32 22 66
+* 568 3 23 20
+* 585 26 18 20
+* 602 34 20 20
+* 612 44 15 20
+* 624 24 17 48
+* 639 2 2 37
+* 655 17 8 41
+* 671 38 15 40
+* 683 42 9 20
+* 693 5 3 20
+* 705 17 16 20
+* 723 13 23 64
+* 733 27 3 32
+* 749 5 13 67
+* 763 17 15 27
+* 780 1 23 50
+* 798 6 9 22
+* 809 4 2 33
+* 821 27 6 38
+* 834 13 2 36
+* 846 41 14 20
+* 857 4 13 20
+* 875 19 21 38
+* 885 19 14 27
+* 895 5 10 21
+* 914 38 3 81
+* 933 12 13 67
+* 953 24 15 20
+* 968 18 17 46
+* 979 44 15 20
+* 990 45 18 20

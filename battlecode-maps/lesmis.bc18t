@@ -1,0 +1,185 @@
+seed: 112421
+
+orbit_amplitude: 50
+orbit_period: 40
+orbit_center: 100
+
+EARTH:
+width: 50
+height: 50
+symmetry: horizontal
+# can also be horizontal, none
+
+# now the actual map-defining part
+# we make a big square of tiles (see below).
+# we define what tiles we want here
+
+# the empty tile
+_ =
+# a non-passable tile
+X = impassable
+# varying amounts of karbonite
+Q = 50k
+1 = 5k
+2 = 10k
+3 = 20k
+4 = 35k
+# note: the numbers are just convenient shorthand; you can change the amount of karbonite they refer to
+
+# can place workers
+r = red_worker
+b = blue_worker
+
+> _________________________
+> _________________________
+> _____4_____4_____________
+> ________________XXXXXXXXX
+> _____4________XXX____3___
+> __________XXXXX____r__3__
+> ________XXX___XXX____3___
+> __4___XX________XXX_3____
+> _____XX_________X_XX_____
+> ____XX______________XXXXX
+> ________________X________
+> ____________________4____
+> ____3_3__________________
+> __3_____3_______X___4____
+> _3____b__3_______________
+> _3_____3____________4____
+> ____3____X______X________
+> _________X_______________
+> ________XXX_____X__4____X
+> _______XXXXX____4_______X
+> _______XXXXX___________XX
+> ______XXXXXXX__XXX_____XX
+> ______XXXXXXX__XXX____XXX
+> _____XXXXXXXXX_XXX_______
+> _________________________
+> _______________4__X___4__
+> __________XXX_____X______
+> __________XXX____XXX__4__
+> ____1_____XXX___XXXXX____
+> ________________XXXXX____
+> _______________XXXXXXX___
+> ____1__________XXXXXXX___
+> _________X____XXXXXXXXX__
+> ___1_____X_______________
+> ________XXX_____4__4_____
+> _______XXXXX______4______
+> _______XXXXX____4__4_4___
+> ______XXXXXXX______4_____
+> ______XXXXXXX____________
+> _____XXXXXXXXX____XXX____
+> __________________XXX____
+> __________3333____XXX____
+> __________3_r_3__________
+> _________3____3__________
+> __________33333______1___
+> ___1_____________________
+> _________________________
+> ______1_______1__________
+> _____11______________1___
+> _________________________
+
+
+MARS:
+width: 20
+height: 20
+symmetry: none
+
+# symbols carry over from above
+# can define more if we want
+J = 1000k
+
+> _XXXXXXXXXXXXXXXXXX_
+> XXXXXXXXXXXXXXXXXXXX
+> XXXXXXXXXXXXXXXXXXXX
+> XXXXXXXXXXXXXXXXXXXX
+> ____________XXX_____
+> XXXXXXXXX___XXXX___X
+> XXXXXXXXXX___XXX___X
+> XXXXXXXXXXX__XXXX_XX
+> XXXXXXXXXXX__XXXXXXX
+> XXXXXXXXXXX___XXXXXX
+> X________XX______XXX
+> X________XXX________
+> X________XXXXXXXXX__
+> XXXXXXXXXXXXXXXXXXXX
+> XXXXXXXXXXXXXXXXXXXX
+> XXXXXXXXXXXXXXXXXXXX
+> XXXXXXXXXXXXXXXXXXXX
+> XXXXXXXXXXXXXXXXXXXX
+> XXXXXXXXXXXXXXXXXXXX
+> _XXXXXXXXXXXXXXXXXX_
+
+# asteroids:
+# * round x y karbonite
+# note that y starts at 0 at the bottom of the map
+# all asteroids land on mars
+
+* 1 11 10 40
+* 20 17 13 20
+* 38 17 15 20
+* 48 9 14 20
+* 67 6 8 24
+* 81 9 14 40
+* 95 12 12 28
+* 110 16 13 20
+* 125 12 9 124
+* 141 1 8 20
+* 158 11 11 20
+* 169 17 14 34
+* 187 19 15 20
+* 203 4 15 22
+* 217 5 7 20
+* 235 14 9 35
+* 254 0 15 20
+* 271 8 7 20
+* 285 3 15 102
+* 303 11 10 44
+* 317 11 12 20
+* 335 11 13 20
+* 352 11 13 106
+* 370 16 9 42
+* 385 4 8 63
+* 397 13 10 40
+* 417 12 9 20
+* 429 17 13 27
+* 443 16 15 20
+* 461 3 15 27
+* 471 15 15 28
+* 486 3 7 20
+* 500 1 8 38
+* 513 18 14 71
+* 533 19 8 35
+* 544 12 12 47
+* 559 16 13 20
+* 573 6 15 48
+* 584 15 8 20
+* 603 13 9 29
+* 623 8 7 46
+* 639 8 7 44
+* 650 8 7 34
+* 663 1 15 46
+* 682 17 8 80
+* 698 1 7 20
+* 713 17 8 24
+* 728 1 8 20
+* 745 12 10 73
+* 762 15 8 20
+* 782 7 7 33
+* 794 19 15 38
+* 807 8 7 36
+* 819 16 9 51
+* 830 11 13 43
+* 842 9 15 20
+* 853 4 7 20
+* 871 19 15 37
+* 884 18 13 27
+* 904 18 8 20
+* 919 12 13 46
+* 930 11 15 20
+* 942 1 9 44
+* 962 15 8 20
+* 978 16 15 20
+* 998 2 15 73

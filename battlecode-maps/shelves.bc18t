@@ -1,0 +1,72 @@
+orbit_amplitude: 40
+orbit_period: 80
+orbit_center: 160
+
+seed: 9929
+
+EARTH:
+width: 20
+height: 24
+symmetry: horizontal
+
+_ =
+- =
+
+x = impassable
+r = red_worker
+b = blue_worker
+
+1 = 25k
+
+> xx---x-x--
+> xx-----x--
+> xx--------
+> 1111111111
+> x--xxxxxxx
+> x--xx--xx-
+> x--xx-----
+> 1111111111
+> --xxxx--xx
+> --x--x----
+> --x--x----
+> 1111111111
+> x-xxxxx--x
+> ---x------
+> -r-x------
+> 1111111111
+> --xx--xxxx
+> ------xxxx
+> ---------x
+> 1111111111
+> xxxx--x-xx
+> -x----x-xx
+> -x----x-xx
+> ----------
+
+MARS:
+width: 28
+height: 21
+symmetry: spiral
+x = impassable
+
+> - - - - - - - - - - - - - -
+> - - - - - - - - - - - - - -
+> - x - - - x - - - - - - - -
+> - x x - x x - - - - x - - -
+> - - x x x - - - - x x x - -
+> - - - x - - - - x x - x x -
+> - x - - - x - - x - - - x -
+> - x x - x x - - - - x - - -
+> - - x x x - - - - x x x - -
+> - - - x - - - - x x - x x -
+> - x - - - x - - x - - - x -
+> - x x - x x - - - - x - - -
+> - - x x x - - - - x x x - -
+> - - - x - - - - x x - x x -
+> - x - - - x - - x - - - x -
+> - x x - x x - - - - x - - -
+> - - x x x - - - - x x x - -
+> - - - x - - - - x x - x x -
+> - - - - - - - - x - - - x -
+> - - - - - - - - - - - - - -
+> - - - - - - - - - - - - - -

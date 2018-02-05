@@ -1,0 +1,198 @@
+# an example text-format map.
+# text-format maps have the extension .bc18t, instead of .bc18map which is used by JSON format maps;
+# if you copy this file, save it as .bc18t, not .bc18map.
+# this is a comment.
+
+# random seed
+seed: 1938
+
+# orbit settings
+# a rocket launched on round n will take:
+# sin(n * 2pi/period) * amplitude + center
+# rounds to reach Mars
+orbit_amplitude: 20
+orbit_period: 500
+orbit_center: 80
+
+EARTH:
+width: 40
+height: 40
+symmetry: spiral
+# can also be horizontal, none
+
+# now the actual map-defining part
+# we make a big square of tiles (see below).
+# we define what tiles we want here
+
+# the empty tile
+_ =
+- =
+# a non-passable tile
+x = impassable
+# varying amounts of karbonite
+Q = 40k
+1 = 5k
+2 = 8k
+3 = 10k
+4 = 20k
+# note: the numbers are just convenient shorthand; you can change the amount of karbonite they refer to
+
+# can place workers
+r = red_worker
+b = blue_worker
+
+# workers can also have karbonite on their square
+R = red_worker 50k
+
+# now we draw a map!
+# every line of a map must start with ">"
+# use the symbols you defined above to lay out the map
+
+> --xx----------------
+> --xx-------xx-------
+> --xx------xx--------
+> ---------xx--2------
+> -4------xx--------4-
+> -------xx----2------
+> ------xx-------2----
+> -----xx-------------
+> ----xx------xxxxxxxx
+> ------------xxxxxxxx
+> --------4-----------
+> --2--b-------2------
+> --------------------
+> --xxxxxxxxx--------4
+> --xxxxxxxxx---------
+> --------------------
+> ---------4----4-----
+> --4-----------------
+> --------------------
+> --------------------
+> ----xxxx------4-----
+> -----xxxx-----------
+> ------xxxx-------xx-
+> -------xxxx-----xx--
+> ------2-xxxx---xx---
+> --------------xx----
+> xxx-------4--xx-----
+> xxx---------xx------
+> -----r--------------
+> --------------------
+> ---4-----2-------xxx
+> ---xx------------xxx
+> ---xx--xx-----------
+> ---xx---xx------4---
+> ---xx----xx---------
+> -2-xx--3--xx--------
+> ---xx------xx-------
+> ---xx-------xx------
+> -------4-----xx-----
+> --------------------
+
+
+MARS:
+width: 20
+height: 20
+symmetry: none
+
+# symbols carry over from above
+# can define more if we want
+J = 1000k
+5 = 1k
+
+> ------------------xx
+> ----xxx----------xxx
+> ---xxxxx---------xxx
+> ---xxxxx---xxx---xxx
+> ---xxxxx--xxxxx---xx
+> x---xxx---xxxxx-----
+> xx--------xxxxx-----
+> xx---------xxx------
+> xx------------------
+> x--xxx-------xxx----
+> --xxxxx-----xxxxx---
+> --xxxxx-----xxxxx---
+> --xxxxx-----xxxxx---
+> ---xxx-------xxx----
+> -xxx---------------x
+> xxxxx-----xxx-----xx
+> xxxxx----xxxxxx---xx
+> xxxxx----xxxxxx---xx
+> -xxx-----xxxxxx----x
+> -----------xxx------
+
+
+# pro tip: if you're using vim keybindings, try selecting somewhere on that map and typing ctrl-v kkjjjjrx
+
+# asteroids:
+# * round x y karbonite
+# note that y starts at 0 at the bottom of the map
+# all asteroids land on mars
+
+* 1 7 11 40
+* 20 10 17 20
+* 38 11 6 20
+* 48 17 19 20
+* 68 11 10 86
+* 88 7 5 20
+* 98 6 13 29
+* 111 7 19 38
+* 130 0 5 20
+* 146 8 7 26
+* 162 0 17 20
+* 179 7 13 20
+* 190 19 6 20
+* 204 18 1 29
+* 222 15 19 20
+* 241 11 9 20
+* 254 15 15 48
+* 269 0 7 116
+* 286 18 6 34
+* 296 7 11 28
+* 309 8 17 40
+* 320 10 9 25
+* 336 7 5 48
+* 350 11 9 20
+* 368 8 0 20
+* 385 17 9 86
+* 402 17 12 55
+* 422 9 7 63
+* 434 16 2 46
+* 453 5 5 22
+* 465 9 17 37
+* 478 3 18 56
+* 491 18 9 20
+* 506 16 3 28
+* 521 1 18 20
+* 535 0 16 38
+* 548 15 17 139
+* 559 15 0 29
+* 578 2 13 20
+* 593 0 15 41
+* 610 15 17 20
+* 620 17 13 20
+* 632 11 10 48
+* 647 0 1 37
+* 663 19 6 44
+* 674 6 2 34
+* 687 1 0 46
+* 706 10 11 80
+* 722 17 9 57
+* 735 8 1 20
+* 753 7 19 42
+* 764 3 14 35
+* 775 18 0 73
+* 792 9 11 20
+* 812 16 10 35
+* 832 4 1 20
+* 842 16 17 38
+* 855 6 3 36
+* 867 17 6 20
+* 878 2 6 20
+* 896 9 4 38
+* 906 8 19 27
+* 916 2 13 21
+* 935 16 17 81
+* 954 6 1 67
+* 974 11 10 20
+* 989 8 15 46

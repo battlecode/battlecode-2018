@@ -1,0 +1,88 @@
+seed: 323
+
+# orbit settings
+# a rocket launched on round n will take:
+# sin(n * 2pi/period) * amplitude + center
+# rounds to reach Mars
+orbit_amplitude: 50
+orbit_period: 40
+orbit_center: 100
+
+EARTH:
+width: 50
+height: 40
+symmetry: vertical
+
+_ =
+X = impassable
+Q = 50k
+1 = 5k
+2 = 10k
+3 = 20k
+4 = 35k
+5 = 50k
+# note: the numbers are just convenient shorthand; you can change the amount of karbonite they refer to
+
+# can place workers
+r = red_worker
+b = blue_worker
+
+# workers can also have karbonite on their square
+R = red_worker 50k
+
+> X_X_X_XX___5_X_X_X_X_XX_X_XX_X___X_XX____5___X_XXX
+> X_X_X_XXXXXXXX5X_X_X__X_X__XXXXXXX_XXXXXXXXX_X_XXX
+> X_X_X_XX___5___X_X_X_XXXX__X_____X_XX______XXXXXXX
+> X_X_X_XXXXXXXXXX_X_X_XXXX__XXXXXXX_XXXXXXX_X_XXXXX
+> X_X_X_XX____XX___X_X_X__X__X___5_X_XXXXX_X_X_X____
+> X_X_XXXXXXXXXX___X_XX_X_XX_XXXXXXX_XXXXXXX_XXXXXX_
+> XXXX___5____XXXX_XX_XX_X_5___r___X_XXXXX_X__XX___X
+> X_____XXXXXXXXXX__XX_XX_X_XXXXXXXXXX_X_X__XXXXXXXX
+> XX_XX_X_______XXXX_XX_X_X_XXX__XX___XX_X_X_XXX_XXX
+> _XXXXXX_XXXXXXXXXX__X_X_X_X_X_XXXXXXXX_XXXXXXXXXXX
+> XXXX__X_X__XXXXXXXXX_XX_X_XXX_X__XXXXXXX_X_X_X_X_X
+> _XXXXXX_X_X_____5_XX_XX_X_X_X_X_X___5____X_X_X_X__
+> XX__XXX_X_X_XXXXXXXX_XX_X_XXX_X_X_XXXXXXXX_X_X_XXX
+> XX__5___X_X_X_b_5_X__XX_X_XX__X_X_X_5__XXX_X_X___X
+> __XXXXXXX_X_X_XXXXXXXXX_X_XXXXX_X_X_XXXXXX_X_XXXXX
+> _X_X___5_XX_X_XX_XXX__X_X_XX__5_X_X_X_5__X_X___5XX
+> XXXXXXXXXX_XXXXXXXXXXXX_X_XXXXXXX_X_XXXXXX_XXXXXXX
+> _X____5___XX__X_____5___X_X_X__5_XXXXXXXXXX__5__XX
+> _XXXXXXXXXX__XXXXXXXXXXXX_X_XXXX____XX_X_XXXXXXXXX
+> _____5___X_XX_X______5____X_X_XXXXXXXXXX__X__5____
+
+MARS:
+width: 30
+height: 30
+symmetry: none
+
+> ______________________________
+> _______________X______________
+> ______________XX______________
+> ___________XXXXXXXXXX_________
+> ________XXXXXXXXXXXXXXX_______
+> _______XXXXXXXXXXXXXXXXX______
+> ______XXXXXXXXXXXXXXXXXXX_____
+> _____XXXXXXXXXXXXXXXXXXXXX____
+> _____XXXXXXXXXXXXXXXXXXXXX____
+> ____XXXXXXXXXXXXXXXXXXXXXXX___
+> ____XXXXXXXXXXXXXXXXXXXXXXX___
+> ___XXXXXXXXXXXXXXXXXXXXXXXXX__
+> ___XXXXXXXXXXXXXXXXXXXXXXXXX__
+> ___XXXXXXXXXXXXXXXXXXXXXXXXX__
+> ___X___XXX___XXXXX___XX___XX__
+> ______________XXX_____________
+> ______________XXX_____________
+> ______________XXX_____________
+> ______________XXX_____________
+> ______________XXX_____________
+> ______________XXX_____________
+> ______________XXX_____________
+> ______________XXX_____________
+> __________XX__XXX_____________
+> __________XXXXXXX_____________
+> __________XXXXXX______________
+> ___________XXXX_______________
+> ______________________________
+> ______________________________
+> ______________________________

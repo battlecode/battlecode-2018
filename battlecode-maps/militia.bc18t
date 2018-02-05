@@ -1,0 +1,111 @@
+seed: 1237
+
+orbit_amplitude: 20
+orbit_period: 40
+orbit_center: 75
+
+EARTH:
+width: 40
+height: 40
+symmetry: horizontal
+_ =
+X = impassable
+r = red_worker
+b = blue_worker
+1 = 4k
+2 = 7k
+3 = 11k
+4 = 15k
+5 = 45k
+
+> ____________________
+> __________2_________
+> ____2_______________
+> _____________XXX____
+> ____________XXXXX___
+> __2___1____XXXXXXX__
+> ___________XXXXXXX__
+> ____r_2____XXXXXXXX_
+> ___________XXXXXXXX_
+> ___2_______XXXXXXXX_
+> ___________XXXXXXXX_
+> _3_________XXXXXXXX_
+> ___________XXXXXXXX_
+> ____XXXX__3_XXXXXX__
+> ____XXXXXX___XXXXX__
+> ___XXXXXXX_3__XXX___
+> _3_XXXXXXXX_________
+> ___XXXXXXXX___4__555
+> ___XXXXXXXXX__4__555
+> ___XXXXXXXXX________
+> ____XXXXXXXX_____XXX
+> ____XXXXXXXX____XXXX
+> _3___XXXXXX_3_XXXXXX
+> ______XXXX___XXXXXXX
+> ____________XXXXXXXX
+> ________3___XXXXXXXX
+> ___________XXXXXXXXX
+> __________XXXXXXXXXX
+> __________XXXXXXXXXX
+> _________XXXXXXXXXXX
+> _________XXXXXXXXXXX
+> ___b____XXXXXXXXXXXX
+> ________XXXXXXXXXXXX
+> ________XXXXXXXXXXXX
+> ____2____XXXXXXXXXXX
+> __________XXXXXX____
+> __2_2_______________
+> ________2___________
+> ____2___________2___
+> ____2___2___________
+
+MARS:
+height: 40
+width: 40
+symmetry: none
+
+> ________________________________________
+> ________________________________________
+> _______________XX_______________________
+> _______________XXX_____________XXXX_____
+> ______X________XXX____________XXXXX_____
+> ______X________XXXX___________XXXXX_____
+> ___X__X__X_____XXXXX_________XXXXXX_____
+> ____X_X_X______XXXXXX_______XXXXXX______
+> _____XXX_______XXXXXXX______XXXXXX______
+> _XXXXXXXXXXX___XXXXXXXX____XXXXXX_______
+> _____XXX________XXXXXXXX___XXXXX________
+> ____X_X_X________XXXXXXXX_XXXXX_________
+> ___X__X__X_______XXXXXXXXXXXXX__________
+> ______X___________XXXXXXXXXXXXXXX_______
+> ______X___________XXXXXXXXXXXXXXXX______
+> ____________________XXXXXXXXXXXXXX______
+> ____________________XXXXXXXXXXX_________
+> __________________XXXXXXXXXXX___________
+> ______________XXXXXXXXXXXXX_____________
+> ______________XXXXX_____________________
+> ________________________________________
+> _____________________________X__________
+> ___________X________________XXX_________
+> __________XXX______________XXXXX________
+> __________XXX_____________XXXXXX________
+> ___________XXXX____________XXXX_________
+> ___________XXXXX_________XXXXXXXX_______
+> __________XXXXXX___________XXXXXXX______
+> _______XXXXXXXXX_________XXXXXXXX_______
+> _____XXXXXXXXXX_________XX_XXXX_XX______
+> _____XXXXXXXXXX__________XXXXXXX________
+> ____XXXXXXXXXXX________XXXXXXXXXXX______
+> ____XXXXXXXXXX__________XXXXXXXXX_______
+> ___XXXXXXXXXXX_________XXXXXXXXXXXX_____
+> ___XXXXXXXXXXX________XX__XXXXXXXXXX____
+> ___XXXXXXX_XXX___________XXXXXXXXXXXX___
+> ____XXXXX___XX__________XXXXXXXXX_X_____
+> _______XXX__XX_________X_XXX_X_XX_______
+> __________________________X__X__X_______
+> _____________________________X__________
+
+* 200 2 3 150
+* 300 10 15 200
+* 700 5 5 170
+* 800 5 5 60

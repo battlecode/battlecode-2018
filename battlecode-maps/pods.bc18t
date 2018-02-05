@@ -1,0 +1,196 @@
+# an example text-format map.
+# text-format maps have the extension .bc18t, instead of .bc18map which is used by JSON format maps;
+# if you copy this file, save it as .bc18t, not .bc18map.
+# this is a comment.
+
+# random seed
+seed: 3945
+
+# orbit settings
+# a rocket launched on round n will take:
+# sin(n * 2pi/period) * amplitude + center
+# rounds to reach Mars
+orbit_amplitude: 25
+orbit_period: 200
+orbit_center: 80
+
+EARTH:
+width: 41
+height: 41
+symmetry: vertical
+# can also be horizontal, none
+
+# now the actual map-defining part
+# we make a big square of tiles (see below).
+# we define what tiles we want here
+
+# the empty tile
+- =
+_ =
+# a non-passable tile
+x = impassable
+# varying amounts of karbonite
+Q = 40k
+1 = 10k
+2 = 20k
+3 = 30k
+4 = 40k
+5 = 50k
+# note: the numbers are just convenient shorthand; you can change the amount of karbonite they refer to
+
+# can place workers
+r = red_worker
+b = blue_worker
+
+# workers can also have karbonite on their square
+R = red_worker 50k
+B = blue_worker 50k
+
+# now we draw a map!
+# every line of a map must start with ">"
+# use the symbols you defined above to lay out the map
+
+> xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+> xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+> xxxxxxxxxxxxxxxxxx_____xxxxxxxxxxxxxxxxxx
+> xxxxxxxxxxxxxxxxx_______xxxxxxxxxxxxxxxxx
+> xxxxxxxxxxxxxxxx____2____xxxxxxxxxxxxxxxx
+> xxxxxxxxxxxxxxxx___2R2___xxxxxxxxxxxxxxxx
+> xxxxxxxxxxxxxxxx____2____xxxxxxxxxxxxxxxx
+> xxxxxxxxxxxxxxxx_________xxxxxxxxxxxxxxxx
+> xxxxxxxxxxxxxxxx_________xxxxxxxxxxxxxxxx
+> xxxx_____xxxxxxxx_______xxxxxxxx_____xxxx
+> xxx_______xxxxxxxx_____xxxxxxxx_______xxx
+> xx_________xxxxxxxx___xxxxxxxx_________xx
+> xx____2____xxxxxxxx___xxxxxxxx_____2___xx
+> xx___2B2___xxxxxxxx___xxxxxxxx____2B2__xx
+> xx____2_____xxxxxxx___xxxxxxx______2___xx
+> xx____________xxxx_____xxxx____________xx
+> xxx____________xx_______xx____________xxx
+> xxxx_____xx___________________xx_____xxxx
+> xxxxxxxxxxxxx_______________xxxxxxxxxxxxx
+> xxxxxxxxxxxxxxx____555____xxxxxxxxxxxxxxx
+> xxxxxxxxxxxxxxx____555____xxxxxxxxxxxxxxx
+
+MARS:
+width: 50
+height: 50
+symmetry: none
+
+> __________________________________________________
+> __________________________________________________
+> __xxxx__xxxxxx_x__xxxxxx__xx__xxxx__xxxx__xxxxxx__
+> __xxxx__xxxxxx_x__xxxxxx__xx__xxxx__xxxx__xxxxxx__
+> __xxxx__xxxxxx_x__xxxxxx__xx__xxxx__xxxx__xxxxxx__
+> __xxxx__xxxxxx_x__xxxxxx__xx__xxxx__xxxx__xxxxxx__
+> __xxxx_________x__________xx__xxxx__xxxx__________
+> __xxxx__xxxx_xxx__________xx__xxxx__xxxx__________
+> ________xxxx_xx___xxxxxxxxxx________________xxxx__
+> ________xxxx_xx___________xx________________xxxx__
+> __xxxxxxxxxx_xx___________xx__xxxxxx__xxxx__xxxx__
+> __xxxxxxxxxx_xx___xxxxxx__xx__xxxxxx__xxxx__xxxx__
+> __xxxxxxxxxx_xx___xxxxxx__xx__xxxxxx__xxxx__xxxx__
+> __xxxxxxxxxx_xx___xxxxxx__xx__xxxxxx__xxxx__xxxx__
+> _____________xx___xxxxxx__xx__________xxxx________
+> __xxxxxxxxxxxxx___________xx__________xxxx________
+> __xxxxxxxxxxxxx___________xx__xxxxxx________xxxx__
+> __________________xxxx__xxxx__xxxxxx________xxxx__
+> __________________xxxx__xxxx__xxxxxx__xxxx________
+> __xxxxxx__xxxxxx__xxxx__________xxxx__xxxx________
+> __xxxxxx__xxxxxx__xxxx__________xxxx__xxxx__xxxx__
+> __xxxxxx__xxxxxx__xxxx__xxxxxx________xxxx__xxxx__
+> __xxxxxx__xxxxxx__xxxx__xxxxxx__xxxx__xxxx________
+> ________________________xxxxxx__xxxx__xxxx________
+> ________________________xxxxxx__xxxx________xxxx__
+> __xxxx____________xxxx__________xxxx________xxxx__
+> __xxxx____________xxxx__________xxxx__xxxx________
+> __xxxx__xxxxxx_xx_xxxxxxxxxx__xxxxxx__xxxx________
+> __xxxx__xxxxxx_xx_xxxxxxxxxx__xxxxxx__xxxxxxxxxx__
+> __xxxx__xxxxxx_xx_____________________xxxxxxxxxx__
+> __xxxx__xxxxxx_xxxxxxxxx_xxxxxxxxxxx__xxxxxxxxxx__
+> _______________________x_x_x______________________
+> _______________________x_x_x_xxxxxxx______________
+> __xxxxxxxxxxxxxxxxxxx__x______________xxxx__xxxx__
+> __xxxxxxxxxxxxxxxxxxx__xxxxxxxx_x_____xxxx__xxxx__
+> ___________________xx__x_x____x_xxxx__xxxx__xxxx__
+> ___________________xx__x_x_x__x_______xxxx__xxxx__
+> __xxxxxxxxxxxxxxx__xx__x_x_x__xxx_xx__xxxx__xxxx__
+> __xxxxxxxxxxxxxxx__xx__x___x_______x__xxxx__xxxx__
+> _______________xx__xx__xxxxxxx_x_x_x________xxxx__
+> _______________xx__xx__x____x__x_x_x________xxxx__
+> __xxxxxxxxxxx__xx__xx__x_xx_x_xx_x_x__xxxx__xxxx__
+> __xxxxxxxxxxx__xx__xx__x_xx_x_x__x_x__xxxx__xxxx__
+> ___________xx__xx__xx__x_xx_x_x__x_x__xxxx__xxxx__
+> ___________xx__xx__xx__x_xx_x_x__x_x__xxxx__xxxx__
+> __xxxxxxx__xx__xx__xx__x_xx_xxx__xxx__xxxx__xxxx__
+> __xxxxxxx__xx__xx__xx__x_xx________x__xxxx__xxxx__
+> __xxxxxxx__xx__xx__xx__x_xx_xxxxxx_x__xxxx__xxxx__
+> __________________________________________________
+> __________________________________________________
+
+* 1 24 5 40
+* 20 40 1 20
+* 38 41 33 20
+* 48 20 48 20
+* 67 14 9 24
+* 81 20 26 40
+* 95 29 33 28
+* 110 36 31 20
+* 125 28 16 124
+* 141 1 26 20
+* 158 24 35 20
+* 169 49 45 20
+* 183 21 0 78
+* 201 46 48 20
+* 217 10 4 22
+* 231 11 18 20
+* 249 33 13 35
+* 268 0 20 20
+* 285 17 44 20
+* 299 7 46 102
+* 317 24 4 44
+* 331 24 47 20
+* 349 25 43 20
+* 366 25 24 106
+* 384 36 15 42
+* 399 8 49 63
+* 411 31 35 40
+* 431 28 31 20
+* 443 40 24 27
+* 457 37 30 20
+* 475 7 45 27
+* 485 35 34 28
+* 500 6 13 20
+* 514 1 19 38
+* 527 43 18 71
+* 547 46 35 35
+* 558 29 38 47
+* 573 36 49 20
+* 587 15 38 48
+* 598 48 19 49
+* 612 14 4 39
+* 625 25 35 46
+* 641 17 45 44
+* 652 17 35 34
+* 665 2 6 46
+* 684 38 10 80
+* 700 1 5 20
+* 715 37 38 24
+* 730 1 26 20
+* 747 28 49 73
+* 764 34 9 20
+* 784 15 49 33
+* 796 47 1 38
+* 809 17 44 36
+* 821 36 21 51
+* 832 25 38 43
+* 844 21 15 20
+* 855 8 27 20
+* 873 47 1 37
+* 886 42 39 27
+* 906 42 23 20
+* 921 30 1 46
+* 932 27 3 20
+* 944 1 45 44
+* 964 34 2 20
+* 980 37 20 20

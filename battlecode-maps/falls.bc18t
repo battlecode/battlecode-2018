@@ -1,0 +1,102 @@
+seed: 897
+
+orbit_amplitude: 20
+orbit_period: 40
+orbit_center: 75
+
+EARTH:
+width: 30
+height: 40
+symmetry: horizontal
+_ =
+X = impassable
+r = red_worker
+b = blue_worker
+1 = 4k
+2 = 7k
+3 = 11k
+4 = 15k
+5 = 45k
+
+> __1_XXXXXXXXXXX
+> __b__XXXXXXXXXX
+> __b___XXXXXXXXX
+> 1__1_1_XXXXXXXX
+> __X_1_X_XXXXXXX
+> X__X_____XXXXXX
+> __X__X1_X_XXXXX
+> X1X_X_X_X__XXXX
+> X_X_X1X_X_X_XXX
+> X_X_X_X_X_X__XX
+> X_X_X_X_X1X_X_X
+> X1X_X_X1X_X_X_X
+> X_X_X_X_X_X_X_X
+> X_X_X2X_X_X_X_X
+> X_X_X_X_X2X_X_X
+> X2X_X_X_X_X_X_X
+> X_X_X2X_X_X_X_X
+> X_X_X_X_X2X2X_X
+> X_X_X_X_X_X_X_X
+> X_X2X_X_X2X_X_X
+> X_X_X_X_X_X_X_X
+> X_X_X3X_X_X3X_X
+> X_X_X_X_X_X_X_X
+> X3X_X_X_X3X_X_X
+> X_X_X_X_X_X_X_X
+> X_X_X3X_X_X3X_X
+> X_X_X_X4X_X_X_X
+> X_X_X_X_X_X_X_X
+> X_X4X_X_X_X_X_X
+> X_X_X_X_X_X4X_X
+> X_X_X_X_X_X5X_X
+> X_X4X_X4X_X_X_X
+> X_X5X_X_X_X_X_X
+> X_X_X_X_X_X_X_X
+> X_X4X_X_X_X5X4X
+> X5X_X_X_X5X_X_X
+> X_X5X_X_X_X4X_X
+> X_X4X_X4X4X_X_X
+> X_X_X_X_X_X_X_X
+> X4X_X_X4X_X_X4X
+
+MARS:
+height: 30
+width: 30
+symmetry: horizontal
+
+> XXXXXXXXXXXXXXX
+> XXXXXXXXXXXXXX_
+> XXXXXXXXXXXXX_X
+> XXXXXXXXXXXX_XX
+> XXXXXXXXXXX_XXX
+> XXXXXXXXXX_XXX_
+> XXXXXXXXX_XXX_X
+> XXXXXXXX_XXX_XX
+> XXXXXXX_XXX_XXX
+> XXXXXX_XXX_XXX_
+> XXXXX_XXX_XXX_X
+> XXXX_XXX_XXX_XX
+> XXX_XXX_XXX_XXX
+> XX_XXX_XXX_XXX_
+> XXX_XXX_XXX_XXX
+> XXXX_XXX_XXX_XX
+> XXXXX_XXX_XXX_X
+> XXXXXX_XXX_XXX_
+> XXXXXXX_XXX_XXX
+> XXXXXXXX_XXX_XX
+> XXXXXXXXX_XXX_X
+> XXXXXXXXXX_XXX_
+> XXXXXXXXXXX_XXX
+> XXXXXXXXXXXX_XX
+> XXXXXXXXXXXXX_X
+> XXXXXXXXXXXXXX_
+> XXX_____XXXXXXX
+> XXX_____XXXXXXX
+> XXX_____XXXXXXX
+> XXXXXXXXXXXXXXX
+
+
+* 200 2 3 150
+* 300 10 15 200
+* 700 5 5 170
+* 800 5 5 60
