@@ -23,6 +23,6 @@ test: build
 
 clean:
 	-rm -rf battlecode/*/*.so build
-	-rm .build-marker .release-marker 2&>/dev/null
+	-rm -f .build-marker .release-marker
 
 .PHONY: build test clean
